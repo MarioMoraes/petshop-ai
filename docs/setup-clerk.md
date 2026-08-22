@@ -31,9 +31,27 @@ Sem isso, `POST /v1/tenants` falha ao criar a Organization e o tenant fica em
 `tenant-provisioning-retry` continua tentando a cada 2 minutos, e o usuário vê a tela
 "Estamos finalizando sua conta".
 
-Deixe **desligada** a criação de organizações pelo usuário no frontend: quem cria a
-Organization é o backend, durante o provisionamento, para que o `slug` do Clerk e o do
-tenant local sejam sempre o mesmo — é essa igualdade que torna o retry idempotente.
+Ainda em **Organizations**, dois ajustes que não são opcionais:
+
+- **Habilite os slugs de organização.** Instâncias novas vêm com eles desligados
+  (`slug_disabled: true`). O backend cria a Organization passando um `slug` explícito,
+  e sem isso o Clerk responde `403 organization_slugs_disabled` — o tenant fica preso
+  em `PROVISIONING` e o job de retry bate no mesmo 403 a cada 2 minutos.
+- **Desligue a seleção/criação de organização pelo usuário**
+  (`force_organization_selection`, e a criação automática em *Organization creation
+  defaults*). Quem cria a Organization é o backend, durante o provisionamento, para que
+  o `slug` do Clerk e o do tenant local sejam sempre o mesmo — é essa igualdade que
+  torna o retry idempotente. Com a seleção forçada ligada, o Clerk faz o usuário criar
+  uma Organization própria no login, com slug auto-gerado e sem `publicMetadata`: ela
+  não corresponde a tenant nenhum, e o frontend fica preso em "Preparando seu
+  estabelecimento…".
+
+Conferindo os dois pela API, se preferir:
+
+```bash
+curl -s -H "Authorization: Bearer $CLERK_SECRET_KEY" \
+  https://api.clerk.com/v1/instance/organization_settings
+```
 
 ## 3. JWT template `petshop` (claim `permVersion`)
 
@@ -41,9 +59,20 @@ Em **Configure → Sessions → JWT templates**, crie um template chamado `petsh
 
 ```json
 {
-  "permVersion": "{{org_membership.public_metadata.permVersion}}"
+  "permVersion": "{{org_membership.public_metadata.permVersion}}",
+  "org_id": "{{org.id}}",
+  "org_slug": "{{org.slug}}",
+  "org_role": "{{org_membership.role}}"
 }
 ```
+
+> **Os claims de organização não são opcionais.** Um template customizado do Clerk não
+> herda o payload do token de sessão padrão — o token carrega só o que está declarado
+> aqui, mais os claims padrão (`sub`, `iat`, `exp`…). Sem `org_id`, o gateway não
+> resolve o tenant (`auth/clerk-token.ts`, `auth/session.ts`) e todo usuário vira
+> "autenticado sem Organization ativa": o frontend fica preso no onboarding e **tudo
+> responde 200**, sem erro em lugar nenhum. O gateway registra um `warn` quando isso
+> acontece com usuário que tem vínculo ativo, que é o rastro para achar a causa.
 
 **Para que serve.** RN-03 e o AC-03 de MOD-IDENT-04 tratam do caso em que o admin
 rebaixa alguém que está com sessão aberta. O `identity-service` incrementa

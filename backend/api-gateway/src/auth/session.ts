@@ -1,4 +1,9 @@
-import { getPrisma, resolveEffectivePermissions, resolveTenantByClerkOrgId } from '@petshop/db'
+import {
+  getPrisma,
+  listUserMemberships,
+  resolveEffectivePermissions,
+  resolveTenantByClerkOrgId,
+} from '@petshop/db'
 import { AppError, type PermissionKey, type RoleKey } from '@petshop/shared-types'
 import type { ServiceAuthContext } from '@petshop/service-auth'
 import { logger, recordMetric } from '../lib/logger.js'
@@ -51,8 +56,9 @@ export async function resolveSession(
   if (userId) context.userId = userId
 
   if (!claims.clerkOrgId) {
-    // Usuário autenticado sem Organization ativa: é o estado de quem ainda vai
-    // criar o primeiro tenant (`POST /v1/tenants`).
+    // Usuário autenticado sem Organization ativa: é o estado normal de quem ainda
+    // vai criar o primeiro tenant (`POST /v1/tenants`).
+    if (userId) await warnIfOrgClaimMissing(claims.clerkUserId, userId)
     return { context, tenantStatus: null }
   }
 
@@ -85,6 +91,30 @@ export async function resolveSession(
   }
 
   return { context, tenantStatus: tenant.status }
+}
+
+/**
+ * Aviso para o modo de falha silencioso do JWT template.
+ *
+ * Um template customizado do Clerk **não** herda os claims do token de sessão
+ * padrão: o payload é só o que está declarado nele. Um template sem `org_id` produz
+ * token válido, requisição 200 e sessão sem tenant — e o frontend fica preso no
+ * onboarding sem que nada apareça como erro em lugar nenhum.
+ *
+ * Quem já tem vínculo ativo não deveria chegar aqui, então esse cruzamento nomeia a
+ * causa. A consulta só acontece no caminho de quem não tem tenant resolvido, que é
+ * o do onboarding — fora do caminho quente que o SLO do PRD §10 mede.
+ */
+async function warnIfOrgClaimMissing(clerkUserId: string, userId: string): Promise<void> {
+  const active = (await listUserMemberships(userId)).filter(
+    (membership) => membership.status === 'ACTIVE',
+  )
+  if (active.length === 0) return
+
+  logger.warn(
+    { clerkUserId, activeMemberships: active.length },
+    'token sem `org_id` para usuário com vínculo ativo — confira os claims do JWT template `petshop` (docs/setup-clerk.md §3)',
+  )
 }
 
 async function resolveTenant(clerkOrgId: string): Promise<CachedTenant | null> {
