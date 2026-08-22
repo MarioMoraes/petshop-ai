@@ -5,6 +5,7 @@
 
 import type { Plan, TenantStatus } from './identity.js'
 import type { RoleKey } from './permissions.js'
+import type { ConsentChannel, ConsentPurpose } from './tutor.js'
 
 export const EVENTS_EXCHANGE = 'petshop.events'
 export const EVENTS_DLX = 'petshop.events.dlx'
@@ -96,4 +97,87 @@ export interface IdentityEventMap {
     clerkUserId: string
     changedFields: string[]
   }
+}
+
+// ─── MOD-TUTOR ───────────────────────────────────────────────────────────────
+// PRD tutores_02 §8.
+
+export const TUTOR_ROUTING_KEYS = {
+  tutorCriado: 'tutor.criado',
+  tutorAtualizado: 'tutor.atualizado',
+  tutorInativado: 'tutor.inativado',
+  tutorConsentimentoConcedido: 'tutor.consentimento.concedido',
+  tutorConsentimentoRevogado: 'tutor.consentimento.revogado',
+  tutorMesclado: 'tutor.mesclado',
+  tutorAnonimizado: 'tutor.anonimizado',
+  tutorTagAplicada: 'tutor.tag.aplicada',
+  tutorTagRemovida: 'tutor.tag.removida',
+} as const
+
+export type TutorRoutingKey = (typeof TUTOR_ROUTING_KEYS)[keyof typeof TUTOR_ROUTING_KEYS]
+
+/** Eventos que o tutor-service consome (PRD §8, parágrafo final). */
+export const TUTOR_CONSUMED_ROUTING_KEYS = [
+  'atendimento.concluido',
+  'lancamento.criado',
+  'mensagem.recebida',
+] as const
+
+export interface TutorCriadoEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+  /** E.164 — o agente de IA resolve a conversa de WhatsApp por ele. */
+  phone: string
+  hasWhatsappConsent: boolean
+}
+
+export interface TutorAtualizadoEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+  changedFields: string[]
+}
+
+export interface TutorInativadoEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+  lastAttendanceAt: string | null
+}
+
+export interface TutorConsentimentoEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+  channel: ConsentChannel
+  purpose: ConsentPurpose
+  version: string
+}
+
+export interface TutorMescladoEvent extends BaseEvent {
+  tenantId: string
+  sourceId: string
+  targetId: string
+  movedEntities: Record<string, string[]>
+}
+
+export interface TutorAnonimizadoEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+}
+
+export interface TutorTagEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+  tagKey: string
+  automatic: boolean
+}
+
+export interface TutorEventMap {
+  'tutor.criado': TutorCriadoEvent
+  'tutor.atualizado': TutorAtualizadoEvent
+  'tutor.inativado': TutorInativadoEvent
+  'tutor.consentimento.concedido': TutorConsentimentoEvent
+  'tutor.consentimento.revogado': TutorConsentimentoEvent
+  'tutor.mesclado': TutorMescladoEvent
+  'tutor.anonimizado': TutorAnonimizadoEvent
+  'tutor.tag.aplicada': TutorTagEvent
+  'tutor.tag.removida': TutorTagEvent
 }

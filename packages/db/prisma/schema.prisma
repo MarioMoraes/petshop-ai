@@ -76,7 +76,7 @@ model Tenant {
   slug String @unique @db.VarChar(50)
   name String @db.VarChar(120)
 
-  legalName String? @map("legal_name") @db.VarChar(160)
+  legalName     String? @map("legal_name") @db.VarChar(160)
   /// CNPJ cifrado em AES-256-GCM, formato `v1:<iv>:<tag>:<ct>` (PRD §4).
   cnpjEncrypted String? @map("cnpj_encrypted")
 
@@ -131,7 +131,7 @@ model TenantSettings {
   onlineBookingEnabled Boolean @default(true) @map("online_booking_enabled")
 
   /// `{ logoUrl, primaryColor, secondaryColor }`
-  branding Json
+  branding      Json
   /// Grade semanal: `{ monday: { closed, opensAt, closesAt }, ... }`
   businessHours Json @map("business_hours")
 
@@ -343,4 +343,242 @@ model DataKey {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("data_keys")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MOD-TUTOR — Cadastro e gestão de tutores (PRD tutores_02 §4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum PersonType {
+  PF
+  PJ
+}
+
+enum TutorStatus {
+  ACTIVE
+  INACTIVE
+  /// Terminal: origem de um merge, aponta `merged_into_id`.
+  MERGED
+  /// Terminal e irreversível: pedido do titular (LGPD art. 18).
+  ANONYMIZED
+}
+
+enum DataCompleteness {
+  COMPLETE
+  PARTIAL
+}
+
+enum ConsentChannel {
+  WHATSAPP
+  EMAIL
+  SMS
+  TERMS
+  IMAGE_USE
+}
+
+enum ConsentPurpose {
+  TRANSACTIONAL
+  MARKETING
+  BOTH
+}
+
+enum ConsentSource {
+  STAFF_FORM
+  PORTAL
+  SITE
+  WHATSAPP
+  IMPORT
+}
+
+/// O cliente pagante e titular dos dados pessoais.
+///
+/// CPF, CNPJ, telefones e e-mail ficam cifrados com a DEK do tenant; as colunas
+/// `*_hash` (HMAC-SHA256 com pepper) é que sustentam unicidade e busca exata —
+/// `LIKE` sobre texto cifrado não existe. `full_name` fica em claro, decisão
+/// consciente do PRD §4 para viabilizar a busca por similaridade no balcão.
+model Tutor {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  personType PersonType @default(PF) @map("person_type")
+
+  fullName   String  @map("full_name") @db.VarChar(160)
+  /// Razão social (PJ).
+  legalName  String? @map("legal_name") @db.VarChar(160)
+  /// RN-14: quando preenchido, é o nome exibido em telas e comunicações.
+  socialName String? @map("social_name") @db.VarChar(120)
+
+  cpfEncrypted  String? @map("cpf_encrypted")
+  cpfHash       String? @map("cpf_hash")
+  cnpjEncrypted String? @map("cnpj_encrypted")
+  cnpjHash      String? @map("cnpj_hash")
+
+  /// E.164. Obrigatório: é o canal primário e a chave do agente de IA (RN-03).
+  phoneEncrypted    String  @map("phone_encrypted")
+  phoneHash         String  @map("phone_hash")
+  phoneAltEncrypted String? @map("phone_alt_encrypted")
+  phoneAltHash      String? @map("phone_alt_hash")
+
+  emailEncrypted String? @map("email_encrypted")
+  emailHash      String? @map("email_hash")
+
+  birthDate DateTime? @map("birth_date") @db.Date
+  notes     String?
+
+  status           TutorStatus      @default(ACTIVE)
+  dataCompleteness DataCompleteness @default(PARTIAL) @map("data_completeness")
+
+  /// RN-13 — vínculo com o login do Portal (MOD-PORTAL).
+  portalUserId String? @map("portal_user_id") @db.Uuid
+  /// Destino do merge, quando `status = MERGED`.
+  mergedIntoId String? @map("merged_into_id") @db.Uuid
+
+  /// Mantido pelo trigger `tutors_search_trigger`; a aplicação nunca escreve aqui.
+  searchVector Unsupported("tsvector")? @map("search_vector")
+
+  /// RN-10: escrito pelo consumo de `atendimento.concluido`, nunca calculado na
+  /// listagem. Alimenta a tag automática INATIVO.
+  lastAttendanceAt DateTime? @map("last_attendance_at") @db.Timestamptz(6)
+
+  /// Denormalizados pelo mesmo motivo do RN-10: a listagem de balcão tem SLO de
+  /// 300ms e não pode agregar outros serviços por linha.
+  /// TODO(MOD-LEDGER): alimentar por `lancamento.criado`.
+  balanceCents Int @default(0) @map("balance_cents")
+  /// TODO(MOD-PET): alimentar por `pet.criado` / `pet.vinculado`.
+  petsCount    Int @default(0) @map("pets_count")
+
+  anonymizedAt DateTime? @map("anonymized_at") @db.Timestamptz(6)
+
+  createdBy String? @map("created_by") @db.Uuid
+  updatedBy String? @map("updated_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  addresses      TutorAddress[]
+  consents       TutorConsent[]
+  tagAssignments TutorTagAssignment[]
+
+  mergedInto Tutor?  @relation("TutorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom Tutor[] @relation("TutorMerge")
+
+  @@map("tutors")
+}
+
+/// Um principal + N adicionais. Logradouro cifrado: endereço residencial é dado
+/// sensível à segurança física do titular (PRD §4).
+model TutorAddress {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  tutorId  String @map("tutor_id") @db.Uuid
+
+  label   String @default("Casa") @db.VarChar(40)
+  zipCode String @map("zip_code") @db.VarChar(8)
+
+  streetEncrypted     String  @map("street_encrypted")
+  numberEncrypted     String  @map("number_encrypted")
+  complementEncrypted String? @map("complement_encrypted")
+
+  district String @db.VarChar(80)
+  city     String @db.VarChar(80)
+  state    String @db.VarChar(2)
+
+  /// Geocodificação para a roteirização do Taxi Dog (MOD-TAXI).
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  /// "Portão azul, chamar no interfone 12".
+  accessNotes String? @map("access_notes")
+
+  /// RN-15: exatamente um por tutor, garantido por índice único parcial.
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tutorId])
+  @@map("tutor_addresses")
+}
+
+/// Tag de segmentação. `is_system = true` são mantidas por evento, nunca à mão.
+model TutorTag {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  key      String  @db.VarChar(40)
+  label    String  @db.VarChar(60)
+  color    String  @default("#E34A32") @db.VarChar(9)
+  isSystem Boolean @default(false) @map("is_system")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  assignments TutorTagAssignment[]
+
+  @@map("tutor_tags")
+}
+
+model TutorTagAssignment {
+  tenantId String @map("tenant_id") @db.Uuid
+  tutorId  String @map("tutor_id") @db.Uuid
+  tagId    String @map("tag_id") @db.Uuid
+
+  /// Nulo quando a atribuição foi automática.
+  assignedBy String?  @map("assigned_by") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+
+  tutor Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  tag   TutorTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([tutorId, tagId])
+  @@index([tagId])
+  @@map("tutor_tag_assignments")
+}
+
+/// RN-05 — append-only. Revogar nunca apaga o opt-in anterior: o histórico é a
+/// prova do tenant perante a ANPD. `UPDATE`/`DELETE` barrados por trigger.
+model TutorConsent {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  tutorId  String @map("tutor_id") @db.Uuid
+
+  channel ConsentChannel
+  granted Boolean
+  purpose ConsentPurpose @default(MARKETING)
+  /// Versão do termo aceito nesta transição.
+  version String         @db.VarChar(20)
+  source  ConsentSource  @default(STAFF_FORM)
+
+  /// Prova do consentimento (PRD §4).
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@map("tutor_consents")
+}
+
+/// Snapshot pré-merge dos dois cadastros. Guardado porque o merge não é reversível
+/// automaticamente (questão 5 do PRD §11) — é o que permite reverter à mão.
+model TutorMergeLog {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  sourceId String @map("source_id") @db.Uuid
+  targetId String @map("target_id") @db.Uuid
+
+  snapshot      Json
+  /// `{ pets: [...], ledgerEntries: [...], appointments: [...] }`
+  movedEntities Json @map("moved_entities")
+
+  performedBy String?  @map("performed_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("tutor_merge_log")
 }

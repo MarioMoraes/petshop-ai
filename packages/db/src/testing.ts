@@ -123,6 +123,12 @@ export function createRawAppClient(): PrismaClient {
 }
 
 const BUSINESS_TABLES = [
+  'tutor_merge_log',
+  'tutor_consents',
+  'tutor_tag_assignments',
+  'tutor_tags',
+  'tutor_addresses',
+  'tutors',
   'audit_logs',
   'security_events',
   'data_keys',

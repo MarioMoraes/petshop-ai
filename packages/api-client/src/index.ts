@@ -1,9 +1,18 @@
 import {
+  AddressResponseSchema,
+  CepLookupSchema,
+  CheckDuplicatesResultSchema,
+  ConsentsResponseSchema,
   MeResponseSchema,
   OnboardingStateSchema,
+  PaginatedTutorsSchema,
   SlugAvailabilitySchema,
+  TagSchema,
   TenantResponseSchema,
   TenantSettingsSchema,
+  TutorDetailSchema,
+  TutorOverviewSchema,
+  TutorSensitiveSchema,
   type MeResponse,
   type OnboardingState,
   type OnboardingStepInput,
@@ -11,9 +20,28 @@ import {
   type SlugAvailability,
   type TenantResponse,
   type TenantSettings,
+  type AddressInput,
+  type AddressResponse,
+  type AnonymizeTutorInput,
+  type CepLookup,
+  type CheckDuplicatesInput,
+  type CheckDuplicatesResult,
+  type ConsentsResponse,
+  type CreateTagInput,
+  type CreateTutorInput,
+  type ListTutorsQuery,
+  type MergeTutorInput,
+  type PaginatedTutors,
+  type Tag,
+  type TutorDetail,
+  type TutorOverview,
+  type TutorSensitive,
+  type UpdateAddressInput,
+  type UpdateConsentsInput,
   type UpdateTenantSettingsInput,
+  type UpdateTutorInput,
 } from '@petshop/shared-types'
-import type { ZodType } from 'zod'
+import { z, type ZodType } from 'zod'
 
 /**
  * Cliente tipado do api-gateway.
@@ -53,7 +81,7 @@ export interface ApiClientOptions {
 }
 
 interface RequestOptions<T> {
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   path: string
   body?: unknown
   schema?: ZodType<T>
@@ -164,7 +192,127 @@ export function createApiClient(options: ApiClientOptions) {
         body: patch,
         schema: TenantSettingsSchema,
       }),
+
+    // ─── MOD-TUTOR ─────────────────────────────────────────────────────────
+
+    listTutors: (query: Partial<ListTutorsQuery> = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/tutors${toQueryString(query)}`,
+        schema: PaginatedTutorsSchema,
+      }),
+
+    getTutor: (id: string) =>
+      request({ method: 'GET', path: `/v1/tutors/${id}`, schema: TutorDetailSchema }),
+
+    getTutorOverview: (id: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/tutors/${id}/overview`,
+        schema: TutorOverviewSchema,
+      }),
+
+    createTutor: (input: CreateTutorInput) =>
+      request({ method: 'POST', path: '/v1/tutors', body: input, schema: TutorDetailSchema }),
+
+    updateTutor: (id: string, patch: UpdateTutorInput) =>
+      request({ method: 'PATCH', path: `/v1/tutors/${id}`, body: patch, schema: TutorDetailSchema }),
+
+    deleteTutor: (id: string) => request<void>({ method: 'DELETE', path: `/v1/tutors/${id}` }),
+
+    anonymizeTutor: (id: string, input: AnonymizeTutorInput) =>
+      request<void>({ method: 'POST', path: `/v1/tutors/${id}/anonymize`, body: input }),
+
+    reactivateTutor: (id: string) =>
+      request({ method: 'POST', path: `/v1/tutors/${id}/reactivate`, schema: TutorDetailSchema }),
+
+    mergeTutors: (targetId: string, input: MergeTutorInput) =>
+      request<{ targetId: string; sourceId: string }>({
+        method: 'POST',
+        path: `/v1/tutors/${targetId}/merge`,
+        body: input,
+      }),
+
+    checkDuplicates: (input: CheckDuplicatesInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/tutors/check-duplicates',
+        body: input,
+        schema: CheckDuplicatesResultSchema,
+      }),
+
+    /** Documento e telefone sem máscara. Cada chamada é auditada no serviço. */
+    revealTutorData: (id: string) =>
+      request({ method: 'GET', path: `/v1/tutors/${id}/sensitive`, schema: TutorSensitiveSchema }),
+
+    getConsents: (id: string) =>
+      request({ method: 'GET', path: `/v1/tutors/${id}/consents`, schema: ConsentsResponseSchema }),
+
+    updateConsents: (id: string, input: UpdateConsentsInput) =>
+      request({
+        method: 'PUT',
+        path: `/v1/tutors/${id}/consents`,
+        body: input,
+        schema: ConsentsResponseSchema,
+      }),
+
+    listAddresses: (id: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/tutors/${id}/addresses`,
+        schema: z.array(AddressResponseSchema),
+      }),
+
+    addAddress: (id: string, input: AddressInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/tutors/${id}/addresses`,
+        body: input,
+        schema: AddressResponseSchema,
+      }),
+
+    updateAddress: (id: string, addressId: string, patch: UpdateAddressInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/tutors/${id}/addresses/${addressId}`,
+        body: patch,
+        schema: AddressResponseSchema,
+      }),
+
+    lookupCep: (cep: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/tutors/cep-lookup?cep=${encodeURIComponent(cep)}`,
+        schema: CepLookupSchema,
+      }),
+
+    listTags: () =>
+      request({ method: 'GET', path: '/v1/tutors/tags', schema: z.array(TagSchema) }),
+
+    createTag: (input: CreateTagInput) =>
+      request({ method: 'POST', path: '/v1/tutors/tags', body: input, schema: TagSchema }),
+
+    assignTag: (tagId: string, tutorIds: string[]) =>
+      request<{ assigned: number; alreadyAssigned: number }>({
+        method: 'POST',
+        path: `/v1/tutors/tags/${tagId}/assign`,
+        body: { tutorIds },
+      }),
+
+    removeTag: (tutorId: string, tagId: string) =>
+      request<void>({ method: 'DELETE', path: `/v1/tutors/${tutorId}/tags/${tagId}` }),
   }
+}
+
+/** Monta a query string ignorando o que não foi preenchido. */
+function toQueryString(params: Record<string, unknown>): string {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue
+    search.set(key, String(value))
+  }
+  const query = search.toString()
+  return query ? `?${query}` : ''
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>
@@ -179,9 +327,18 @@ async function readProblem(response: Response): Promise<ProblemDetails | null> {
 }
 
 export type {
+  AddressResponse,
+  CepLookup,
+  CheckDuplicatesResult,
+  ConsentsResponse,
   MeResponse,
   OnboardingState,
+  PaginatedTutors,
   SlugAvailability,
+  Tag,
   TenantResponse,
   TenantSettings,
+  TutorDetail,
+  TutorOverview,
+  TutorSensitive,
 }

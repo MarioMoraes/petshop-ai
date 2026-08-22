@@ -69,7 +69,11 @@ let gateway: FastifyInstance | null = null
 
 export async function getGateway(): Promise<FastifyInstance> {
   if (gateway) return gateway
-  process.env.IDENTITY_SERVICE_URL = await startUpstream()
+  // Os dois serviços apontam para o mesmo eco: o que está sob teste é o roteamento
+  // e a assinatura do contexto, não quem responde do outro lado.
+  const upstreamAddress = await startUpstream()
+  process.env.IDENTITY_SERVICE_URL = upstreamAddress
+  process.env.TUTOR_SERVICE_URL = upstreamAddress
 
   const { resetEnvCache } = await import('../src/env.js')
   resetEnvCache()

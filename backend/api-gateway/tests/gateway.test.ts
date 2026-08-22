@@ -57,6 +57,23 @@ describe('autenticação', () => {
     expect(response.json().service).toBe('api-gateway')
   })
 
+  it('roteia /v1/tutors para o tutor-service com o contexto assinado', async () => {
+    const tenant = await seedTenant('rotatutor')
+    const member = await seedMember(tenant.tenantId, 'RECEPTIONIST')
+    const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
+
+    const response = await call({ url: '/v1/tutors?q=maria', token })
+    expect(response.statusCode).toBe(200)
+
+    const forwarded = lastEchoed()
+    expect(forwarded.url).toBe('/v1/tutors?q=maria')
+    const verified = verifyServiceHeaders(forwarded.headers, INTERNAL_SECRET)
+    expect(verified.ok).toBe(true)
+    if (!verified.ok) return
+    expect(verified.context.tenantId).toBe(tenant.tenantId)
+    expect(verified.context.permissions).toContain('tutor:read')
+  })
+
   it('devolve 404 para rota sem serviço de destino', async () => {
     const token = givenToken({ clerkUserId: 'user_semrota' })
     const response = await call({ url: '/v1/inexistente', token })

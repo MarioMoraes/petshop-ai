@@ -109,23 +109,26 @@ export async function proxyRequest(
 }
 
 /**
- * Roteamento por prefixo. Hoje só o identity-service existe; a tabela cresce à
- * medida que os outros serviços do SPEC §2 chegam.
+ * Roteamento por prefixo. A tabela cresce à medida que os serviços do SPEC §2 chegam.
  */
+const IDENTITY_PREFIXES = [
+  '/v1/tenants',
+  '/v1/memberships',
+  '/v1/invitations',
+  '/v1/roles',
+  '/v1/me',
+  '/v1/sessions',
+]
+
+const TUTOR_PREFIXES = ['/v1/tutors']
+
+function matches(path: string, prefixes: string[]): boolean {
+  return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+}
+
 export function resolveTarget(path: string): string | null {
   const env = loadEnv()
-
-  const IDENTITY_PREFIXES = [
-    '/v1/tenants',
-    '/v1/memberships',
-    '/v1/invitations',
-    '/v1/roles',
-    '/v1/me',
-    '/v1/sessions',
-  ]
-
-  if (IDENTITY_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
-    return env.IDENTITY_SERVICE_URL
-  }
+  if (matches(path, IDENTITY_PREFIXES)) return env.IDENTITY_SERVICE_URL
+  if (matches(path, TUTOR_PREFIXES)) return env.TUTOR_SERVICE_URL
   return null
 }

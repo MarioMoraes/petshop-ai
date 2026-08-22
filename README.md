@@ -3,9 +3,12 @@
 Micro-SaaS multi-tenant para petshops. Monorepo com frontend, microserviços e pacotes
 compartilhados, conforme `SPEC.md`.
 
-**Estado:** Fase 0 — Fundação. Implementados os módulos MOD-IDENT-01 (Provisionamento
-de Tenant), MOD-IDENT-02 (Onboarding Wizard), MOD-IDENT-04 (RBAC) e MOD-IDENT-07
-(Isolamento RLS) de `docs/prd/identidade_tenancy_01.md`.
+**Estado:** Fase 1 — Cadastros Core.
+
+- `docs/prd/identidade_tenancy_01.md` — MOD-IDENT-01 (provisionamento), 02 (onboarding),
+  04 (RBAC) e 07 (isolamento RLS).
+- `docs/prd/tutores_02.md` — MOD-TUTOR-01 a 09: CRUD, deduplicação, endereço com CEP,
+  consentimento LGPD, tags, busca, visão 360º, anonimização e merge de duplicatas.
 
 ## Rodando localmente
 
@@ -24,6 +27,10 @@ pnpm dev
 | api-gateway | 3000 | Valida o token do Clerk, resolve tenant e permissões, encaminha aos serviços |
 | identity-service | 3001 | Tenants, onboarding, RBAC, auditoria |
 | frontend | 3002 | Admin do tenant (Next.js) |
+| tutor-service | 3003 | Tutores, endereços, consentimento, tags e deduplicação |
+
+O PRD do MOD-TUTOR aponta a porta 3002 para o tutor-service, mas ela já é do frontend;
+o serviço ficou em 3003 e o gateway resolve por `TUTOR_SERVICE_URL`.
 
 Para o login funcionar no navegador é preciso preencher as chaves do Clerk —
 ver **[docs/setup-clerk.md](docs/setup-clerk.md)**. A suíte de testes não depende
@@ -38,8 +45,8 @@ pnpm test
 ```
 
 Os testes de banco sobem contra o Postgres do `docker compose`, cada pacote no seu
-próprio banco (`petshop_test_db`, `petshop_test_identity`, `petshop_test_gateway`),
-criado automaticamente na primeira execução.
+próprio banco (`petshop_test_db`, `petshop_test_identity`, `petshop_test_gateway`,
+`petshop_test_tutor`), criado automaticamente na primeira execução.
 
 Para conferir o isolamento RLS à mão, conectado como a role da aplicação e **sem**
 contexto de tenant — deve devolver zero linhas:
@@ -54,6 +61,7 @@ docker exec petshop-postgres psql -U app_user -d petshop -c "SELECT count(*) FRO
 backend/
   api-gateway/          Entrada única: autenticação, RBAC, rate limit, proxy
   identity-service/     Tenants, onboarding, papéis e permissões, auditoria
+  tutor-service/        Tutores: cadastro, dedupe, endereço, consentimento e tags
 packages/
   shared-types/         Schemas Zod, matriz de permissões, catálogo de erros, eventos
   db/                   Prisma, migrations, RLS, criptografia de PII, suporte a testes
@@ -76,9 +84,13 @@ design/                 Biblioteca de padrões visuais
   seta `app.tenant_id`. Uma guarda no cliente Prisma recusa operação em tabela com RLS
   fora desse contexto.
 - **PII cifrada em repouso** (AES-256-GCM, envelope com DEK por tenant). Busca por
-  e-mail usa coluna `*_hash` (HMAC-SHA256 com pepper), nunca `LIKE` sobre texto cifrado.
-- **`audit_logs` é append-only**, por `REVOKE` e por trigger.
-- **Erros em `application/problem+json`** com códigos `ERR_IDENT_00N` (PRD §5).
+  CPF, telefone e e-mail usa coluna `*_hash` (HMAC-SHA256 com pepper e namespace por
+  campo), nunca `LIKE` sobre texto cifrado. Nome fica em claro, decisão consciente,
+  para viabilizar a busca por similaridade `pg_trgm` no balcão.
+- **`audit_logs` e `tutor_consents` são append-only**, por `REVOKE` e por trigger. Uma
+  revogação de consentimento grava linha nova; o estado atual é derivado do histórico.
+- **Erros em `application/problem+json`** com códigos por módulo (`ERR_IDENT_00N`,
+  `ERR_TUTOR_00N`), catálogo único em `packages/shared-types/src/errors.ts`.
 - **Eventos de domínio** no exchange topic `petshop.events`, nomeados `dominio.acao`.
 
 ## O que ainda não existe
@@ -90,3 +102,9 @@ Lacunas conhecidas desta entrega, marcadas no código com `TODO(MOD-…)`:
 - Seed de espécies, portes e pelagens no provisionamento (MOD-PET, MOD-AGENDA).
 - Webhooks do Clerk (MOD-IDENT-03) — o espelho local do usuário é criado sob demanda.
 - Troca de tenant (MOD-IDENT-05) e suspensão por inadimplência (MOD-IDENT-10).
+- Importação de tutores por CSV (MOD-TUTOR-11) — o próprio PRD a joga para a Fase 1.5.
+- A visão 360º do tutor devolve `pendingModules` no lugar de pets, agenda, financeiro e
+  comunicações; o merge reaponta o que é do tutor e deixa o resto para os serviços que
+  consomem `tutor.mesclado`. Idem para o bloqueio de exclusão por agendamento futuro.
+- Os consumidores de `atendimento.concluido`, `lancamento.criado` e `mensagem.recebida`
+  existem e são testados — falta quem publique.

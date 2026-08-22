@@ -162,6 +162,20 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
+/**
+ * HMAC de busca com namespace (MOD-TUTOR: `cpf_hash`, `phone_hash`, `email_hash`).
+ *
+ * O namespace entra na mensagem para que o mesmo dígito em campos diferentes gere
+ * hashes diferentes — sem ele, um CPF e um telefone que por acaso coincidissem em
+ * dígitos casariam entre si, e o hash de um campo vazaria a existência do outro.
+ *
+ * Determinístico e sem sal por linha, porque é isso que permite indexar: o segredo
+ * está no pepper, que fica no secret manager e nunca no banco.
+ */
+export function hashSearchable(namespace: string, value: string): string {
+  return createHmac('sha256', readPepper()).update(`${namespace}:${value}`).digest('hex')
+}
+
 /** Comparação de hashes em tempo constante. */
 export function hashEquals(a: string, b: string): boolean {
   const bufA = Buffer.from(a, 'hex')

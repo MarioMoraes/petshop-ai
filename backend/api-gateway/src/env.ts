@@ -17,6 +17,7 @@ const EnvSchema = z.object({
 
   INTERNAL_SERVICE_SECRET: z.string().min(16),
   IDENTITY_SERVICE_URL: z.string().url().default('http://localhost:3001'),
+  TUTOR_SERVICE_URL: z.string().url().default('http://localhost:3003'),
 
   /** Origens aceitas pelo CORS (SPEC §7.4: CORS restritivo por domínio). */
   CORS_ORIGINS: z.string().default('http://localhost:3002'),

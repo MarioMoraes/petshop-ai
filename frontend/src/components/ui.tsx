@@ -123,3 +123,90 @@ export function StepProgress({
     </div>
   )
 }
+
+/** Cabeçalho de página com título, subtítulo e ações à direita. */
+export function PageHeader({
+  eyebrow,
+  title,
+  subtitle,
+  actions,
+}: {
+  eyebrow?: ReactNode
+  title: ReactNode
+  subtitle?: ReactNode
+  actions?: ReactNode
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0">
+        {eyebrow && <p className="hint">{eyebrow}</p>}
+        <h1 className="mt-1 text-3xl font-semibold leading-tight sm:text-4xl">{title}</h1>
+        {subtitle && <p className="hint mt-2">{subtitle}</p>}
+      </div>
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+    </div>
+  )
+}
+
+/**
+ * Estado vazio. Distingue "não há nada ainda" de "a busca não achou": são situações
+ * diferentes, e oferecer "cadastrar o primeiro" a quem só errou a busca é ruído.
+ */
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="card flex flex-col items-center px-6 py-14 text-center">
+      <h3 className="text-lg font-semibold">{title}</h3>
+      <p className="hint mt-2 max-w-sm">{description}</p>
+      {action && <div className="mt-6">{action}</div>}
+    </div>
+  )
+}
+
+export function Tabs({
+  tabs,
+  active,
+  onSelect,
+}: {
+  tabs: { id: string; label: string }[]
+  active: string
+  onSelect: (id: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1 border-b border-line" role="tablist">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={tab.id === active}
+          onClick={() => onSelect(tab.id)}
+          className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            tab.id === active
+              ? 'border-accent text-ink'
+              : 'border-transparent text-subtle hover:text-muted'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Par rótulo/valor das telas de detalhe. */
+export function DataRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line py-3 last:border-b-0">
+      <dt className="hint">{label}</dt>
+      <dd className="text-sm font-medium">{children}</dd>
+    </div>
+  )
+}

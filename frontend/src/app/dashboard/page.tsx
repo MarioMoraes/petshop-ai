@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
 import { ROLE_LABELS, type RoleKey } from '@petshop/shared-types'
@@ -19,6 +20,8 @@ interface ChecklistItem {
   description: string
   module: string
   done: boolean
+  /** Literal, e não `string`: as rotas tipadas do Next validam o destino em compilação. */
+  href?: '/tutores'
 }
 
 export default async function DashboardPage() {
@@ -26,6 +29,11 @@ export default async function DashboardPage() {
 
   if (!me.currentTenant) redirect('/onboarding')
   if (!me.currentTenant.onboardingCompletedAt) redirect('/onboarding')
+
+  // Basta um tutor para o passo estar cumprido; o total é o que a listagem já sabe.
+  const tutors = await serverApi()
+    .listTutors({ limit: 1 })
+    .catch(() => ({ total: 0 }))
 
   const tenant = me.currentTenant
   const membership = me.memberships.find((item) => item.tenantId === tenant.id)
@@ -39,10 +47,15 @@ export default async function DashboardPage() {
       done: true,
     },
     {
-      title: 'Cadastre seu primeiro tutor',
-      description: 'O cadastro do tutor é o ponto de partida de tudo: pets, agenda e conta corrente.',
+      title:
+        tutors.total > 0 ? 'Sua base de tutores está começando' : 'Cadastre seu primeiro tutor',
+      description:
+        tutors.total > 0
+          ? `${tutors.total === 1 ? '1 tutor cadastrado' : `${tutors.total} tutores cadastrados`}. Continue de onde parou.`
+          : 'O cadastro do tutor é o ponto de partida de tudo: pets, agenda e conta corrente.',
       module: 'MOD-TUTOR',
-      done: false,
+      done: tutors.total > 0,
+      href: '/tutores',
     },
     {
       title: 'Convide sua equipe',
@@ -100,12 +113,25 @@ export default async function DashboardPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className={`font-semibold ${item.done ? 'text-subtle line-through' : ''}`}>
-                      {item.title}
+                    <h3 className="font-semibold">
+                      {item.href ? (
+                        <Link href={item.href} className="hover:underline">
+                          {item.title}
+                        </Link>
+                      ) : (
+                        <span className={item.done ? 'text-subtle line-through' : ''}>
+                          {item.title}
+                        </span>
+                      )}
                     </h3>
-                    {!item.done && <Badge>Em breve · {item.module}</Badge>}
+                    {!item.done && !item.href && <Badge>Em breve · {item.module}</Badge>}
                   </div>
                   <p className="hint mt-1">{item.description}</p>
+                  {item.href && (
+                    <Link href={item.href} className="btn btn-ghost mt-2 px-0 text-sm text-accent-ink">
+                      Abrir tutores →
+                    </Link>
+                  )}
                 </div>
               </Card>
             ))}

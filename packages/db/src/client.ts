@@ -28,6 +28,12 @@ const RLS_MODELS = new Set([
   'AuditLog',
   'SecurityEvent',
   'DataKey',
+  'Tutor',
+  'TutorAddress',
+  'TutorTag',
+  'TutorTagAssignment',
+  'TutorConsent',
+  'TutorMergeLog',
 ])
 
 export interface DbLogger {

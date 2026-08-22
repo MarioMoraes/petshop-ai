@@ -1,5 +1,7 @@
+export * from './br-documents.js'
 export * from './errors.js'
 export * from './events.js'
 export * from './identity.js'
 export * from './permissions.js'
 export * from './slug.js'
+export * from './tutor.js'
