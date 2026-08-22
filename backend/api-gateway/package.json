@@ -1,0 +1,31 @@
+{
+  "name": "@petshop/api-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../.env -- tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@clerk/backend": "^2.17.0",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@petshop/db": "workspace:*",
+    "@petshop/service-auth": "workspace:*",
+    "@petshop/shared-types": "workspace:*",
+    "fastify": "^5.4.0",
+    "ioredis": "^5.7.0",
+    "pino": "^9.7.0",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@petshop/config": "workspace:*",
+    "dotenv": "^17.2.1",
+    "dotenv-cli": "^8.0.0"
+  }
+}

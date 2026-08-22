@@ -1,0 +1,179 @@
+@import 'tailwindcss';
+
+/*
+ * Sistema visual do Admin do PetShop AI.
+ *
+ * Extraído de `design/design-modelo.html`: neutros frios com um único acento quente,
+ * tudo em pílula ou cartão, raios grandes e sombras que sugerem elevação em vez de
+ * desenhá-la. Inter para o texto, Instrument Serif como voz de destaque.
+ */
+
+@theme {
+  /* Neutros frios */
+  --color-canvas: #ecedee;
+  --color-surface: #f4f5f5;
+  --color-card: #ffffff;
+  --color-ink: #232427;
+  --color-ink-soft: #2e3034;
+  --color-muted: #4b4d52;
+  --color-subtle: #86888d;
+  --color-line: #dfe0e2;
+  --color-shell: #171719;
+
+  /* Acento quente, único */
+  --color-accent: #e34a32;
+  --color-accent-soft: #fbe9e5;
+  --color-accent-ink: #a8321f;
+
+  /* Semânticos */
+  --color-success: #1f7a4d;
+  --color-success-soft: #e6f4ec;
+  --color-danger: #b4231b;
+  --color-danger-soft: #fdeceb;
+
+  /* As variáveis vêm do `next/font` no layout raiz. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+
+  --radius-card: 28px;
+  --radius-shell: 40px;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Foco visível em tudo que é interativo — requisito de acessibilidade, não enfeite. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* A moldura clara que envolve o conteúdo, como no modelo de design. */
+  .shell {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-shell);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 20px 60px -30px rgb(35 36 39 / 0.25);
+  }
+
+  .card {
+    background-color: var(--color-card);
+    border-radius: var(--radius-card);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 10px 30px -14px rgb(35 36 39 / 0.25);
+  }
+
+  .pill {
+    border-radius: 9999px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    transition:
+      transform 0.3s,
+      box-shadow 0.3s,
+      background-color 0.2s;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-primary {
+    background-color: var(--color-shell);
+    color: #ffffff;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.25) inset,
+      0 10px 22px -10px rgb(23 23 25 / 0.7);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.3) inset,
+      0 16px 28px -10px rgb(23 23 25 / 0.8);
+  }
+
+  .btn-accent {
+    background-color: var(--color-accent);
+    color: #ffffff;
+    box-shadow: 0 10px 22px -10px rgb(227 74 50 / 0.7);
+  }
+
+  .btn-accent:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--color-muted);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background-color: rgb(0 0 0 / 0.05);
+  }
+
+  .field {
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid var(--color-line);
+    background-color: var(--color-card);
+    padding: 0.75rem 1rem;
+    font-size: 0.9375rem;
+    color: var(--color-ink);
+    transition: border-color 0.2s;
+  }
+
+  .field::placeholder {
+    color: var(--color-subtle);
+  }
+
+  .field:focus {
+    border-color: var(--color-ink);
+    outline: none;
+  }
+
+  .field[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
+
+  .label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-ink-soft);
+    margin-bottom: 0.375rem;
+  }
+
+  .hint {
+    font-size: 0.8125rem;
+    color: var(--color-subtle);
+  }
+
+  .error-text {
+    font-size: 0.8125rem;
+    color: var(--color-danger);
+  }
+}

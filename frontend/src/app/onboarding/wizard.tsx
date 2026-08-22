@@ -1,0 +1,127 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useState, useTransition } from 'react'
+import {
+  DEFAULT_BRANDING,
+  DEFAULT_BUSINESS_HOURS,
+  ONBOARDING_LAST_STEP,
+  ONBOARDING_STEP_TITLES,
+  type Branding,
+  type BusinessHours,
+  type Plan,
+  type TenantResponse,
+  type TenantSettings,
+} from '@petshop/shared-types'
+import { FormError, StepProgress } from '@/components/ui'
+import type { ActionResult } from './actions'
+import { StepBusinessHours } from './steps/step-business-hours'
+import { StepBranding } from './steps/step-branding'
+import { StepIdentity } from './steps/step-identity'
+import { StepPlan } from './steps/step-plan'
+import { StepTeam } from './steps/step-team'
+
+/**
+ * MOD-IDENT-02 — o wizard de 5 etapas.
+ *
+ * O estado que importa vive no servidor: cada etapa persiste sozinha e a etapa
+ * corrente vem de `tenant.onboardingStep`. O `useState` daqui é só o rascunho do
+ * formulário aberto — fechar o navegador no meio não perde nada do que já foi salvo
+ * (AC-03).
+ */
+
+export interface WizardProps {
+  tenant: TenantResponse | null
+  settings: TenantSettings | null
+}
+
+export function Wizard({ tenant, settings }: WizardProps) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+
+  // Sem tenant ainda, o wizard começa na etapa 1: criar o estabelecimento.
+  const [currentTenant, setCurrentTenant] = useState(tenant)
+  const [step, setStep] = useState(tenant?.onboardingStep ?? 1)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  const branding: Branding =
+    (settings?.branding as Branding | undefined) ?? DEFAULT_BRANDING
+  const businessHours: BusinessHours =
+    (settings?.businessHours as BusinessHours | undefined) ?? DEFAULT_BUSINESS_HOURS
+
+  /** Executa uma ação de etapa e move o wizard conforme a resposta do servidor. */
+  function run(action: () => Promise<ActionResult>) {
+    setFormError(null)
+    setFieldErrors({})
+
+    startTransition(async () => {
+      const result = await action()
+
+      if (!result.ok) {
+        setFormError(result.message)
+        setFieldErrors(result.fieldErrors)
+        return
+      }
+
+      setCurrentTenant(result.data)
+
+      if (result.data.onboardingCompletedAt) {
+        router.push('/dashboard')
+        router.refresh()
+        return
+      }
+
+      // A etapa seguinte é a que o servidor gravou — não um contador local.
+      setStep(result.data.onboardingStep)
+      router.refresh()
+    })
+  }
+
+  const shared = { pending, fieldErrors, onSubmit: run }
+
+  return (
+    <div className="w-full max-w-2xl">
+      <StepProgress current={step} total={ONBOARDING_LAST_STEP} titles={ONBOARDING_STEP_TITLES} />
+
+      <div className="mt-6">
+        <FormError message={formError} />
+      </div>
+
+      <div className="mt-6">
+        {step === 1 && <StepIdentity {...shared} tenant={currentTenant} />}
+        {step === 2 && <StepPlan {...shared} plan={(currentTenant?.plan ?? 'STARTER') as Plan} />}
+        {step === 3 && (
+          <StepBusinessHours
+            {...shared}
+            businessHours={businessHours}
+            timezone={settings?.timezone ?? 'America/Sao_Paulo'}
+            cancellationWindowHours={settings?.cancellationWindowHours ?? 24}
+            minBookingNoticeHours={settings?.minBookingNoticeHours ?? 2}
+            noShowFeePercent={settings?.noShowFeePercent ?? 0}
+          />
+        )}
+        {step === 4 && <StepTeam {...shared} />}
+        {step === 5 && <StepBranding {...shared} branding={branding} />}
+      </div>
+
+      {step > 1 && (
+        <button
+          type="button"
+          className="btn btn-ghost mt-6"
+          onClick={() => setStep(step - 1)}
+          disabled={pending}
+        >
+          ← Voltar
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** Contrato comum das etapas. */
+export interface StepProps {
+  pending: boolean
+  fieldErrors: Record<string, string>
+  onSubmit: (action: () => Promise<ActionResult>) => void
+}

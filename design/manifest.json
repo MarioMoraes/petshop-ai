@@ -1,0 +1,19 @@
+{
+  "url": "https://ai-product-studio-34.aura.build/",
+  "date": "2026-08-22T11:40:38.450Z",
+  "totalAssets": 72,
+  "totalSize": "7.9 MB",
+  "assetBreakdown": {
+    "css": 3,
+    "svg": 1,
+    "images": 15,
+    "js": 42,
+    "fonts": 11
+  },
+  "options": {
+    "extractDesignTokens": true,
+    "screenshots": true,
+    "scrollToBottom": true,
+    "timeout": 30000
+  }
+}

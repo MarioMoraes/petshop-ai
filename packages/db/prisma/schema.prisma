@@ -1,0 +1,346 @@
+// PetShop AI — Núcleo de Identidade e Tenancy (MOD-IDENT).
+//
+// A aplicação conecta como `app_user`, papel SEM BYPASSRLS: as políticas RLS de
+// `migrations/*_rls_policies` valem também para o backend (MOD-IDENT-07).
+// Migrations rodam pelo `directUrl`, como owner.
+//
+// Objetos que o Prisma não sabe declarar — políticas RLS, triggers, papéis do
+// Postgres e índices únicos parciais — vivem em SQL escrito à mão nas migrations.
+// Ver `prisma/migrations/README.md` antes de rodar `prisma migrate dev`.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_MIGRATION_URL")
+}
+
+enum TenantStatus {
+  PROVISIONING
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  TERMINATED
+  PROVISIONING_FAILED
+}
+
+enum Plan {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum AuditOutcome {
+  ALLOWED
+  DENIED
+}
+
+enum WhatsappProvisioning {
+  OWN_NUMBER
+}
+
+enum SecurityEventType {
+  CROSS_TENANT_ATTEMPT
+  PERMISSION_DENIED
+  TENANT_CONTEXT_MISSING
+  WEBHOOK_SIGNATURE_INVALID
+  LOGIN_FAILED
+}
+
+/// Um petshop. Raiz do isolamento multi-tenant.
+model Tenant {
+  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug String @unique @db.VarChar(50)
+  name String @db.VarChar(120)
+
+  legalName String? @map("legal_name") @db.VarChar(160)
+  /// CNPJ cifrado em AES-256-GCM, formato `v1:<iv>:<tag>:<ct>` (PRD §4).
+  cnpjEncrypted String? @map("cnpj_encrypted")
+
+  /// Organization correspondente no Clerk. Nulo apenas enquanto `status = PROVISIONING`:
+  /// o tenant é criado localmente antes da chamada ao Clerk, para que a falha dessa
+  /// chamada seja recuperável pelo job de retry (AC-03 de MOD-IDENT-01).
+  clerkOrgId String? @unique @map("clerk_org_id")
+
+  status TenantStatus @default(PROVISIONING)
+  plan   Plan         @default(STARTER)
+
+  trialEndsAt DateTime? @map("trial_ends_at") @db.Timestamptz(6)
+
+  onboardingStep         Int       @default(1) @map("onboarding_step") @db.SmallInt
+  onboardingCompletedAt  DateTime? @map("onboarding_completed_at") @db.Timestamptz(6)
+  onboardingStartedAt    DateTime  @default(now()) @map("onboarding_started_at") @db.Timestamptz(6)
+  /// Etapas puladas pelo admin (AC-03 de MOD-IDENT-02); vai no payload de
+  /// `tenant.onboarding.concluido`.
+  onboardingStepsSkipped Int[]     @default([]) @map("onboarding_steps_skipped")
+
+  /// Chave de idempotência do provisionamento (AC-03 de MOD-IDENT-01).
+  provisioningKey       String  @unique @map("provisioning_key")
+  provisioningAttempts  Int     @default(0) @map("provisioning_attempts") @db.SmallInt
+  provisioningLastError String? @map("provisioning_last_error")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  settings      TenantSettings?
+  memberships   Membership[]
+  invitations   Invitation[]
+  roleOverrides TenantRoleOverride[]
+  dataKey       DataKey?
+
+  @@index([status])
+  @@map("tenants")
+}
+
+/// Configurações operacionais e identidade visual (MOD-IDENT-08).
+model TenantSettings {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  timezone String @default("America/Sao_Paulo")
+
+  /// Decisão de negócio: 24 horas de antecedência para cancelamento sem no-show.
+  cancellationWindowHours Int @default(24) @map("cancellation_window_hours") @db.SmallInt
+  noShowFeePercent        Int @default(0) @map("no_show_fee_percent") @db.SmallInt
+  minBookingNoticeHours   Int @default(2) @map("min_booking_notice_hours") @db.SmallInt
+
+  allowOverbooking     Boolean @default(false) @map("allow_overbooking")
+  onlineBookingEnabled Boolean @default(true) @map("online_booking_enabled")
+
+  /// `{ logoUrl, primaryColor, secondaryColor }`
+  branding Json
+  /// Grade semanal: `{ monday: { closed, opensAt, closesAt }, ... }`
+  businessHours Json @map("business_hours")
+
+  /// Decisão de negócio: cada tenant conecta o próprio número via BSP oficial.
+  whatsappProvisioning WhatsappProvisioning @default(OWN_NUMBER) @map("whatsapp_provisioning")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings")
+}
+
+/// Espelho local do usuário do Clerk. Tabela GLOBAL: um usuário pode pertencer a
+/// N tenants (RN-01), então não tem `tenant_id` e não tem RLS.
+model User {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerkUserId String @unique @map("clerk_user_id")
+
+  /// PII cifrada. A busca usa `emailHash`, nunca LIKE sobre o texto cifrado.
+  emailEncrypted String  @map("email_encrypted")
+  emailHash      String  @unique @map("email_hash")
+  fullName       String  @map("full_name") @db.VarChar(120)
+  phoneEncrypted String? @map("phone_encrypted")
+  avatarUrl      String? @map("avatar_url")
+
+  mfaEnabled Boolean    @default(false) @map("mfa_enabled")
+  status     UserStatus @default(ACTIVE)
+
+  /// RN-09: só aplica webhook do Clerk cujo `updated_at` seja posterior a este valor.
+  clerkSyncedAt DateTime? @map("clerk_synced_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  memberships Membership[]
+
+  @@map("users")
+}
+
+/// Vínculo usuário ↔ tenant com papel (MOD-IDENT-05).
+model Membership {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  userId   String @map("user_id") @db.Uuid
+  roleKey  String @map("role_key")
+
+  status         MembershipStatus @default(ACTIVE)
+  /// RN-06: papéis operacionais têm espelho em `professionals` (MOD-AGENDA).
+  isProfessional Boolean          @default(false) @map("is_professional")
+
+  /// RN-03: incrementa a cada troca de papel. O gateway compara com o claim
+  /// `permVersion` do token e força refresh na divergência.
+  permVersion Int @default(1) @map("perm_version")
+
+  invitedBy String?  @map("invited_by") @db.Uuid
+  joinedAt  DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleKey], references: [key])
+
+  @@index([userId])
+  @@index([tenantId, roleKey])
+  @@map("memberships")
+}
+
+/// Papéis de sistema. Global, sem `tenant_id` — o tenant ajusta permissões via
+/// `TenantRoleOverride`, não criando papéis próprios (questão 2 do PRD §11).
+model Role {
+  key      String  @id
+  label    String
+  isSystem Boolean @default(true) @map("is_system")
+
+  permissions RolePermission[]
+  memberships Membership[]
+
+  @@map("roles")
+}
+
+/// Permissão granular no formato `recurso:acao`.
+model Permission {
+  key         String @id
+  description String
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleKey       String @map("role_key")
+  permissionKey String @map("permission_key")
+
+  role       Role       @relation(fields: [roleKey], references: [key], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleKey, permissionKey])
+  @@map("role_permissions")
+}
+
+/// Ajuste da matriz padrão por tenant: `granted = false` revoga, `true` concede.
+model TenantRoleOverride {
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String  @map("tenant_id") @db.Uuid
+  roleKey       String  @map("role_key")
+  permissionKey String  @map("permission_key")
+  granted       Boolean
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, roleKey, permissionKey])
+  @@map("tenant_role_overrides")
+}
+
+/// MOD-IDENT-06 — tabela criada nesta fase para fixar o modelo e a política RLS.
+/// Os endpoints de convite ainda não existem.
+model Invitation {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  emailEncrypted String @map("email_encrypted")
+  emailHash      String @map("email_hash")
+  roleKey        String @map("role_key")
+
+  /// SHA-256 do token; o token cru nunca é persistido.
+  tokenHash String           @map("token_hash")
+  status    InvitationStatus @default(PENDING)
+  expiresAt DateTime         @map("expires_at") @db.Timestamptz(6)
+
+  invitedBy  String?   @map("invited_by") @db.Uuid
+  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
+}
+
+/// MOD-IDENT-09 — append-only. `UPDATE` e `DELETE` são bloqueados por trigger
+/// e por REVOKE na migration de RLS.
+model AuditLog {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  /// Nulo em ações de plataforma — visíveis apenas pela role `app_maintenance`.
+  tenantId    String? @map("tenant_id") @db.Uuid
+  actorUserId String? @map("actor_user_id") @db.Uuid
+
+  action   String
+  entity   String
+  entityId String?      @map("entity_id")
+  before   Json?
+  after    Json?
+  outcome  AuditOutcome @default(ALLOWED)
+
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([entity, entityId, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+/// Eventos de segurança (MOD-SEC). Criado aqui porque MOD-IDENT-07 AC-02 exige
+/// registrar `CROSS_TENANT_ATTEMPT`.
+model SecurityEvent {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  tenantId    String?           @map("tenant_id") @db.Uuid
+  type        SecurityEventType
+  actorUserId String?           @map("actor_user_id") @db.Uuid
+
+  targetEntity String? @map("target_entity")
+  targetId     String? @map("target_id")
+
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent")
+  metadata  Json?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([type, createdAt(sort: Desc)])
+  @@map("security_events")
+}
+
+/// DEK por tenant, cifrada pela KEK mestra (envelope encryption, PRD §4).
+/// A chave de plataforma — usada por `users`, que é tabela global — não fica aqui:
+/// é derivada da KEK por HKDF, ver `src/crypto.ts`.
+model DataKey {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @unique @map("tenant_id") @db.Uuid
+
+  /// DEK cifrada pela KEK, no mesmo formato `v1:<iv>:<tag>:<ct>`.
+  encryptedDek String @map("encrypted_dek")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("data_keys")
+}

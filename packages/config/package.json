@@ -1,0 +1,10 @@
+{
+  "name": "@petshop/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint": "./eslint.config.js",
+    "./vitest": "./vitest.base.ts"
+  }
+}

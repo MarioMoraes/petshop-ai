@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design System — SprintForge</title>
+
+  <!-- Mesmos assets do original (template dentro do srcdoc de index.html) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Inter (variable) + Instrument Serif — cópias locais capturadas em assets/fonts -->
+  <link rel="stylesheet" href="assets/css/css2_2b566c70.css">
+
+  <!-- <style> do original, reproduzido sem alteração -->
+  <style>
+    h1,h2,h3{letter-spacing:-0.035em}
+    .font-serif-accent{font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-style:italic;letter-spacing:-0.01em}
+    .wchar{display:inline-block;font-variation-settings:'wght' 600;transition:font-variation-settings .15s linear;will-change:font-variation-settings}
+  </style>
+
+  <!-- Adicional exclusivo desta documentação: loops de demonstração da galeria de motion.
+       Reproduz as MESMAS transições do original em animation-iteration-count:infinite. -->
+  <style>
+    @keyframes ds-rise{0%,12%{opacity:0;transform:translateY(1rem)}45%,88%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(1rem)}}
+    @keyframes ds-drift{0%{transform:translateY(0) rotate(6deg)}50%{transform:translateY(-6px) rotate(8deg)}100%{transform:translateY(0) rotate(6deg)}}
+    @keyframes ds-lift{0%,20%{transform:translateY(0);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 14px 30px -18px rgba(35,36,39,.25)}55%,80%{transform:translateY(-.25rem);box-shadow:0 24px 44px -18px rgba(35,36,39,.3)}100%{transform:translateY(0);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 14px 30px -18px rgba(35,36,39,.25)}}
+    @keyframes ds-arrow{0%,25%{opacity:0;margin-left:-1rem}55%,80%{opacity:1;margin-left:0}100%{opacity:0;margin-left:-1rem}}
+    @keyframes ds-bloom{0%{transform:translate(-24px,-24px)}50%{transform:translate(24px,24px)}100%{transform:translate(-24px,-24px)}}
+    @keyframes ds-wght{0%,100%{font-variation-settings:'wght' 300}50%{font-variation-settings:'wght' 900}}
+    @keyframes ds-navshadow{0%,40%{box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 10px 30px -14px rgba(35,36,39,.25)}60%,100%{box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 18px 44px -14px rgba(35,36,39,.4)}}
+    .demo-rise{animation:ds-rise 2.6s cubic-bezier(0,0,.2,1) infinite}
+    .demo-drift{animation:ds-drift 2.4s ease-in-out infinite}
+    .demo-lift{animation:ds-lift 3s cubic-bezier(0,0,.2,1) infinite}
+    .demo-arrow{animation:ds-arrow 2.6s cubic-bezier(0,0,.2,1) infinite}
+    .demo-bloom{animation:ds-bloom 6s ease-in-out infinite}
+    .demo-wght{animation:ds-wght 2.2s linear infinite}
+    .demo-navshadow{animation:ds-navshadow 3.4s cubic-bezier(0,0,.2,1) infinite}
+    .spec{font-family:'Inter',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+    @media (prefers-reduced-motion:reduce){[class^="demo-"]{animation:none!important}}
+  </style>
+</head>
+<body class="bg-[#ecedee] text-[#232427] antialiased" style="font-family:'Inter',sans-serif">
+
+<!-- ══════════════════ NAV FIXO (classes do nav flutuante original) ══════════════════ -->
+<div class="flex justify-center px-3 pt-4 sm:pt-6" style="position:fixed;top:0;left:0;right:0;z-index:9999;">
+  <nav id="nav" class="flex w-full max-w-[880px] items-center justify-between rounded-full border border-white bg-white/80 py-2.5 pl-5 pr-2.5 backdrop-blur-xl transition-shadow duration-500 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_10px_30px_-14px_rgba(35,36,39,0.25)]">
+    <a href="#hero" class="flex items-center gap-2.5">
+      <span class="relative flex h-6 w-9 items-center">
+        <span class="absolute left-0 h-6 w-6 rounded-full bg-[#171719]"></span>
+        <span class="absolute left-3.5 h-6 w-6 rounded-full bg-[#e34a32]"></span>
+      </span>
+      <span class="font-semibold">SprintForge DS</span>
+    </a>
+    <div class="hidden md:flex items-center gap-1 text-sm font-medium text-[#4b4d52]">
+      <a href="#tipografia" class="rounded-full px-3.5 py-2 hover:bg-black/5 transition">Tipografia</a>
+      <a href="#cores" class="rounded-full px-3.5 py-2 hover:bg-black/5 transition">Cores</a>
+      <a href="#componentes" class="rounded-full px-3.5 py-2 hover:bg-black/5 transition">Componentes</a>
+      <a href="#layout" class="rounded-full px-3.5 py-2 hover:bg-black/5 transition">Layout</a>
+      <a href="#motion" class="rounded-full px-3.5 py-2 hover:bg-black/5 transition">Motion</a>
+      <a href="#iconografia" class="rounded-full px-3.5 py-2 hover:bg-black/5 transition">Ícones</a>
+    </div>
+    <a href="#tipografia" class="group hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[#171719] px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_10px_22px_-10px_rgba(23,23,25,0.7)] hover:shadow-[0_1px_0_rgba(255,255,255,0.3)_inset,0_16px_28px_-10px_rgba(23,23,25,0.8)]">
+      Explorar
+      <i data-lucide="arrow-right" class="h-4 w-4 opacity-0 -ml-4 transition-all duration-300 group-hover:opacity-100 group-hover:ml-0" stroke-width="1.5"></i>
+    </a>
+  </nav>
+</div>
+
+<!-- ══════════════════ PAGE SHELL ══════════════════ -->
+<div class="max-w-[1400px] mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
+
+  <!-- ════════ SEÇÃO 0 · HERO (clone adaptado) ════════ -->
+  <section id="hero" class="relative overflow-hidden rounded-[28px] sm:rounded-[40px] bg-[#f4f5f5] shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_60px_-30px_rgba(35,36,39,0.25)] min-h-[100svh] flex flex-col">
+
+    <canvas id="meshGL" class="pointer-events-none absolute inset-0 z-0 h-full w-full opacity-70"></canvas>
+
+    <!-- Atmosfera: três blooms radiais, o primeiro com parallax de ponteiro -->
+    <div id="bloom" class="pointer-events-none absolute -right-40 top-0 h-[720px] w-[720px] rounded-full opacity-70 blur-3xl transition-transform duration-700 ease-out" style="background:radial-gradient(circle at 55% 45%, rgba(227,74,50,0.55), rgba(240,120,70,0.28) 40%, rgba(244,245,245,0) 70%)"></div>
+    <div class="pointer-events-none absolute -left-52 top-24 h-[640px] w-[640px] rounded-full opacity-60 blur-3xl" style="background:radial-gradient(circle at 50% 50%, rgba(46,48,52,0.35), rgba(120,124,130,0.15) 72%)"></div>
+    <div class="pointer-events-none absolute right-1 -bottom-40 h-[420px] w-[560px] rounded-full opacity-40 blur-3xl" style="background:radial-gradient(circle at 50% 50%, rgba(227,74,50,0.25), rgba(244,245,245,0) 70%)"></div>
+
+    <!-- Conteúdo -->
+    <div class="relative z-10 mx-auto max-w-5xl px-6 pb-28 pt-28 sm:pt-36 lg:pb-36 flex flex-1 flex-col items-center justify-center text-center">
+
+      <!-- Badge -->
+      <span data-rise class="opacity-0 translate-y-4 transition-all duration-700 ease-out inline-flex items-center gap-2 rounded-full border border-white bg-white/70 px-4 py-2 text-xs font-semibold text-[#e34a32] backdrop-blur shadow-[0_6px_16px_-8px_rgba(35,36,39,0.25)]">
+        <i data-lucide="palette" class="h-4 w-4" stroke-width="1.5"></i>
+        Design System · Referência de saída
+      </span>
+
+      <!-- Headline + tiles flutuantes -->
+      <div class="relative mt-7">
+        <h1 data-rise class="opacity-0 translate-y-4 transition-all duration-700 delay-150 ease-out text-5xl font-semibold leading-[1.02] text-[#2e3034] sm:text-7xl lg:text-8xl">
+          Um sistema
+          <br>
+          <span class="relative inline-block font-serif-accent">
+            visual único
+            <span class="absolute -right-6 top-1 hidden h-16 w-40 -translate-y-1 translate-x-full rounded-full bg-gradient-to-br from-[#f05a3c] to-[#c93a24] opacity-90 blur-[1px] lg:block shadow-[0_20px_40px_-14px_rgba(227,74,50,0.6)]"></span>
+          </span>
+        </h1>
+
+        <div data-drift class="opacity-0 absolute -right-8 -top-10 hidden rotate-6 h-16 w-16 rounded-2xl border border-white bg-white p-3 shadow-[0_18px_35px_-14px_rgba(35,36,39,0.35)] lg:flex items-center justify-center transition-opacity duration-700">
+          <span class="flex h-full w-full items-center justify-center rounded-xl bg-emerald-500 text-white">
+            <i data-lucide="type" class="h-5 w-5" stroke-width="1.5"></i>
+          </span>
+        </div>
+        <div data-drift class="opacity-0 absolute -right-24 top-16 hidden -rotate-6 h-16 w-16 rounded-2xl border border-white bg-white p-3 shadow-[0_18px_35px_-14px_rgba(35,36,39,0.35)] lg:flex items-center justify-center transition-opacity duration-700">
+          <span class="flex h-full w-full items-center justify-center rounded-xl bg-blue-600 text-white">
+            <i data-lucide="layout-grid" class="h-5 w-5" stroke-width="1.5"></i>
+          </span>
+        </div>
+        <div data-drift class="opacity-0 absolute -bottom-14 right-6 hidden rotate-3 h-16 w-16 rounded-2xl border border-white bg-white p-3 shadow-[0_18px_35px_-14px_rgba(35,36,39,0.35)] lg:flex items-center justify-center transition-opacity duration-700">
+          <span class="flex h-full w-full items-center justify-center rounded-xl bg-[#f7f7f5] text-[#e34a32]">
+            <i data-lucide="sparkles" class="h-5 w-5" stroke-width="1.5"></i>
+          </span>
+        </div>
+      </div>
+
+      <!-- Parágrafo -->
+      <p data-rise class="opacity-0 translate-y-4 transition-all duration-700 delay-300 ease-out mt-10 max-w-xl text-lg leading-relaxed text-[#55575c]">
+        Cores, tipografia, componentes, layout e movimento extraídos da referência — o padrão de saída para tudo que o sistema gerar.
+      </p>
+
+      <!-- CTAs -->
+      <div data-rise class="opacity-0 translate-y-4 transition-all duration-700 delay-500 ease-out mt-9 flex flex-col items-center gap-3 sm:flex-row">
+        <a href="#tipografia" class="group inline-flex items-center gap-2 rounded-full bg-[#171719] px-7 py-3.5 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_14px_28px_-12px_rgba(23,23,25,0.75)] hover:shadow-[0_1px_0_rgba(255,255,255,0.3)_inset,0_20px_34px_-12px_rgba(23,23,25,0.85)]">
+          Explorar tokens
+          <i data-lucide="arrow-right" class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" stroke-width="1.5"></i>
+        </a>
+        <a href="#componentes" class="inline-flex items-center gap-2 rounded-full border border-white bg-white px-7 py-3.5 text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_10px_22px_-12px_rgba(35,36,39,0.3)] hover:shadow-[0_16px_30px_-12px_rgba(35,36,39,0.35)]">
+          Ver componentes
+        </a>
+      </div>
+
+      <!-- Trust row -->
+      <div data-rise class="opacity-0 translate-y-4 transition-all duration-700 delay-700 ease-out mt-14">
+        <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Camadas documentadas</p>
+        <div class="mt-4 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-lg">
+          <span class="opacity-60">Tipografia</span>
+          <span class="opacity-60">Cores</span>
+          <span class="opacity-60">Componentes</span>
+          <span class="opacity-60">Layout</span>
+          <span class="opacity-60">Motion</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chip de preview -->
+    <div class="absolute bottom-6 right-6 z-20 hidden items-center gap-3 rounded-full border border-white bg-white/80 p-2.5 pr-4 backdrop-blur shadow-[0_14px_30px_-14px_rgba(35,36,39,0.35)] lg:flex">
+      <span class="flex h-10 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#2e3034] to-[#55575c] text-white">
+        <i data-lucide="layout-grid" class="h-4 w-4" stroke-width="1.5"></i>
+      </span>
+      <span class="text-left leading-tight">
+        <span class="block text-sm font-semibold">6 seções</span>
+        <span class="block text-xs text-[#8a8c91]">Hero → Iconografia</span>
+      </span>
+    </div>
+  </section>
+
+  <!-- ════════ SEÇÃO 1 · TIPOGRAFIA ════════ -->
+  <section id="tipografia" class="px-6 py-24 sm:px-10 lg:px-16 lg:py-32">
+    <p class="text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Tipografia</p>
+    <h2 class="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">Duas vozes, seis degraus.</h2>
+    <p class="mt-5 max-w-xl text-lg leading-relaxed text-[#55575c]">
+      Inter variável carrega toda a estrutura; Instrument Serif itálico entra uma única vez por página, como respiração. O <code class="spec">letter-spacing:-0.035em</code> global em h1/h2/h3 é o que dá a densidade de display — sem ele a escala parece genérica.
+    </p>
+
+    <div class="mt-12 overflow-hidden rounded-[32px] border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-30px_rgba(35,36,39,0.3)]">
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Título 1 · Display</p>
+          <h1 class="mt-3 text-5xl font-semibold leading-[1.02] text-[#2e3034] sm:text-7xl lg:text-8xl">Ship AI products</h1>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">3rem → 4.5rem → 6rem<br>leading 1.02 · tracking −0.035em<br>weight 600 · #2e3034</p>
+      </div>
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Título 1 · Acento serif</p>
+          <h1 class="mt-3 font-serif-accent text-5xl leading-[1.02] text-[#2e3034] sm:text-7xl lg:text-8xl">in weeks</h1>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">Instrument Serif · italic 400<br>tracking −0.01em<br>classe <code>.font-serif-accent</code></p>
+      </div>
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Título 2 · Seção</p>
+          <h2 class="mt-3 text-4xl font-semibold leading-tight sm:text-5xl">What we build in a sprint.</h2>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">2.25rem → 3rem<br>leading 1.25 · tracking −0.035em<br>weight 600</p>
+      </div>
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Título 3 · Card destaque</p>
+          <h3 class="mt-3 text-2xl font-semibold sm:text-3xl">Full-cycle delivery</h3>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">1.5rem → 1.875rem<br>weight 600 · tracking −0.035em</p>
+      </div>
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Título 4 · Card padrão</p>
+          <h3 class="mt-3 text-lg font-semibold">AI Workflow Prototype</h3>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">1.125rem / 1.75rem<br>weight 600</p>
+      </div>
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Eyebrow · Acento</p>
+          <p class="mt-3 text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Services</p>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">0.75rem / 1rem<br>weight 600 · tracking 0.1em<br>#e34a32</p>
+      </div>
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Eyebrow · Neutro</p>
+          <p class="mt-3 text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Trusted by product teams at</p>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">0.75rem / 1rem<br>weight 600 · tracking 0.1em<br>#8a8c91</p>
+      </div>
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Parágrafo · Lead</p>
+          <p class="mt-3 max-w-xl text-lg leading-relaxed text-[#55575c]">We embed with your team to scope, build, and launch AI features that make it past the demo.</p>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">1.125rem / 1.625<br>weight 400 · #55575c<br>measure max-w-xl (~36rem)</p>
+      </div>
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Parágrafo · Corpo</p>
+          <p class="mt-3 max-w-md text-sm leading-relaxed text-[#55575c]">A clickable, model-connected prototype of your core workflow, ready for stakeholder testing.</p>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">0.875rem / 1.625<br>weight 400 · #55575c</p>
+      </div>
+
+      <div class="flex flex-col gap-4 border-b border-black/5 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Negrito M · Preço</p>
+          <p class="mt-3 text-4xl font-semibold">$28k</p>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">2.25rem / 2.5rem · weight 600</p>
+      </div>
+
+      <div class="flex flex-col gap-4 p-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Micro · Selo</p>
+          <p class="mt-3"><span class="inline-flex items-center gap-2 rounded-full bg-[#f7f7f5] px-3 py-1.5 text-xs text-[#55575c]"><i data-lucide="clock" class="h-3.5 w-3.5" stroke-width="1.5"></i> Ships in 10 days</span> <span class="ml-2 rounded-full bg-white/10 px-3 py-1 text-[10px] uppercase tracking-widest">Overlay</span></p>
+        </div>
+        <p class="spec shrink-0 text-sm text-[#8a8c91] sm:text-right">0.75rem · 0.625rem (overlay)</p>
+      </div>
+    </div>
+
+    <div class="mt-8 rounded-[26px] border border-white bg-[#f7f7f5] p-7">
+      <p class="text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Nota de escala</p>
+      <p class="mt-3 max-w-3xl text-sm leading-relaxed text-[#55575c]">
+        A rampa usada é <span class="spec">0.75 · 0.875 · 1 · 1.125 · 1.5 · 1.875 · 2.25 · 3 · 3.75 · 4.5 · 6rem</span> — razão ≈ 1.125–1.25 na faixa de texto (perto do Major Third) e ≈ 1.25 fixo nos degraus de display. Não é uma escala modular pura: os degraus de texto são deliberadamente comprimidos para caberem em cards densos, e a expansão só acontece a partir de <span class="spec">2.25rem</span>. O que sustenta a hierarquia não é a razão, é o par <em>tracking negativo + peso 600</em>: em qualquer tamanho acima de 1.5rem o título já lê como display, mesmo sem ganhar corpo. Só seis degraus aparecem de fato na página inteira — restrição, não pobreza.
+      </p>
+      <p class="mt-4 max-w-3xl text-sm leading-relaxed text-[#55575c]">
+        O serif itálico não é decoração: ele cria tensão editorial contra uma grotesca neutra e marca a única palavra que carrega a promessa do produto. Usado uma segunda vez, vira maneirismo.
+      </p>
+    </div>
+  </section>
+
+  <!-- ════════ SEÇÃO 2 · CORES E SUPERFÍCIES ════════ -->
+  <section id="cores" class="px-6 pb-24 sm:px-10 lg:px-16 lg:pb-32">
+    <p class="text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Cores e superfícies</p>
+    <h2 class="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">Neutros frios, um único acento quente.</h2>
+    <p class="mt-5 max-w-xl text-lg leading-relaxed text-[#55575c]">
+      A paleta é quase monocromática: uma rampa de cinzas levemente azulados e um vermelho-terracota isolado. Sem cor secundária, sem paleta de apoio — o contraste vem de luminosidade e de sombra, não de matiz.
+    </p>
+
+    <!-- Tinta -->
+    <h3 class="mt-14 text-lg font-semibold">Tinta · texto</h3>
+    <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-12 rounded-2xl bg-[#232427]"></span>
+        <p class="mt-4 text-lg font-semibold">Base</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#232427 · <code>text-[#232427]</code></p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Cor do <code class="spec">body</code>. Nunca preto puro — 8% de luminosidade a mais tira a dureza sem perder contraste AAA.</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-12 rounded-2xl bg-[#2e3034]"></span>
+        <p class="mt-4 text-lg font-semibold">Headline</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#2e3034 · <code>text-[#2e3034]</code></p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Um degrau <em>mais claro</em> que o corpo. Títulos grandes com peso 600 já pesam demais; clarear compensa a massa ótica.</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-12 rounded-2xl bg-[#55575c]"></span>
+        <p class="mt-4 text-lg font-semibold">Secundário</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#55575c · <code>text-[#55575c]</code></p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Todo corpo de texto de apoio. ~7:1 sobre branco — AAA.</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-12 rounded-2xl bg-[#4b4d52]"></span>
+        <p class="mt-4 text-lg font-semibold">Nav</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#4b4d52 · <code>text-[#4b4d52]</code></p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Exclusivo dos links da navegação.</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-12 rounded-2xl bg-[#8a8c91]"></span>
+        <p class="mt-4 text-lg font-semibold">Mudo</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#8a8c91 · <code>text-[#8a8c91]</code></p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Eyebrows neutras, legendas, placeholders. ~3.2:1 — só para texto ≥ 0.75rem com peso 600.</p>
+      </div>
+    </div>
+
+    <!-- Superfícies claras -->
+    <h3 class="mt-14 text-lg font-semibold">Superfícies claras</h3>
+    <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-full rounded-2xl border border-black/5 bg-white"></span>
+        <p class="mt-4 font-semibold">Branco</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#ffffff · <code>bg-white</code></p>
+        <p class="mt-2 text-sm text-[#55575c]">Cards, nav, botão fantasma.</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-full rounded-2xl bg-[#f7f7f5]"></span>
+        <p class="mt-4 font-semibold">Areia</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#f7f7f5 · <code>bg-[#f7f7f5]</code></p>
+        <p class="mt-2 text-sm text-[#55575c]">Selos e tiles. Único neutro <em>quente</em> da paleta clara.</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-full rounded-2xl bg-[#f4f5f5]"></span>
+        <p class="mt-4 font-semibold">Shell</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#f4f5f5 · <code>bg-[#f4f5f5]</code></p>
+        <p class="mt-2 text-sm text-[#55575c]">Fundo do hero e das seções-cartão.</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-full rounded-2xl bg-[#ecedee]"></span>
+        <p class="mt-4 font-semibold">Página</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#ecedee · <code>bg-[#ecedee]</code></p>
+        <p class="mt-2 text-sm text-[#55575c]">A camada mais funda. É ela que faz os cartões arredondados <em>flutuarem</em>.</p>
+      </div>
+    </div>
+
+    <!-- Superfícies escuras -->
+    <h3 class="mt-14 text-lg font-semibold">Superfícies escuras</h3>
+    <div class="mt-5 rounded-[36px] bg-[#171719] p-4 sm:p-5 shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_30px_60px_-30px_rgba(23,23,25,0.8)]">
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="rounded-3xl bg-[#202024] p-7">
+          <span class="block h-10 w-full rounded-xl bg-[#202024] ring-1 ring-white/10"></span>
+          <p class="mt-4 font-semibold text-white">Painel</p>
+          <p class="spec mt-1 text-sm text-white/55">#202024 · <code>bg-[#202024]</code></p>
+        </div>
+        <div class="rounded-3xl bg-[#26262b] p-7">
+          <span class="block h-10 w-full rounded-xl bg-[#26262b] ring-1 ring-white/10"></span>
+          <p class="mt-4 font-semibold text-white">Slot</p>
+          <p class="spec mt-1 text-sm text-white/55">#26262b · <code>bg-[#26262b]</code></p>
+        </div>
+        <div class="rounded-3xl bg-[#2c2c31] p-7">
+          <span class="block h-10 w-full rounded-xl bg-[#2c2c31] ring-1 ring-white/10"></span>
+          <p class="mt-4 font-semibold text-white">Card</p>
+          <p class="spec mt-1 text-sm text-white/55">#2c2c31 · <code>bg-[#2c2c31]</code></p>
+        </div>
+      </div>
+      <p class="mt-5 px-7 pb-3 max-w-2xl text-sm leading-relaxed text-white/55">
+        Quatro degraus dentro de 10 pontos de luminosidade (<span class="spec">#171719 → #202024 → #26262b → #2c2c31 → #34343a</span>). Espaçamento assim apertado só funciona porque a separação real vem das sombras internas e do <span class="spec">rgba(255,255,255,0.08) inset</span> — a borda de 1px de luz que dá a cada painel a aparência de superfície física, não de retângulo pintado.
+      </p>
+    </div>
+
+    <!-- Acento -->
+    <h3 class="mt-14 text-lg font-semibold">Acento</h3>
+    <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-full rounded-2xl bg-[#e34a32]"></span>
+        <p class="mt-4 font-semibold">Primário</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#e34a32 · <code>bg-[#e34a32]</code></p>
+        <p class="mt-2 text-sm text-[#55575c]">Eyebrows, ícones de lista, marca. Também é a cor do material 3D no hero.</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-full rounded-2xl bg-[#f05a3c]"></span>
+        <p class="mt-4 font-semibold">Realce</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#f05a3c · <code>bg-[#f05a3c]</code></p>
+        <p class="mt-2 text-sm text-[#55575c]">Topo dos gradientes e acento sobre fundo escuro.</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-12 w-full rounded-2xl bg-[#c93a24]"></span>
+        <p class="mt-4 font-semibold">Sombra</p>
+        <p class="spec mt-1 text-sm text-[#55575c]">#c93a24 · <code>to-[#c93a24]</code></p>
+        <p class="mt-2 text-sm text-[#55575c]">Só existe como fim de gradiente. Nunca sólido.</p>
+      </div>
+    </div>
+
+    <div class="mt-5 grid gap-5 sm:grid-cols-2">
+      <div class="overflow-hidden rounded-3xl border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-24 w-full bg-gradient-to-br from-[#f05a3c] to-[#c93a24]"></span>
+        <div class="p-7">
+          <p class="font-semibold">Gradiente de acento</p>
+          <p class="spec mt-1 text-sm text-[#55575c]"><code>bg-gradient-to-br from-[#f05a3c] to-[#c93a24]</code></p>
+          <p class="mt-2 text-sm text-[#55575c]">Pílula do hero, barra de estatística, ícone de destaque. Amplitude de matiz mínima (16°) — lê como luz sobre uma superfície, não como gradiente.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-3xl border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="block h-24 w-full bg-gradient-to-br from-[#2e3034] to-[#55575c]"></span>
+        <div class="p-7">
+          <p class="font-semibold">Gradiente neutro</p>
+          <p class="spec mt-1 text-sm text-[#55575c]"><code>bg-gradient-to-br from-[#2e3034] to-[#55575c]</code></p>
+          <p class="mt-2 text-sm text-[#55575c]">Miniaturas e avatares dentro de chips claros.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Atmosfera -->
+    <h3 class="mt-14 text-lg font-semibold">Blooms atmosféricos</h3>
+    <div class="mt-5 relative h-64 overflow-hidden rounded-[32px] bg-[#f4f5f5] border border-white">
+      <div class="absolute -right-20 -top-24 h-[360px] w-[360px] rounded-full opacity-70 blur-3xl" style="background:radial-gradient(circle at 55% 45%, rgba(227,74,50,0.55), rgba(240,120,70,0.28) 40%, rgba(244,245,245,0) 70%)"></div>
+      <div class="absolute -left-24 top-6 h-[320px] w-[320px] rounded-full opacity-60 blur-3xl" style="background:radial-gradient(circle at 50% 50%, rgba(46,48,52,0.35), rgba(120,124,130,0.15) 72%)"></div>
+      <div class="absolute right-10 -bottom-24 h-[210px] w-[280px] rounded-full opacity-40 blur-3xl" style="background:radial-gradient(circle at 50% 50%, rgba(227,74,50,0.25), rgba(244,245,245,0) 70%)"></div>
+    </div>
+    <p class="mt-4 max-w-3xl text-sm leading-relaxed text-[#55575c]">
+      Três <code class="spec">radial-gradient</code> em <code class="spec">blur-3xl</code>, cada um terminando em <code class="spec">rgba(244,245,245,0)</code> — a cor do próprio shell com alpha zero, e não <code class="spec">transparent</code>. É o detalhe que evita a franja acinzentada que aparece quando o navegador interpola em direção a preto transparente. O bloom quente e o frio ficam em cantos opostos: o calor puxa o olho para a direita, onde vive a geometria 3D.
+    </p>
+
+    <!-- Sombras -->
+    <h3 class="mt-14 text-lg font-semibold">Elevação</h3>
+    <p class="mt-3 max-w-3xl text-sm leading-relaxed text-[#55575c]">
+      Toda sombra da página segue a mesma fórmula de duas camadas: <strong>uma linha de luz de 1px por dentro</strong> + <strong>uma queda difusa com spread negativo</strong>. O spread negativo (<code class="spec">-14px</code>, <code class="spec">-30px</code>) puxa a sombra para debaixo do elemento, então ela nunca vaza pelas laterais — é o que faz um cartão parecer pousado, não recortado.
+    </p>
+    <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_10px_30px_-14px_rgba(35,36,39,0.25)]">
+        <p class="font-semibold">Nav</p>
+        <p class="spec mt-2 break-all text-xs text-[#55575c]">0 1px 0 rgba(255,255,255,.9) inset,<br>0 10px 30px -14px rgba(35,36,39,.25)</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <p class="font-semibold">Card</p>
+        <p class="spec mt-2 break-all text-xs text-[#55575c]">0 1px 0 rgba(255,255,255,.9) inset,<br>0 14px 30px -18px rgba(35,36,39,.25)</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_24px_44px_-18px_rgba(35,36,39,0.3)]">
+        <p class="font-semibold">Card · hover</p>
+        <p class="spec mt-2 break-all text-xs text-[#55575c]">0 24px 44px -18px rgba(35,36,39,.3)</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_60px_-30px_rgba(35,36,39,0.25)]">
+        <p class="font-semibold">Shell de seção</p>
+        <p class="spec mt-2 break-all text-xs text-[#55575c]">0 1px 0 rgba(255,255,255,.9) inset,<br>0 20px 60px -30px rgba(35,36,39,.25)</p>
+      </div>
+      <div class="rounded-3xl bg-[#171719] p-7 shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_30px_60px_-30px_rgba(23,23,25,0.8)]">
+        <p class="font-semibold text-white">Shell escuro</p>
+        <p class="spec mt-2 break-all text-xs text-white/55">0 1px 0 rgba(255,255,255,.08) inset,<br>0 30px 60px -30px rgba(23,23,25,.8)</p>
+      </div>
+      <div class="rounded-3xl bg-[#e34a32] p-7 shadow-[0_12px_24px_-8px_rgba(227,74,50,0.8)]">
+        <p class="font-semibold text-white">Glow de acento</p>
+        <p class="spec mt-2 break-all text-xs text-white/80">0 12px 24px -8px rgba(227,74,50,.8)</p>
+      </div>
+    </div>
+    <p class="mt-4 max-w-3xl text-sm leading-relaxed text-[#55575c]">
+      Note que o inset muda de valor conforme o fundo: <code class="spec">rgba(255,255,255,0.9)</code> sobre claro, <code class="spec">0.25</code> em botões escuros, <code class="spec">0.08</code> em painéis pretos. É a mesma ideia física — luz caindo de cima — recalibrada para cada superfície.
+    </p>
+  </section>
+
+  <!-- ════════ SEÇÃO 3 · COMPONENTES ════════ -->
+  <section id="componentes" class="px-6 pb-24 sm:px-10 lg:px-16 lg:pb-32">
+    <p class="text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Componentes</p>
+    <h2 class="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">Tudo é uma pílula ou um cartão.</h2>
+    <p class="mt-5 max-w-xl text-lg leading-relaxed text-[#55575c]">
+      Só existem duas famílias de forma: <code class="spec">rounded-full</code> para o que se clica e <code class="spec">rounded-3xl</code>/<code class="spec">[26–40px]</code> para o que se lê. Nenhum canto vivo em toda a página.
+    </p>
+
+    <!-- Botões -->
+    <h3 class="mt-14 text-lg font-semibold">Botões</h3>
+    <div class="mt-5 rounded-[32px] border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-30px_rgba(35,36,39,0.3)]">
+      <div class="grid gap-8 lg:grid-cols-3">
+
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Primário · sólido</p>
+          <div class="mt-4 flex flex-col items-start gap-4">
+            <a href="#componentes" class="group inline-flex items-center gap-2 rounded-full bg-[#171719] px-7 py-3.5 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_14px_28px_-12px_rgba(23,23,25,0.75)] hover:shadow-[0_1px_0_rgba(255,255,255,0.3)_inset,0_20px_34px_-12px_rgba(23,23,25,0.85)]">
+              Padrão
+              <i data-lucide="arrow-right" class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" stroke-width="1.5"></i>
+            </a>
+            <span class="inline-flex items-center gap-2 rounded-full bg-[#171719] px-7 py-3.5 text-sm font-medium text-white -translate-y-0.5 shadow-[0_1px_0_rgba(255,255,255,0.3)_inset,0_20px_34px_-12px_rgba(23,23,25,0.85)]">
+              Hover <i data-lucide="arrow-right" class="h-4 w-4 translate-x-0.5" stroke-width="1.5"></i>
+            </span>
+            <span class="inline-flex items-center gap-2 rounded-full bg-[#171719] px-7 py-3.5 text-sm font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_4px_10px_-6px_rgba(23,23,25,0.75)]">
+              Active <i data-lucide="arrow-right" class="h-4 w-4" stroke-width="1.5"></i>
+            </span>
+            <span class="inline-flex items-center gap-2 rounded-full bg-[#171719] px-7 py-3.5 text-sm font-medium text-white ring-2 ring-[#e34a32] ring-offset-2 shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_14px_28px_-12px_rgba(23,23,25,0.75)]">
+              Focus <i data-lucide="arrow-right" class="h-4 w-4" stroke-width="1.5"></i>
+            </span>
+            <span class="inline-flex items-center gap-2 rounded-full bg-[#171719] px-7 py-3.5 text-sm font-medium text-white opacity-50">
+              Disabled <i data-lucide="arrow-right" class="h-4 w-4" stroke-width="1.5"></i>
+            </span>
+          </div>
+          <p class="spec mt-5 text-xs leading-relaxed text-[#8a8c91]">px-7 py-3.5 · text-sm/500 · rounded-full<br>transition-all duration-300 · hover:-translate-y-0.5</p>
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Secundário · fantasma</p>
+          <div class="mt-4 flex flex-col items-start gap-4">
+            <a href="#componentes" class="inline-flex items-center gap-2 rounded-full border border-white bg-white px-7 py-3.5 text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_10px_22px_-12px_rgba(35,36,39,0.3)] hover:shadow-[0_16px_30px_-12px_rgba(35,36,39,0.35)]">Padrão</a>
+            <span class="inline-flex items-center gap-2 rounded-full border border-white bg-white px-7 py-3.5 text-sm font-medium -translate-y-0.5 shadow-[0_16px_30px_-12px_rgba(35,36,39,0.35)]">Hover</span>
+            <span class="inline-flex items-center gap-2 rounded-full border border-white bg-white px-7 py-3.5 text-sm font-medium shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_4px_10px_-8px_rgba(35,36,39,0.3)]">Active</span>
+            <span class="inline-flex items-center gap-2 rounded-full border border-white bg-white px-7 py-3.5 text-sm font-medium ring-2 ring-[#e34a32] ring-offset-2 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_10px_22px_-12px_rgba(35,36,39,0.3)]">Focus</span>
+            <span class="inline-flex items-center gap-2 rounded-full border border-white bg-white px-7 py-3.5 text-sm font-medium opacity-50">Disabled</span>
+          </div>
+          <p class="spec mt-5 text-xs leading-relaxed text-[#8a8c91]">border-white · bg-white<br>a borda branca sobre fundo #f4f5f5 é o que define a silhueta</p>
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Compacto e sobre escuro</p>
+          <div class="mt-4 flex flex-col items-start gap-4">
+            <a href="#componentes" class="group inline-flex items-center gap-1.5 rounded-full bg-[#171719] px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_10px_22px_-10px_rgba(23,23,25,0.7)] hover:shadow-[0_1px_0_rgba(255,255,255,0.3)_inset,0_16px_28px_-10px_rgba(23,23,25,0.8)]">
+              Book a Sprint
+              <i data-lucide="arrow-right" class="h-4 w-4 opacity-0 -ml-4 transition-all duration-300 group-hover:opacity-100 group-hover:ml-0" stroke-width="1.5"></i>
+            </a>
+            <span class="inline-flex w-full items-center justify-center rounded-full bg-[#f7f7f5] px-6 py-3 text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 shadow-[0_8px_18px_-10px_rgba(35,36,39,0.3)]">Start a sprint</span>
+            <div class="w-full rounded-2xl bg-[#171719] p-4">
+              <span class="inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-medium text-[#171719] transition-all duration-300 hover:-translate-y-0.5 shadow-[0_14px_28px_-12px_rgba(0,0,0,0.6)]">Sobre escuro</span>
+            </div>
+            <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/5 bg-white shadow-sm">
+              <i data-lucide="menu" class="h-5 w-5" stroke-width="1.5"></i>
+            </button>
+          </div>
+          <p class="spec mt-5 text-xs leading-relaxed text-[#8a8c91]">A seta do botão compacto entra da esquerda:<br>opacity-0 -ml-4 → group-hover:opacity-100 group-hover:ml-0</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Badges e selos -->
+    <h3 class="mt-14 text-lg font-semibold">Badges, selos e chips</h3>
+    <div class="mt-5 rounded-[32px] border border-white bg-[#f4f5f5] p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-30px_rgba(35,36,39,0.3)]">
+      <div class="flex flex-wrap items-center gap-4">
+        <span class="inline-flex items-center gap-2 rounded-full border border-white bg-white/70 px-4 py-2 text-xs font-semibold text-[#e34a32] backdrop-blur shadow-[0_6px_16px_-8px_rgba(35,36,39,0.25)]">
+          <i data-lucide="zap" class="h-4 w-4" stroke-width="1.5"></i> AI-Native Product Studio
+        </span>
+        <span class="inline-flex items-center gap-2 rounded-full bg-[#f7f7f5] px-3 py-1.5 text-xs text-[#55575c]">
+          <i data-lucide="clock" class="h-3.5 w-3.5" stroke-width="1.5"></i> Ships in 10 days
+        </span>
+        <span class="inline-flex items-center gap-2 rounded-full bg-[#e34a32] px-3 py-1 text-xs font-medium text-white">Day 1</span>
+        <span class="inline-flex items-center gap-2 rounded-full border border-[#f05a3c] px-3 py-1 text-xs font-medium text-[#f05a3c]">Outline</span>
+        <span class="inline-flex items-center gap-2 rounded-full bg-[#171719] px-3 py-1 text-[10px] uppercase tracking-widest text-white">Most booked</span>
+      </div>
+      <div class="mt-6 inline-flex items-center gap-3 rounded-full border border-white bg-white/80 p-2.5 pr-4 backdrop-blur shadow-[0_14px_30px_-14px_rgba(35,36,39,0.35)]">
+        <span class="flex h-10 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#2e3034] to-[#55575c] text-white">
+          <i data-lucide="calendar" class="h-4 w-4" stroke-width="1.5"></i>
+        </span>
+        <span class="text-left leading-tight">
+          <span class="block text-sm font-semibold">Next slot</span>
+          <span class="block text-xs text-[#8a8c91]">Opens March 3</span>
+        </span>
+      </div>
+      <p class="spec mt-6 text-xs leading-relaxed text-[#8a8c91]">Badge de hero usa <code>bg-white/70 + backdrop-blur</code> — precisa ficar legível por cima dos blooms em movimento.</p>
+    </div>
+
+    <!-- Cards -->
+    <h3 class="mt-14 text-lg font-semibold">Cards</h3>
+    <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="group rounded-3xl border border-white bg-white p-7 transition-all duration-300 hover:-translate-y-1 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)] hover:shadow-[0_24px_44px_-18px_rgba(35,36,39,0.3)]">
+        <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f7f7f5] text-[#e34a32]">
+          <i data-lucide="workflow" class="h-5 w-5" stroke-width="1.5"></i>
+        </span>
+        <h3 class="mt-5 text-lg font-semibold">AI Workflow Prototype</h3>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">A clickable, model-connected prototype of your core workflow, ready for stakeholder testing.</p>
+        <span class="mt-5 inline-flex items-center gap-2 rounded-full bg-[#f7f7f5] px-3 py-1.5 text-xs text-[#55575c]">
+          <i data-lucide="clock" class="h-3.5 w-3.5" stroke-width="1.5"></i> Ships in 10 days
+        </span>
+      </div>
+
+      <div class="rounded-3xl bg-[#171719] p-7 shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_30px_60px_-30px_rgba(23,23,25,0.8)]">
+        <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e34a32] text-white shadow-[0_12px_24px_-8px_rgba(227,74,50,0.8)]">
+          <i data-lucide="gauge" class="h-5 w-5" stroke-width="1.5"></i>
+        </span>
+        <p class="mt-5 text-4xl font-semibold text-white">3×</p>
+        <p class="mt-1 text-lg font-semibold text-white">faster</p>
+        <p class="mt-3 text-sm leading-relaxed text-white/50">Median time from idea to shipped.</p>
+      </div>
+
+      <div class="rounded-[26px] border border-white bg-white p-7 shadow-[0_16px_36px_-20px_rgba(35,36,39,0.3)]">
+        <p class="text-lg font-semibold">Prototype Sprint</p>
+        <p class="mt-1 text-sm text-[#8a8c91]">One workflow</p>
+        <p class="mt-5 text-4xl font-semibold">$9k</p>
+        <ul class="mt-6 space-y-3 text-sm text-[#55575c]">
+          <li class="flex items-start gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-[#e34a32]" stroke-width="1.5"></i> Discovery workshop</li>
+          <li class="flex items-start gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-[#e34a32]" stroke-width="1.5"></i> Clickable prototype</li>
+          <li class="flex items-start gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-[#e34a32]" stroke-width="1.5"></i> Validation report</li>
+        </ul>
+        <span class="mt-7 inline-flex w-full items-center justify-center rounded-full bg-[#f7f7f5] px-6 py-3 text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 shadow-[0_8px_18px_-10px_rgba(35,36,39,0.3)]">Start a sprint</span>
+      </div>
+    </div>
+
+    <!-- Card destacado + imagem -->
+    <div class="mt-5 grid gap-5 lg:grid-cols-3">
+      <div class="rounded-[26px] bg-[#171719] p-7 lg:scale-[1.04] shadow-[0_1px_0_rgba(255,255,255,0.15)_inset,0_30px_60px_-24px_rgba(23,23,25,0.7)]">
+        <div class="flex items-center justify-between">
+          <p class="text-lg font-semibold text-white">Launch Sprint</p>
+          <span class="rounded-full bg-white/10 px-3 py-1 text-[10px] uppercase tracking-widest text-white">Most booked</span>
+        </div>
+        <p class="mt-5 text-4xl font-semibold text-white">$28k</p>
+        <ul class="mt-6 space-y-3 text-sm text-white/75">
+          <li class="flex items-start gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-[#f05a3c]" stroke-width="1.5"></i> Production integration</li>
+          <li class="flex items-start gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-[#f05a3c]" stroke-width="1.5"></i> Evaluation suite</li>
+          <li class="flex items-start gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-[#f05a3c]" stroke-width="1.5"></i> Handover + support</li>
+        </ul>
+        <span class="mt-7 inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-medium text-[#171719] transition-all duration-300 hover:-translate-y-0.5 shadow-[0_14px_28px_-12px_rgba(0,0,0,0.6)]">Start a sprint</span>
+        <p class="spec mt-5 text-xs text-white/50">Card em destaque: <code>lg:scale-[1.04]</code> + inset 0.15 em vez de 0.08.</p>
+      </div>
+
+      <div class="relative min-h-[440px] overflow-hidden rounded-3xl bg-[#171719] shadow-[0_20px_44px_-24px_rgba(35,36,39,0.5)] lg:col-span-2">
+        <img src="assets/images/37997a14-d83a-4487-9a99-9b9c4fe21b14_800w.png" alt="Abstract light study" class="absolute inset-0 h-full w-full object-cover opacity-70">
+        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30"></div>
+        <div class="relative flex h-full flex-col justify-between">
+          <div class="flex items-start p-5">
+            <span class="rounded-full bg-white/10 px-3 py-1 text-[10px] uppercase tracking-widest text-white backdrop-blur">Studio</span>
+          </div>
+          <div class="p-5 pb-6">
+            <p class="max-w-md text-lg leading-relaxed text-white/90">“We don't just ship models. We ship systems that still work a year later.”</p>
+            <div class="mt-5 flex items-center gap-3">
+              <span class="h-10 w-10 overflow-hidden rounded-full bg-[#ecedee]">
+                <img src="assets/images/ab506a13-7aa3-443c-b74e-73cf2b8dd54d_800w.png" alt="Portrait" class="h-full w-full object-cover grayscale">
+              </span>
+              <span class="text-sm text-white/80">Lena Kort, Studio Lead</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inputs -->
+    <h3 class="mt-14 text-lg font-semibold">Formulário</h3>
+    <div class="mt-5 rounded-[32px] border border-white bg-[#f4f5f5] p-8 sm:p-12 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_24px_60px_-30px_rgba(35,36,39,0.3)]">
+      <div class="grid gap-8 lg:grid-cols-3">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Default</p>
+          <input type="email" placeholder="you@company.com" class="mt-4 w-full rounded-full border border-white bg-white px-6 py-3.5 text-sm outline-none placeholder:text-[#8a8c91] focus:border-[#e34a32] focus:ring-2 focus:ring-[#e34a32]/20 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_8px_20px_-12px_rgba(35,36,39,0.25)]">
+        </div>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Focus</p>
+          <input type="email" value="lena@sprintforge.studio" class="mt-4 w-full rounded-full border border-[#e34a32] bg-white px-6 py-3.5 text-sm outline-none ring-2 ring-[#e34a32]/20 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_8px_20px_-12px_rgba(35,36,39,0.25)]">
+        </div>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-[#8a8c91]">Disabled</p>
+          <input type="email" placeholder="you@company.com" disabled class="mt-4 w-full cursor-not-allowed rounded-full border border-white bg-white px-6 py-3.5 text-sm opacity-50 outline-none placeholder:text-[#8a8c91]">
+        </div>
+      </div>
+
+      <form class="mt-8 flex max-w-lg flex-col gap-3 sm:flex-row" onsubmit="event.preventDefault()">
+        <input type="email" required placeholder="you@company.com" class="w-full rounded-full border border-white bg-white px-6 py-3.5 text-sm outline-none placeholder:text-[#8a8c91] focus:border-[#e34a32] focus:ring-2 focus:ring-[#e34a32]/20 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_8px_20px_-12px_rgba(35,36,39,0.25)]">
+        <button type="submit" class="shrink-0 rounded-full bg-[#171719] px-7 py-3.5 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_14px_28px_-12px_rgba(23,23,25,0.75)]">Send</button>
+      </form>
+      <p class="spec mt-4 text-xs text-[#8a8c91]">O input compartilha a mesma sombra do card — inset de luz + queda curta. Nada de borda cinza: a borda é branca e some no branco do próprio campo; o contorno percebido vem da sombra.</p>
+    </div>
+  </section>
+
+  <!-- ════════ SEÇÃO 4 · LAYOUT E ESPAÇAMENTO ════════ -->
+  <section id="layout" class="px-6 pb-24 sm:px-10 lg:px-16 lg:pb-32">
+    <p class="text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Layout</p>
+    <h2 class="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">Cartões dentro de uma moldura.</h2>
+    <p class="mt-5 max-w-xl text-lg leading-relaxed text-[#55575c]">
+      A página inteira é um shell de <code class="spec">px-2 sm:px-4 pt-2 sm:pt-4</code> sobre <code class="spec">#ecedee</code>. Cada seção é um bloco arredondado flutuando dentro dele — a margem de 8/16px que sobra nas bordas é o que dá a leitura de “aplicativo”, não de site.
+    </p>
+
+    <h3 class="mt-12 text-lg font-semibold">Escala de espaçamento</h3>
+    <div class="mt-5 rounded-[32px] border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-30px_rgba(35,36,39,0.3)]">
+      <div class="space-y-3">
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">2 · 8px</span><span class="h-3 rounded-full bg-[#e34a32]" style="width:8px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">3 · 12px</span><span class="h-3 rounded-full bg-[#e34a32]" style="width:12px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">4 · 16px</span><span class="h-3 rounded-full bg-[#e34a32]" style="width:16px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">5 · 20px</span><span class="h-3 rounded-full bg-[#e34a32]" style="width:20px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">6 · 24px</span><span class="h-3 rounded-full bg-[#e34a32]" style="width:24px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">7 · 28px</span><span class="h-3 rounded-full bg-[#f05a3c]" style="width:28px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">10 · 40px</span><span class="h-3 rounded-full bg-[#f05a3c]" style="width:40px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">14 · 56px</span><span class="h-3 rounded-full bg-[#f05a3c]" style="width:56px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">16 · 64px</span><span class="h-3 rounded-full bg-[#55575c]" style="width:64px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">24 · 96px</span><span class="h-3 rounded-full bg-[#55575c]" style="width:96px"></span></div>
+        <div class="flex items-center gap-4"><span class="spec w-24 shrink-0 text-xs text-[#8a8c91]">32 · 128px</span><span class="h-3 rounded-full bg-[#55575c]" style="width:128px"></span></div>
+      </div>
+      <p class="mt-6 max-w-3xl text-sm leading-relaxed text-[#55575c]">
+        Ritmo base 4px, mas o uso real se concentra em três faixas: <strong>micro</strong> (2–3) para gaps de ícone, <strong>componente</strong> (5–7) para padding de card, <strong>seção</strong> (16–32) para respiro vertical. O salto de 7 para 16 é proposital — não existe espaçamento “médio”, o que impede que blocos vizinhos fiquem ambiguamente relacionados.
+      </p>
+    </div>
+
+    <h3 class="mt-12 text-lg font-semibold">Raios</h3>
+    <div class="mt-5 flex flex-wrap gap-5">
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-lg border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">lg · 8px</span></div>
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-xl border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">xl · 12px</span></div>
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-2xl border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">2xl · 16px</span></div>
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-3xl border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">3xl · 24px</span></div>
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-[26px] border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">26px · card pacote</span></div>
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-[28px] border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">28px · shell mobile</span></div>
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-[32px] border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">32px · seção</span></div>
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-[36px] border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">36px · shell escuro</span></div>
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-[40px] border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">40px · shell sm+</span></div>
+      <div class="flex flex-col items-center gap-2"><span class="h-20 w-20 rounded-full border border-white bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"></span><span class="spec text-xs text-[#8a8c91]">full · interativo</span></div>
+    </div>
+
+    <!-- Composição 1 -->
+    <h3 class="mt-14 text-lg font-semibold">Composição · seção padrão + grid de cards</h3>
+    <div class="mt-5 overflow-hidden rounded-[32px] border border-white bg-[#f4f5f5] shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-30px_rgba(35,36,39,0.3)]">
+      <div class="px-6 py-24 sm:px-10 lg:px-16 lg:py-32">
+        <p class="text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Services</p>
+        <h2 class="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">What we build in a sprint.</h2>
+        <p class="mt-5 max-w-xl text-lg leading-relaxed text-[#55575c]">Six focused delivery lanes. Each one arrives as a working artifact inside your stack.</p>
+        <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"><span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f7f7f5] text-[#e34a32]"><i data-lucide="bot" class="h-5 w-5" stroke-width="1.5"></i></span><h3 class="mt-5 text-lg font-semibold">Internal Copilot</h3><p class="mt-3 text-sm leading-relaxed text-[#55575c]">A private assistant grounded in your docs, tools, and data.</p></div>
+          <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"><span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f7f7f5] text-[#e34a32]"><i data-lucide="life-buoy" class="h-5 w-5" stroke-width="1.5"></i></span><h3 class="mt-5 text-lg font-semibold">Support Automation</h3><p class="mt-3 text-sm leading-relaxed text-[#55575c]">Triage, drafting, and resolution flows with human review built in.</p></div>
+          <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]"><span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f7f7f5] text-[#e34a32]"><i data-lucide="database" class="h-5 w-5" stroke-width="1.5"></i></span><h3 class="mt-5 text-lg font-semibold">Data Assistant</h3><p class="mt-3 text-sm leading-relaxed text-[#55575c]">Natural-language querying over your warehouse, with guardrails.</p></div>
+        </div>
+      </div>
+    </div>
+    <p class="spec mt-4 text-xs text-[#8a8c91]">Seção: <code>px-6 py-24 sm:px-10 lg:px-16 lg:py-32</code> · Grid: <code>grid gap-5 sm:grid-cols-2 lg:grid-cols-3</code> · Bloco de texto: <code>max-w-xl</code></p>
+
+    <!-- Composição 2 -->
+    <h3 class="mt-14 text-lg font-semibold">Composição · shell escuro com grid assimétrico</h3>
+    <div class="mt-5 rounded-[36px] bg-[#171719] p-4 sm:p-5 shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_30px_60px_-30px_rgba(23,23,25,0.8)]">
+      <div class="grid gap-4 lg:grid-cols-3">
+        <div class="rounded-3xl bg-[#202024] p-8 sm:p-10 lg:col-span-2">
+          <h3 class="text-2xl font-semibold text-white sm:text-3xl">Full-cycle delivery</h3>
+          <p class="mt-4 max-w-md text-sm leading-relaxed text-white/55">One continuous loop of detailed briefs, prototypes, and walkthroughs.</p>
+          <div class="mt-8 flex items-end">
+            <span class="h-24 w-16 rounded-2xl bg-[#26262b]"></span>
+            <span class="-ml-4 h-28 w-20 -rotate-3 rounded-2xl bg-[#2c2c31]"></span>
+            <span class="relative -ml-8 h-32 w-24 rounded-2xl bg-gradient-to-b from-[#34343a] to-[#232327] shadow-[0_20px_40px_-14px_rgba(0,0,0,0.7)]">
+              <i data-lucide="sparkles" class="absolute inset-0 m-auto h-8 w-8 text-[#f05a3c]" stroke-width="1.5"></i>
+              <span class="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#f05a3c] px-3 py-1 text-xs font-medium text-white">Day 1</span>
+            </span>
+            <span class="mx-3 h-8 shrink-0 rounded-full border border-[#f05a3c] px-3 py-1 text-xs text-[#f05a3c]">Day 14</span>
+          </div>
+        </div>
+        <div class="rounded-3xl bg-[#2c2c31] p-8">
+          <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e34a32] text-white shadow-[0_12px_24px_-8px_rgba(227,74,50,0.8)]">
+            <i data-lucide="gauge" class="h-5 w-5" stroke-width="1.5"></i>
+          </span>
+          <p class="mt-6 text-4xl font-semibold text-white">3×</p>
+          <p class="text-lg font-semibold text-white">faster</p>
+          <div class="mt-6 flex items-end gap-2">
+            <span class="w-5 rounded-lg bg-white/10" style="height:32px"></span>
+            <span class="w-5 rounded-lg bg-white/15" style="height:52px"></span>
+            <span class="w-5 rounded-lg bg-gradient-to-b from-[#f05a3c] to-[#c93a24]" style="height:76px"></span>
+          </div>
+          <p class="mt-6 text-sm leading-relaxed text-white/50">Median time from idea to shipped.</p>
+        </div>
+      </div>
+    </div>
+    <p class="spec mt-4 text-xs text-[#8a8c91]">Shell escuro: <code>rounded-[36px] p-4 sm:p-5</code> — o padding pequeno cria uma moldura fina, não uma margem. Grid: <code>lg:grid-cols-3</code> com o painel principal em <code>lg:col-span-2</code>.</p>
+
+    <!-- Composição 3 -->
+    <h3 class="mt-14 text-lg font-semibold">Composição · cards sobrepostos</h3>
+    <div class="mt-5 rounded-[32px] border border-white bg-[#f4f5f5] p-8 sm:p-12 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-30px_rgba(35,36,39,0.3)]">
+      <div class="flex flex-col items-stretch gap-4 lg:flex-row lg:items-center lg:-space-x-6">
+        <div class="rounded-3xl border border-white bg-white px-8 py-7 shadow-[0_14px_30px_-16px_rgba(35,36,39,0.3)] lg:rotate-[-1deg]">
+          <p class="text-4xl font-semibold">2</p>
+          <p class="mt-2 text-sm text-[#55575c]">Live demos per sprint</p>
+        </div>
+        <div class="rounded-3xl border border-white bg-white px-8 py-7 shadow-[0_14px_30px_-16px_rgba(35,36,39,0.3)] lg:z-10 lg:scale-105">
+          <p class="text-4xl font-semibold">14</p>
+          <p class="mt-2 text-sm text-[#55575c]">Days to launch-ready</p>
+        </div>
+        <div class="rounded-3xl border border-white bg-white px-8 py-7 shadow-[0_14px_30px_-16px_rgba(35,36,39,0.3)] lg:rotate-[1deg]">
+          <p class="text-4xl font-semibold">100%</p>
+          <p class="mt-2 text-sm text-[#55575c]">Handed over</p>
+        </div>
+      </div>
+      <p class="mt-8 text-sm text-[#8a8c91]">Sample metrics shown for illustration.</p>
+    </div>
+    <p class="spec mt-4 text-xs text-[#8a8c91]">Rotação de ±1° + <code>lg:-space-x-6</code> + <code>lg:scale-105</code> no centro. Um grau é quase invisível conscientemente, mas quebra a rigidez do grid — é o truque de “objeto físico sobre mesa”.</p>
+
+    <h3 class="mt-14 text-lg font-semibold">Containers e breakpoints</h3>
+    <div class="mt-5 grid gap-5 sm:grid-cols-2">
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <p class="font-semibold">Larguras de leitura</p>
+        <ul class="spec mt-4 space-y-2 text-sm text-[#55575c]">
+          <li><code>max-w-md</code> · 28rem — corpo em card escuro</li>
+          <li><code>max-w-lg</code> · 32rem — formulário</li>
+          <li><code>max-w-xl</code> · 36rem — lead de seção</li>
+          <li><code>max-w-2xl</code> · 42rem — cabeçalho centrado</li>
+          <li><code>max-w-3xl</code> · 48rem — headline de CTA</li>
+          <li><code>max-w-5xl</code> · 64rem — bloco do hero</li>
+          <li><code>max-w-[880px]</code> — pílula da nav</li>
+        </ul>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <p class="font-semibold">Breakpoints</p>
+        <ul class="spec mt-4 space-y-2 text-sm text-[#55575c]">
+          <li><code>sm</code> · 640px — grid 2 col, raios e paddings crescem</li>
+          <li><code>md</code> · 768px — nav desktop aparece</li>
+          <li><code>lg</code> · 1024px — grid 3 col, tiles flutuantes, rotações</li>
+          <li><code>xl</code> · 1280px</li>
+        </ul>
+        <p class="mt-4 text-sm leading-relaxed text-[#55575c]">Todo enfeite (tiles, rotação, sobreposição, chip de preview) está atrás de <code class="spec">lg:</code>. No mobile o sistema é uma pilha limpa de cartões.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════ SEÇÃO 5 · MOTION ════════ -->
+  <section id="motion" class="px-6 pb-24 sm:px-10 lg:px-16 lg:pb-32">
+    <p class="text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Motion</p>
+    <h2 class="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">Nada acelera. Tudo pousa.</h2>
+    <p class="mt-5 max-w-xl text-lg leading-relaxed text-[#55575c]">
+      O sistema inteiro usa uma única curva: <code class="spec">ease-out</code> — <code class="spec">cubic-bezier(0,0,0.2,1)</code>. Elementos entram rápido e desaceleram até parar, como massa desacelerando por atrito. Não há um <code class="spec">ease-in</code> em toda a página; nada nunca ganha velocidade ao sair de cena, porque isso leria como algo caindo, não pousando.
+    </p>
+
+    <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <div class="flex h-28 items-center justify-center rounded-2xl bg-[#f4f5f5]">
+          <span class="demo-rise inline-flex items-center gap-2 rounded-full border border-white bg-white px-4 py-2 text-xs font-semibold text-[#e34a32] shadow-[0_6px_16px_-8px_rgba(35,36,39,0.25)]">
+            <i data-lucide="zap" class="h-4 w-4" stroke-width="1.5"></i> Rise-in
+          </span>
+        </div>
+        <p class="mt-5 font-semibold">Rise-in <span class="spec text-xs font-normal text-[#8a8c91]">[data-rise]</span></p>
+        <p class="spec mt-2 text-xs leading-relaxed text-[#55575c]">opacity-0 translate-y-4 →<br>transition-all duration-700 ease-out</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Estado inicial nas classes, remoção no evento <code class="spec">load</code>. Deslocamento de apenas 1rem — sugere o elemento assentando, não voando.</p>
+      </div>
+
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <div class="flex h-28 items-end justify-center gap-2 rounded-2xl bg-[#f4f5f5] p-4">
+          <span class="demo-rise h-10 w-8 rounded-lg bg-[#e34a32]"></span>
+          <span class="demo-rise h-14 w-8 rounded-lg bg-[#e34a32]" style="animation-delay:.15s"></span>
+          <span class="demo-rise h-16 w-8 rounded-lg bg-[#e34a32]" style="animation-delay:.3s"></span>
+          <span class="demo-rise h-12 w-8 rounded-lg bg-[#e34a32]" style="animation-delay:.5s"></span>
+          <span class="demo-rise h-8 w-8 rounded-lg bg-[#e34a32]" style="animation-delay:.7s"></span>
+        </div>
+        <p class="mt-5 font-semibold">Coreografia escalonada</p>
+        <p class="spec mt-2 text-xs leading-relaxed text-[#55575c]">delay-150 · delay-300 · delay-500 · delay-700</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Quatro degraus de atraso, com intervalos crescentes (150 → 150 → 200 → 200ms). O espaçamento irregular impede que a sequência soe como metrônomo.</p>
+      </div>
+
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <div class="flex h-28 items-center justify-center rounded-2xl bg-[#f4f5f5]">
+          <span class="demo-drift flex h-16 w-16 items-center justify-center rounded-2xl border border-white bg-white p-3 shadow-[0_18px_35px_-14px_rgba(35,36,39,0.35)]">
+            <span class="flex h-full w-full items-center justify-center rounded-xl bg-emerald-500 text-white">
+              <i data-lucide="git-branch" class="h-5 w-5" stroke-width="1.5"></i>
+            </span>
+          </span>
+        </div>
+        <p class="mt-5 font-semibold">Drift <span class="spec text-xs font-normal text-[#8a8c91]">[data-drift]</span></p>
+        <p class="spec mt-2 text-xs leading-relaxed text-[#55575c]">rAF · translateY(sin(t+i·2)·6px)<br>rotate(base + sin(t·0.7+i·2)·2deg)</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Senoides com frequências e fases diferentes por tile — o desalinhamento é o ponto: sincronizados, virariam um carrossel.</p>
+      </div>
+
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <div class="flex h-28 items-center justify-center rounded-2xl bg-[#f4f5f5] p-4">
+          <span class="demo-lift block h-full w-full rounded-2xl border border-white bg-white"></span>
+        </div>
+        <p class="mt-5 font-semibold">Elevação em hover</p>
+        <p class="spec mt-2 text-xs leading-relaxed text-[#55575c]">hover:-translate-y-1 · duration-300<br>shadow 14/30/-18 → 24/44/-18</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Translação e sombra crescem juntas. Mover sem crescer a sombra parece deslizar; crescer a sombra sem mover parece um bug.</p>
+      </div>
+
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <div class="flex h-28 items-center justify-center rounded-2xl bg-[#f4f5f5]">
+          <span class="inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-[#171719] px-5 py-2.5 text-sm font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_10px_22px_-10px_rgba(23,23,25,0.7)]">
+            Book a Sprint
+            <i data-lucide="arrow-right" class="demo-arrow h-4 w-4" stroke-width="1.5"></i>
+          </span>
+        </div>
+        <p class="mt-5 font-semibold">Seta que revela</p>
+        <p class="spec mt-2 text-xs leading-relaxed text-[#55575c]">opacity-0 -ml-4 → group-hover:opacity-100 group-hover:ml-0<br>transition-all duration-300</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">O botão ganha largura no hover. Animar <code class="spec">margin-left</code> em vez de <code class="spec">transform</code> é deliberado: a pílula precisa esticar.</p>
+      </div>
+
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <div class="relative h-28 overflow-hidden rounded-2xl bg-[#f4f5f5]">
+          <span class="demo-bloom absolute -right-8 -top-10 block h-40 w-40 rounded-full opacity-70 blur-3xl" style="background:radial-gradient(circle at 55% 45%, rgba(227,74,50,0.55), rgba(240,120,70,0.28) 40%, rgba(244,245,245,0) 70%)"></span>
+        </div>
+        <p class="mt-5 font-semibold">Parallax do bloom</p>
+        <p class="spec mt-2 text-xs leading-relaxed text-[#55575c]">pointermove → translate(±24px, ±24px)<br>transition-transform duration-700 ease-out</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">700ms de transição sobre um evento contínuo cria arrasto: a luz segue o cursor com preguiça, como fluido.</p>
+      </div>
+
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <div class="flex h-28 items-center justify-center rounded-2xl bg-[#f4f5f5]">
+          <span class="demo-wght text-4xl text-[#2e3034]" style="font-family:'Inter',sans-serif;letter-spacing:-0.035em">Aa</span>
+        </div>
+        <p class="mt-5 font-semibold">Peso variável por proximidade <span class="spec text-xs font-normal text-[#8a8c91]">.wchar</span></p>
+        <p class="spec mt-2 text-xs leading-relaxed text-[#55575c]">font-variation-settings:'wght' N<br>transition .15s linear</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">h1 e h2 são divididos caractere a caractere; cada letra ganha peso pela distância ao cursor. Único uso de <code class="spec">linear</code> na página — aqui a resposta precisa ser direta, não amortecida.</p>
+      </div>
+
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <div class="flex h-28 items-center justify-center rounded-2xl bg-[#f4f5f5] p-4">
+          <span class="demo-navshadow flex w-full items-center justify-between rounded-full border border-white bg-white/80 py-2 pl-4 pr-2 backdrop-blur-xl">
+            <span class="text-xs font-semibold">SprintForge</span>
+            <span class="h-6 w-6 rounded-full bg-[#e34a32]"></span>
+          </span>
+        </div>
+        <p class="mt-5 font-semibold">Sombra da nav no scroll</p>
+        <p class="spec mt-2 text-xs leading-relaxed text-[#55575c]">scrollY &gt; 24 → 0 18px 44px -14px rgba(35,36,39,.4)<br>transition-shadow duration-500</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Só a sombra muda — nem cor, nem tamanho, nem posição. A nav não “aparece”, ela só se descola da página.</p>
+      </div>
+
+      <div class="rounded-3xl border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <div class="relative flex h-28 items-center justify-center overflow-hidden rounded-2xl bg-[#f4f5f5]">
+          <canvas id="meshDemo" class="absolute inset-0 h-full w-full"></canvas>
+        </div>
+        <p class="mt-5 font-semibold">Malha 3D <span class="spec text-xs font-normal text-[#8a8c91]">#meshGL</span></p>
+        <p class="spec mt-2 text-xs leading-relaxed text-[#55575c]">THREE.IcosahedronGeometry(3, 0) · flatShading<br>color #e34a32 · emissive #7a2012 · rough .3 · metal .6<br>rot.x = t·0.2 · rot.y = t·0.3 · bob sin(t·1.2)·0.4</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#55575c]">Detalhe zero no icosaedro: as faces planas viram blocos de cor chapada, não uma esfera renderizada. Duas luzes — branca principal e uma de preenchimento <code class="spec">#f05a3c</code> — mantêm até a face mais escura dentro da paleta.</p>
+      </div>
+    </div>
+
+    <div class="mt-8 rounded-[26px] border border-white bg-[#f7f7f5] p-7">
+      <p class="text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Durações</p>
+      <div class="mt-4 grid gap-4 sm:grid-cols-4">
+        <div><p class="spec text-2xl font-semibold">150ms</p><p class="mt-1 text-sm text-[#55575c]">peso variável — resposta direta</p></div>
+        <div><p class="spec text-2xl font-semibold">300ms</p><p class="mt-1 text-sm text-[#55575c]">hover de botão e card</p></div>
+        <div><p class="spec text-2xl font-semibold">500ms</p><p class="mt-1 text-sm text-[#55575c]">sombra da nav</p></div>
+        <div><p class="spec text-2xl font-semibold">700ms</p><p class="mt-1 text-sm text-[#55575c]">entrada e parallax</p></div>
+      </div>
+      <p class="mt-5 max-w-3xl text-sm leading-relaxed text-[#55575c]">
+        As durações escalam com a distância percorrida, não com a importância do elemento: quanto maior o deslocamento, mais lento. É o que mantém a velocidade aparente constante por toda a página. E <code class="spec">prefers-reduced-motion</code> desliga o drift, o parallax e a malha 3D na origem — não apenas encurta.
+      </p>
+    </div>
+  </section>
+
+  <!-- ════════ SEÇÃO 6 · ICONOGRAFIA ════════ -->
+  <section id="iconografia" class="px-6 pb-24 sm:px-10 lg:px-16 lg:pb-32">
+    <p class="text-xs font-semibold uppercase tracking-widest text-[#e34a32]">Iconografia</p>
+    <h2 class="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">Lucide, traço 1.5, sempre currentColor.</h2>
+    <p class="mt-5 max-w-xl text-lg leading-relaxed text-[#55575c]">
+      Um único set — <a href="https://lucide.dev" class="underline">Lucide</a> via <code class="spec">lucide.createIcons()</code>. Nenhum ícone tem cor própria: todos herdam do container. O traço nunca muda de <code class="spec">1.5</code>, mesmo quando o ícone cresce, e é isso que impede que um ícone de 32px pareça pesado ao lado de um de 14px.
+    </p>
+
+    <h3 class="mt-12 text-lg font-semibold">Tamanhos</h3>
+    <div class="mt-5 flex flex-wrap items-end gap-8 rounded-[32px] border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-30px_rgba(35,36,39,0.3)]">
+      <div class="flex flex-col items-center gap-2"><i data-lucide="check" class="h-3.5 w-3.5" stroke-width="1.5"></i><span class="spec text-xs text-[#8a8c91]">h-3.5 · 14px</span><span class="text-xs text-[#8a8c91]">selo</span></div>
+      <div class="flex flex-col items-center gap-2"><i data-lucide="check" class="h-4 w-4" stroke-width="1.5"></i><span class="spec text-xs text-[#8a8c91]">h-4 · 16px</span><span class="text-xs text-[#8a8c91]">botão, lista</span></div>
+      <div class="flex flex-col items-center gap-2"><i data-lucide="check" class="h-5 w-5" stroke-width="1.5"></i><span class="spec text-xs text-[#8a8c91]">h-5 · 20px</span><span class="text-xs text-[#8a8c91]">card, menu</span></div>
+      <div class="flex flex-col items-center gap-2"><i data-lucide="check" class="h-7 w-7" stroke-width="1.5"></i><span class="spec text-xs text-[#8a8c91]">h-7 · 28px</span><span class="text-xs text-[#8a8c91]">destaque</span></div>
+      <div class="flex flex-col items-center gap-2"><i data-lucide="check" class="h-8 w-8" stroke-width="1.5"></i><span class="spec text-xs text-[#8a8c91]">h-8 · 32px</span><span class="text-xs text-[#8a8c91]">cena 3D</span></div>
+    </div>
+
+    <h3 class="mt-12 text-lg font-semibold">Herança de cor</h3>
+    <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-3xl border border-white bg-white p-7 text-center shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f7f7f5] text-[#e34a32]"><i data-lucide="sparkles" class="h-5 w-5" stroke-width="1.5"></i></span>
+        <p class="spec mt-4 text-xs text-[#55575c]">bg-[#f7f7f5] text-[#e34a32]</p>
+        <p class="mt-1 text-xs text-[#8a8c91]">Card claro</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 text-center shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e34a32] text-white shadow-[0_12px_24px_-8px_rgba(227,74,50,0.8)]"><i data-lucide="gauge" class="h-5 w-5" stroke-width="1.5"></i></span>
+        <p class="spec mt-4 text-xs text-[#55575c]">bg-[#e34a32] text-white</p>
+        <p class="mt-1 text-xs text-[#8a8c91]">Métrica</p>
+      </div>
+      <div class="rounded-3xl bg-[#171719] p-7 text-center shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_30px_60px_-30px_rgba(23,23,25,0.8)]">
+        <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2c2c31] text-[#f05a3c]"><i data-lucide="workflow" class="h-5 w-5" stroke-width="1.5"></i></span>
+        <p class="spec mt-4 text-xs text-white/55">bg-[#2c2c31] text-[#f05a3c]</p>
+        <p class="mt-1 text-xs text-white/40">Painel escuro</p>
+      </div>
+      <div class="rounded-3xl border border-white bg-white p-7 text-center shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_14px_30px_-18px_rgba(35,36,39,0.25)]">
+        <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2e3034] to-[#55575c] text-white"><i data-lucide="calendar" class="h-5 w-5" stroke-width="1.5"></i></span>
+        <p class="spec mt-4 text-xs text-[#55575c]">gradiente neutro · text-white</p>
+        <p class="mt-1 text-xs text-[#8a8c91]">Chip</p>
+      </div>
+    </div>
+
+    <h3 class="mt-12 text-lg font-semibold">Marca</h3>
+    <div class="mt-5 rounded-[32px] border border-white bg-white p-7 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-30px_rgba(35,36,39,0.3)]">
+      <div class="flex items-center gap-2.5">
+        <span class="relative flex h-6 w-9 items-center">
+          <span class="absolute left-0 h-6 w-6 rounded-full bg-[#171719]"></span>
+          <span class="absolute left-3.5 h-6 w-6 rounded-full bg-[#e34a32]"></span>
+        </span>
+        <span class="font-semibold">SprintForge</span>
+      </div>
+      <p class="spec mt-4 text-xs leading-relaxed text-[#55575c]">Dois círculos <code>h-6 w-6</code> sobrepostos em <code>left-0</code> / <code>left-3.5</code> dentro de um container <code>w-9</code>.</p>
+      <p class="mt-3 max-w-2xl text-sm leading-relaxed text-[#55575c]">
+        Zero SVG. A marca é a paleta inteira em dois discos — o neutro escuro e o acento — com o quente sobreposto ao frio. Reproduz-se em qualquer tamanho e em qualquer stack, e diz exatamente o que o sistema de cores diz.
+      </p>
+    </div>
+  </section>
+
+  <!-- ════════ RODAPÉ ════════ -->
+  <footer class="px-2 pb-2 sm:px-0 sm:pb-4">
+    <div class="relative overflow-hidden rounded-[28px] sm:rounded-[40px] bg-[#f4f5f5] px-6 py-20 sm:px-12 lg:py-28 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_60px_-30px_rgba(35,36,39,0.25)]">
+      <div class="pointer-events-none absolute -left-40 bottom-0 h-[520px] w-[520px] rounded-full opacity-60 blur-3xl" style="background:radial-gradient(circle, rgba(227,74,50,0.4), rgba(244,245,245,0) 70%)"></div>
+      <div class="pointer-events-none absolute right-0 -top-20 h-[420px] w-[420px] rounded-full opacity-50 blur-3xl" style="background:radial-gradient(circle, rgba(46,48,52,0.3), rgba(244,245,245,0) 70%)"></div>
+      <div class="relative z-10 mx-auto max-w-3xl text-center">
+        <h2 class="text-4xl font-semibold leading-tight sm:text-6xl">Este é o padrão de saída.</h2>
+        <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-[#55575c]">Qualquer tela gerada pelo sistema deve poder ser colada ao lado desta página sem destoar.</p>
+      </div>
+      <div class="relative z-10 mt-16 flex flex-col items-center justify-between gap-6 border-t border-black/5 pt-8 text-center sm:flex-row sm:text-left">
+        <div class="flex items-center gap-2.5">
+          <span class="relative flex h-5 w-8 items-center">
+            <span class="absolute left-0 h-5 w-5 rounded-full bg-[#171719]"></span>
+            <span class="absolute left-3 h-5 w-5 rounded-full bg-[#e34a32]"></span>
+          </span>
+          <span class="text-sm font-semibold">SprintForge Design System</span>
+        </div>
+        <p class="text-sm text-[#55575c]">Extraído de <code class="spec">design/index.html</code> · Referência visual</p>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<!-- Mesmas bibliotecas do original, versões locais capturadas -->
+<script src="assets/js/lucide.min.js"></script>
+<script src="assets/js/three.min.js"></script>
+<script>
+  lucide.createIcons();
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Rise-in (idêntico ao original)
+  window.addEventListener('load', () => {
+    document.querySelectorAll('[data-rise]').forEach(el => el.classList.remove('opacity-0','translate-y-4'));
+    document.querySelectorAll('[data-drift]').forEach(el => el.classList.remove('opacity-0'));
+  });
+
+  // Reveals no scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.remove('opacity-0','translate-y-4'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('[data-reveal]').forEach(el => io.observe(el));
+
+  // Sombra da nav no scroll
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 24) nav.classList.add('shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_18px_44px_-14px_rgba(35,36,39,0.4)]');
+    else nav.classList.remove('shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_18px_44px_-14px_rgba(35,36,39,0.4)]');
+  }, { passive: true });
+
+  // Drift dos tiles + parallax do bloom
+  const tiles = document.querySelectorAll('[data-drift]');
+  const bloom = document.getElementById('bloom');
+  if (!reduceMotion) {
+    let t = 0;
+    (function drift() {
+      t += 0.01;
+      tiles.forEach((el, i) => {
+        const base = el.classList.contains('rotate-6') ? 6 : el.classList.contains('-rotate-6') ? -6 : 3;
+        el.style.transform = `translateY(${Math.sin(t + i * 2) * 6}px) rotate(${base + Math.sin(t * 0.7 + i * 2) * 2}deg)`;
+      });
+      requestAnimationFrame(drift);
+    })();
+    window.addEventListener('pointermove', (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 24;
+      const y = (e.clientY / window.innerHeight - 0.5) * 24;
+      if (bloom) bloom.style.transform = `translate(${x}px, ${y}px)`;
+    }, { passive: true });
+  }
+
+  // Malha 3D — hero e demo da galeria de motion
+  function mountMesh(id) {
+    const canvas = document.getElementById(id);
+    if (!canvas || !window.THREE || reduceMotion) return;
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+    camera.position.z = 15;
+    const geometry = new THREE.IcosahedronGeometry(3, 0);
+    const material = new THREE.MeshStandardMaterial({ color: 0xe34a32, emissive: 0x7a2012, roughness: 0.3, metalness: 0.6, flatShading: true });
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    mainLight.position.set(10, 10, 10);
+    scene.add(mainLight);
+    const fillLight = new THREE.DirectionalLight(0xf05a3c, 0.6);
+    fillLight.position.set(-10, -5, 5);
+    scene.add(fillLight);
+    const isHero = id === 'meshGL';
+    function resize() {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      renderer.setSize(w, h, false);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      mesh.position.x = isHero ? (w > 1024 ? 4.5 : 0) : 0;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+    let t = 0;
+    (function frame() {
+      t += 0.01;
+      mesh.rotation.x = t * 0.2;
+      mesh.rotation.y = t * 0.3;
+      mesh.position.y = 0.4 * Math.sin(t * 1.2);
+      renderer.render(scene, camera);
+      requestAnimationFrame(frame);
+    })();
+  }
+  mountMesh('meshGL');
+  mountMesh('meshDemo');
+
+  // Peso variável por proximidade do cursor (.wchar)
+  function splitChars(el) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(function (node) {
+      if (!node.textContent.trim()) return;
+      const frag = document.createDocumentFragment();
+      node.textContent.split('').forEach(function (ch) {
+        if (ch === ' ') { frag.appendChild(document.createTextNode(' ')); return; }
+        const s = document.createElement('span');
+        s.className = 'wchar';
+        s.textContent = ch;
+        frag.appendChild(s);
+      });
+      node.parentNode.replaceChild(frag, node);
+    });
+  }
+  document.querySelectorAll('#hero h1, section > h2').forEach(splitChars);
+  const chars = Array.prototype.slice.call(document.querySelectorAll('.wchar'));
+  let mx = -9999, my = -9999;
+  window.addEventListener('pointermove', function (e) { mx = e.clientX; my = e.clientY; }, { passive: true });
+  (function tick() {
+    for (var i = 0; i < chars.length; i++) {
+      var s = chars[i];
+      var r = s.getBoundingClientRect();
+      if (r.bottom < -80 || r.top > innerHeight + 80) continue;
+      var d = Math.hypot(mx - (r.left + r.width / 2), my - (r.top + r.height / 2));
+      var w = Math.max(300, Math.min(900, 900 - d * 2.2));
+      s.style.fontVariationSettings = "'wght' " + Math.round(w);
+    }
+    requestAnimationFrame(tick);
+  })();
+</script>
+</body>
+</html>
