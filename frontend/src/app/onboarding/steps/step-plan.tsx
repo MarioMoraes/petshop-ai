@@ -80,14 +80,16 @@ export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }
         })}
       </div>
 
-      <button
-        type="button"
-        className="btn btn-primary mt-8 w-full"
-        disabled={pending}
-        onClick={() => onSubmit(() => saveStep2Action(selected))}
-      >
-        {pending ? 'Salvando…' : 'Continuar'}
-      </button>
+      <div className="mt-8 flex justify-end">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={pending}
+          onClick={() => onSubmit(() => saveStep2Action(selected))}
+        >
+          {pending ? 'Salvando…' : 'Continuar'}
+        </button>
+      </div>
     </Card>
   )
 }

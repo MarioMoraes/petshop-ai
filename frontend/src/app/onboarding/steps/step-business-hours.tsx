@@ -203,24 +203,26 @@ export function StepBusinessHours(props: Props) {
         </Field>
       </div>
 
-      <button
-        type="button"
-        className="btn btn-primary mt-8 w-full"
-        disabled={props.pending || invalidDays.length > 0}
-        onClick={() =>
-          props.onSubmit(() =>
-            saveStep3Action({
-              timezone,
-              businessHours: hours,
-              cancellationWindowHours: cancellation,
-              minBookingNoticeHours: notice,
-              noShowFeePercent: noShowFee,
-            }),
-          )
-        }
-      >
-        {props.pending ? 'Salvando…' : 'Continuar'}
-      </button>
+      <div className="mt-8 flex justify-end">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={props.pending || invalidDays.length > 0}
+          onClick={() =>
+            props.onSubmit(() =>
+              saveStep3Action({
+                timezone,
+                businessHours: hours,
+                cancellationWindowHours: cancellation,
+                minBookingNoticeHours: notice,
+                noShowFeePercent: noShowFee,
+              }),
+            )
+          }
+        >
+          {props.pending ? 'Salvando…' : 'Continuar'}
+        </button>
+      </div>
     </Card>
   )
 }

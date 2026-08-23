@@ -153,7 +153,12 @@ function SaveButton({
   if (!canEdit) return null
 
   return (
-    <div className="mt-8 flex items-center gap-3">
+    <div className="mt-8 flex items-center justify-end gap-3">
+      {state.savedAt !== null && (
+        <span className="text-sm text-success" role="status">
+          Salvo
+        </span>
+      )}
       <button
         type="button"
         className="btn btn-primary"
@@ -162,11 +167,6 @@ function SaveButton({
       >
         {state.pending ? 'Salvando…' : 'Salvar alterações'}
       </button>
-      {state.savedAt !== null && (
-        <span className="text-sm text-success" role="status">
-          Salvo
-        </span>
-      )}
     </div>
   )
 }

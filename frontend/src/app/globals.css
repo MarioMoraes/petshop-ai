@@ -19,6 +19,8 @@
   --color-subtle: #86888d;
   --color-line: #dfe0e2;
   --color-shell: #171719;
+  /* Off-white morno dos chips de ícone e das pílulas de meta-informação. */
+  --color-chip: #f7f7f5;
 
   /* Acento quente, único */
   --color-accent: #e34a32;
@@ -35,7 +37,7 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
 
-  --radius-card: 28px;
+  --radius-card: 24px;
   --radius-shell: 40px;
 }
 
@@ -68,71 +70,250 @@
       0 20px 60px -30px rgb(35 36 39 / 0.25);
   }
 
+  /*
+   * Card do design (§Cards, "AI Workflow Prototype"): 24px de raio, borda branca e a
+   * sombra de duas camadas.
+   *
+   * A borda branca não é enfeite — sobre `#f4f5f5` é ela que define a silhueta do
+   * cartão. Sem ela o branco do card encosta no cinza do shell sem aresta, e a peça
+   * perde o recorte que a faz parecer pousada.
+   */
   .card {
     background-color: var(--color-card);
+    border: 1px solid #ffffff;
     border-radius: var(--radius-card);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 10px 30px -14px rgb(35 36 39 / 0.25);
+      0 14px 30px -18px rgb(35 36 39 / 0.25);
+  }
+
+  /* Elevação em hover, para o card que leva a algum lugar. */
+  .card-interactive {
+    transition:
+      transform 0.3s,
+      box-shadow 0.3s;
+  }
+
+  .card-interactive:hover {
+    transform: translateY(-0.25rem);
+    box-shadow: 0 24px 44px -18px rgb(35 36 39 / 0.3);
+  }
+
+  /* Chip do ícone no topo do card: 48px, raio 16px, ícone no acento. */
+  .icon-chip {
+    display: inline-flex;
+    height: 3rem;
+    width: 3rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    background-color: var(--color-chip);
+    color: var(--color-accent);
+  }
+
+  /* Pílula de meta-informação no rodapé do card. */
+  .meta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--color-chip);
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: var(--color-muted);
   }
 
   .pill {
     border-radius: 9999px;
   }
 
+  /*
+   * Padrão "compacto e sobre escuro" do design (§Botões): `px-5 py-2.5`, `text-sm`,
+   * peso 500. É o único tamanho do sistema — o botão padrão do design, mais folgado
+   * (`px-7 py-3.5`), é de página de marketing, e aqui todo botão convive com tabela e
+   * formulário.
+   */
+  /*
+   * Botões.
+   *
+   * Uma pílula escura chapada lê como plástico. O que dá peso a estas é a física:
+   * um gradiente vertical curto simula superfície curva pegando luz de cima, a linha
+   * clara no topo é o brilho especular dessa borda, e a linha escura embaixo é a
+   * aresta assentada. São três camadas de 1px que ninguém enxerga isoladamente e que
+   * juntas fazem o botão parecer objeto, não retângulo pintado.
+   *
+   * O tracking levemente negativo vem daí também: em corpo pequeno, letras apertadas
+   * leem como gravadas na peça em vez de impressas por cima dela.
+   */
   .btn {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.375rem;
+    overflow: hidden;
     border-radius: 9999px;
-    padding: 0.75rem 1.5rem;
-    font-size: 0.9375rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
     font-weight: 500;
+    letter-spacing: -0.01em;
     transition:
-      transform 0.3s,
-      box-shadow 0.3s,
-      background-color 0.2s;
+      transform 0.25s cubic-bezier(0.2, 0, 0.2, 1),
+      box-shadow 0.25s cubic-bezier(0.2, 0, 0.2, 1),
+      background-color 0.2s,
+      filter 0.25s;
   }
 
   .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
     transform: none;
+    filter: saturate(0.6);
+  }
+
+  /*
+   * O brilho que atravessa a peça no hover.
+   *
+   * Uma faixa diagonal estreita cruzando de fora a fora, uma vez por hover. É o gesto
+   * que separa metal polido de plástico fosco — e por isso é o único movimento além
+   * da elevação: mais de um efeito competindo por atenção soa barato, não caro.
+   */
+  .btn-primary::before,
+  .btn-accent::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    /* Grafite reflete mais que coral: no acento a mesma intensidade estouraria. */
+    background: linear-gradient(
+      105deg,
+      transparent 38%,
+      rgb(255 255 255 / 0.24) 50%,
+      transparent 62%
+    );
+    transform: translateX(-140%);
+    transition: transform 0.7s cubic-bezier(0.2, 0, 0.2, 1);
+    pointer-events: none;
+  }
+
+  .btn-accent::before {
+    background: linear-gradient(
+      105deg,
+      transparent 38%,
+      rgb(255 255 255 / 0.15) 50%,
+      transparent 62%
+    );
+  }
+
+  .btn-primary:hover:not(:disabled)::before,
+  .btn-accent:hover:not(:disabled)::before {
+    transform: translateX(140%);
   }
 
   .btn-primary {
-    background-color: var(--color-shell);
+    background-image: linear-gradient(180deg, #2c2d31 0%, var(--color-shell) 62%);
     color: #ffffff;
     box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.25) inset,
-      0 10px 22px -10px rgb(23 23 25 / 0.7);
+      0 1px 0 rgb(255 255 255 / 0.14) inset,
+      0 -1px 0 rgb(0 0 0 / 0.5) inset,
+      0 8px 20px -10px rgb(23 23 25 / 0.65);
   }
 
   .btn-primary:hover:not(:disabled) {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
+    filter: brightness(1.14);
     box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.3) inset,
-      0 16px 28px -10px rgb(23 23 25 / 0.8);
+      0 1px 0 rgb(255 255 255 / 0.2) inset,
+      0 -1px 0 rgb(0 0 0 / 0.5) inset,
+      0 14px 28px -12px rgb(23 23 25 / 0.75);
+  }
+
+  /*
+   * Pressionado: a peça afunda de volta e a sombra recolhe. Sem isso o clique não tem
+   * resposta física, e é no clique que o botão prova que é um objeto.
+   */
+  .btn-primary:active:not(:disabled),
+  .btn-accent:active:not(:disabled) {
+    transform: translateY(0);
+    transition-duration: 0.06s;
+  }
+
+  .btn-primary:active:not(:disabled) {
+    filter: brightness(0.94);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.3) inset,
+      0 2px 6px -4px rgb(23 23 25 / 0.6);
   }
 
   .btn-accent {
-    background-color: var(--color-accent);
+    background-image: linear-gradient(180deg, #ea6350 0%, var(--color-accent) 62%);
     color: #ffffff;
-    box-shadow: 0 10px 22px -10px rgb(227 74 50 / 0.7);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.28) inset,
+      0 -1px 0 rgb(120 30 18 / 0.45) inset,
+      0 8px 20px -10px rgb(227 74 50 / 0.6);
   }
 
   .btn-accent:hover:not(:disabled) {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.34) inset,
+      0 -1px 0 rgb(120 30 18 / 0.45) inset,
+      0 14px 28px -12px rgb(227 74 50 / 0.7);
   }
 
+  .btn-accent:active:not(:disabled) {
+    filter: brightness(0.95);
+    box-shadow:
+      0 1px 2px rgb(120 30 18 / 0.4) inset,
+      0 2px 6px -4px rgb(227 74 50 / 0.5);
+  }
+
+  /*
+   * Fantasma: some no repouso e materializa no hover como uma pastilha branca com a
+   * mesma sombra dos cartões. Um lavado cinza faria o secundário parecer desabilitado;
+   * aqui ele ganha corpo em vez de sujeira.
+   */
   .btn-ghost {
     background-color: transparent;
     color: var(--color-muted);
   }
 
   .btn-ghost:hover:not(:disabled) {
-    background-color: rgb(0 0 0 / 0.05);
+    background-color: var(--color-card);
+    color: var(--color-ink);
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 8px 18px -10px rgb(35 36 39 / 0.3);
+  }
+
+  .btn-ghost:active:not(:disabled) {
+    transform: translateY(0);
+    transition-duration: 0.06s;
+    box-shadow: 0 1px 4px -2px rgb(35 36 39 / 0.3);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn,
+    .card-interactive,
+    .btn-primary::before,
+    .btn-accent::before {
+      transition: none;
+    }
+
+    .btn:hover:not(:disabled),
+    .card-interactive:hover {
+      transform: none;
+    }
+
+    /* O brilho fica parado fora da peça em vez de piscar nela. */
+    .btn-primary:hover:not(:disabled)::before,
+    .btn-accent:hover:not(:disabled)::before {
+      transform: translateX(-140%);
+    }
   }
 
   .field {

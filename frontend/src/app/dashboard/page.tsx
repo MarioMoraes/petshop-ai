@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ROLE_LABELS, type RoleKey } from '@petshop/shared-types'
+import type { ReactNode } from 'react'
 import { AppHeader, trialDaysLeftOf } from '@/components/app-header'
-import { Card, Shell } from '@/components/ui'
+import { Atmosphere, CardBloom } from '@/components/atmosphere'
+import { PawPrintIcon, UsersIcon } from '@/components/icons'
+import { Shell } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 
 /**
@@ -17,6 +19,10 @@ import { serverApi } from '@/lib/api'
  * Os números vêm da API a cada carga. Nenhum é calculado aqui — `total` da listagem é
  * o que o serviço já sabe responder, e um contador próprio divergiria na primeira
  * exclusão.
+ *
+ * É a única tela com a atmosfera do design ligada. Ela custa nada e dá identidade ao
+ * ponto de entrada; repetida nas telas de trabalho — listagem, formulário — passaria a
+ * disputar atenção com o dado.
  */
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +31,8 @@ interface Stat {
   label: string
   value: number | null
   hint: string
-  href?: '/tutores' | '/pets'
+  icon: ReactNode
+  href: '/tutores' | '/pets'
 }
 
 export default async function DashboardPage() {
@@ -34,8 +41,6 @@ export default async function DashboardPage() {
   if (!me.currentTenant?.onboardingCompletedAt) redirect('/onboarding')
 
   const tenant = me.currentTenant
-  const membership = me.memberships.find((item) => item.tenantId === tenant.id)
-  const role = (membership?.roleKey ?? 'RECEPTIONIST') as RoleKey
 
   // `limit: 1` porque só o `total` interessa: a listagem inteira seria desperdício.
   // Cada contagem cai para `null` sozinha — um serviço fora do ar apaga o número
@@ -58,68 +63,71 @@ export default async function DashboardPage() {
     {
       label: 'Tutores',
       value: tutors,
-      hint: tutors === 1 ? 'cadastro ativo' : 'cadastros ativos',
+      hint:
+        tutors === null
+          ? 'Contagem indisponível agora.'
+          : 'Quem responde pelos animais e recebe os lançamentos.',
+      icon: <UsersIcon />,
       href: '/tutores',
     },
     {
       label: 'Pets',
       value: pets,
-      hint: pets === 1 ? 'animal cadastrado' : 'animais cadastrados',
+      hint:
+        pets === null
+          ? 'Contagem indisponível agora.'
+          : 'Os animais atendidos, com espécie, porte e responsáveis.',
+      icon: <PawPrintIcon />,
       href: '/pets',
     },
   ]
 
   return (
     <Shell>
-      <AppHeader
-        active="inicio"
-        canReadSettings={me.permissions.includes('tenant:read_settings')}
-        trialDaysLeft={trialDaysLeftOf(tenant.trialEndsAt)}
-      />
+      <Atmosphere />
 
-      <main className="flex-1 px-6 pb-16 pt-8 sm:px-10">
-        <div className="mx-auto max-w-5xl">
-          <p className="hint">{ROLE_LABELS[role]}</p>
-          <h1 className="mt-2 text-4xl font-semibold leading-tight sm:text-5xl">
-            {greetingFor(settings?.timezone)},{' '}
-            <span className="font-serif italic">{firstNameOf(me.user.fullName)}</span>.
-          </h1>
-          <p className="hint mt-3">
-            {tenant.name} · <span className="font-medium text-ink">{tenant.slug}.petshopai.app</span>
-          </p>
+      {/* `relative z-10`: sem isso os blooms posicionados pintariam por cima do texto. */}
+      <div className="relative z-10 flex flex-1 flex-col">
+        <AppHeader
+          active="inicio"
+          canReadSettings={me.permissions.includes('tenant:read_settings')}
+          trialDaysLeft={trialDaysLeftOf(tenant.trialEndsAt)}
+        />
 
-          <div className="mt-10 grid gap-3 sm:grid-cols-2">
-            {stats.map((stat) => (
-              <Card key={stat.label}>
-                <p className="text-4xl font-semibold tabular-nums">
-                  {stat.value ?? <span className="text-subtle">—</span>}
-                </p>
-                <p className="mt-2 font-medium">{stat.label}</p>
-                <p className="hint mt-0.5">
-                  {stat.value === null ? 'indisponível agora' : stat.hint}
-                </p>
-                {stat.href && (
-                  <Link href={stat.href} className="btn btn-ghost mt-4 px-0 text-sm text-accent-ink">
-                    Abrir →
-                  </Link>
-                )}
-              </Card>
-            ))}
-          </div>
+        <main className="flex-1 px-6 pb-16 pt-8 sm:px-10">
+          <div className="mx-auto max-w-5xl">
+            <h1 className="font-serif text-4xl italic leading-tight sm:text-5xl">
+              {tenant.name}
+            </h1>
+            {/* Título 4 · Card padrão do design: 1.125rem / 1.75rem, peso 600. */}
+            <p className="mt-2 text-lg font-semibold">
+              {greetingFor(settings?.timezone)}, {firstNameOf(me.user.fullName)}.
+            </p>
 
-          {/* Diagnóstico útil enquanto os demais módulos não chegam. */}
-          <details className="mt-12">
-            <summary className="hint cursor-pointer">Suas permissões neste estabelecimento</summary>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {me.permissions.map((permission) => (
-                <span key={permission} className="pill bg-black/5 px-3 py-1 font-mono text-xs">
-                  {permission}
-                </span>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2">
+              {stats.map((stat) => (
+                <Link
+                  key={stat.label}
+                  href={stat.href}
+                  className="card card-interactive relative overflow-hidden p-7"
+                >
+                  <CardBloom />
+
+                  {/* O conteúdo sobe acima do bloom pelo mesmo motivo do shell. */}
+                  <div className="relative z-10">
+                    <span className="icon-chip">{stat.icon}</span>
+                    <p className="mt-5 text-4xl font-semibold tabular-nums">
+                      {stat.value ?? <span className="text-subtle">—</span>}
+                    </p>
+                    <p className="mt-1 text-lg font-semibold">{stat.label}</p>
+                    <p className="mt-3 text-sm leading-relaxed text-muted">{stat.hint}</p>
+                  </div>
+                </Link>
               ))}
             </div>
-          </details>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </Shell>
   )
 }

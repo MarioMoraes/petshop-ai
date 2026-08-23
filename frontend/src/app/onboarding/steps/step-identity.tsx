@@ -175,13 +175,15 @@ export function StepIdentity({
           </Field>
         )}
 
-        <button
-          type="submit"
-          className="btn btn-primary w-full"
-          disabled={pending || (isNew && availability?.available === false)}
-        >
-          {pending ? 'Salvando…' : 'Continuar'}
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={pending || (isNew && availability?.available === false)}
+          >
+            {pending ? 'Salvando…' : 'Continuar'}
+          </button>
+        </div>
       </form>
     </Card>
   )

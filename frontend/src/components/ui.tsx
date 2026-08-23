@@ -7,10 +7,14 @@ import type { ReactNode } from 'react'
  * telas que o exercitem envelhece antes de ser usado.
  */
 
+/**
+ * `relative` para os blooms de `<Atmosphere />` terem a que se ancorar, e
+ * `overflow-hidden` para eles pararem no raio do shell em vez de sangrarem na página.
+ */
 export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto max-w-[1400px] px-2 pt-2 sm:px-4 sm:pt-4">
-      <div className="shell flex min-h-[100svh] flex-col overflow-hidden">{children}</div>
+      <div className="shell relative flex min-h-[100svh] flex-col overflow-hidden">{children}</div>
     </div>
   )
 }

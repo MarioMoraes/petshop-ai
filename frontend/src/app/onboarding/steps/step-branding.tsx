@@ -105,15 +105,7 @@ export function StepBranding({
         </div>
       </div>
 
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row-reverse">
-        <button
-          type="button"
-          className="btn btn-primary flex-1"
-          disabled={pending}
-          onClick={() => onSubmit(() => finishOnboardingAction({ primaryColor }))}
-        >
-          {pending ? 'Concluindo…' : 'Concluir configuração'}
-        </button>
+      <div className="mt-8 flex flex-wrap items-center justify-end gap-3">
         <button
           type="button"
           className="btn btn-ghost"
@@ -121,6 +113,14 @@ export function StepBranding({
           onClick={() => onSubmit(skipBrandingAction)}
         >
           Pular por enquanto
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={pending}
+          onClick={() => onSubmit(() => finishOnboardingAction({ primaryColor }))}
+        >
+          {pending ? 'Concluindo…' : 'Concluir configuração'}
         </button>
       </div>
     </Card>
