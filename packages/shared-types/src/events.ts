@@ -267,6 +267,33 @@ export interface PetVinculoAlteradoEvent extends BaseEvent {
   role: 'PRIMARY' | 'SECONDARY'
 }
 
+/** MOD-PRONT — eventos do prontuário (PRD prontuario_04 §8). */
+export const RECORD_ROUTING_KEYS = {
+  alertaAlterado: 'prontuario.alerta.alterado',
+} as const
+
+export type RecordRoutingKey = (typeof RECORD_ROUTING_KEYS)[keyof typeof RECORD_ROUTING_KEYS]
+
+/**
+ * Um alerta de segurança do pet mudou: alergia, temperamento ou condição médica.
+ *
+ * O payload carrega o **efeito**, não a causa: quem consome precisa saber que o pet
+ * X mudou de estado de alerta para invalidar cache e revalidar agendamento futuro.
+ * O conteúdo clínico fica no serviço que o guarda.
+ */
+export interface ProntuarioAlertaAlteradoEvent extends BaseEvent {
+  tenantId: string
+  petId: string
+  kind: 'ALLERGY' | 'TEMPERAMENT' | 'MEDICAL'
+  action: 'CREATED' | 'UPDATED' | 'DEACTIVATED'
+  /** Maior severidade ativa depois da mudança; `null` quando não há alerta. */
+  highestSeverity: string | null
+}
+
+export interface RecordEventMap {
+  'prontuario.alerta.alterado': ProntuarioAlertaAlteradoEvent
+}
+
 export interface PetEventMap {
   'pet.criado': PetCriadoEvent
   'pet.atualizado': PetAtualizadoEvent

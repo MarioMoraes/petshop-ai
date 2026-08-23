@@ -129,6 +129,30 @@ describe('autenticação', () => {
     expect(verified.context.permissions).toContain('pet:upload_photo')
   })
 
+  it('roteia o prontuário para o medical-record-service, não para o pet-service', async () => {
+    const tenant = await seedTenant('rotapront')
+    const member = await seedMember(tenant.tenantId, 'VET')
+    const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
+    const petId = '11111111-1111-4111-8111-111111111111'
+
+    // As rotas do prontuário moram debaixo de `/v1/pets/:petId/…`, então o
+    // roteamento é por sufixo e precisa ganhar do prefixo de pets.
+    for (const suffix of ['/allergies', '/temperament', '/medical-alerts', '/safety-record', '/alerts']) {
+      const response = await call({ url: `/v1/pets/${petId}${suffix}`, token })
+      expect(response.statusCode).toBe(200)
+
+      const verified = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
+      expect(verified.ok).toBe(true)
+      if (!verified.ok) return
+      expect(verified.context.permissions).toContain('record:read_alerts')
+    }
+
+    // O pet em si continua no pet-service.
+    const pet = await call({ url: `/v1/pets/${petId}`, token })
+    expect(pet.statusCode).toBe(200)
+    expect(lastEchoed().url).toBe(`/v1/pets/${petId}`)
+  })
+
   it('devolve 404 para rota sem serviço de destino', async () => {
     const token = givenToken({ clerkUserId: 'user_semrota' })
     const response = await call({ url: '/v1/inexistente', token })

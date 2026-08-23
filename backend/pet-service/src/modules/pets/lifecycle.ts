@@ -12,7 +12,7 @@ import { publishEvent } from '../../lib/events.js'
 import { invalidatePet } from '../../lib/redis.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { openCipher } from './crypto.js'
-import { attachCoverUrls, toPetResponse, type PetRow } from './mapper.js'
+import { enrichPets, toPetResponse, type PetRow } from './mapper.js'
 import { WITH_DOMAIN } from './service.js'
 
 /**
@@ -189,6 +189,6 @@ async function reload(
   const row = await tx.pet.findFirst({ where: { id: petId }, include: WITH_DOMAIN })
   if (!row) throw notFound()
   const cipher = await openCipher(tx, tenantId)
-  const [mapped] = await attachCoverUrls(tx, [row], [toPetResponse(row as PetRow, cipher)])
+  const [mapped] = await enrichPets(tx, [row], [toPetResponse(row as PetRow, cipher)])
   return mapped as PetResponse
 }

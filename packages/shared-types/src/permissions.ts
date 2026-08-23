@@ -54,6 +54,12 @@ export const PERMISSIONS = {
   'record:read_alerts': 'Ler alertas de temperamento e alergias',
   'record:write': 'Escrever no prontuário',
   'record:write_notes': 'Registrar observações no prontuário',
+  /**
+   * Criar alergia e alerta médico (MOD-PRONT-03/05). Separada de `record:write`
+   * porque a recepção **registra** o que o tutor conta ("ele é alérgico a frango"),
+   * mas quem desativa um alerta de segurança é o veterinário.
+   */
+  'record:write_alerts': 'Registrar alergias e alertas médicos',
 
   // Financeiro
   'finance:read': 'Ler o financeiro dos tutores',
@@ -157,6 +163,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'record:read_alerts',
     'record:write',
     'record:write_notes',
+    'record:write_alerts',
     'finance:read',
     'finance:create',
     'finance:refund',
@@ -185,6 +192,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'pet:upload_photo',
     'record:read_summary',
     'record:read_alerts',
+    'record:write_notes',
+    'record:write_alerts',
     'finance:read',
     'finance:create',
     'schedule:read_all',
@@ -237,6 +246,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'record:read_alerts',
     'record:write',
     'record:write_notes',
+    'record:write_alerts',
     'schedule:read_own',
     'schedule:write_own',
     'checkin:manage',

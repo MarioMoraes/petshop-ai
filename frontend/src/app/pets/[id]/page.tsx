@@ -5,7 +5,7 @@ import { Badge, PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { PetDetailView } from './pet-detail'
 
-/** Detalhe do pet (MOD-PET-01, 02, 04, 05, 07 e 08). */
+/** Detalhe do pet (MOD-PET-01/02/04/05/07/08 e MOD-PRONT-03/04/05). */
 
 export const dynamic = 'force-dynamic'
 
@@ -30,7 +30,7 @@ export default async function PetPage({ params }: PageProps) {
   // buscá-los aqui evita que o cliente descubra depois que a aba estava vazia. Se
   // qualquer um falhar, o detalhe do pet ainda abre — nenhum dos dois é o assunto
   // principal da página.
-  const [weights, transfers, album] = await Promise.all([
+  const [weights, transfers, album, safetyRecord] = await Promise.all([
     serverApi()
       .listPetWeights(id)
       .catch(() => []),
@@ -42,6 +42,14 @@ export default async function PetPage({ params }: PageProps) {
     serverApi()
       .listPetPhotos(id)
       .catch(() => ({ photos: [], quota: { used: 0, limit: null } })),
+    serverApi()
+      .getSafetyRecord(id)
+      .catch(() => ({
+        allergies: [],
+        temperament: { current: null, history: [], hadRiskHistory: false },
+        medicalAlerts: [],
+        alerts: [],
+      })),
   ])
 
   return (
@@ -70,11 +78,15 @@ export default async function PetPage({ params }: PageProps) {
         weights={weights}
         transfers={transfers}
         album={album}
+        safetyRecord={safetyRecord}
         canUpdate={me.permissions.includes('pet:update')}
         canDelete={me.permissions.includes('pet:delete')}
         canWeigh={me.permissions.includes('pet:weigh')}
         canManageLifecycle={me.permissions.includes('pet:manage_lifecycle')}
         canUploadPhoto={me.permissions.includes('pet:upload_photo')}
+        canWriteAlerts={me.permissions.includes('record:write_alerts')}
+        canManageRecord={me.permissions.includes('record:write')}
+        canWriteNotes={me.permissions.includes('record:write_notes')}
       />
     </div>
   )

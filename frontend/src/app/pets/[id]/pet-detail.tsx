@@ -12,11 +12,13 @@ import {
   type PetPhoto,
   type PetResponse,
   type PetTransfer,
+  type SafetyRecord,
   type PetTutorRole,
   type PetWeightRecord,
   type TransferReason,
 } from '@petshop/shared-types'
 import { Card, DataRow, Field, FormError, Tabs } from '@/components/ui'
+import { SafetyRecordTab } from './safety-record'
 import {
   deletePetAction,
   deletePhotoAction,
@@ -46,6 +48,7 @@ interface Props {
   weights: PetWeightRecord[]
   transfers: PetTransfer[]
   album: PetAlbum
+  safetyRecord: SafetyRecord
   canUpdate: boolean
   canDelete: boolean
   /** `pet:upload_photo` — o tosador manda a foto do banho pronto (§9). */
@@ -54,10 +57,16 @@ interface Props {
   canWeigh: boolean
   /** `pet:manage_lifecycle` — transferir titularidade e reverter óbito. */
   canManageLifecycle: boolean
+  /** `record:write_alerts` — recepção e veterinário registram alergia. */
+  canWriteAlerts: boolean
+  /** `record:write` — só o veterinário e o administrador desativam. */
+  canManageRecord: boolean
+  /** `record:write_notes` — quem manuseia o animal observa o comportamento. */
+  canWriteNotes: boolean
 }
 
 export function PetDetailView(props: Props) {
-  const { pet, weights, album, canWeigh } = props
+  const { pet, weights, album, safetyRecord, canWeigh } = props
   const [tab, setTab] = useState('dados')
 
   return (
@@ -71,6 +80,25 @@ export function PetDetailView(props: Props) {
           <strong>{pet.name} está registrado como falecido</strong>
           {pet.deceasedAt ? ` em ${formatDate(pet.deceasedAt)}` : ''}. As campanhas para os
           tutores foram suprimidas e o cadastro não aceita mais edição.
+        </div>
+      )}
+
+      {/*
+        RN-02: o alerta acompanha o pet em toda tela operacional, não só na aba de
+        prontuário. Quem abre a ficha para conferir o telefone do tutor precisa ver
+        que o cachorro morde.
+      */}
+      {pet.alerts.length > 0 && (
+        <div
+          className={`rounded-2xl px-5 py-4 text-sm ${
+            pet.alerts.some((alert) => alert.severity === 'CRITICAL')
+              ? 'border border-danger/20 bg-danger/5'
+              : 'bg-accent-soft text-accent-ink'
+          }`}
+          role="status"
+        >
+          <strong>Atenção ao manuseio:</strong>{' '}
+          {pet.alerts.map((alert) => alert.label).join(' · ')}
         </div>
       )}
 
@@ -91,7 +119,12 @@ export function PetDetailView(props: Props) {
           { id: 'responsaveis', label: `Responsáveis (${pet.tutors.length})` },
           { id: 'peso', label: `Peso (${weights.length})` },
           { id: 'fotos', label: `Fotos (${album.photos.length})` },
-          { id: 'prontuario', label: 'Prontuário' },
+          {
+            id: 'prontuario',
+            label: safetyRecord.alerts.length
+              ? `Prontuário (${safetyRecord.alerts.length})`
+              : 'Prontuário',
+          },
         ]}
         active={tab}
         onSelect={setTab}
@@ -104,12 +137,13 @@ export function PetDetailView(props: Props) {
       )}
       {tab === 'fotos' && <FotosTab {...props} />}
       {tab === 'prontuario' && (
-        <Card>
-          <p className="hint">
-            Alergias, temperamento e histórico clínico chegam com o{' '}
-            <span className="font-medium text-ink">MOD-PRONT</span>.
-          </p>
-        </Card>
+        <SafetyRecordTab
+          petId={pet.id}
+          record={safetyRecord}
+          canWriteAlerts={props.canWriteAlerts}
+          canManageRecord={props.canManageRecord}
+          canWriteNotes={props.canWriteNotes}
+        />
       )}
     </div>
   )

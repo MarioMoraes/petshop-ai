@@ -795,6 +795,10 @@ model Pet {
   transfers PetTransferLog[]
   photos    PetPhoto[]
 
+  allergies     Allergy[]
+  temperaments  Temperament[]
+  medicalAlerts MedicalAlert[]
+
   @@map("pets")
 }
 
@@ -885,6 +889,139 @@ model PetPhoto {
   pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("pet_photos")
+}
+
+// ─── MOD-PRONT — Prontuário clínico e comportamental ─────────────────────────
+
+/// Severidade clínica, compartilhada por alergia e alerta médico. `CRITICAL` é o
+/// único nível que bloqueia operação (RN-03 de prontuario_04); os demais avisam.
+enum ClinicalSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AllergyType {
+  FOOD
+  PRODUCT
+  MEDICATION
+  ENVIRONMENTAL
+  OTHER
+}
+
+/// Classificação comportamental (MOD-PRONT-04). `UNKNOWN` é honesto: o pet que
+/// nunca foi atendido não é dócil, é desconhecido — e a equipe precisa da diferença.
+enum TemperamentClassification {
+  DOCILE
+  ANXIOUS
+  FEARFUL
+  REACTIVE
+  AGGRESSIVE
+  UNKNOWN
+}
+
+/// Alergia e restrição (MOD-PRONT-03).
+///
+/// Nunca é apagada: a desativação preserva a linha com quem desativou e por quê
+/// (AC-04). Uma alergia que "some" do histórico é uma informação de segurança que
+/// desapareceu sem rastro — e é justamente essa que faz falta depois.
+model Allergy {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  petId    String @map("pet_id") @db.Uuid
+
+  type     AllergyType
+  label    String           @db.VarChar(120)
+  severity ClinicalSeverity
+
+  /// Cifrada: detalhe clínico da reação observada (§4).
+  reactionEncrypted String? @map("reaction_encrypted")
+
+  /// Serviços que esta alergia bloqueia (RN-03). FK lógica para `services`, que
+  /// vive no MOD-AGENDA — array em vez de tabela de junção porque a lista é curta
+  /// e sempre lida junto com a alergia.
+  blocksServices String[] @map("blocks_services") @db.Uuid
+  /// Palavras-chave de produto ("shampoo neutro X"), casadas no check-out.
+  blocksProducts String[] @map("blocks_products")
+
+  diagnosedAt DateTime? @map("diagnosed_at") @db.Date
+  diagnosedBy String?   @map("diagnosed_by") @db.Uuid
+
+  active          Boolean   @default(true)
+  resolutionNotes String?   @map("resolution_notes")
+  deactivatedBy   String?   @map("deactivated_by") @db.Uuid
+  deactivatedAt   DateTime? @map("deactivated_at") @db.Timestamptz(6)
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("allergies")
+}
+
+/// Observação de temperamento (MOD-PRONT-04).
+///
+/// É série histórica, não campo do pet: RN-16 exige que o histórico de risco
+/// sobreviva à melhora. `is_current` marca o vigente, e o índice parcial garante
+/// que só exista um por pet.
+model Temperament {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  petId    String @map("pet_id") @db.Uuid
+
+  classification TemperamentClassification
+
+  /// NAIL_TRIMMING, DRYER, MUZZLE, BATH, STRANGERS, OTHER_DOGS — em que situação.
+  contexts String[]
+
+  requiresMuzzle      Boolean @default(false) @map("requires_muzzle")
+  requiresTwoHandlers Boolean @default(false) @map("requires_two_handlers")
+
+  /// Cifrada. Obrigatória para REACTIVE e AGGRESSIVE (AC-02): "morde" sem contexto
+  /// não diz à equipe o que evitar.
+  notesEncrypted String? @map("notes_encrypted")
+
+  observedBy String?  @map("observed_by") @db.Uuid
+  observedAt DateTime @default(now()) @map("observed_at") @db.Timestamptz(6)
+
+  isCurrent Boolean @default(true) @map("is_current")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("temperaments")
+}
+
+/// Condição médica ativa (MOD-PRONT-05): cardiopatia, epilepsia, idade avançada.
+/// Diferente da alergia, não bloqueia serviço — instrui a execução ("não usar
+/// secador quente").
+model MedicalAlert {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  petId    String @map("pet_id") @db.Uuid
+
+  condition String           @db.VarChar(120)
+  severity  ClinicalSeverity
+
+  /// Cifrada: instrução operacional que pode descrever quadro clínico.
+  instructionsEncrypted String? @map("instructions_encrypted")
+
+  active          Boolean   @default(true)
+  resolutionNotes String?   @map("resolution_notes")
+  deactivatedBy   String?   @map("deactivated_by") @db.Uuid
+  deactivatedAt   DateTime? @map("deactivated_at") @db.Timestamptz(6)
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("medical_alerts")
 }
 
 /// AC-02 de MOD-PET-03: o tenant não edita nem apaga raça global — esconde da lista

@@ -127,6 +127,9 @@ export function createRawAppClient(): PrismaClient {
 }
 
 const BUSINESS_TABLES = [
+  'allergies',
+  'temperaments',
+  'medical_alerts',
   'pet_photos',
   'breed_visibility',
   'pet_transfer_log',

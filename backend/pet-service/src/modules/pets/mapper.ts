@@ -9,6 +9,7 @@ import {
   type PetWarning,
 } from '@petshop/shared-types'
 import { coverUrlsFor } from '../photos/service.js'
+import { attachAlerts } from './alerts.js'
 import { decryptOptional, type PetCipher } from './crypto.js'
 
 /**
@@ -80,6 +81,25 @@ function maskTutorPhone(tutor: Tutor, cipher: PetCipher): string {
  * saída tinha de lembrar de assinar a URL, e esquecer em um deles significaria a foto
  * sumir da tela sem motivo aparente.
  */
+/**
+ * Enriquecimento das respostas já mapeadas: capa (MOD-PET-04) e alertas do
+ * prontuário (MOD-PRONT). Todo caminho de leitura passa por aqui, para que nenhum
+ * ponto de saída esqueça um dos dois.
+ */
+export async function enrichPets(
+  tx: TenantTransaction,
+  rows: Pick<Pet, 'id' | 'coverPhotoId'>[],
+  responses: PetResponse[],
+): Promise<PetResponse[]> {
+  await attachCoverUrls(tx, rows, responses)
+  await attachAlerts(
+    tx,
+    rows.map((row) => row.id),
+    responses,
+  )
+  return responses
+}
+
 export async function attachCoverUrls(
   tx: TenantTransaction,
   rows: Pick<Pet, 'id' | 'coverPhotoId'>[],
@@ -122,7 +142,8 @@ export function toPetResponse(row: PetRow, cipher: PetCipher, now = new Date()):
     status: row.status,
     deceasedAt: row.deceasedAt ? toDateString(row.deceasedAt) : null,
     notes: decryptOptional(cipher, row.notesEncrypted),
-    // TODO(MOD-PRONT): RN-09 agrega aqui as alergias e o temperamento do prontuário.
+    // Preenchido por `attachAlerts` — a mesma razão de `coverPhotoUrl`: o mapper
+    // traduz linha em contrato e não vai ao banco.
     alerts: [],
     tutors: (row.petTutors ?? []).map((link) => toPetTutorLink(link, cipher)),
     warnings: weightWarnings(weightKg, row.size),

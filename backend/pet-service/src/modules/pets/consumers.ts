@@ -32,6 +32,11 @@ const TutorMescladoSchema = z.object({
   targetId: z.uuid(),
 })
 
+const AlertaAlteradoSchema = z.object({
+  tenantId: z.uuid(),
+  petId: z.uuid(),
+})
+
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
 /**
@@ -156,9 +161,24 @@ async function promoteNextPrimary(tx: TenantTransaction, petId: string): Promise
 
 // ─── Ligação com o broker ────────────────────────────────────────────────────
 
+/**
+ * O prontuário mudou um alerta de segurança: o cache do pet embute `alerts[]` e
+ * precisa cair.
+ *
+ * O medical-record-service já invalida a mesma chave de forma síncrona, na hora da
+ * escrita. Este consumidor é a rede de baixo: cobre a réplica de Redis que não
+ * recebeu o DEL e o caso em que o serviço morreu entre gravar e invalidar. Alerta de
+ * segurança errado em cache por dois minutos é o tipo de defeito que se paga caro.
+ */
+export async function handleAlertaAlterado(payload: unknown): Promise<void> {
+  const event = AlertaAlteradoSchema.parse(payload)
+  await invalidatePet(event.tenantId, event.petId)
+}
+
 const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'tutor.anonimizado': handleTutorAnonimizado,
   'tutor.mesclado': handleTutorMesclado,
+  'prontuario.alerta.alterado': handleAlertaAlterado,
 }
 
 let connection: ChannelModel | null = null

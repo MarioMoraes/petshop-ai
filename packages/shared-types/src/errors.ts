@@ -47,6 +47,17 @@ export const PET_ERRORS = {
   ERR_PET_008: { status: 402, title: 'Cota de fotos do plano atingida' },
   ERR_PET_009: { status: 502, title: 'Falha no serviço de imagens' },
   ERR_PET_010: { status: 403, title: 'Uso de imagem sem consentimento' },
+
+  // MOD-PRONT — prontuário clínico e comportamental
+  ERR_PRONT_001: { status: 404, title: 'Registro não encontrado' },
+  ERR_PRONT_002: { status: 422, title: 'Dados de entrada inválidos' },
+  ERR_PRONT_003: { status: 403, title: 'Permissão clínica insuficiente' },
+  ERR_PRONT_004: { status: 409, title: 'Atendimento já registrado' },
+  ERR_PRONT_005: { status: 409, title: 'Serviço incompatível com alergia crítica' },
+  ERR_PRONT_006: { status: 409, title: 'Registro imutável' },
+  ERR_PRONT_007: { status: 409, title: 'Vacinação obrigatória pendente' },
+  ERR_PRONT_008: { status: 422, title: 'Anexo inválido' },
+  ERR_PRONT_009: { status: 403, title: 'Prescrição exige CRMV' },
 } as const
 
 export type PetErrorCode = keyof typeof PET_ERRORS

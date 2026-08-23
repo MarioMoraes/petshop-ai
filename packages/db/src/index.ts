@@ -48,6 +48,9 @@ export type {
   PetWeight,
   PetTransferLog,
   PetPhoto,
+  Allergy,
+  Temperament,
+  MedicalAlert,
   BreedVisibility,
   PetSex,
   PetStatus,
@@ -55,4 +58,7 @@ export type {
   PetTutorRole,
   TransferReason,
   PhotoSource,
+  ClinicalSeverity,
+  AllergyType,
+  TemperamentClassification,
 } from '../generated/client/index.js'

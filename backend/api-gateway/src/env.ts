@@ -19,6 +19,7 @@ const EnvSchema = z.object({
   IDENTITY_SERVICE_URL: z.string().url().default('http://localhost:3001'),
   TUTOR_SERVICE_URL: z.string().url().default('http://localhost:3003'),
   PET_SERVICE_URL: z.string().url().default('http://localhost:3004'),
+  MEDICAL_RECORD_SERVICE_URL: z.string().url().default('http://localhost:3005'),
 
   /** Origens aceitas pelo CORS (SPEC §7.4: CORS restritivo por domínio). */
   CORS_ORIGINS: z.string().default('http://localhost:3002'),

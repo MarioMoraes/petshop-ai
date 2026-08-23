@@ -255,6 +255,85 @@ describe('MOD-PET-01 — CRUD de pet', () => {
   })
 })
 
+describe('RN-09 — alertas do prontuário na ficha do pet', () => {
+  /** Cria o pet pela API e devolve o id — o resto do teste mexe só no prontuário. */
+  async function givenPetId(): Promise<string> {
+    const response = await createPet()
+    expect(response.statusCode).toBe(201)
+    return response.json().id as string
+  }
+
+  it('agrega alergia, temperamento e condição médica, do mais grave para o menos', async () => {
+    const petId = await givenPetId()
+
+    // As tabelas são do medical-record-service; o pet-service só projeta a leitura.
+    await ownerPrisma.allergy.create({
+      data: {
+        tenantId: tenant.tenantId,
+        petId,
+        type: 'FOOD',
+        label: 'Frango',
+        severity: 'LOW',
+      },
+    })
+    await ownerPrisma.medicalAlert.create({
+      data: {
+        tenantId: tenant.tenantId,
+        petId,
+        condition: 'Cardiopatia',
+        severity: 'CRITICAL',
+      },
+    })
+    await ownerPrisma.temperament.create({
+      data: {
+        tenantId: tenant.tenantId,
+        petId,
+        classification: 'REACTIVE',
+        requiresMuzzle: true,
+        isCurrent: true,
+      },
+    })
+
+    const detail = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/pets/${petId}` })
+
+    expect(detail.statusCode).toBe(200)
+    const alerts = detail.json().alerts as { type: string; severity: string; label: string }[]
+    expect(alerts.map((alert) => alert.severity)).toEqual(['CRITICAL', 'HIGH', 'LOW'])
+    expect(alerts[1]).toMatchObject({
+      type: 'TEMPERAMENT',
+      label: 'Reativo · exige focinheira',
+    })
+
+    // A listagem também carrega: é ela que a recepção olha antes de chamar o pet.
+    const list = await callApi({ ...asAdmin(tenant), method: 'GET', url: '/v1/pets' })
+    expect(list.json().data[0].alerts).toHaveLength(3)
+  })
+
+  it('alergia desativada some da ficha', async () => {
+    const petId = await givenPetId()
+    await ownerPrisma.allergy.create({
+      data: {
+        tenantId: tenant.tenantId,
+        petId,
+        type: 'PRODUCT',
+        label: 'Shampoo X',
+        severity: 'CRITICAL',
+        active: false,
+        deactivatedAt: new Date(),
+      },
+    })
+
+    const detail = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/pets/${petId}` })
+    expect(detail.json().alerts).toHaveLength(0)
+  })
+
+  it('pet sem prontuário devolve a lista vazia, não erro', async () => {
+    const petId = await givenPetId()
+    const detail = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/pets/${petId}` })
+    expect(detail.json().alerts).toEqual([])
+  })
+})
+
 describe('MOD-PET-01 — busca e listagem', () => {
   it('encontra por nome, por raça e por microchip', async () => {
     await createPet(petPayload({ name: 'Thor', microchip: '981020000123456' }))

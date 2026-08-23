@@ -12,7 +12,7 @@ import { invalidatePet } from '../../lib/redis.js'
 import { getScheduling } from '../../lib/scheduling.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { openCipher } from './crypto.js'
-import { attachCoverUrls, toDateString, toPetResponse, type PetRow } from './mapper.js'
+import { enrichPets, toDateString, toPetResponse, type PetRow } from './mapper.js'
 import { assertWritable, WITH_DOMAIN } from './service.js'
 
 /**
@@ -135,7 +135,7 @@ export async function transferPet(
       const reloaded = await tx.pet.findFirst({ where: { id: petId }, include: WITH_DOMAIN })
       if (!reloaded) throw notFound()
       const cipher = await openCipher(tx, actor.tenantId)
-      const [mapped] = await attachCoverUrls(
+      const [mapped] = await enrichPets(
         tx,
         [reloaded],
         [toPetResponse(reloaded as PetRow, cipher)],

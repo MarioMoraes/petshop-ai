@@ -18,7 +18,7 @@ import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet, invalidatePet } from
 import { loadDomainRefs } from '../catalog/service.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { hashMicrochip, openCipher, type PetCipher } from './crypto.js'
-import { attachCoverUrls, toPetResponse, type PetRow } from './mapper.js'
+import { enrichPets, toPetResponse, type PetRow } from './mapper.js'
 import { searchPetIds } from './search.js'
 import { linkTutorsIn } from './tutors.js'
 import { latestWeightBefore, publishWeightRecorded, toRecord } from './weights.js'
@@ -69,7 +69,7 @@ export async function listPets(tenantId: string, query: ListPetsQuery): Promise<
       .filter((row): row is (typeof rows)[number] => row !== undefined)
 
     return {
-      data: await attachCoverUrls(
+      data: await enrichPets(
         tx,
         ordered,
         ordered.map((row) => toPetResponse(row, cipher)),
@@ -92,7 +92,7 @@ export async function getPet(tenantId: string, petId: string): Promise<PetRespon
     const row = await tx.pet.findFirst({ where: { id: petId, deletedAt: null }, include: WITH_DOMAIN })
     if (!row) throw notFound()
     const cipher = await openCipher(tx, tenantId)
-    const [mapped] = await attachCoverUrls(tx, [row], [toPetResponse(row, cipher)])
+    const [mapped] = await enrichPets(tx, [row], [toPetResponse(row, cipher)])
     return mapped as PetResponse
   })
 
@@ -483,7 +483,7 @@ function resolveBirthDatePatch(patch: UpdatePetInput): {
 async function reloadPet(tx: TenantTransaction, petId: string, cipher: PetCipher): Promise<PetResponse> {
   const row = await tx.pet.findFirst({ where: { id: petId }, include: WITH_DOMAIN })
   if (!row) throw notFound()
-  const [mapped] = await attachCoverUrls(tx, [row], [toPetResponse(row as PetRow, cipher)])
+  const [mapped] = await enrichPets(tx, [row], [toPetResponse(row as PetRow, cipher)])
   return mapped as PetResponse
 }
 

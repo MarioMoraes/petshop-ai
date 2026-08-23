@@ -136,6 +136,27 @@ const TUTOR_PREFIXES = ['/v1/tutors']
 // pelagem só existem para serem referenciados por um pet.
 const PET_PREFIXES = ['/v1/pets', '/v1/species', '/v1/breeds', '/v1/sizes', '/v1/coats']
 
+/**
+ * O prontuário pendura suas rotas debaixo de `/v1/pets/:petId/…`, porque é do pet
+ * que se fala. O roteamento é por **sufixo**, então precisa vir antes do prefixo de
+ * pets — senão `/v1/pets/x/allergies` cairia no pet-service.
+ */
+const RECORD_SUFFIXES = [
+  '/safety-record',
+  '/alerts',
+  '/allergies',
+  '/allergy-check',
+  '/temperament',
+  '/medical-alerts',
+]
+
+function isRecordPath(path: string): boolean {
+  if (!path.startsWith('/v1/pets/')) return false
+  return RECORD_SUFFIXES.some(
+    (suffix) => path.endsWith(suffix) || path.includes(`${suffix}/`),
+  )
+}
+
 function matches(path: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
@@ -144,6 +165,7 @@ export function resolveTarget(path: string): string | null {
   const env = loadEnv()
   if (matches(path, IDENTITY_PREFIXES)) return env.IDENTITY_SERVICE_URL
   if (matches(path, TUTOR_PREFIXES)) return env.TUTOR_SERVICE_URL
+  if (isRecordPath(path)) return env.MEDICAL_RECORD_SERVICE_URL
   if (matches(path, PET_PREFIXES)) return env.PET_SERVICE_URL
   return null
 }

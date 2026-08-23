@@ -9,10 +9,15 @@ import {
   OnboardingStateSchema,
   PaginatedPetsSchema,
   PaginatedTutorsSchema,
+  AllergyCheckResultSchema,
+  AllergySchema,
   ManagedBreedSchema,
+  MedicalAlertSchema,
   PetAlbumSchema,
   PetPhotoSchema,
   PetResponseSchema,
+  SafetyRecordSchema,
+  TemperamentSchema,
   PetSensitiveSchema,
   PetTransferSchema,
   PetTutorSchema,
@@ -42,7 +47,10 @@ import {
   type CheckDuplicatesInput,
   type CheckDuplicatesResult,
   type ConsentsResponse,
+  type Allergy,
+  type CreateAllergyInput,
   type CreateBreedInput,
+  type CreateMedicalAlertInput,
   type CreatePetInput,
   type CreateTagInput,
   type CreateTutorInput,
@@ -50,6 +58,7 @@ import {
   type ListPetsQuery,
   type ListTutorsQuery,
   type ManagedBreed,
+  type MedicalAlert,
   type MergeTutorInput,
   type PetAlbum,
   type PetPhoto,
@@ -60,6 +69,7 @@ import {
   type PetTransfer,
   type PetTutorLink,
   type PetWeightRecord,
+  type RecordTemperamentInput,
   type RecordWeightInput,
   type RegisterDeathInput,
   type RevertDeathInput,
@@ -71,8 +81,12 @@ import {
   type TutorSensitive,
   type UpdateAddressInput,
   type UpdateConsentsInput,
+  type SafetyRecord,
+  type Temperament,
   type TransferPetInput,
+  type UpdateAllergyInput,
   type UpdateBreedInput,
+  type UpdateMedicalAlertInput,
   type UpdatePhotoInput,
   type UpdatePetInput,
   type UpdatePetTutorInput,
@@ -498,6 +512,61 @@ export function createApiClient(options: ApiClientOptions) {
         schema: PetResponseSchema,
       }),
 
+    // ─── Prontuário de segurança (MOD-PRONT-03/04/05) ──────────────────────
+
+    /** Alergias, temperamento e alertas médicos — o que a aba do pet carrega. */
+    getSafetyRecord: (petId: string) =>
+      request({ method: 'GET', path: `/v1/pets/${petId}/safety-record`, schema: SafetyRecordSchema }),
+
+    createAllergy: (petId: string, input: CreateAllergyInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${petId}/allergies`,
+        body: input,
+        schema: AllergySchema,
+      }),
+
+    updateAllergy: (petId: string, allergyId: string, patch: UpdateAllergyInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/pets/${petId}/allergies/${allergyId}`,
+        body: patch,
+        schema: AllergySchema,
+      }),
+
+    recordTemperament: (petId: string, input: RecordTemperamentInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${petId}/temperament`,
+        body: input,
+        schema: TemperamentSchema,
+      }),
+
+    createMedicalAlert: (petId: string, input: CreateMedicalAlertInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${petId}/medical-alerts`,
+        body: input,
+        schema: MedicalAlertSchema,
+      }),
+
+    updateMedicalAlert: (petId: string, alertId: string, patch: UpdateMedicalAlertInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/pets/${petId}/medical-alerts/${alertId}`,
+        body: patch,
+        schema: MedicalAlertSchema,
+      }),
+
+    /** RN-03: o serviço esbarra em alguma alergia deste pet? */
+    checkAllergies: (petId: string, serviceIds: string[]) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${petId}/allergy-check`,
+        body: { serviceIds },
+        schema: AllergyCheckResultSchema,
+      }),
+
     // ─── Catálogo de domínio (MOD-PET-03) ──────────────────────────────────
 
     listSpecies: () =>
@@ -566,12 +635,14 @@ async function readProblem(response: Response): Promise<ProblemDetails | null> {
 
 export type {
   AddressResponse,
+  Allergy,
   Breed,
   CepLookup,
   Coat,
   CheckDuplicatesResult,
   ConsentsResponse,
   ManagedBreed,
+  MedicalAlert,
   MeResponse,
   OnboardingState,
   PaginatedPets,
@@ -583,10 +654,12 @@ export type {
   PetTransfer,
   PetTutorLink,
   PetWeightRecord,
+  SafetyRecord,
   Size,
   SlugAvailability,
   Species,
   Tag,
+  Temperament,
   TenantResponse,
   TenantSettings,
   TutorDetail,

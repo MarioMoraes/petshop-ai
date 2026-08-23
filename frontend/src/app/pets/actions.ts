@@ -3,22 +3,30 @@
 import { revalidatePath } from 'next/cache'
 import { ApiError } from '@petshop/api-client'
 import {
+  CreateAllergySchema,
+  CreateMedicalAlertSchema,
   CreatePetSchema,
   LinkTutorSchema,
   MAX_PHOTO_BYTES,
-  UpdatePhotoSchema,
+  RecordTemperamentSchema,
   RecordWeightSchema,
   RegisterDeathSchema,
   RevertDeathSchema,
   TransferPetSchema,
+  UpdateAllergySchema,
+  UpdateMedicalAlertSchema,
   UpdatePetSchema,
   UpdatePetTutorSchema,
+  UpdatePhotoSchema,
+  type Allergy,
   type Breed,
-  type PetResponse,
+  type MedicalAlert,
   type PetPhoto,
+  type PetResponse,
   type PetSensitive,
   type PetTutorLink,
   type PetWeightRecord,
+  type Temperament,
 } from '@petshop/shared-types'
 import { z } from 'zod'
 import { serverApi } from '@/lib/api'
@@ -364,6 +372,100 @@ export async function deletePhotoAction(
     revalidatePath(`/pets/${petId}`)
     revalidatePath('/pets')
     return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Prontuário de segurança (MOD-PRONT-03/04/05) ────────────────────────────
+
+/**
+ * O prontuário mora em outro serviço, mas na tela é uma aba do pet — por isso as
+ * ações vivem aqui, junto das outras do pet. Todas revalidam `/pets` também: o
+ * alerta aparece na listagem do balcão, não só na ficha.
+ */
+function revalidateRecord(petId: string): void {
+  revalidatePath(`/pets/${petId}`)
+  revalidatePath('/pets')
+}
+
+export async function createAllergyAction(
+  petId: string,
+  input: unknown,
+): Promise<ActionResult<Allergy>> {
+  const parsed = CreateAllergySchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const allergy = await serverApi().createAllergy(petId, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: allergy }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function updateAllergyAction(
+  petId: string,
+  allergyId: string,
+  patch: unknown,
+): Promise<ActionResult<Allergy>> {
+  const parsed = UpdateAllergySchema.safeParse(patch)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const allergy = await serverApi().updateAllergy(petId, allergyId, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: allergy }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function recordTemperamentAction(
+  petId: string,
+  input: unknown,
+): Promise<ActionResult<Temperament>> {
+  const parsed = RecordTemperamentSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const temperament = await serverApi().recordTemperament(petId, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: temperament }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function createMedicalAlertAction(
+  petId: string,
+  input: unknown,
+): Promise<ActionResult<MedicalAlert>> {
+  const parsed = CreateMedicalAlertSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const alert = await serverApi().createMedicalAlert(petId, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: alert }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function updateMedicalAlertAction(
+  petId: string,
+  alertId: string,
+  patch: unknown,
+): Promise<ActionResult<MedicalAlert>> {
+  const parsed = UpdateMedicalAlertSchema.safeParse(patch)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const alert = await serverApi().updateMedicalAlert(petId, alertId, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: alert }
   } catch (error) {
     return toFailure(error)
   }
