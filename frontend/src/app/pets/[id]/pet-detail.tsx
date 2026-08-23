@@ -3,12 +3,31 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { PetResponse, PetTutorRole } from '@petshop/shared-types'
-import { Card, DataRow, FormError, Tabs } from '@/components/ui'
+import {
+  ACCEPTED_PHOTO_MIMES,
+  MAX_PHOTOS_PER_UPLOAD,
+  TRANSFER_CONFIRMATION,
+  TRANSFER_REASON_LABELS,
+  type PetAlbum,
+  type PetPhoto,
+  type PetResponse,
+  type PetTransfer,
+  type PetTutorRole,
+  type PetWeightRecord,
+  type TransferReason,
+} from '@petshop/shared-types'
+import { Card, DataRow, Field, FormError, Tabs } from '@/components/ui'
 import {
   deletePetAction,
+  deletePhotoAction,
   linkTutorAction,
+  recordWeightAction,
+  updatePhotoAction,
+  uploadPhotosAction,
+  registerDeathAction,
   revealMicrochipAction,
+  revertDeathAction,
+  transferPetAction,
   unlinkTutorAction,
   updatePetTutorAction,
 } from '../actions'
@@ -24,11 +43,21 @@ import { TutorPicker } from '../tutor-picker'
 
 interface Props {
   pet: PetResponse
+  weights: PetWeightRecord[]
+  transfers: PetTransfer[]
+  album: PetAlbum
   canUpdate: boolean
   canDelete: boolean
+  /** `pet:upload_photo` — o tosador manda a foto do banho pronto (§9). */
+  canUploadPhoto: boolean
+  /** `pet:weigh` — o banhista pesa sem poder editar o cadastro. */
+  canWeigh: boolean
+  /** `pet:manage_lifecycle` — transferir titularidade e reverter óbito. */
+  canManageLifecycle: boolean
 }
 
-export function PetDetailView({ pet, canUpdate, canDelete }: Props) {
+export function PetDetailView(props: Props) {
+  const { pet, weights, album, canWeigh } = props
   const [tab, setTab] = useState('dados')
 
   return (
@@ -37,6 +66,14 @@ export function PetDetailView({ pet, canUpdate, canDelete }: Props) {
         AC-04: o aviso de peso acompanha o cadastro, não só o momento de salvar. Fica
         no topo das abas porque vale para o pet inteiro, não para uma seção.
       */}
+      {pet.status === 'DECEASED' && (
+        <div className="rounded-2xl border border-danger/20 bg-danger/5 px-5 py-4 text-sm" role="status">
+          <strong>{pet.name} está registrado como falecido</strong>
+          {pet.deceasedAt ? ` em ${formatDate(pet.deceasedAt)}` : ''}. As campanhas para os
+          tutores foram suprimidas e o cadastro não aceita mais edição.
+        </div>
+      )}
+
       {pet.warnings.map((warning) => (
         <div
           key={warning.code}
@@ -52,14 +89,20 @@ export function PetDetailView({ pet, canUpdate, canDelete }: Props) {
         tabs={[
           { id: 'dados', label: 'Dados' },
           { id: 'responsaveis', label: `Responsáveis (${pet.tutors.length})` },
+          { id: 'peso', label: `Peso (${weights.length})` },
+          { id: 'fotos', label: `Fotos (${album.photos.length})` },
           { id: 'prontuario', label: 'Prontuário' },
         ]}
         active={tab}
         onSelect={setTab}
       />
 
-      {tab === 'dados' && <DadosTab pet={pet} canUpdate={canUpdate} canDelete={canDelete} />}
-      {tab === 'responsaveis' && <ResponsaveisTab pet={pet} canUpdate={canUpdate} canDelete={canDelete} />}
+      {tab === 'dados' && <DadosTab {...props} />}
+      {tab === 'responsaveis' && <ResponsaveisTab {...props} />}
+      {tab === 'peso' && (
+        <PesoTab petId={pet.id} pet={pet} weights={weights} canWeigh={canWeigh} />
+      )}
+      {tab === 'fotos' && <FotosTab {...props} />}
       {tab === 'prontuario' && (
         <Card>
           <p className="hint">
@@ -74,7 +117,7 @@ export function PetDetailView({ pet, canUpdate, canDelete }: Props) {
 
 // ─── Dados ───────────────────────────────────────────────────────────────────
 
-function DadosTab({ pet, canUpdate, canDelete }: Props) {
+function DadosTab({ pet, canUpdate, canDelete, canManageLifecycle }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -165,6 +208,7 @@ function DadosTab({ pet, canUpdate, canDelete }: Props) {
               Editar
             </Link>
           )}
+          {canUpdate && <DeathPanel pet={pet} />}
           {canDelete && (
             <button
               type="button"
@@ -177,6 +221,8 @@ function DadosTab({ pet, canUpdate, canDelete }: Props) {
           )}
         </div>
       )}
+
+      {pet.status === 'DECEASED' && canManageLifecycle && <DeathReversalPanel pet={pet} />}
 
       {confirmingDelete && (
         <Card className="space-y-3 border border-danger/20">
@@ -205,7 +251,7 @@ function DadosTab({ pet, canUpdate, canDelete }: Props) {
 
 // ─── Responsáveis (MOD-PET-02) ───────────────────────────────────────────────
 
-function ResponsaveisTab({ pet, canUpdate, canDelete }: Props) {
+function ResponsaveisTab({ pet, transfers, canUpdate, canDelete, canManageLifecycle }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -337,6 +383,12 @@ function ResponsaveisTab({ pet, canUpdate, canDelete }: Props) {
           />
         </Card>
       )}
+
+      {canManageLifecycle && pet.status !== 'DECEASED' && pet.status !== 'TRANSFERRED_OUT' && (
+        <TransferPanel pet={pet} />
+      )}
+
+      {transfers.length > 0 && <TransferHistory transfers={transfers} />}
     </div>
   )
 }
@@ -390,6 +442,627 @@ function RoleButton({
   )
 }
 
+// ─── Peso (MOD-PET-07) ───────────────────────────────────────────────────────
+
+/**
+ * A série de pesagens e o formulário de registrar mais uma.
+ *
+ * A variação aparece ponto a ponto porque é ela que muda a conduta: 30 kg não diz
+ * nada sozinho, "-20% em três semanas" diz. O destaque de RN-11 é do backend — a tela
+ * não recalcula a regra, só a exibe.
+ */
+function PesoTab({
+  petId,
+  pet,
+  weights,
+  canWeigh,
+}: {
+  petId: string
+  pet: PetResponse
+  weights: PetWeightRecord[]
+  canWeigh: boolean
+}) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [weight, setWeight] = useState('')
+
+  const isTerminal = pet.status === 'DECEASED' || pet.status === 'TRANSFERRED_OUT'
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    setError(null)
+    const parsed = Number(weight.replace(',', '.'))
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setError('Informe o peso em quilos, como 12,4.')
+      return
+    }
+
+    startTransition(async () => {
+      const result = await recordWeightAction(petId, { weightKg: parsed })
+      if (result.ok) {
+        setWeight('')
+        router.refresh()
+      } else {
+        setError(result.message)
+      }
+    })
+  }
+
+  return (
+    <div className="space-y-5">
+      <FormError message={error} />
+
+      {canWeigh && !isTerminal && (
+        <Card className="space-y-3">
+          <h3 className="font-semibold">Registrar pesagem</h3>
+          <p className="hint">
+            Entra no histórico e vira o peso atual do pet. Se a variação for grande, o
+            prontuário avisa o veterinário.
+          </p>
+          <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
+            <Field label="Peso (kg)" htmlFor="weight">
+              <input
+                id="weight"
+                inputMode="decimal"
+                className="input w-32"
+                value={weight}
+                onChange={(event) => setWeight(event.target.value)}
+                placeholder="12,4"
+              />
+            </Field>
+            <button type="submit" className="btn btn-primary" disabled={pending}>
+              {pending ? 'Registrando…' : 'Registrar'}
+            </button>
+          </form>
+        </Card>
+      )}
+
+      {weights.length === 0 ? (
+        <Card>
+          <p className="hint">
+            Nenhuma pesagem registrada. A primeira costuma sair no cadastro ou no check-in
+            do banho.
+          </p>
+        </Card>
+      ) : (
+        <Card className="space-y-3">
+          <h3 className="font-semibold">Histórico</h3>
+          <ul className="divide-y divide-black/5">
+            {weights.map((point) => (
+              <li key={point.id} className="flex flex-wrap items-center gap-3 py-3">
+                <span className="font-mono text-lg">{point.weightKg} kg</span>
+                <span className="hint">{formatDateTime(point.measuredAt)}</span>
+                {point.variationPercent !== null && (
+                  <span
+                    className={`pill ml-auto px-3 py-1 text-xs font-medium ${
+                      point.alert ? 'bg-danger/10 text-danger' : 'bg-black/5 text-muted'
+                    }`}
+                    title={
+                      point.alert
+                        ? 'Variação relevante para a janela clínica de 60 dias'
+                        : undefined
+                    }
+                  >
+                    {point.variationPercent > 0 ? '+' : ''}
+                    {point.variationPercent}%{point.alert ? ' · atenção' : ''}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+// ─── Álbum de fotos (MOD-PET-04) ─────────────────────────────────────────────
+
+/**
+ * Galeria e envio.
+ *
+ * As URLs vêm assinadas e vencem em 15 minutos (RN-13), então nada aqui é guardado:
+ * cada `router.refresh()` traz endereços novos. É também por isso que as imagens usam
+ * `<img>` e não o `next/image` — o otimizador cacheia por URL e acabaria servindo um
+ * endereço morto.
+ */
+function FotosTab({ pet, album, canUploadPhoto, canUpdate }: Props) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [preview, setPreview] = useState<PetPhoto | null>(null)
+
+  const isTerminal = pet.status === 'DECEASED' || pet.status === 'TRANSFERRED_OUT'
+  const quotaLeft =
+    album.quota.limit === null ? null : Math.max(album.quota.limit - album.quota.used, 0)
+
+  function send(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget
+    const files = Array.from(input.files ?? [])
+    if (files.length === 0) return
+
+    setError(null)
+    const form = new FormData()
+    for (const file of files) form.append('files', file)
+
+    startTransition(async () => {
+      const result = await uploadPhotosAction(pet.id, form)
+      // O input é limpo de qualquer jeito: senão, escolher o mesmo arquivo de novo
+      // depois de um erro não dispararia `change`.
+      input.value = ''
+      if (result.ok) router.refresh()
+      else setError(result.message)
+    })
+  }
+
+  function run(action: () => Promise<{ ok: boolean; message?: string }>) {
+    setError(null)
+    startTransition(async () => {
+      const result = await action()
+      if (result.ok) router.refresh()
+      else setError(result.message ?? 'Não foi possível concluir a operação.')
+    })
+  }
+
+  return (
+    <div className="space-y-5">
+      <FormError message={error} />
+
+      {canUploadPhoto && !isTerminal && (
+        <Card className="space-y-3">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h3 className="font-semibold">Adicionar fotos</h3>
+            <p className="hint">
+              JPG, PNG, WEBP ou HEIC de até 10 MB · até {MAX_PHOTOS_PER_UPLOAD} por vez
+              {quotaLeft !== null && ` · ${quotaLeft} restantes no plano`}
+            </p>
+          </div>
+
+          <input
+            type="file"
+            multiple
+            accept={ACCEPTED_PHOTO_MIMES.join(',')}
+            className="field"
+            disabled={pending}
+            onChange={send}
+            aria-label="Escolher fotos"
+          />
+
+          {pending && <p className="hint">Enviando…</p>}
+          <p className="hint">
+            A localização do celular é removida de toda foto antes de guardarmos.
+          </p>
+        </Card>
+      )}
+
+      {album.photos.length === 0 ? (
+        <Card>
+          <p className="hint">
+            Nenhuma foto ainda. A primeira vira a capa e aparece na busca do balcão —
+            é o jeito mais rápido de não confundir dois pets de mesmo nome.
+          </p>
+        </Card>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {album.photos.map((photo) => (
+            <li key={photo.id}>
+              <Card className="space-y-2 p-3">
+                <button
+                  type="button"
+                  className="block w-full overflow-hidden rounded-xl"
+                  onClick={() => setPreview(photo)}
+                  aria-label={photo.caption ?? `Ampliar foto de ${pet.name}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- URL assinada e efêmera */}
+                  <img
+                    src={photo.urls.thumb}
+                    alt={photo.caption ?? `Foto de ${pet.name}`}
+                    className="aspect-square w-full object-cover transition-transform hover:scale-105"
+                    loading="lazy"
+                  />
+                </button>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {photo.isCover && (
+                    <span className="pill bg-shell px-2 py-0.5 text-[11px] text-white">Capa</span>
+                  )}
+                  {photo.marketingUse && (
+                    <span className="pill bg-accent-soft px-2 py-0.5 text-[11px] text-accent-ink">
+                      Campanha
+                    </span>
+                  )}
+                  {photo.source === 'GROOMING_RESULT' && (
+                    <span className="pill bg-black/5 px-2 py-0.5 text-[11px] text-muted">Tosa</span>
+                  )}
+                </div>
+
+                {photo.caption && <p className="hint">{photo.caption}</p>}
+
+                {canUpdate && (
+                  <div className="flex flex-wrap gap-1">
+                    {!photo.isCover && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost px-2 py-1 text-[11px]"
+                        disabled={pending}
+                        onClick={() => run(() => updatePhotoAction(pet.id, photo.id, { isCover: true }))}
+                      >
+                        Tornar capa
+                      </button>
+                    )}
+
+                    {/*
+                      RN-14: a autorização é conferida no servidor, no momento da
+                      marcação. O botão pede — quem responde "não" é o 403.
+                    */}
+                    <button
+                      type="button"
+                      className="btn btn-ghost px-2 py-1 text-[11px]"
+                      disabled={pending}
+                      onClick={() =>
+                        run(() =>
+                          updatePhotoAction(pet.id, photo.id, {
+                            marketingUse: !photo.marketingUse,
+                          }),
+                        )
+                      }
+                    >
+                      {photo.marketingUse ? 'Tirar da campanha' : 'Usar em campanha'}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-ghost px-2 py-1 text-[11px] text-danger"
+                      disabled={pending}
+                      onClick={() => run(() => deletePhotoAction(pet.id, photo.id))}
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                )}
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {preview && (
+        <button
+          type="button"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+          onClick={() => setPreview(null)}
+          aria-label="Fechar a foto ampliada"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- URL assinada e efêmera */}
+          <img
+            src={preview.urls.full}
+            alt={preview.caption ?? `Foto de ${pet.name}`}
+            className="max-h-full max-w-full rounded-2xl object-contain"
+          />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Transferência de titularidade (MOD-PET-05) ──────────────────────────────
+
+/**
+ * A transferência encerra todos os vínculos de uma vez e não tem desfazer — daí a
+ * confirmação escrita, que é do contrato da API e não enfeite da tela.
+ */
+function TransferPanel({ pet }: { pet: PetResponse }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [toTutor, setToTutor] = useState<{ id: string; displayName: string } | null>(null)
+  const [reason, setReason] = useState<TransferReason>('ADOPTION')
+  const [notes, setNotes] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+
+  if (!open) {
+    return (
+      <Card className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">Transferir titularidade</h3>
+          <p className="hint">
+            Adoção, venda ou falecimento do tutor. O prontuário continua com o pet.
+          </p>
+        </div>
+        <button type="button" className="btn btn-ghost" onClick={() => setOpen(true)}>
+          Transferir
+        </button>
+      </Card>
+    )
+  }
+
+  function submit() {
+    setError(null)
+    if (!toTutor) {
+      setError('Escolha para quem o pet vai.')
+      return
+    }
+
+    startTransition(async () => {
+      const result = await transferPetAction(pet.id, {
+        toTutorId: toTutor.id,
+        reason,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+        confirmation,
+      })
+      if (result.ok) {
+        setOpen(false)
+        router.refresh()
+      } else {
+        setError(result.message)
+      }
+    })
+  }
+
+  return (
+    <Card className="space-y-4 border border-accent/20">
+      <div>
+        <h3 className="font-semibold">Transferir {pet.name}</h3>
+        <p className="hint">
+          Os responsáveis atuais deixam de ver o pet e o novo tutor vira o principal. Os
+          recibos de quem pagou continuam com quem pagou.
+        </p>
+      </div>
+
+      <FormError message={error} />
+
+      {toTutor ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-medium">{toTutor.displayName}</span>
+          <button
+            type="button"
+            className="btn btn-ghost px-3 py-1 text-xs"
+            onClick={() => setToTutor(null)}
+          >
+            Trocar
+          </button>
+        </div>
+      ) : (
+        <TutorPicker
+          label="Novo responsável"
+          excludeIds={pet.tutors.map((link) => link.tutorId)}
+          onSelect={(tutor) => setToTutor({ id: tutor.id, displayName: tutor.displayName })}
+        />
+      )}
+
+      <Field label="Motivo" htmlFor="transfer-reason">
+        <select
+          id="transfer-reason"
+          className="input"
+          value={reason}
+          onChange={(event) => setReason(event.target.value as TransferReason)}
+        >
+          {Object.entries(TRANSFER_REASON_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label="Observação (opcional)" htmlFor="transfer-notes">
+        <textarea
+          id="transfer-notes"
+          className="input"
+          rows={2}
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+        />
+      </Field>
+
+      <Field
+        label="Para confirmar, escreva CONFIRMO_A_TRANSFERENCIA"
+        htmlFor="transfer-confirmation"
+      >
+        <input
+          id="transfer-confirmation"
+          className="input font-mono"
+          value={confirmation}
+          onChange={(event) => setConfirmation(event.target.value)}
+          autoComplete="off"
+        />
+      </Field>
+
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          className="btn btn-accent"
+          disabled={pending || confirmation !== TRANSFER_CONFIRMATION || !toTutor}
+          onClick={submit}
+        >
+          {pending ? 'Transferindo…' : 'Confirmar transferência'}
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+          Cancelar
+        </button>
+      </div>
+    </Card>
+  )
+}
+
+function TransferHistory({ transfers }: { transfers: PetTransfer[] }) {
+  return (
+    <Card className="space-y-3">
+      <h3 className="font-semibold">Histórico de titularidade</h3>
+      <ul className="divide-y divide-black/5">
+        {transfers.map((transfer) => (
+          <li key={transfer.id} className="py-3">
+            <p className="text-sm">
+              {transfer.fromTutorName ?? 'Sem responsável'} → {transfer.toTutorName}
+            </p>
+            <p className="hint">
+              {TRANSFER_REASON_LABELS[transfer.reason]} ·{' '}
+              {formatDate(transfer.effectiveDate ?? transfer.createdAt)}
+              {transfer.notes ? ` · ${transfer.notes}` : ''}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
+// ─── Óbito (MOD-PET-08) ──────────────────────────────────────────────────────
+
+/**
+ * O óbito não entra pelo formulário de edição: ele suprime campanha e cancela
+ * agendamento, e um efeito desses precisa de uma decisão explícita — não de um campo
+ * "status" no meio de outros vinte.
+ */
+function DeathPanel({ pet }: { pet: PetResponse }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [deceasedAt, setDeceasedAt] = useState(() => new Date().toISOString().slice(0, 10))
+  const [notes, setNotes] = useState('')
+
+  function submit() {
+    setError(null)
+    startTransition(async () => {
+      const result = await registerDeathAction(pet.id, {
+        deceasedAt,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+      })
+      if (result.ok) {
+        setOpen(false)
+        router.refresh()
+      } else {
+        setError(result.message)
+      }
+    })
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="btn btn-ghost" onClick={() => setOpen(true)}>
+        Registrar óbito
+      </button>
+    )
+  }
+
+  return (
+    <Card className="w-full space-y-4 border border-danger/20">
+      <div>
+        <h3 className="font-semibold">Registrar o óbito de {pet.name}</h3>
+        <p className="hint">
+          Os agendamentos futuros são cancelados sem cobrança e nenhuma campanha volta a
+          citar o pet. Um administrador pode reverter em até 30 dias.
+        </p>
+      </div>
+
+      <FormError message={error} />
+
+      <Field label="Data do óbito" htmlFor="deceased-at">
+        <input
+          id="deceased-at"
+          type="date"
+          className="input"
+          value={deceasedAt}
+          max={new Date().toISOString().slice(0, 10)}
+          onChange={(event) => setDeceasedAt(event.target.value)}
+        />
+      </Field>
+
+      <Field label="Observação (opcional)" htmlFor="deceased-notes">
+        <textarea
+          id="deceased-notes"
+          className="input"
+          rows={2}
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+        />
+      </Field>
+
+      <div className="flex flex-wrap gap-3">
+        <button type="button" className="btn btn-accent" disabled={pending} onClick={submit}>
+          {pending ? 'Registrando…' : 'Confirmar óbito'}
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+          Cancelar
+        </button>
+      </div>
+    </Card>
+  )
+}
+
+function DeathReversalPanel({ pet }: { pet: PetResponse }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [justification, setJustification] = useState('')
+
+  function submit() {
+    setError(null)
+    startTransition(async () => {
+      const result = await revertDeathAction(pet.id, { justification: justification.trim() })
+      if (result.ok) {
+        setOpen(false)
+        router.refresh()
+      } else {
+        setError(result.message)
+      }
+    })
+  }
+
+  if (!open) {
+    return (
+      <Card className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">Registro feito por engano?</h3>
+          <p className="hint">A reversão é permitida em até 30 dias, com justificativa.</p>
+        </div>
+        <button type="button" className="btn btn-ghost" onClick={() => setOpen(true)}>
+          Reverter óbito
+        </button>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="space-y-4">
+      <h3 className="font-semibold">Reverter o óbito de {pet.name}</h3>
+      <FormError message={error} />
+
+      <Field
+        label="Justificativa"
+        htmlFor="reversal-justification"
+        hint="Fica na trilha de auditoria. Diga o que aconteceu, não apenas “engano”."
+      >
+        <textarea
+          id="reversal-justification"
+          className="input"
+          rows={3}
+          value={justification}
+          onChange={(event) => setJustification(event.target.value)}
+        />
+      </Field>
+
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={pending || justification.trim().length < 10}
+          onClick={submit}
+        >
+          {pending ? 'Revertendo…' : 'Confirmar reversão'}
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+          Cancelar
+        </button>
+      </div>
+    </Card>
+  )
+}
+
 const SEX_LABELS: Record<string, string> = {
   MALE: 'Macho',
   FEMALE: 'Fêmea',
@@ -398,4 +1071,9 @@ const SEX_LABELS: Record<string, string> = {
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+}
+
+/** A pesagem tem hora: duas do mesmo dia precisam se distinguir na lista. */
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 }

@@ -68,6 +68,51 @@ export function domainInUse(detail: string, extra?: Record<string, unknown>): Ap
   return new AppError('ERR_PET_006', detail, undefined, extra)
 }
 
+/**
+ * AC-02 de MOD-PET-04: arquivo que não é imagem, é grande demais ou está corrompido.
+ * A `cause` fica no log e nunca no corpo — mensagem de erro de biblioteca de imagem
+ * não diz nada a quem está no balcão.
+ */
+export function invalidFile(detail: string, cause?: unknown): AppError {
+  if (cause) logger.debug({ err: cause }, 'arquivo de imagem recusado')
+  return new AppError('ERR_PET_007', detail)
+}
+
+/** AC-03 de MOD-PET-04: cota de fotos do plano atingida. */
+export function quotaExceeded(detail: string, extra?: Record<string, unknown>): AppError {
+  return new AppError('ERR_PET_008', detail, undefined, extra)
+}
+
+/**
+ * AC-04 de MOD-PET-04: o storage falhou. 502 e não 500 — o defeito não é nosso, e a
+ * distinção importa para quem lê o alerta às três da manhã.
+ */
+export function storageFailure(detail = 'Não conseguimos guardar a imagem agora. Tente de novo em instantes.'): AppError {
+  return new AppError('ERR_PET_009', detail)
+}
+
+/** AC-05 de MOD-PET-04: uso de imagem sem o consentimento IMAGE_USE do tutor. */
+export function consentMissing(detail: string, extra?: Record<string, unknown>): AppError {
+  return new AppError('ERR_PET_010', detail, undefined, extra)
+}
+
+const MULTIPART_LIMIT_CODES = new Set([
+  'FST_REQ_FILE_TOO_LARGE',
+  'FST_FILES_LIMIT',
+  'FST_FIELDS_LIMIT',
+  'FST_PARTS_LIMIT',
+])
+
+function isMultipartLimitError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof (error as { code: unknown }).code === 'string' &&
+    MULTIPART_LIMIT_CODES.has((error as { code: string }).code)
+  )
+}
+
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((error: unknown, request: FastifyRequest, reply: FastifyReply) => {
     const traceId = request.id
@@ -86,6 +131,18 @@ export function registerErrorHandler(app: FastifyInstance): void {
 
     if (error instanceof ZodError) {
       const appError = validationError(error)
+      return reply
+        .status(appError.status)
+        .type(PROBLEM_CONTENT_TYPE)
+        .send(toProblemDetails(appError, traceId))
+    }
+
+    // O `@fastify/multipart` estoura com códigos próprios quando o arquivo passa do
+    // limite. É entrada inválida (AC-02), não erro de servidor — e a mensagem tem de
+    // ser a mesma do resto da validação de arquivo.
+    if (isMultipartLimitError(error)) {
+      const appError = invalidFile('Formato inválido. Envie JPG, PNG, WEBP ou HEIC de até 10 MB.')
+      logger.info({ traceId, code: appError.code, path: request.url }, 'upload acima do limite')
       return reply
         .status(appError.status)
         .type(PROBLEM_CONTENT_TYPE)

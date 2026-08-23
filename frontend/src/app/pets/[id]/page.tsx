@@ -5,7 +5,7 @@ import { Badge, PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { PetDetailView } from './pet-detail'
 
-/** Detalhe do pet (MOD-PET-01 e MOD-PET-02). */
+/** Detalhe do pet (MOD-PET-01, 02, 04, 05, 07 e 08). */
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +24,24 @@ export default async function PetPage({ params }: PageProps) {
         throw error
       }),
     serverApi().me(),
+  ])
+
+  // A série de peso e o histórico de titularidade são do mesmo pet e da mesma tela;
+  // buscá-los aqui evita que o cliente descubra depois que a aba estava vazia. Se
+  // qualquer um falhar, o detalhe do pet ainda abre — nenhum dos dois é o assunto
+  // principal da página.
+  const [weights, transfers, album] = await Promise.all([
+    serverApi()
+      .listPetWeights(id)
+      .catch(() => []),
+    serverApi()
+      .listPetTransfers(id)
+      .catch(() => []),
+    // As URLs do álbum são assinadas e vencem em 15 minutos, por isso a página é
+    // `force-dynamic`: uma versão cacheada serviria endereços mortos.
+    serverApi()
+      .listPetPhotos(id)
+      .catch(() => ({ photos: [], quota: { used: 0, limit: null } })),
   ])
 
   return (
@@ -49,8 +67,14 @@ export default async function PetPage({ params }: PageProps) {
 
       <PetDetailView
         pet={pet}
+        weights={weights}
+        transfers={transfers}
+        album={album}
         canUpdate={me.permissions.includes('pet:update')}
         canDelete={me.permissions.includes('pet:delete')}
+        canWeigh={me.permissions.includes('pet:weigh')}
+        canManageLifecycle={me.permissions.includes('pet:manage_lifecycle')}
+        canUploadPhoto={me.permissions.includes('pet:upload_photo')}
       />
     </div>
   )

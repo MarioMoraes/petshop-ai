@@ -15,12 +15,15 @@ export const CACHE_KEYS = {
   pet: (tenantId: string, petId: string) => `pet:${tenantId}:${petId}`,
   petsByTutor: (tenantId: string, tutorId: string) => `pet:bytutor:${tenantId}:${tutorId}`,
   catalog: (tenantId: string, type: string) => `catalog:${tenantId}:${type}`,
+  photoUrls: (photoId: string) => `photo:url:${photoId}`,
 } as const
 
 export const CACHE_TTL_SECONDS = {
   pet: 120,
   petsByTutor: 300,
   catalog: 86_400,
+  /** Abaixo dos 900s da assinatura: cache nunca deve servir URL prestes a vencer. */
+  photoUrls: 840,
 } as const
 
 let client: Redis | null = null

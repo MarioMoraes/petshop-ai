@@ -46,8 +46,13 @@ export type {
   Pet,
   PetTutor,
   PetWeight,
+  PetTransferLog,
+  PetPhoto,
+  BreedVisibility,
   PetSex,
   PetStatus,
   BirthDatePrecision,
   PetTutorRole,
+  TransferReason,
+  PhotoSource,
 } from '../generated/client/index.js'

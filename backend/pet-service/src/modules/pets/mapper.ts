@@ -1,4 +1,4 @@
-import type { Breed, Coat, Pet, PetTutor, Size, Species, Tutor } from '@petshop/db'
+import type { Breed, Coat, Pet, PetTutor, Size, Species, TenantTransaction, Tutor } from '@petshop/db'
 import {
   formatAgeLabel,
   maskMicrochip,
@@ -8,6 +8,7 @@ import {
   type PetTutorLink,
   type PetWarning,
 } from '@petshop/shared-types'
+import { coverUrlsFor } from '../photos/service.js'
 import { decryptOptional, type PetCipher } from './crypto.js'
 
 /**
@@ -71,6 +72,28 @@ function maskTutorPhone(tutor: Tutor, cipher: PetCipher): string {
   return maskPhone(cipher.decrypt(tutor.phoneEncrypted))
 }
 
+/**
+ * Preenche a capa das respostas já mapeadas (MOD-PET-04).
+ *
+ * Existe como passo à parte para que todo caminho de leitura — listagem, detalhe,
+ * recarga depois de escrever — passe pelo mesmo lugar. Antes disso, cada ponto de
+ * saída tinha de lembrar de assinar a URL, e esquecer em um deles significaria a foto
+ * sumir da tela sem motivo aparente.
+ */
+export async function attachCoverUrls(
+  tx: TenantTransaction,
+  rows: Pick<Pet, 'id' | 'coverPhotoId'>[],
+  responses: PetResponse[],
+): Promise<PetResponse[]> {
+  const urls = await coverUrlsFor(tx, rows)
+  if (urls.size === 0) return responses
+
+  for (const response of responses) {
+    response.coverPhotoUrl = urls.get(response.id) ?? null
+  }
+  return responses
+}
+
 export function toPetResponse(row: PetRow, cipher: PetCipher, now = new Date()): PetResponse {
   const microchip = decryptOptional(cipher, row.microchipEncrypted)
   const weightKg = row.weightKg === null ? null : Number(row.weightKg)
@@ -93,6 +116,9 @@ export function toPetResponse(row: PetRow, cipher: PetCipher, now = new Date()):
     neutered: row.neutered,
     microchipMasked: microchip ? maskMicrochip(microchip) : null,
     color: row.color,
+    // Preenchido depois, por `attachCoverUrls`: assinar a URL depende do storage, e o
+    // mapper é síncrono de propósito — ele traduz linha em contrato, não busca dado.
+    coverPhotoUrl: null,
     status: row.status,
     deceasedAt: row.deceasedAt ? toDateString(row.deceasedAt) : null,
     notes: decryptOptional(cipher, row.notesEncrypted),

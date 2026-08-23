@@ -295,6 +295,8 @@ export const PetResponseSchema = z.object({
   neutered: z.boolean().nullable(),
   microchipMasked: z.string().nullable(),
   color: z.string().nullable(),
+  /** RN-16: cinco "Mel" no mesmo tenant é normal — a foto é o que desambigua. */
+  coverPhotoUrl: z.string().nullable(),
   status: PetStatusSchema,
   deceasedAt: z.iso.date().nullable(),
   notes: z.string().nullable(),
@@ -353,8 +355,278 @@ export const PetWeightSchema = z.object({
   id: z.uuid(),
   weightKg: z.number(),
   measuredAt: z.iso.datetime(),
+  /** Pesagem imediatamente anterior na série; `null` na primeira. */
+  previousWeightKg: z.number().nullable(),
+  /** Variação percentual sobre a anterior, positiva no ganho. */
+  variationPercent: z.number().nullable(),
+  /** RN-11: variação acima do limite dentro da janela clínica. */
+  alert: z.boolean(),
 })
 export type PetWeightRecord = z.infer<typeof PetWeightSchema>
 
 /** RN-11: variação relevante de peso vira alerta clínico. */
 export const WEIGHT_VARIATION_ALERT_PERCENT = 15
+
+/** A janela de RN-11: perder 15% em dois meses é clínico; em dois anos, é a vida. */
+export const WEIGHT_VARIATION_WINDOW_DAYS = 60
+
+/**
+ * RN-11 aplicada a um par de pesagens. Fora da janela de 60 dias a variação continua
+ * sendo calculada e exibida — só não vira alerta.
+ */
+export function weightVariation(
+  current: { weightKg: number; measuredAt: Date },
+  previous: { weightKg: number; measuredAt: Date } | null,
+): { previousWeightKg: number | null; variationPercent: number | null; alert: boolean } {
+  if (!previous || previous.weightKg <= 0) {
+    return { previousWeightKg: null, variationPercent: null, alert: false }
+  }
+
+  const variationPercent =
+    Math.round(((current.weightKg - previous.weightKg) / previous.weightKg) * 1000) / 10
+  const elapsedDays =
+    (current.measuredAt.getTime() - previous.measuredAt.getTime()) / 86_400_000
+
+  return {
+    previousWeightKg: previous.weightKg,
+    variationPercent,
+    alert:
+      Math.abs(variationPercent) > WEIGHT_VARIATION_ALERT_PERCENT &&
+      elapsedDays <= WEIGHT_VARIATION_WINDOW_DAYS,
+  }
+}
+
+// ─── Catálogo do tenant (MOD-PET-03) ─────────────────────────────────────────
+
+export const CreateBreedSchema = z.object({
+  speciesId: z.uuid(),
+  label: z.string().min(2).max(80),
+  defaultSizeId: z.uuid().optional(),
+  groomingNotes: z.string().max(2000).optional(),
+})
+export type CreateBreedInput = z.output<typeof CreateBreedSchema>
+
+export const UpdateBreedSchema = z
+  .object({
+    label: z.string().min(2).max(80),
+    defaultSizeId: z.uuid().nullable(),
+    groomingNotes: z.string().max(2000).nullable(),
+  })
+  .partial()
+export type UpdateBreedInput = z.output<typeof UpdateBreedSchema>
+
+/**
+ * AC-02/AC-04: "sumir do seletor" é uma intenção só, com dois mecanismos por baixo —
+ * a raça global vira uma linha em `breed_visibility`, a raça do tenant tem `active`
+ * desligado. A tela não deveria precisar saber a diferença.
+ */
+export const BreedVisibilitySchema = z.object({ hidden: z.boolean() })
+export type BreedVisibilityInput = z.output<typeof BreedVisibilitySchema>
+
+/** A raça como a tela de administração do catálogo precisa vê-la. */
+export const ManagedBreedSchema = BreedSchema.extend({
+  hidden: z.boolean(),
+  /** AC-04: o número que a confirmação de desativação mostra. */
+  petsCount: z.number().int(),
+})
+export type ManagedBreed = z.infer<typeof ManagedBreedSchema>
+
+// ─── Transferência de titularidade (MOD-PET-05) ──────────────────────────────
+
+/**
+ * A confirmação literal é do §5 do PRD, e não é cerimônia: a transferência encerra
+ * todos os vínculos ativos de uma vez e não tem desfazer — só uma nova transferência
+ * de volta, que já entra no histórico como outro evento.
+ */
+export const TransferPetSchema = z.object({
+  toTutorId: z.uuid(),
+  reason: TransferReasonSchema,
+  notes: z.string().max(500).optional(),
+  effectiveDate: z.iso.date().optional(),
+  confirmation: z.literal('CONFIRMO_A_TRANSFERENCIA'),
+})
+export type TransferPetInput = z.output<typeof TransferPetSchema>
+
+export const TRANSFER_CONFIRMATION = 'CONFIRMO_A_TRANSFERENCIA'
+
+export const TRANSFER_REASON_LABELS: Record<TransferReason, string> = {
+  ADOPTION: 'Adoção',
+  SALE: 'Venda',
+  TUTOR_DEATH: 'Falecimento do tutor',
+  CORRECTION: 'Correção de cadastro',
+  OTHER: 'Outro',
+}
+
+export const PetTransferSchema = z.object({
+  id: z.uuid(),
+  fromTutorId: z.uuid().nullable(),
+  fromTutorName: z.string().nullable(),
+  toTutorId: z.uuid(),
+  toTutorName: z.string(),
+  reason: TransferReasonSchema,
+  notes: z.string().nullable(),
+  effectiveDate: z.iso.date().nullable(),
+  createdAt: z.iso.datetime(),
+})
+export type PetTransfer = z.infer<typeof PetTransferSchema>
+
+// ─── Óbito (MOD-PET-08) ──────────────────────────────────────────────────────
+
+export const RegisterDeathSchema = z.object({
+  deceasedAt: z.iso.date(),
+  notes: z.string().max(500).optional(),
+})
+export type RegisterDeathInput = z.output<typeof RegisterDeathSchema>
+
+/**
+ * AC-03: a reversão exige justificativa. Ela vai para a auditoria, não para o
+ * cadastro — quem confere depois precisa saber por que um óbito registrado deixou
+ * de existir.
+ */
+export const RevertDeathSchema = z.object({
+  justification: z.string().min(10).max(500),
+})
+export type RevertDeathInput = z.output<typeof RevertDeathSchema>
+
+/** AC-03: depois disso, só o suporte reverte. */
+export const DEATH_REVERSAL_WINDOW_DAYS = 30
+
+// ─── Álbum de fotos (MOD-PET-04) ─────────────────────────────────────────────
+
+/**
+ * Limites do AC-02. Estão aqui, e não só no serviço, porque a tela precisa recusar o
+ * arquivo de 40 MB antes de subir 40 MB para ouvir "não".
+ */
+export const MAX_PHOTO_BYTES = 10 * 1024 * 1024
+export const MAX_PHOTOS_PER_UPLOAD = 10
+
+export const ACCEPTED_PHOTO_MIMES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+] as const
+export type AcceptedPhotoMime = (typeof ACCEPTED_PHOTO_MIMES)[number]
+
+/**
+ * AC-03, com os números assumidos na questão 1 do §11. `null` é ilimitado.
+ *
+ * A cota conta fotos, não bytes: é o número que o comercial sabe explicar e o que a
+ * tela consegue mostrar como "412 de 500".
+ */
+export const PHOTO_QUOTA_BY_PLAN: Record<string, number | null> = {
+  STARTER: 500,
+  PRO: 5_000,
+  ENTERPRISE: null,
+}
+
+/** RN-13: nenhuma imagem de pet é publicamente enumerável. */
+export const PHOTO_URL_TTL_SECONDS = 900
+
+export const PhotoSourceSchema = z.enum(['STAFF', 'TUTOR', 'GROOMING_RESULT'])
+export type PhotoSource = z.infer<typeof PhotoSourceSchema>
+
+export const PHOTO_VARIANTS = ['thumb', 'medium', 'full'] as const
+export type PhotoVariant = (typeof PHOTO_VARIANTS)[number]
+
+/**
+ * Largura de cada variante. `full` não é o original: o arquivo é sempre reprocessado,
+ * e é o reprocessamento que garante o RN-12 — o EXIF, com o GPS da casa do tutor, não
+ * sobrevive à reencodificação.
+ */
+export const PHOTO_VARIANT_WIDTHS: Record<PhotoVariant, number> = {
+  thumb: 240,
+  medium: 800,
+  full: 1600,
+}
+
+export const PhotoUrlsSchema = z.object({
+  thumb: z.string(),
+  medium: z.string(),
+  full: z.string(),
+})
+export type PhotoUrls = z.infer<typeof PhotoUrlsSchema>
+
+export const PetPhotoSchema = z.object({
+  id: z.uuid(),
+  petId: z.uuid(),
+  /** URLs assinadas, válidas por 15 minutos. Não guarde: elas vencem. */
+  urls: PhotoUrlsSchema,
+  caption: z.string().nullable(),
+  takenAt: z.iso.datetime(),
+  source: PhotoSourceSchema,
+  attendanceId: z.uuid().nullable(),
+  marketingUse: z.boolean(),
+  isCover: z.boolean(),
+  sizeBytes: z.number().int(),
+  mimeType: z.string(),
+  createdAt: z.iso.datetime(),
+})
+export type PetPhoto = z.infer<typeof PetPhotoSchema>
+
+/** Metadados que acompanham o upload, no mesmo multipart dos arquivos. */
+export const UploadPhotoMetaSchema = z.object({
+  caption: z.string().max(140).optional(),
+  source: PhotoSourceSchema.default('STAFF'),
+  takenAt: z.iso.datetime().optional(),
+  attendanceId: z.uuid().optional(),
+})
+export type UploadPhotoMeta = z.output<typeof UploadPhotoMetaSchema>
+
+export const UpdatePhotoSchema = z
+  .object({
+    caption: z.string().max(140).nullable(),
+    /** Define esta foto como capa do pet; `false` remove a capa. */
+    isCover: z.boolean(),
+    /** RN-14: exige o consentimento IMAGE_USE do tutor no momento da marcação. */
+    marketingUse: z.boolean(),
+  })
+  .partial()
+export type UpdatePhotoInput = z.output<typeof UpdatePhotoSchema>
+
+/** O que a tela mostra sobre o consumo do plano (AC-03). */
+export const PhotoQuotaSchema = z.object({
+  used: z.number().int(),
+  limit: z.number().int().nullable(),
+})
+export type PhotoQuota = z.infer<typeof PhotoQuotaSchema>
+
+export const PetAlbumSchema = z.object({
+  photos: z.array(PetPhotoSchema),
+  quota: PhotoQuotaSchema,
+})
+export type PetAlbum = z.infer<typeof PetAlbumSchema>
+
+/**
+ * Assinatura de arquivo por magic bytes (AC-02).
+ *
+ * A extensão e o `content-type` do multipart são declarações do cliente: um `.pdf`
+ * renomeado para `.jpg` chega dizendo `image/jpeg`. O que decide é o começo do
+ * arquivo — e é por isso que a validação não pode viver no browser.
+ */
+export function sniffImageMime(bytes: Uint8Array): AcceptedPhotoMime | null {
+  if (bytes.length < 12) return null
+
+  const startsWith = (...signature: number[]): boolean =>
+    signature.every((byte, index) => bytes[index] === byte)
+
+  if (startsWith(0xff, 0xd8, 0xff)) return 'image/jpeg'
+  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png'
+
+  const ascii = (offset: number, length: number): string =>
+    String.fromCharCode(...bytes.subarray(offset, offset + length))
+
+  // RIFF....WEBP
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') return 'image/webp'
+
+  // ISO-BMFF: o box `ftyp` traz a marca. O iPhone entrega HEIC por padrão, e recusá-lo
+  // faria a recepção converter foto à mão no meio do atendimento.
+  if (ascii(4, 4) === 'ftyp') {
+    const brand = ascii(8, 4)
+    if (['heic', 'heix', 'hevc', 'heim', 'heis', 'hevm'].includes(brand)) return 'image/heic'
+    if (['mif1', 'msf1', 'heif'].includes(brand)) return 'image/heif'
+  }
+
+  return null
+}

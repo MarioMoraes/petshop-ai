@@ -7,6 +7,7 @@ import {
   type PaginatedPets,
   type PetResponse,
   type PetSensitive,
+  type PetWeightRecord,
   type UpdatePetInput,
 } from '@petshop/shared-types'
 import { recordAudit } from '../../lib/audit.js'
@@ -17,9 +18,10 @@ import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet, invalidatePet } from
 import { loadDomainRefs } from '../catalog/service.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { hashMicrochip, openCipher, type PetCipher } from './crypto.js'
-import { toPetResponse, type PetRow } from './mapper.js'
+import { attachCoverUrls, toPetResponse, type PetRow } from './mapper.js'
 import { searchPetIds } from './search.js'
 import { linkTutorsIn } from './tutors.js'
+import { latestWeightBefore, publishWeightRecorded, toRecord } from './weights.js'
 
 /**
  * CRUD do pet (MOD-PET-01).
@@ -30,8 +32,13 @@ import { linkTutorsIn } from './tutors.js'
  * impedir, e não algo a ser corrigido depois por rotina de reparo.
  */
 
-/** Relações carregadas em toda leitura: sem elas o contrato do §5 não fecha. */
-const WITH_DOMAIN = {
+/**
+ * Relações carregadas em toda leitura: sem elas o contrato do §5 não fecha.
+ *
+ * `satisfies`, e não `as const`: o `orderBy` de um include precisa ser mutável para o
+ * Prisma, e o readonly do `as const` não casa com o tipo dele.
+ */
+export const WITH_DOMAIN = {
   species: true,
   breed: true,
   size: true,
@@ -62,7 +69,11 @@ export async function listPets(tenantId: string, query: ListPetsQuery): Promise<
       .filter((row): row is (typeof rows)[number] => row !== undefined)
 
     return {
-      data: ordered.map((row) => toPetResponse(row, cipher)),
+      data: await attachCoverUrls(
+        tx,
+        ordered,
+        ordered.map((row) => toPetResponse(row, cipher)),
+      ),
       total,
       page: query.page,
       limit: query.limit,
@@ -81,7 +92,8 @@ export async function getPet(tenantId: string, petId: string): Promise<PetRespon
     const row = await tx.pet.findFirst({ where: { id: petId, deletedAt: null }, include: WITH_DOMAIN })
     if (!row) throw notFound()
     const cipher = await openCipher(tx, tenantId)
-    return toPetResponse(row, cipher)
+    const [mapped] = await attachCoverUrls(tx, [row], [toPetResponse(row, cipher)])
+    return mapped as PetResponse
   })
 
   await cacheSet(CACHE_KEYS.pet(tenantId, petId), pet, CACHE_TTL_SECONDS.pet)
@@ -121,10 +133,12 @@ export async function revealMicrochip(actor: ActorContext, petId: string): Promi
 // ─── Criação ─────────────────────────────────────────────────────────────────
 
 export async function createPet(actor: ActorContext, input: CreatePetInput): Promise<PetResponse> {
+  let firstWeighing: PetWeightRecord | null = null
+
   const pet = await withTenant(
     actor.tenantId,
     async (tx) => {
-      const refs = await loadDomainRefs(tx, input)
+      const refs = await loadDomainRefs(tx, input, { breedMustBeSelectable: true })
       const cipher = await openCipher(tx, actor.tenantId)
 
       const microchipHash = input.microchip ? hashMicrochip(input.microchip) : null
@@ -165,7 +179,7 @@ export async function createPet(actor: ActorContext, input: CreatePetInput): Pro
       // de RN-10 começaria só na segunda visita, e a comparação de RN-11 não teria
       // ponto de partida.
       if (input.weightKg !== undefined) {
-        await tx.petWeight.create({
+        const weighing = await tx.petWeight.create({
           data: {
             tenantId: actor.tenantId,
             petId: created.id,
@@ -173,6 +187,7 @@ export async function createPet(actor: ActorContext, input: CreatePetInput): Pro
             measuredBy: actor.actorUserId ?? null,
           },
         })
+        firstWeighing = toRecord(weighing, null)
       }
 
       await recordAudit(tx, {
@@ -201,6 +216,10 @@ export async function createPet(actor: ActorContext, input: CreatePetInput): Pro
     birthDate: pet.birthDate,
   })
   recordMetric({ metric: 'pet_created_total', tenantId: actor.tenantId, value: 1, unit: 'count' })
+  // A pesagem do cadastro é o primeiro ponto da série de RN-10; o prontuário monta a
+  // curva a partir dos eventos, e ficar sem este ponto deixaria a linha começando na
+  // segunda visita.
+  if (firstWeighing) await publishWeightRecorded(actor.tenantId, pet.id, firstWeighing)
 
   await invalidatePet(actor.tenantId, pet.id, pet.tutors.map((tutor) => tutor.tutorId))
   return pet
@@ -215,6 +234,8 @@ export async function updatePet(
 ): Promise<PetResponse> {
   const changedFields = Object.keys(patch)
   if (changedFields.length === 0) return getPet(actor.tenantId, petId)
+
+  let weighing: PetWeightRecord | null = null
 
   const pet = await withTenant(
     actor.tenantId,
@@ -231,12 +252,18 @@ export async function updatePet(
         (field) => field in patch,
       )
       if (touchesDomain) {
-        await loadDomainRefs(tx, {
-          speciesId: patch.speciesId ?? before.speciesId,
-          breedId: patch.breedId === undefined ? before.breedId : patch.breedId,
-          sizeId: patch.sizeId ?? before.sizeId,
-          coatId: patch.coatId === undefined ? before.coatId : patch.coatId,
-        })
+        await loadDomainRefs(
+          tx,
+          {
+            speciesId: patch.speciesId ?? before.speciesId,
+            breedId: patch.breedId === undefined ? before.breedId : patch.breedId,
+            sizeId: patch.sizeId ?? before.sizeId,
+            coatId: patch.coatId === undefined ? before.coatId : patch.coatId,
+          },
+          // Só quando a raça de fato muda: corrigir o nome de um pet cuja raça foi
+          // desativada no meio do caminho não pode virar 422 (AC-04).
+          { breedMustBeSelectable: patch.breedId !== undefined && patch.breedId !== before.breedId },
+        )
       }
 
       const microchipHash =
@@ -275,14 +302,18 @@ export async function updatePet(
       // RN-10: peso informado no PATCH também entra na série. A coluna `weight_kg`
       // é o denormalizado da última pesagem, não um campo editável à parte.
       if (patch.weightKg !== undefined && patch.weightKg !== null) {
-        await tx.petWeight.create({
+        const measuredAt = new Date()
+        const previous = await latestWeightBefore(tx, petId, measuredAt)
+        const created = await tx.petWeight.create({
           data: {
             tenantId: actor.tenantId,
             petId,
             weightKg: patch.weightKg,
+            measuredAt,
             measuredBy: actor.actorUserId ?? null,
           },
         })
+        weighing = toRecord(created, previous)
       }
 
       await recordAudit(tx, {
@@ -318,17 +349,10 @@ export async function updatePet(
       lastAttendanceAt: pet.lastAttendanceAt,
     })
   }
-  if (patch.weightKg !== undefined && patch.weightKg !== null) {
-    await publishEvent(PET_ROUTING_KEYS.petPesoRegistrado, {
-      tenantId: actor.tenantId,
-      petId,
-      weightKg: patch.weightKg,
-      // TODO(MOD-PET-07): comparar com a pesagem anterior e preencher a variação de
-      // RN-11. O endpoint dedicado de pesagem é quem carrega essa regra.
-      previousWeightKg: null,
-      variationPercent: null,
-    })
-  }
+  // O peso informado no PATCH é uma pesagem como qualquer outra, com a comparação de
+  // RN-11 incluída — o alerta clínico não pode depender de por qual tela o número
+  // entrou.
+  if (weighing) await publishWeightRecorded(actor.tenantId, petId, weighing)
 
   return pet
 }
@@ -459,7 +483,8 @@ function resolveBirthDatePatch(patch: UpdatePetInput): {
 async function reloadPet(tx: TenantTransaction, petId: string, cipher: PetCipher): Promise<PetResponse> {
   const row = await tx.pet.findFirst({ where: { id: petId }, include: WITH_DOMAIN })
   if (!row) throw notFound()
-  return toPetResponse(row as PetRow, cipher)
+  const [mapped] = await attachCoverUrls(tx, [row], [toPetResponse(row as PetRow, cipher)])
+  return mapped as PetResponse
 }
 
 function pick(row: Pet, keys: string[]): Record<string, unknown> {

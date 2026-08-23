@@ -611,6 +611,24 @@ enum BirthDatePrecision {
   UNKNOWN
 }
 
+/// Motivo da transferência de titularidade (MOD-PET-05). Não é campo livre: é o que
+/// separa "adotado" de "erro de cadastro" no relatório e na conversa com o tutor.
+enum TransferReason {
+  ADOPTION
+  SALE
+  TUTOR_DEATH
+  CORRECTION
+  OTHER
+}
+
+/// De onde a foto veio. `GROOMING_RESULT` é a foto pós-tosa que o MOD-CRM manda ao
+/// tutor; separá-la de uma foto qualquer do álbum é o que impede mandar a foto errada.
+enum PhotoSource {
+  STAFF
+  TUTOR
+  GROOMING_RESULT
+}
+
 enum PetTutorRole {
   PRIMARY
   SECONDARY
@@ -658,6 +676,7 @@ model Breed {
   species     Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
   defaultSize Size?   @relation(fields: [defaultSizeId], references: [id], onDelete: SetNull)
   pets        Pet[]
+  visibility  BreedVisibility[]
 
   @@index([speciesId])
   @@map("breeds")
@@ -740,8 +759,16 @@ model Pet {
 
   color String? @db.VarChar(40)
 
+  /// FK "solta" de propósito: a capa é uma das linhas de `pet_photos`, e uma FK real
+  /// criaria um ciclo (foto → pet → foto) que complica exclusão e seed. A consistência
+  /// é garantida no serviço, que só grava id de foto viva do próprio pet.
+  coverPhotoId String? @map("cover_photo_id") @db.Uuid
+
   status     PetStatus @default(ACTIVE)
   deceasedAt DateTime? @map("deceased_at") @db.Date
+  /// AC-03 de MOD-PET-08 conta 30 dias a partir do **registro**, não da data do
+  /// óbito: o tutor comunica dias depois, e a janela de correção é do lançamento.
+  deceasedRecordedAt DateTime? @map("deceased_recorded_at") @db.Timestamptz(6)
 
   notesEncrypted String? @map("notes_encrypted")
 
@@ -765,6 +792,8 @@ model Pet {
 
   petTutors PetTutor[]
   weights   PetWeight[]
+  transfers PetTransferLog[]
+  photos    PetPhoto[]
 
   @@map("pets")
 }
@@ -817,4 +846,84 @@ model PetWeight {
   pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("pet_weights")
+}
+
+/// Álbum do pet (MOD-PET-04). O arquivo mora no R2; aqui ficam a referência, a
+/// procedência e o que a LGPD exige saber sobre ele.
+///
+/// Não há URL pública: `variants` guarda **chaves de objeto**, e a URL é assinada na
+/// leitura com validade de 15 minutos (RN-13). Guardar URL assinada no banco seria
+/// guardar um dado que nasce vencido.
+model PetPhoto {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  petId    String @map("pet_id") @db.Uuid
+
+  /// `{ thumb, medium, full }` — chave de cada variante no bucket.
+  variants Json
+
+  caption String? @db.VarChar(140)
+  takenAt DateTime @default(now()) @map("taken_at") @db.Timestamptz(6)
+  source  PhotoSource @default(STAFF)
+
+  /// TODO(MOD-AGENDA): foto de antes e depois presa ao atendimento.
+  attendanceId String? @map("attendance_id") @db.Uuid
+
+  /// RN-14: só vira material de campanha com o consentimento IMAGE_USE do tutor,
+  /// conferido no momento da marcação — não no do upload.
+  marketingUse Boolean @default(false) @map("marketing_use")
+
+  sizeBytes Int    @map("size_bytes")
+  mimeType  String @map("mime_type") @db.VarChar(40)
+
+  uploadedBy String? @map("uploaded_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// O arquivo no bucket só some no `media-purge`; o soft delete tira da tela na hora.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("pet_photos")
+}
+
+/// AC-02 de MOD-PET-03: o tenant não edita nem apaga raça global — esconde da lista
+/// dele. A linha existir **é** o "escondido"; mostrar de volta é apagá-la.
+model BreedVisibility {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  breedId  String @map("breed_id") @db.Uuid
+
+  hiddenAt DateTime @default(now()) @map("hidden_at") @db.Timestamptz(6)
+  hiddenBy String?  @map("hidden_by") @db.Uuid
+
+  breed Breed @relation(fields: [breedId], references: [id], onDelete: Cascade)
+
+  @@map("breed_visibility")
+}
+
+/// Histórico de titularidade (MOD-PET-05). RN-06: o prontuário nunca se move; o que
+/// muda de dono é o cadastro, e esta tabela é a prova de quando e por quê.
+model PetTransferLog {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  petId    String @map("pet_id") @db.Uuid
+
+  /// Nulo só no caso improvável de transferência de pet sem responsável ativo —
+  /// possível se um `tutor.anonimizado` desvinculou o último antes.
+  fromTutorId String? @map("from_tutor_id") @db.Uuid
+  toTutorId   String  @map("to_tutor_id") @db.Uuid
+
+  reason TransferReason
+  notes  String?
+
+  /// A data que o tenant declara para o efeito; os vínculos mudam no commit.
+  effectiveDate DateTime? @map("effective_date") @db.Date
+
+  performedBy String?  @map("performed_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("pet_transfer_log")
 }

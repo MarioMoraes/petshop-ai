@@ -127,6 +127,9 @@ export function createRawAppClient(): PrismaClient {
 }
 
 const BUSINESS_TABLES = [
+  'pet_photos',
+  'breed_visibility',
+  'pet_transfer_log',
   'pet_weights',
   'pet_tutors',
   'pets',
@@ -157,4 +160,8 @@ export async function truncateBusinessTables(prisma: PrismaClient): Promise<void
   await prisma.$executeRawUnsafe(
     `TRUNCATE TABLE ${BUSINESS_TABLES.join(', ')} RESTART IDENTITY CASCADE`,
   )
+  // As raças criadas por tenant (MOD-PET-03) são cenário, não seed — mas moram na
+  // mesma tabela do catálogo global, que precisa sobreviver. Daí o DELETE seletivo
+  // em vez de mais um TRUNCATE.
+  await prisma.$executeRawUnsafe(`DELETE FROM breeds WHERE tenant_id IS NOT NULL`)
 }

@@ -9,9 +9,14 @@ import {
   OnboardingStateSchema,
   PaginatedPetsSchema,
   PaginatedTutorsSchema,
+  ManagedBreedSchema,
+  PetAlbumSchema,
+  PetPhotoSchema,
   PetResponseSchema,
   PetSensitiveSchema,
+  PetTransferSchema,
   PetTutorSchema,
+  PetWeightSchema,
   SizeSchema,
   SlugAvailabilitySchema,
   SpeciesSchema,
@@ -37,18 +42,27 @@ import {
   type CheckDuplicatesInput,
   type CheckDuplicatesResult,
   type ConsentsResponse,
+  type CreateBreedInput,
   type CreatePetInput,
   type CreateTagInput,
   type CreateTutorInput,
   type LinkTutorInput,
   type ListPetsQuery,
   type ListTutorsQuery,
+  type ManagedBreed,
   type MergeTutorInput,
+  type PetAlbum,
+  type PetPhoto,
   type PaginatedPets,
   type PaginatedTutors,
   type PetResponse,
   type PetSensitive,
+  type PetTransfer,
   type PetTutorLink,
+  type PetWeightRecord,
+  type RecordWeightInput,
+  type RegisterDeathInput,
+  type RevertDeathInput,
   type Size,
   type Species,
   type Tag,
@@ -57,6 +71,9 @@ import {
   type TutorSensitive,
   type UpdateAddressInput,
   type UpdateConsentsInput,
+  type TransferPetInput,
+  type UpdateBreedInput,
+  type UpdatePhotoInput,
   type UpdatePetInput,
   type UpdatePetTutorInput,
   type UpdateTenantSettingsInput,
@@ -134,6 +151,44 @@ export function createApiClient(options: ApiClientOptions) {
     }
 
     if (response.status === 204) return undefined as T
+    const payload = (await response.json()) as unknown
+    if (!schema) return payload as T
+
+    const parsed = schema.safeParse(payload)
+    if (!parsed.success) {
+      throw new ApiError(
+        response.status,
+        null,
+        `Resposta fora do contrato em ${path}: ${parsed.error.issues[0]?.message ?? 'formato inesperado'}`,
+      )
+    }
+    return parsed.data
+  }
+
+  /**
+   * Envio de arquivo. Não passa pelo `request` porque o `content-type` aqui é do
+   * `FormData` — com o `boundary` que só ele conhece. Fixar `application/json`, como
+   * o `request` faz, quebraria o multipart no primeiro byte.
+   */
+  async function upload<T>(path: string, form: FormData, schema?: ZodType<T>): Promise<T> {
+    const token = await options.getToken()
+
+    const response = await doFetch(`${options.baseUrl}${path}`, {
+      method: 'POST',
+      headers: { ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: form,
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      const problem = await readProblem(response)
+      throw new ApiError(
+        response.status,
+        problem,
+        problem?.detail ?? `Falha no envio (${response.status})`,
+      )
+    }
+
     const payload = (await response.json()) as unknown
     if (!schema) return payload as T
 
@@ -375,6 +430,74 @@ export function createApiClient(options: ApiClientOptions) {
     unlinkPetTutor: (id: string, linkId: string) =>
       request<void>({ method: 'DELETE', path: `/v1/pets/${id}/tutors/${linkId}` }),
 
+    // ─── Álbum de fotos (MOD-PET-04) ───────────────────────────────────────
+
+    listPetPhotos: (id: string) =>
+      request({ method: 'GET', path: `/v1/pets/${id}/photos`, schema: PetAlbumSchema }),
+
+    /** As URLs que voltam são assinadas e vencem em 15 minutos — não as guarde. */
+    uploadPetPhotos: (id: string, form: FormData) =>
+      upload(`/v1/pets/${id}/photos`, form, z.array(PetPhotoSchema)),
+
+    updatePetPhoto: (id: string, photoId: string, patch: UpdatePhotoInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/pets/${id}/photos/${photoId}`,
+        body: patch,
+        schema: PetPhotoSchema,
+      }),
+
+    deletePetPhoto: (id: string, photoId: string) =>
+      request<void>({ method: 'DELETE', path: `/v1/pets/${id}/photos/${photoId}` }),
+
+    // ─── Transferência de titularidade (MOD-PET-05) ────────────────────────
+
+    transferPet: (id: string, input: TransferPetInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${id}/transfer`,
+        body: input,
+        schema: PetResponseSchema,
+      }),
+
+    listPetTransfers: (id: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/pets/${id}/transfers`,
+        schema: z.array(PetTransferSchema),
+      }),
+
+    // ─── Histórico de peso (MOD-PET-07) ────────────────────────────────────
+
+    listPetWeights: (id: string) =>
+      request({ method: 'GET', path: `/v1/pets/${id}/weights`, schema: z.array(PetWeightSchema) }),
+
+    recordPetWeight: (id: string, input: RecordWeightInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${id}/weights`,
+        body: input,
+        schema: PetWeightSchema,
+      }),
+
+    // ─── Óbito (MOD-PET-08) ────────────────────────────────────────────────
+
+    registerPetDeath: (id: string, input: RegisterDeathInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${id}/death`,
+        body: input,
+        schema: PetResponseSchema,
+      }),
+
+    revertPetDeath: (id: string, input: RevertDeathInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${id}/death/reversal`,
+        body: input,
+        schema: PetResponseSchema,
+      }),
+
     // ─── Catálogo de domínio (MOD-PET-03) ──────────────────────────────────
 
     listSpecies: () =>
@@ -391,6 +514,31 @@ export function createApiClient(options: ApiClientOptions) {
     listSizes: () => request({ method: 'GET', path: '/v1/sizes', schema: z.array(SizeSchema) }),
 
     listCoats: () => request({ method: 'GET', path: '/v1/coats', schema: z.array(CoatSchema) }),
+
+    /** A lista da tela de catálogo: inclui o que está oculto e o uso de cada raça. */
+    listManagedBreeds: (speciesId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/breeds?speciesId=${speciesId}`,
+        schema: z.array(ManagedBreedSchema),
+      }),
+
+    createBreed: (input: CreateBreedInput) =>
+      request({ method: 'POST', path: '/v1/breeds', body: input, schema: BreedSchema }),
+
+    updateBreed: (id: string, patch: UpdateBreedInput) =>
+      request({ method: 'PATCH', path: `/v1/breeds/${id}`, body: patch, schema: BreedSchema }),
+
+    /** AC-02/AC-04: some do seletor — por `breed_visibility` ou por `active`. */
+    setBreedVisibility: (id: string, hidden: boolean) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/breeds/${id}/visibility`,
+        body: { hidden },
+        schema: ManagedBreedSchema,
+      }),
+
+    deleteBreed: (id: string) => request<void>({ method: 'DELETE', path: `/v1/breeds/${id}` }),
   }
 }
 
@@ -423,13 +571,18 @@ export type {
   Coat,
   CheckDuplicatesResult,
   ConsentsResponse,
+  ManagedBreed,
   MeResponse,
   OnboardingState,
   PaginatedPets,
+  PetAlbum,
+  PetPhoto,
   PaginatedTutors,
   PetResponse,
   PetSensitive,
+  PetTransfer,
   PetTutorLink,
+  PetWeightRecord,
   Size,
   SlugAvailability,
   Species,

@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import { getPrisma, setDbLogger } from '@petshop/db'
-import { AppError, toProblemDetails } from '@petshop/shared-types'
+import {
+  AppError,
+  MAX_PHOTOS_PER_UPLOAD,
+  MAX_PHOTO_BYTES,
+  toProblemDetails,
+} from '@petshop/shared-types'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
 import { InvalidTokenError, verifySessionToken } from './auth/clerk-token.js'
 import { resolveSession } from './auth/session.js'
@@ -31,6 +36,25 @@ export async function buildApp(): Promise<FastifyInstance> {
   })
 
   setDbLogger({ error: (payload, message) => logger.error(payload, message) })
+
+  /**
+   * Corpo binário passa direto (MOD-PET-04).
+   *
+   * O gateway não interpreta upload: ele bufferiza os bytes e repassa. Registrar o
+   * `@fastify/multipart` aqui obrigaria a remontar o multipart do outro lado, com
+   * outro `boundary` — trabalho para chegar ao mesmo lugar, e uma chance a mais de
+   * corromper o arquivo no caminho.
+   *
+   * O teto é o do arquivo mais folga para o envelope multipart e os metadados; quem
+   * recusa de verdade, com a mensagem do AC-02, é o pet-service.
+   */
+  app.addContentTypeParser(
+    'multipart/form-data',
+    { parseAs: 'buffer', bodyLimit: MAX_PHOTO_BYTES * MAX_PHOTOS_PER_UPLOAD + 1_048_576 },
+    (_request, body, done) => {
+      done(null, body)
+    },
+  )
 
   // SPEC §7.4 — CORS restritivo por domínio, nunca `*` com credenciais.
   await app.register(cors, {

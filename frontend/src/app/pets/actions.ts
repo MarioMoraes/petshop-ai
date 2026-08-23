@@ -5,12 +5,20 @@ import { ApiError } from '@petshop/api-client'
 import {
   CreatePetSchema,
   LinkTutorSchema,
+  MAX_PHOTO_BYTES,
+  UpdatePhotoSchema,
+  RecordWeightSchema,
+  RegisterDeathSchema,
+  RevertDeathSchema,
+  TransferPetSchema,
   UpdatePetSchema,
   UpdatePetTutorSchema,
   type Breed,
   type PetResponse,
+  type PetPhoto,
   type PetSensitive,
   type PetTutorLink,
+  type PetWeightRecord,
 } from '@petshop/shared-types'
 import { z } from 'zod'
 import { serverApi } from '@/lib/api'
@@ -169,6 +177,89 @@ export async function unlinkTutorAction(
   }
 }
 
+// ─── Pesagem (MOD-PET-07) ────────────────────────────────────────────────────
+
+/**
+ * Registra a pesagem e devolve o ponto já comparado com o anterior — é a variação que
+ * a tela mostra, e é ela que o veterinário lê (RN-11).
+ */
+export async function recordWeightAction(
+  petId: string,
+  input: unknown,
+): Promise<ActionResult<PetWeightRecord>> {
+  const parsed = RecordWeightSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const record = await serverApi().recordPetWeight(petId, parsed.data)
+    revalidatePath(`/pets/${petId}`)
+    revalidatePath('/pets')
+    return { ok: true, data: record }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Transferência de titularidade (MOD-PET-05) ──────────────────────────────
+
+export async function transferPetAction(
+  petId: string,
+  input: unknown,
+): Promise<ActionResult<PetResponse>> {
+  const parsed = TransferPetSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const pet = await serverApi().transferPet(petId, parsed.data)
+    revalidatePath(`/pets/${petId}`)
+    revalidatePath('/pets')
+    // O tutor anterior deixa de ver o pet e o novo passa a ver: as duas telas de
+    // tutor mudam junto (RN-07).
+    revalidatePath('/tutores')
+    return { ok: true, data: pet }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Óbito (MOD-PET-08) ──────────────────────────────────────────────────────
+
+export async function registerDeathAction(
+  petId: string,
+  input: unknown,
+): Promise<ActionResult<PetResponse>> {
+  const parsed = RegisterDeathSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const pet = await serverApi().registerPetDeath(petId, parsed.data)
+    revalidatePath(`/pets/${petId}`)
+    revalidatePath('/pets')
+    revalidatePath('/dashboard')
+    return { ok: true, data: pet }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function revertDeathAction(
+  petId: string,
+  input: unknown,
+): Promise<ActionResult<PetResponse>> {
+  const parsed = RevertDeathSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const pet = await serverApi().revertPetDeath(petId, parsed.data)
+    revalidatePath(`/pets/${petId}`)
+    revalidatePath('/pets')
+    revalidatePath('/dashboard')
+    return { ok: true, data: pet }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
 // ─── Apoio aos seletores do formulário ───────────────────────────────────────
 
 /**
@@ -204,5 +295,76 @@ export async function searchTutorsAction(query: string): Promise<TutorOption[]> 
     }))
   } catch {
     return []
+  }
+}
+
+// ─── Álbum de fotos (MOD-PET-04) ─────────────────────────────────────────────
+
+/**
+ * O upload sobe o arquivo por Server Action: o `FormData` do formulário atravessa
+ * inteiro, e o browser nunca vê o token do Clerk nem a URL do gateway.
+ *
+ * `FormData` entra e sai como está — reconstruí-lo aqui só recriaria o multipart com
+ * outro `boundary`, sem ganho.
+ */
+export async function uploadPhotosAction(
+  petId: string,
+  form: FormData,
+): Promise<ActionResult<PetPhoto[]>> {
+  const files = form.getAll('files').filter((entry): entry is File => entry instanceof File)
+  if (files.length === 0) {
+    return { ok: false, message: 'Escolha ao menos uma foto.', fieldErrors: {} }
+  }
+
+  // A mesma recusa do AC-02, antes da viagem: subir 40 MB para ouvir "não" é tempo do
+  // atendente com o cliente na frente.
+  const tooBig = files.find((file) => file.size > MAX_PHOTO_BYTES)
+  if (tooBig) {
+    return {
+      ok: false,
+      message: `"${tooBig.name}" passa de 10 MB. Envie JPG, PNG, WEBP ou HEIC de até 10 MB.`,
+      fieldErrors: {},
+    }
+  }
+
+  try {
+    const photos = await serverApi().uploadPetPhotos(petId, form)
+    revalidatePath(`/pets/${petId}`)
+    revalidatePath('/pets')
+    return { ok: true, data: photos }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function updatePhotoAction(
+  petId: string,
+  photoId: string,
+  patch: unknown,
+): Promise<ActionResult<PetPhoto>> {
+  const parsed = UpdatePhotoSchema.safeParse(patch)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const photo = await serverApi().updatePetPhoto(petId, photoId, parsed.data)
+    revalidatePath(`/pets/${petId}`)
+    revalidatePath('/pets')
+    return { ok: true, data: photo }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function deletePhotoAction(
+  petId: string,
+  photoId: string,
+): Promise<ActionResult<null>> {
+  try {
+    await serverApi().deletePetPhoto(petId, photoId)
+    revalidatePath(`/pets/${petId}`)
+    revalidatePath('/pets')
+    return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
   }
 }

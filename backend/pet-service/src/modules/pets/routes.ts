@@ -2,6 +2,10 @@ import {
   CreatePetSchema,
   LinkTutorSchema,
   ListPetsQuerySchema,
+  RecordWeightSchema,
+  RegisterDeathSchema,
+  RevertDeathSchema,
+  TransferPetSchema,
   UpdatePetSchema,
   UpdatePetTutorSchema,
 } from '@petshop/shared-types'
@@ -9,8 +13,11 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { requirePermission, requireTenantContext } from '../../auth/context.js'
 import { parseInput } from '../../lib/validate.js'
 import type { ActorContext } from './actor.js'
+import { registerDeath, revertDeath } from './lifecycle.js'
 import { createPet, deletePet, getPet, listPets, revealMicrochip, updatePet } from './service.js'
+import { listTransfers, transferPet } from './transfer.js'
 import { linkTutor, listPetTutors, unlinkTutor, updatePetTutor } from './tutors.js'
+import { listWeights, recordWeight } from './weights.js'
 
 /**
  * Rotas do pet-service (PRD pets_03 §5).
@@ -127,6 +134,78 @@ export async function registerPetRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       await unlinkTutor(actorOf(request), request.params.id, request.params.linkId)
       return reply.status(204).send()
+    },
+  )
+
+  // ─── Transferência de titularidade (MOD-PET-05) ────────────────────────────
+
+  app.post<{ Params: PetParams }>(
+    '/v1/pets/:id/transfer',
+    {
+      preHandler: requirePermission(
+        'pet:manage_lifecycle',
+        'Somente o administrador transfere a titularidade',
+      ),
+    },
+    async (request) => {
+      const input = parseInput(TransferPetSchema, request.body)
+      return transferPet(actorOf(request), request.params.id, input)
+    },
+  )
+
+  app.get<{ Params: PetParams }>(
+    '/v1/pets/:id/transfers',
+    { preHandler: requirePermission('pet:read') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      return listTransfers(auth.tenantId, request.params.id)
+    },
+  )
+
+  // ─── Histórico de peso (MOD-PET-07) ────────────────────────────────────────
+
+  app.get<{ Params: PetParams }>(
+    '/v1/pets/:id/weights',
+    { preHandler: requirePermission('pet:read') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      return listWeights(auth.tenantId, request.params.id)
+    },
+  )
+
+  /** `pet:weigh`, e não `pet:update`: o banhista pesa sem poder editar o cadastro (§9). */
+  app.post<{ Params: PetParams }>(
+    '/v1/pets/:id/weights',
+    { preHandler: requirePermission('pet:weigh', 'Seu perfil não permite registrar pesagem') },
+    async (request, reply) => {
+      const input = parseInput(RecordWeightSchema, request.body)
+      const record = await recordWeight(actorOf(request), request.params.id, input)
+      return reply.status(201).send(record)
+    },
+  )
+
+  // ─── Óbito (MOD-PET-08) ────────────────────────────────────────────────────
+
+  app.post<{ Params: PetParams }>(
+    '/v1/pets/:id/death',
+    { preHandler: requirePermission('pet:update', 'Seu perfil não permite registrar o óbito') },
+    async (request) => {
+      const input = parseInput(RegisterDeathSchema, request.body)
+      return registerDeath(actorOf(request), request.params.id, input)
+    },
+  )
+
+  app.post<{ Params: PetParams }>(
+    '/v1/pets/:id/death/reversal',
+    {
+      preHandler: requirePermission(
+        'pet:manage_lifecycle',
+        'Somente o administrador reverte um óbito',
+      ),
+    },
+    async (request) => {
+      const input = parseInput(RevertDeathSchema, request.body)
+      return revertDeath(actorOf(request), request.params.id, input)
     },
   )
 }

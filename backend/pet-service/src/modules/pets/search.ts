@@ -75,9 +75,12 @@ function buildWhere(query: ListPetsQuery, shape: QueryShape): Prisma.Sql {
   if (query.status) {
     conditions.push(Prisma.sql`p."status" = ${query.status}::"PetStatus"`)
   } else {
-    // Sem filtro explícito, o pet transferido some: ele agora é de outro tenant, e
-    // o registro que ficou existe só para o histórico não perder as referências.
-    conditions.push(Prisma.sql`p."status" <> 'TRANSFERRED_OUT'`)
+    // Sem filtro explícito somem o transferido — que agora é de outro tenant, e cujo
+    // registro existe só para o histórico não perder referência — e o falecido, que
+    // o AC-01 de MOD-PET-08 tira de toda listagem operacional. O INACTIVE fica: ele
+    // é o pet que não aparece há um ano, e é justamente quem a recepção procura
+    // quando o tutor volta.
+    conditions.push(Prisma.sql`p."status" NOT IN ('TRANSFERRED_OUT', 'DECEASED')`)
   }
 
   if (query.speciesId) conditions.push(Prisma.sql`p."species_id" = ${query.speciesId}::uuid`)

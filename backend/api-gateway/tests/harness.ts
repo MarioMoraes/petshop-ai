@@ -47,6 +47,15 @@ let upstreamUrl = ''
 async function startUpstream(): Promise<string> {
   if (upstreamUrl) return upstreamUrl
   upstream = Fastify({ logger: false })
+  // O eco também precisa aceitar corpo binário: é assim que o upload de foto
+  // (MOD-PET-04) chega, e é o que o teste de passagem confere byte a byte.
+  upstream.addContentTypeParser(
+    'multipart/form-data',
+    { parseAs: 'buffer', bodyLimit: 32 * 1024 * 1024 },
+    (_request, body, done) => {
+      done(null, body)
+    },
+  )
   upstream.all('/*', async (request, reply) => {
     echoed.push({
       method: request.method,

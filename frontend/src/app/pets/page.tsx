@@ -83,6 +83,31 @@ export default async function PetsPage({ searchParams }: PageProps) {
                   href={`/pets/${pet.id}`}
                   className="card flex flex-wrap items-center gap-4 px-5 py-4 transition-transform hover:-translate-y-0.5"
                 >
+                  {/*
+                    RN-16: cinco "Mel" no mesmo tenant é normal, e a foto é o que
+                    desambigua mais rápido que raça ou tutor. Sem capa, a inicial —
+                    um espaço vazio faria a lista tremer conforme os pets tivessem
+                    foto ou não.
+                  */}
+                  {pet.coverPhotoUrl ? (
+                    // A URL do R2 é assinada e vence em 15 minutos; o otimizador do
+                    // Next cacheia por URL e acabaria servindo um endereço morto.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pet.coverPhotoUrl}
+                      alt=""
+                      className="h-12 w-12 shrink-0 rounded-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span
+                      aria-hidden
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/5 text-sm font-semibold text-muted"
+                    >
+                      {pet.name.slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold">{pet.name}</span>

@@ -19,7 +19,7 @@ beforeEach(resetDatabase)
 afterAll(closeHarness)
 
 async function call(options: {
-  method?: 'GET' | 'POST' | 'PATCH'
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   url: string
   token?: string
   headers?: Record<string, string>
@@ -90,6 +90,43 @@ describe('autenticação', () => {
       if (!verified.ok) return
       expect(verified.context.permissions).toContain('pet:read')
     }
+  })
+
+  it('repassa o upload de foto sem reserializar o multipart', async () => {
+    const tenant = await seedTenant('rotafoto')
+    const member = await seedMember(tenant.tenantId, 'RECEPTIONIST')
+    const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
+
+    const boundary = '----petshopteste123'
+    const body = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="thor.jpg"\r\n` +
+          `Content-Type: image/jpeg\r\n\r\n`,
+      ),
+      // Bytes que não sobrevivem a um JSON.stringify — é justamente o ponto.
+      Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ])
+
+    const response = await call({
+      method: 'POST',
+      url: `/v1/pets/${'11111111-1111-4111-8111-111111111111'}/photos`,
+      token,
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    })
+    expect(response.statusCode).toBe(200)
+
+    const forwarded = lastEchoed()
+    expect(forwarded.headers['content-type']).toContain(boundary)
+    // O corpo chegou idêntico: o `boundary` do header continua casando com o do corpo.
+    expect(Buffer.isBuffer(forwarded.body)).toBe(true)
+    expect(Buffer.compare(forwarded.body as Buffer, body)).toBe(0)
+
+    const verified = verifyServiceHeaders(forwarded.headers, INTERNAL_SECRET)
+    expect(verified.ok).toBe(true)
+    if (!verified.ok) return
+    expect(verified.context.permissions).toContain('pet:upload_photo')
   })
 
   it('devolve 404 para rota sem serviço de destino', async () => {

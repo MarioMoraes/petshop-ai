@@ -26,6 +26,20 @@ const EnvSchema = z.object({
 
   DISABLE_EVENTS: z.coerce.boolean().default(false),
   DISABLE_REDIS: z.coerce.boolean().default(false),
+
+  /**
+   * Storage das fotos (MOD-PET-04) — R2 pela API S3.
+   *
+   * Opcionais de propósito: o serviço sobe sem eles e só o álbum deixa de funcionar,
+   * devolvendo 502 `ERR_PET_009`. Exigi-los na subida derrubaria o cadastro de pets
+   * inteiro em um ambiente que ainda não configurou o bucket.
+   */
+  R2_ENDPOINT: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().default('petshop-media'),
+  /** R2 ignora região, mas o assinador SigV4 do SDK exige uma. */
+  R2_REGION: z.string().default('auto'),
 })
 
 export type Env = z.infer<typeof EnvSchema>

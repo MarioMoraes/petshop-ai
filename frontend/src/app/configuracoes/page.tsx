@@ -26,9 +26,14 @@ export default async function ConfiguracoesPage() {
   // honesto que um 403 numa rota que o menu nem deveria ter oferecido.
   if (!me.permissions.includes('tenant:read_settings')) redirect('/dashboard')
 
-  const [tenant, settings] = await Promise.all([
+  const canManageCatalog = me.permissions.includes('pet:manage_catalog')
+
+  const [tenant, settings, species] = await Promise.all([
     serverApi().getTenant(),
     serverApi().getSettings(),
+    // A aba de raças só existe para quem pode mexer nela; sem a permissão, nem a
+    // lista de espécies precisa ser buscada.
+    canManageCatalog ? serverApi().listSpecies() : Promise.resolve([]),
   ])
 
   return (
@@ -44,14 +49,16 @@ export default async function ConfiguracoesPage() {
           <PageHeader
             eyebrow="Estabelecimento"
             title="Configurações"
-            subtitle="Dados, horário de funcionamento, políticas de agendamento e identidade visual."
+            subtitle="Dados, horário de funcionamento, políticas de agendamento, identidade visual e catálogo de raças."
           />
 
           <div className="mt-10">
             <SettingsForm
               tenant={tenant}
               settings={settings}
+              species={species}
               canEdit={me.permissions.includes('tenant:configure')}
+              canManageCatalog={canManageCatalog}
             />
           </div>
         </div>

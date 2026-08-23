@@ -5,8 +5,11 @@ import { ApiError } from '@petshop/api-client'
 import {
   BrandingSchema,
   BusinessHoursSchema,
+  CreateBreedSchema,
   UpdateTenantSchema,
   UpdateTenantSettingsSchema,
+  type Breed,
+  type ManagedBreed,
   type TenantResponse,
   type TenantSettings,
 } from '@petshop/shared-types'
@@ -126,6 +129,67 @@ export async function saveBrandingAction(input: unknown): Promise<ActionResult<T
     const settings = await serverApi().updateSettings({ branding: parsed.data })
     revalidateAll()
     return { ok: true, data: settings }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Catálogo de raças (MOD-PET-03) ──────────────────────────────────────────
+
+/**
+ * O catálogo do tenant mora nas configurações porque é decisão do estabelecimento, e
+ * não do atendimento: RN-01 proíbe raça em texto livre, então a lista do seletor é
+ * uma configuração como o horário de funcionamento.
+ *
+ * Revalidar `/pets` junto: o formulário de cadastro lê o mesmo catálogo, e uma raça
+ * criada aqui precisa aparecer lá sem recarregar a sessão.
+ */
+function revalidateCatalog(): void {
+  revalidatePath('/configuracoes')
+  revalidatePath('/pets')
+}
+
+export async function listManagedBreedsAction(speciesId: string): Promise<ManagedBreed[]> {
+  try {
+    return await serverApi().listManagedBreeds(speciesId)
+  } catch {
+    // A tela mostra a lista vazia com o aviso; travar a aba inteira por uma falha de
+    // leitura seria pior que mostrá-la sem conteúdo.
+    return []
+  }
+}
+
+export async function createBreedAction(input: unknown): Promise<ActionResult<Breed>> {
+  const parsed = CreateBreedSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const breed = await serverApi().createBreed(parsed.data)
+    revalidateCatalog()
+    return { ok: true, data: breed }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function setBreedVisibilityAction(
+  breedId: string,
+  hidden: boolean,
+): Promise<ActionResult<ManagedBreed>> {
+  try {
+    const breed = await serverApi().setBreedVisibility(breedId, hidden)
+    revalidateCatalog()
+    return { ok: true, data: breed }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function deleteBreedAction(breedId: string): Promise<ActionResult<null>> {
+  try {
+    await serverApi().deleteBreed(breedId)
+    revalidateCatalog()
+    return { ok: true, data: null }
   } catch (error) {
     return toFailure(error)
   }

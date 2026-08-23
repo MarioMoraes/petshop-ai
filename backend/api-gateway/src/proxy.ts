@@ -37,6 +37,18 @@ const STRIPPED_RESPONSE_HEADERS = new Set([
   'transfer-encoding',
 ])
 
+/**
+ * Corpo já parseado de volta para bytes.
+ *
+ * Upload de foto (MOD-PET-04) chega como `multipart/form-data` e é bufferizado pelo
+ * parser bruto do `app.ts`. Ele precisa seguir **byte a byte**: o `boundary` que
+ * delimita as partes está no `content-type`, e qualquer reserialização quebraria a
+ * correspondência entre os dois. JSON continua indo como JSON.
+ */
+function encodeBody(body: unknown): Buffer | string {
+  return Buffer.isBuffer(body) ? body : JSON.stringify(body)
+}
+
 export interface ProxyOptions {
   targetBaseUrl: string
   context: ServiceAuthContext
@@ -68,9 +80,7 @@ export async function proxyRequest(
     const upstream = await fetch(url, {
       method: request.method,
       headers,
-      ...(hasBody && request.body !== undefined
-        ? { body: JSON.stringify(request.body), duplex: 'half' }
-        : {}),
+      ...(hasBody && request.body !== undefined ? { body: encodeBody(request.body), duplex: 'half' } : {}),
       signal: controller.signal,
     })
 

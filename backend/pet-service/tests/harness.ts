@@ -174,6 +174,111 @@ export async function catalogIds(): Promise<CatalogFixture> {
   }
 }
 
+// ─── Storage de mídia (MOD-PET-04) ───────────────────────────────────────────
+
+const { setStoragePort } = await import('../src/lib/storage.js')
+
+export interface FakeStorage {
+  /** Chave → bytes gravados. É o que os testes de EXIF e de exclusão inspecionam. */
+  objects: Map<string, Buffer>
+  removed: string[]
+  /** Liga a falha do AC-04: a partir daqui, todo `put` estoura. */
+  failNext(mode: 'put' | 'none'): void
+}
+
+/**
+ * Storage em memória. O R2 fica de fora da suíte pelo mesmo motivo que o RabbitMQ:
+ * o que está sob teste é a regra — cota, magic byte, ordem de gravação —, e depender
+ * da rede tornaria isso intermitente.
+ */
+export function installFakeStorage(): FakeStorage {
+  const objects = new Map<string, Buffer>()
+  const removed: string[] = []
+  let mode: 'put' | 'none' = 'none'
+
+  const fake: FakeStorage = {
+    objects,
+    removed,
+    failNext(next) {
+      mode = next
+    },
+  }
+
+  setStoragePort({
+    async put(key, body) {
+      if (mode === 'put') {
+        const { StorageUnavailableError } = await import('../src/lib/storage.js')
+        throw new StorageUnavailableError('bucket indisponível no teste')
+      }
+      objects.set(key, body)
+    },
+    async signedUrl(key) {
+      return `https://r2.test/${key}?assinada=1`
+    },
+    async remove(keys) {
+      for (const key of keys) {
+        objects.delete(key)
+        removed.push(key)
+      }
+    },
+  })
+
+  return fake
+}
+
+export function clearStorage(): void {
+  setStoragePort(null)
+}
+
+/** JPEG de verdade, com EXIF e GPS — é o que o RN-12 precisa ter o que apagar. */
+export async function jpegWithExif(width = 900, height = 600): Promise<Buffer> {
+  const sharp = (await import('sharp')).default
+  return sharp({ create: { width, height, channels: 3, background: '#E34A32' } })
+    .jpeg()
+    .withExif({
+      IFD0: { Copyright: 'Petshop Teste' },
+      // IFD3 é o bloco de GPS: é o metadado que RN-12 existe para apagar, porque
+      // entrega o endereço de casa do tutor junto com a foto do cachorro.
+      IFD3: { GPSLatitudeRef: 'S', GPSLongitudeRef: 'W' },
+    })
+    .toBuffer()
+}
+
+/** Monta o corpo multipart à mão: o `inject` do Fastify não tem `FormData` nativo. */
+export function multipartBody(
+  files: { field?: string; filename: string; contentType: string; content: Buffer }[],
+  fields: Record<string, string> = {},
+): { payload: Buffer; headers: Record<string, string> } {
+  const boundary = `----petshopteste${Math.random().toString(16).slice(2)}`
+  const chunks: Buffer[] = []
+
+  for (const [name, value] of Object.entries(fields)) {
+    chunks.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`,
+      ),
+    )
+  }
+
+  for (const file of files) {
+    chunks.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${file.field ?? 'files'}"; ` +
+          `filename="${file.filename}"\r\nContent-Type: ${file.contentType}\r\n\r\n`,
+      ),
+      file.content,
+      Buffer.from('\r\n'),
+    )
+  }
+
+  chunks.push(Buffer.from(`--${boundary}--\r\n`))
+
+  return {
+    payload: Buffer.concat(chunks),
+    headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+  }
+}
+
 // ─── Requisições autenticadas ────────────────────────────────────────────────
 
 export interface CallerOptions {
@@ -203,6 +308,8 @@ export interface InjectOptions extends CallerOptions {
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   url: string
   payload?: unknown
+  /** Usado pelo upload: o `content-type` carrega o `boundary` do multipart. */
+  headers?: Record<string, string>
 }
 
 export async function callApi(options: InjectOptions) {
@@ -210,7 +317,7 @@ export async function callApi(options: InjectOptions) {
   return instance.inject({
     method: options.method,
     url: options.url,
-    headers: authHeaders(options),
+    headers: { ...authHeaders(options), ...(options.headers ?? {}) },
     ...(options.payload !== undefined ? { payload: options.payload as object } : {}),
   })
 }

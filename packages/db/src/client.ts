@@ -37,6 +37,9 @@ const RLS_MODELS = new Set([
   'Pet',
   'PetTutor',
   'PetWeight',
+  'PetTransferLog',
+  'PetPhoto',
+  'BreedVisibility',
   // Catálogo de domínio: a política é mista (global legível, escrita só do
   // tenant), mas a guarda continua exigindo contexto — ler catálogo sem saber de
   // que tenant é esconde a extensão do tenant e devolve só o global, calado.

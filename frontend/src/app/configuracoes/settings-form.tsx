@@ -6,6 +6,7 @@ import {
   WEEKDAY_LABELS,
   type Branding,
   type BusinessHours,
+  type Species,
   type TenantResponse,
   type TenantSettings,
   type Weekday,
@@ -18,6 +19,7 @@ import {
   savePoliciesAction,
   type ActionResult,
 } from './actions'
+import { BreedCatalog } from './breed-catalog'
 
 /**
  * Configurações do estabelecimento (MOD-IDENT-08, parcial).
@@ -59,11 +61,18 @@ const TABS = [
   { id: 'visual', label: 'Visual' },
 ]
 
+/** MOD-PET-03: a lista de raças é configuração do estabelecimento, não do atendimento. */
+const CATALOG_TAB = { id: 'racas', label: 'Raças' }
+
 export interface SettingsFormProps {
   tenant: TenantResponse
   settings: TenantSettings
+  /** Espécies do catálogo, para a aba de raças. Vazio quando ela não é exibida. */
+  species: Species[]
   /** `tenant:configure`. Sem ela a tela é de leitura — o backend recusaria de todo jeito. */
   canEdit: boolean
+  /** `pet:manage_catalog`: só o administrador mexe no catálogo de raças. */
+  canManageCatalog: boolean
 }
 
 function toMinutes(time: string): number {
@@ -81,7 +90,13 @@ interface SaveState {
 
 const IDLE: SaveState = { pending: false, error: null, fieldErrors: {}, savedAt: null }
 
-export function SettingsForm({ tenant, settings, canEdit }: SettingsFormProps) {
+export function SettingsForm({
+  tenant,
+  settings,
+  species,
+  canEdit,
+  canManageCatalog,
+}: SettingsFormProps) {
   const [active, setActive] = useState('dados')
   const [state, setState] = useState<SaveState>(IDLE)
   const [, startTransition] = useTransition()
@@ -120,7 +135,11 @@ export function SettingsForm({ tenant, settings, canEdit }: SettingsFormProps) {
         </div>
       )}
 
-      <Tabs tabs={TABS} active={active} onSelect={selectTab} />
+      <Tabs
+        tabs={canManageCatalog ? [...TABS, CATALOG_TAB] : TABS}
+        active={active}
+        onSelect={selectTab}
+      />
 
       <div className="mt-6">
         <FormError message={state.error} />
@@ -131,6 +150,11 @@ export function SettingsForm({ tenant, settings, canEdit }: SettingsFormProps) {
         {active === 'horario' && <HoursPanel {...shared} settings={settings} />}
         {active === 'politicas' && <PoliciesPanel {...shared} settings={settings} />}
         {active === 'visual' && <BrandingPanel {...shared} branding={settings.branding} />}
+        {/*
+          A aba de raças não usa o `shared`: ela salva item a item, com o resultado
+          na própria linha, e não tem um "Salvar" no rodapé como as outras.
+        */}
+        {active === 'racas' && <BreedCatalog species={species} canManage={canManageCatalog} />}
       </div>
     </div>
   )
