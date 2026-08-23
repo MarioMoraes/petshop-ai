@@ -11,7 +11,7 @@ import { notFound } from '../../lib/errors.js'
 import { publishEvent } from '../../lib/events.js'
 import { recordMetric } from '../../lib/logger.js'
 import { CACHE_KEYS, cacheDelete } from '../../lib/redis.js'
-import { toTenantResponse } from '../tenants/service.js'
+import { clampOnboardingStep, toTenantResponse } from '../tenants/service.js'
 
 /**
  * MOD-IDENT-02 — Onboarding Wizard.
@@ -79,7 +79,7 @@ export async function advanceOnboarding(
     params.actorUserId ? { userId: params.actorUserId } : {},
   )
 
-  if (payload.step === 3 || payload.step === 5) {
+  if (payload.step === 3 || payload.step === ONBOARDING_LAST_STEP) {
     await cacheDelete(CACHE_KEYS.tenantSettings(tenantId))
   }
 
@@ -135,12 +135,6 @@ async function applyStep(
     }
 
     case 4: {
-      // TODO(MOD-IDENT-06): a etapa só aceita "pular" enquanto não houver
-      // POST /v1/invitations. O AC-03 permite pular sem bloquear o uso do sistema.
-      return
-    }
-
-    case 5: {
       if (payload.data?.branding) {
         await tx.tenantSettings.update({
           where: { tenantId },
@@ -193,7 +187,7 @@ export async function getOnboardingState(tenantId: string) {
   )
   if (!row) throw notFound('Estabelecimento não encontrado')
   return {
-    onboardingStep: row.onboardingStep,
+    onboardingStep: clampOnboardingStep(row.onboardingStep),
     onboardingCompletedAt: row.onboardingCompletedAt?.toISOString() ?? null,
     stepsSkipped: row.onboardingStepsSkipped,
   }

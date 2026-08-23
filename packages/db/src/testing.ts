@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PrismaClient } from '../generated/client/index.js'
 export type { PrismaClient } from '../generated/client/index.js'
+import { seedCatalog } from './seed-catalog.js'
 import { seedRbac } from './seed-rbac.js'
 
 /**
@@ -104,6 +105,9 @@ export async function prepareTestDatabase(): Promise<void> {
   const prisma = new PrismaClient({ datasourceUrl: migrationUrl })
   try {
     await seedRbac(prisma)
+    // O catálogo global (MOD-PET-03) é seed, não cenário: `truncateBusinessTables`
+    // não o apaga, porque sem espécie e porte nenhum pet pode ser cadastrado.
+    await seedCatalog(prisma)
   } finally {
     await prisma.$disconnect()
   }
@@ -123,6 +127,9 @@ export function createRawAppClient(): PrismaClient {
 }
 
 const BUSINESS_TABLES = [
+  'pet_weights',
+  'pet_tutors',
+  'pets',
   'tutor_merge_log',
   'tutor_consents',
   'tutor_tag_assignments',
@@ -143,7 +150,8 @@ const BUSINESS_TABLES = [
 /**
  * Limpa o cenário entre testes. `TRUNCATE` não dispara o trigger `FOR EACH ROW` de
  * `audit_logs`, e é por isso a única forma de esvaziar a trilha append-only.
- * `roles`, `permissions` e `role_permissions` ficam de pé — são o seed.
+ * `roles`, `permissions`, `role_permissions` e o catálogo global de domínio
+ * (`species`, `breeds`, `sizes`, `coats`) ficam de pé — são o seed.
  */
 export async function truncateBusinessTables(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe(

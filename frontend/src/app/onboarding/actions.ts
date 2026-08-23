@@ -134,20 +134,7 @@ export async function saveStep3Action(input: unknown): Promise<ActionResult> {
   }
 }
 
-// ─── Etapa 4 — equipe (somente pular nesta fase) ─────────────────────────────
-
-export async function skipStep4Action(): Promise<ActionResult> {
-  try {
-    // TODO(MOD-IDENT-06): substituir por envio de convites quando POST /v1/invitations existir.
-    const tenant = await serverApi().advanceOnboarding({ step: 4, skipped: true })
-    revalidatePath('/onboarding')
-    return { ok: true, data: tenant }
-  } catch (error) {
-    return toFailure(error)
-  }
-}
-
-// ─── Etapa 5 — identidade visual e conclusão ─────────────────────────────────
+// ─── Etapa 4 — identidade visual e conclusão ─────────────────────────────────
 
 export async function finishOnboardingAction(branding: unknown): Promise<ActionResult> {
   const parsed = BrandingSchema.safeParse(branding)
@@ -155,7 +142,7 @@ export async function finishOnboardingAction(branding: unknown): Promise<ActionR
 
   try {
     const tenant = await serverApi().advanceOnboarding({
-      step: 5,
+      step: 4,
       data: { branding: parsed.data },
     })
     revalidatePath('/onboarding')
@@ -166,9 +153,9 @@ export async function finishOnboardingAction(branding: unknown): Promise<ActionR
   }
 }
 
-export async function skipStep5Action(): Promise<ActionResult> {
+export async function skipBrandingAction(): Promise<ActionResult> {
   try {
-    const tenant = await serverApi().advanceOnboarding({ step: 5, skipped: true })
+    const tenant = await serverApi().advanceOnboarding({ step: 4, skipped: true })
     revalidatePath('/onboarding')
     revalidatePath('/dashboard')
     return { ok: true, data: tenant }

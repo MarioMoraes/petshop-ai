@@ -1,12 +1,20 @@
 import {
   AddressResponseSchema,
+  BreedSchema,
   CepLookupSchema,
   CheckDuplicatesResultSchema,
+  CoatSchema,
   ConsentsResponseSchema,
   MeResponseSchema,
   OnboardingStateSchema,
+  PaginatedPetsSchema,
   PaginatedTutorsSchema,
+  PetResponseSchema,
+  PetSensitiveSchema,
+  PetTutorSchema,
+  SizeSchema,
   SlugAvailabilitySchema,
+  SpeciesSchema,
   TagSchema,
   TenantResponseSchema,
   TenantSettingsSchema,
@@ -23,21 +31,34 @@ import {
   type AddressInput,
   type AddressResponse,
   type AnonymizeTutorInput,
+  type Breed,
   type CepLookup,
+  type Coat,
   type CheckDuplicatesInput,
   type CheckDuplicatesResult,
   type ConsentsResponse,
+  type CreatePetInput,
   type CreateTagInput,
   type CreateTutorInput,
+  type LinkTutorInput,
+  type ListPetsQuery,
   type ListTutorsQuery,
   type MergeTutorInput,
+  type PaginatedPets,
   type PaginatedTutors,
+  type PetResponse,
+  type PetSensitive,
+  type PetTutorLink,
+  type Size,
+  type Species,
   type Tag,
   type TutorDetail,
   type TutorOverview,
   type TutorSensitive,
   type UpdateAddressInput,
   type UpdateConsentsInput,
+  type UpdatePetInput,
+  type UpdatePetTutorInput,
   type UpdateTenantSettingsInput,
   type UpdateTutorInput,
 } from '@petshop/shared-types'
@@ -301,6 +322,75 @@ export function createApiClient(options: ApiClientOptions) {
 
     removeTag: (tutorId: string, tagId: string) =>
       request<void>({ method: 'DELETE', path: `/v1/tutors/${tutorId}/tags/${tagId}` }),
+
+    // ─── MOD-PET ───────────────────────────────────────────────────────────
+
+    listPets: (query: Partial<ListPetsQuery> = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/pets${toQueryString(query)}`,
+        schema: PaginatedPetsSchema,
+      }),
+
+    getPet: (id: string) =>
+      request({ method: 'GET', path: `/v1/pets/${id}`, schema: PetResponseSchema }),
+
+    createPet: (input: CreatePetInput) =>
+      request({ method: 'POST', path: '/v1/pets', body: input, schema: PetResponseSchema }),
+
+    updatePet: (id: string, patch: UpdatePetInput) =>
+      request({ method: 'PATCH', path: `/v1/pets/${id}`, body: patch, schema: PetResponseSchema }),
+
+    deletePet: (id: string) => request<void>({ method: 'DELETE', path: `/v1/pets/${id}` }),
+
+    /** Microchip completo. Cada chamada é auditada como `pet.microchip_revealed`. */
+    revealMicrochip: (id: string) =>
+      request({ method: 'GET', path: `/v1/pets/${id}/sensitive`, schema: PetSensitiveSchema }),
+
+    // ─── Responsáveis (MOD-PET-02) ─────────────────────────────────────────
+
+    listPetTutors: (id: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/pets/${id}/tutors`,
+        schema: z.array(PetTutorSchema),
+      }),
+
+    linkPetTutor: (id: string, input: LinkTutorInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${id}/tutors`,
+        body: input,
+        schema: PetTutorSchema,
+      }),
+
+    updatePetTutor: (id: string, linkId: string, patch: UpdatePetTutorInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/pets/${id}/tutors/${linkId}`,
+        body: patch,
+        schema: PetTutorSchema,
+      }),
+
+    unlinkPetTutor: (id: string, linkId: string) =>
+      request<void>({ method: 'DELETE', path: `/v1/pets/${id}/tutors/${linkId}` }),
+
+    // ─── Catálogo de domínio (MOD-PET-03) ──────────────────────────────────
+
+    listSpecies: () =>
+      request({ method: 'GET', path: '/v1/species', schema: z.array(SpeciesSchema) }),
+
+    /** Raças globais da espécie somadas às criadas por este tenant. */
+    listBreeds: (speciesId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/species/${speciesId}/breeds`,
+        schema: z.array(BreedSchema),
+      }),
+
+    listSizes: () => request({ method: 'GET', path: '/v1/sizes', schema: z.array(SizeSchema) }),
+
+    listCoats: () => request({ method: 'GET', path: '/v1/coats', schema: z.array(CoatSchema) }),
   }
 }
 
@@ -328,13 +418,21 @@ async function readProblem(response: Response): Promise<ProblemDetails | null> {
 
 export type {
   AddressResponse,
+  Breed,
   CepLookup,
+  Coat,
   CheckDuplicatesResult,
   ConsentsResponse,
   MeResponse,
   OnboardingState,
+  PaginatedPets,
   PaginatedTutors,
+  PetResponse,
+  PetSensitive,
+  PetTutorLink,
+  Size,
   SlugAvailability,
+  Species,
   Tag,
   TenantResponse,
   TenantSettings,

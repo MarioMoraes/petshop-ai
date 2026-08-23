@@ -13,6 +13,8 @@ import {
 import {
   handleAtendimentoConcluido,
   handleLancamentoCriado,
+  handlePetCriado,
+  handlePetVinculoAlterado,
 } from '../src/modules/tutors/consumers.js'
 
 /** MOD-TUTOR-03 (endereço) e MOD-TUTOR-05 (tags e segmentação). */
@@ -274,6 +276,26 @@ describe('MOD-TUTOR-05 — tags', () => {
     expect(tutor.json().tags).toEqual([])
   })
 
+  it('RN-10: `petsCount` é recontado por MOD-PET e sobrevive à entrega repetida', async () => {
+    const catalog = await givenPetCatalog()
+    const petId = await givenPet(catalog, tutorId)
+
+    await handlePetCriado({ tenantId: tenant.tenantId, primaryTutorId: tutorId })
+    let tutor = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/tutors/${tutorId}` })
+    expect(tutor.json().petsCount).toBe(1)
+
+    // Entrega em duplicata: a recontagem é idempotente, um incremento não seria.
+    await handlePetCriado({ tenantId: tenant.tenantId, primaryTutorId: tutorId })
+    tutor = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/tutors/${tutorId}` })
+    expect(tutor.json().petsCount).toBe(1)
+
+    // Pet excluído sai da conta: a recontagem ignora `deleted_at`.
+    await ownerPrisma.pet.update({ where: { id: petId }, data: { deletedAt: new Date() } })
+    await handlePetVinculoAlterado({ tenantId: tenant.tenantId, tutorId })
+    tutor = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/tutors/${tutorId}` })
+    expect(tutor.json().petsCount).toBe(0)
+  })
+
   it('filtra a listagem por tag e por inadimplência', async () => {
     await handleLancamentoCriado({ tenantId: tenant.tenantId, tutorId, balanceCents: -5_000 })
 
@@ -299,3 +321,34 @@ describe('MOD-TUTOR-05 — tags', () => {
     expect(semDivida.json().total).toBe(0)
   })
 })
+
+/**
+ * Pets criados direto no banco: quem cadastra é o pet-service, e chamá-lo daqui
+ * acoplaria as duas suítes. O que o teste precisa é da linha existir para a
+ * recontagem ter o que contar.
+ */
+async function givenPetCatalog() {
+  const [species, size] = await Promise.all([
+    ownerPrisma.species.findFirstOrThrow({ where: { key: 'DOG', tenantId: null } }),
+    ownerPrisma.size.findFirstOrThrow({ where: { key: 'LARGE', tenantId: null } }),
+  ])
+  return { speciesId: species.id, sizeId: size.id }
+}
+
+async function givenPet(
+  catalog: { speciesId: string; sizeId: string },
+  linkedTutorId: string,
+): Promise<string> {
+  const pet = await ownerPrisma.pet.create({
+    data: {
+      tenantId: tenant.tenantId,
+      name: 'Thor',
+      speciesId: catalog.speciesId,
+      sizeId: catalog.sizeId,
+    },
+  })
+  await ownerPrisma.petTutor.create({
+    data: { tenantId: tenant.tenantId, petId: pet.id, tutorId: linkedTutorId, role: 'PRIMARY' },
+  })
+  return pet.id
+}

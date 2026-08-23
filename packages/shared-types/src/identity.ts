@@ -60,6 +60,12 @@ export const PLAN_SEAT_LIMITS: Record<Plan, number | null> = {
 
 export const RoleKeySchema = z.enum(ROLE_KEYS)
 
+// As etapas do wizard (MOD-IDENT-02) moram aqui, e não na seção de onboarding mais
+// abaixo, porque `TenantResponseSchema` limita `onboardingStep` por elas — uma const
+// declarada depois estouraria na avaliação do módulo.
+export const ONBOARDING_STEPS = [1, 2, 3, 4] as const
+export const ONBOARDING_LAST_STEP = 4
+
 // ─── Provisionamento (MOD-IDENT-01) ──────────────────────────────────────────
 
 export const CreateTenantSchema = z.object({
@@ -93,7 +99,7 @@ export const TenantResponseSchema = z.object({
   status: TenantStatusSchema,
   plan: PlanSchema,
   trialEndsAt: z.iso.datetime().nullable(),
-  onboardingStep: z.number().int().min(1).max(5),
+  onboardingStep: z.number().int().min(1).max(ONBOARDING_LAST_STEP),
   onboardingCompletedAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -208,19 +214,24 @@ export type UpdateTenantSettingsInput = z.output<typeof UpdateTenantSettingsSche
 
 // ─── Onboarding Wizard (MOD-IDENT-02) ────────────────────────────────────────
 
-export const ONBOARDING_STEPS = [1, 2, 3, 4, 5] as const
-export const ONBOARDING_LAST_STEP = 5
-
 export const ONBOARDING_STEP_TITLES: Record<number, string> = {
   1: 'Dados do petshop',
   2: 'Escolha do plano',
   3: 'Configuração operacional',
-  4: 'Convite de equipe',
-  5: 'Primeiro acesso',
+  4: 'Primeiro acesso',
 }
 
-/** Etapas que o admin pode pular sem bloquear o uso do sistema (AC-03). */
-export const SKIPPABLE_ONBOARDING_STEPS = [4, 5] as const
+/**
+ * Etapas que o admin pode pular sem bloquear o uso do sistema (AC-03).
+ *
+ * O AC-01 descreve cinco etapas, com "convite de equipe" na quarta. Ela saiu: o
+ * envio de convites é MOD-IDENT-06 e não existe, então a etapa era uma tela de
+ * "Continuar" que não coletava nada — atravessar o onboarding para chegar a ela e
+ * clicar em um botão é custo sem contrapartida. O convite volta pelo menu Equipe
+ * quando `POST /v1/invitations` existir, e o onboarding continua sendo só a
+ * configuração do estabelecimento.
+ */
+export const SKIPPABLE_ONBOARDING_STEPS = [4] as const
 
 const Step1Schema = z.object({
   step: z.literal(1),
@@ -247,15 +258,8 @@ const Step3Schema = z.object({
   }),
 })
 
-// Etapa 4 só aceita "pular" nesta fase: o envio de convites é MOD-IDENT-06.
-// TODO(MOD-IDENT-06): aceitar `data.invitations` quando POST /v1/invitations existir.
 const Step4Schema = z.object({
   step: z.literal(4),
-  skipped: z.literal(true),
-})
-
-const Step5Schema = z.object({
-  step: z.literal(5),
   skipped: z.boolean().optional(),
   data: z.object({ branding: BrandingSchema }).optional(),
 })
@@ -265,12 +269,11 @@ export const OnboardingStepSchema = z.discriminatedUnion('step', [
   Step2Schema,
   Step3Schema,
   Step4Schema,
-  Step5Schema,
 ])
 export type OnboardingStepInput = z.output<typeof OnboardingStepSchema>
 
 export const OnboardingStateSchema = z.object({
-  onboardingStep: z.number().int().min(1).max(5),
+  onboardingStep: z.number().int().min(1).max(ONBOARDING_LAST_STEP),
   onboardingCompletedAt: z.iso.datetime().nullable(),
   stepsSkipped: z.array(z.number().int()),
 })

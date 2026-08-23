@@ -35,7 +35,27 @@ export const TUTOR_ERRORS = {
 
 export type TutorErrorCode = keyof typeof TUTOR_ERRORS
 
-export const ERROR_CATALOG = { ...IDENTITY_ERRORS, ...TUTOR_ERRORS } as const
+/** PRD pets_03 §5. */
+export const PET_ERRORS = {
+  ERR_PET_001: { status: 404, title: 'Pet não encontrado' },
+  ERR_PET_002: { status: 422, title: 'Dados de entrada inválidos' },
+  ERR_PET_003: { status: 403, title: 'Permissão insuficiente' },
+  ERR_PET_004: { status: 409, title: 'Conflito de cadastro' },
+  ERR_PET_005: { status: 409, title: 'Operação bloqueada por vínculo' },
+  ERR_PET_006: { status: 409, title: 'Item de domínio em uso' },
+  ERR_PET_007: { status: 422, title: 'Arquivo de imagem inválido' },
+  ERR_PET_008: { status: 402, title: 'Cota de fotos do plano atingida' },
+  ERR_PET_009: { status: 502, title: 'Falha no serviço de imagens' },
+  ERR_PET_010: { status: 403, title: 'Uso de imagem sem consentimento' },
+} as const
+
+export type PetErrorCode = keyof typeof PET_ERRORS
+
+export const ERROR_CATALOG = {
+  ...IDENTITY_ERRORS,
+  ...TUTOR_ERRORS,
+  ...PET_ERRORS,
+} as const
 
 export type ErrorCode = keyof typeof ERROR_CATALOG
 

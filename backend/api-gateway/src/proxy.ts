@@ -122,6 +122,10 @@ const IDENTITY_PREFIXES = [
 
 const TUTOR_PREFIXES = ['/v1/tutors']
 
+// O catálogo de domínio (MOD-PET-03) mora no pet-service: espécie, raça, porte e
+// pelagem só existem para serem referenciados por um pet.
+const PET_PREFIXES = ['/v1/pets', '/v1/species', '/v1/breeds', '/v1/sizes', '/v1/coats']
+
 function matches(path: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
@@ -130,5 +134,6 @@ export function resolveTarget(path: string): string | null {
   const env = loadEnv()
   if (matches(path, IDENTITY_PREFIXES)) return env.IDENTITY_SERVICE_URL
   if (matches(path, TUTOR_PREFIXES)) return env.TUTOR_SERVICE_URL
+  if (matches(path, PET_PREFIXES)) return env.PET_SERVICE_URL
   return null
 }

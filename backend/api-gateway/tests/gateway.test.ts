@@ -74,6 +74,24 @@ describe('autenticação', () => {
     expect(verified.context.permissions).toContain('tutor:read')
   })
 
+  it('roteia /v1/pets e o catálogo de domínio para o pet-service', async () => {
+    const tenant = await seedTenant('rotapet')
+    const member = await seedMember(tenant.tenantId, 'RECEPTIONIST')
+    const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
+
+    for (const url of ['/v1/pets?q=thor', '/v1/species', '/v1/sizes', '/v1/coats']) {
+      const response = await call({ url, token })
+      expect(response.statusCode).toBe(200)
+
+      const forwarded = lastEchoed()
+      expect(forwarded.url).toBe(url)
+      const verified = verifyServiceHeaders(forwarded.headers, INTERNAL_SECRET)
+      expect(verified.ok).toBe(true)
+      if (!verified.ok) return
+      expect(verified.context.permissions).toContain('pet:read')
+    }
+  })
+
   it('devolve 404 para rota sem serviço de destino', async () => {
     const token = givenToken({ clerkUserId: 'user_semrota' })
     const response = await call({ url: '/v1/inexistente', token })

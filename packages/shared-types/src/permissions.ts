@@ -39,6 +39,7 @@ export const PERMISSIONS = {
   'pet:create': 'Cadastrar pets',
   'pet:update': 'Editar pets',
   'pet:update_own': 'Editar os próprios pets',
+  'pet:delete': 'Excluir pets',
 
   // Prontuário
   'record:read': 'Ler o prontuário completo',
@@ -139,6 +140,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'pet:read',
     'pet:create',
     'pet:update',
+    'pet:delete',
     'record:read',
     'record:read_summary',
     'record:read_alerts',

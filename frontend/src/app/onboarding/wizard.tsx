@@ -19,10 +19,9 @@ import { StepBusinessHours } from './steps/step-business-hours'
 import { StepBranding } from './steps/step-branding'
 import { StepIdentity } from './steps/step-identity'
 import { StepPlan } from './steps/step-plan'
-import { StepTeam } from './steps/step-team'
 
 /**
- * MOD-IDENT-02 — o wizard de 5 etapas.
+ * MOD-IDENT-02 — o wizard de configuração do estabelecimento.
  *
  * O estado que importa vive no servidor: cada etapa persiste sozinha e a etapa
  * corrente vem de `tenant.onboardingStep`. O `useState` daqui é só o rascunho do
@@ -41,7 +40,11 @@ export function Wizard({ tenant, settings }: WizardProps) {
 
   // Sem tenant ainda, o wizard começa na etapa 1: criar o estabelecimento.
   const [currentTenant, setCurrentTenant] = useState(tenant)
-  const [step, setStep] = useState(tenant?.onboardingStep ?? 1)
+  // Prende ao último passo vigente: o wizard já teve uma etapa de convite de equipe,
+  // e tenant gravado naquele momento traz um número que não existe mais.
+  const [step, setStep] = useState(
+    Math.min(tenant?.onboardingStep ?? 1, ONBOARDING_LAST_STEP),
+  )
   const [formError, setFormError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
@@ -101,8 +104,7 @@ export function Wizard({ tenant, settings }: WizardProps) {
             noShowFeePercent={settings?.noShowFeePercent ?? 0}
           />
         )}
-        {step === 4 && <StepTeam {...shared} />}
-        {step === 5 && <StepBranding {...shared} branding={branding} />}
+        {step === 4 && <StepBranding {...shared} branding={branding} />}
       </div>
 
       {step > 1 && (

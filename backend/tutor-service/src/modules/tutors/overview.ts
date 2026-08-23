@@ -10,14 +10,19 @@ import type { ActorContext } from './service.js'
 /**
  * Visão 360º (MOD-TUTOR-07) e portabilidade LGPD (§5).
  *
- * A agregação de pets, agenda, financeiro e comunicações depende de MOD-PET,
- * MOD-AGENDA, MOD-LEDGER e MOD-CRM, que ainda não existem. Em vez de devolver
- * arrays vazios — que a tela leria como "este tutor não tem pets" —, a resposta traz
- * `pendingModules`, e a UI diz "ainda não disponível". Zero e desconhecido são
- * coisas diferentes.
+ * A agregação de agenda, financeiro e comunicações depende de MOD-AGENDA, MOD-LEDGER
+ * e MOD-CRM, que ainda não existem. Em vez de devolver arrays vazios — que a tela
+ * leria como "este tutor não tem agendamento" —, a resposta traz `pendingModules`, e a
+ * UI diz "ainda não disponível". Zero e desconhecido são coisas diferentes.
+ *
+ * `pets` continua vazio aqui de propósito, mesmo com MOD-PET pronto: os pets vivem no
+ * pet-service, e a tela do tutor os busca em `GET /v1/pets?tutorId=`. Compor no
+ * frontend custa uma requisição; compor aqui custaria o tutor-service ler a tabela de
+ * outro módulo — e `pets_count`, que já paga esse preço, existe só porque a listagem
+ * tem SLO de 300ms.
  */
 
-const PENDING_MODULES = ['MOD-PET', 'MOD-AGENDA', 'MOD-LEDGER', 'MOD-CRM'] as const
+const PENDING_MODULES = ['MOD-AGENDA', 'MOD-LEDGER', 'MOD-CRM'] as const
 
 export async function getTutorOverview(
   tenantId: string,

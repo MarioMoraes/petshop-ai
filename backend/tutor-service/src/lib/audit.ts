@@ -1,4 +1,4 @@
-import type { TenantTransaction } from '@petshop/db'
+import { Prisma, type TenantTransaction } from '@petshop/db'
 import { logger } from './logger.js'
 
 /**
@@ -49,6 +49,11 @@ const SENSITIVE_KEYS = new Set([
 export function sanitize(value: unknown): unknown {
   if (value === null || value === undefined) return value
   if (value instanceof Date) return value.toISOString()
+  // `Decimal` e `bigint` chegam aqui vindos direto da linha do banco. Sem converter,
+  // o Prisma recusa o `create()` da trilha — e a operação auditada cai junto, porque
+  // a auditoria roda na mesma transação.
+  if (Prisma.Decimal.isDecimal(value)) return value.toNumber()
+  if (typeof value === 'bigint') return Number(value)
   if (Array.isArray(value)) return value.map(sanitize)
   if (typeof value !== 'object') return value
 

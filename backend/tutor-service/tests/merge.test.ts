@@ -194,7 +194,8 @@ describe('MOD-TUTOR-07 — visão 360º e portabilidade', () => {
     const body = response.json()
     expect(body.tutor.id).toBe(tutor.id)
     // Vazio e "ainda não disponível" são coisas diferentes, e a UI precisa saber qual é.
-    expect(body.pendingModules).toEqual(['MOD-PET', 'MOD-AGENDA', 'MOD-LEDGER', 'MOD-CRM'])
+    // MOD-PET saiu da lista: os pets existem, e a tela do tutor os busca no pet-service.
+    expect(body.pendingModules).toEqual(['MOD-AGENDA', 'MOD-LEDGER', 'MOD-CRM'])
   })
 
   it('a exportação LGPD traz a PII em claro e fica auditada', async () => {

@@ -96,9 +96,17 @@ describe('etapas do onboarding (MOD-IDENT-02)', () => {
     expect(OnboardingStepSchema.safeParse({ step: 2, data: { plan: 'GOLD' } }).success).toBe(false)
   })
 
-  it('aceita a etapa 4 apenas como pulada nesta fase', () => {
+  it('aceita a identidade visual da etapa 4 preenchida ou pulada', () => {
+    expect(
+      OnboardingStepSchema.safeParse({ step: 4, data: { branding: { primaryColor: '#0F766E' } } })
+        .success,
+    ).toBe(true)
     expect(OnboardingStepSchema.safeParse({ step: 4, skipped: true }).success).toBe(true)
-    expect(OnboardingStepSchema.safeParse({ step: 4, skipped: false }).success).toBe(false)
+  })
+
+  // O convite de equipe saiu do wizard: a etapa 5 deixou de existir no contrato.
+  it('rejeita a quinta etapa, que não existe mais', () => {
+    expect(OnboardingStepSchema.safeParse({ step: 5, skipped: true }).success).toBe(false)
   })
 
   it('rejeita horário inválido dentro da etapa 3', () => {

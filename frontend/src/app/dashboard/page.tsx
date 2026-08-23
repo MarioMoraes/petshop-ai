@@ -1,144 +1,114 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { UserButton } from '@clerk/nextjs'
 import { ROLE_LABELS, type RoleKey } from '@petshop/shared-types'
-import { Badge, Card, Logo, Shell } from '@/components/ui'
+import { AppHeader, trialDaysLeftOf } from '@/components/app-header'
+import { Card, Shell } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 
 /**
- * Dashboard pós-onboarding.
+ * Início — a tela em que o admin cai depois de configurar o estabelecimento.
  *
- * A tela que o AC-01 de MOD-IDENT-02 descreve como destino do wizard, com o
- * checklist "Cadastre seu primeiro tutor". O que ainda não existe aparece como tal,
- * em vez de virar um botão que não leva a lugar nenhum.
+ * Já foi um checklist de onboarding ("cadastre seu primeiro tutor", "convide sua
+ * equipe"). Não é mais: terminar a configuração e continuar sendo cobrado por tarefas
+ * faz o produto parecer que nunca começou. O que fica é o estado do negócio — os
+ * números e o caminho até eles. A navegação para cadastrar mora no menu, e repeti-la
+ * aqui como atalho só dava duas portas para a mesma sala.
+ *
+ * Os números vêm da API a cada carga. Nenhum é calculado aqui — `total` da listagem é
+ * o que o serviço já sabe responder, e um contador próprio divergiria na primeira
+ * exclusão.
  */
 
 export const dynamic = 'force-dynamic'
 
-interface ChecklistItem {
-  title: string
-  description: string
-  module: string
-  done: boolean
-  /** Literal, e não `string`: as rotas tipadas do Next validam o destino em compilação. */
-  href?: '/tutores'
+interface Stat {
+  label: string
+  value: number | null
+  hint: string
+  href?: '/tutores' | '/pets'
 }
 
 export default async function DashboardPage() {
   const me = await serverApi().me()
 
-  if (!me.currentTenant) redirect('/onboarding')
-  if (!me.currentTenant.onboardingCompletedAt) redirect('/onboarding')
-
-  // Basta um tutor para o passo estar cumprido; o total é o que a listagem já sabe.
-  const tutors = await serverApi()
-    .listTutors({ limit: 1 })
-    .catch(() => ({ total: 0 }))
+  if (!me.currentTenant?.onboardingCompletedAt) redirect('/onboarding')
 
   const tenant = me.currentTenant
   const membership = me.memberships.find((item) => item.tenantId === tenant.id)
   const role = (membership?.roleKey ?? 'RECEPTIONIST') as RoleKey
 
-  const checklist: ChecklistItem[] = [
+  // `limit: 1` porque só o `total` interessa: a listagem inteira seria desperdício.
+  // Cada contagem cai para `null` sozinha — um serviço fora do ar apaga o número
+  // dele, não a tela toda.
+  const [tutors, pets, settings] = await Promise.all([
+    serverApi()
+      .listTutors({ limit: 1 })
+      .then((page) => page.total)
+      .catch(() => null),
+    serverApi()
+      .listPets({ limit: 1 })
+      .then((page) => page.total)
+      .catch(() => null),
+    serverApi()
+      .getSettings()
+      .catch(() => null),
+  ])
+
+  const stats: Stat[] = [
     {
-      title: 'Configure seu estabelecimento',
-      description: 'Horário, políticas de cancelamento e identidade visual.',
-      module: 'Concluído no onboarding',
-      done: true,
-    },
-    {
-      title:
-        tutors.total > 0 ? 'Sua base de tutores está começando' : 'Cadastre seu primeiro tutor',
-      description:
-        tutors.total > 0
-          ? `${tutors.total === 1 ? '1 tutor cadastrado' : `${tutors.total} tutores cadastrados`}. Continue de onde parou.`
-          : 'O cadastro do tutor é o ponto de partida de tudo: pets, agenda e conta corrente.',
-      module: 'MOD-TUTOR',
-      done: tutors.total > 0,
+      label: 'Tutores',
+      value: tutors,
+      hint: tutors === 1 ? 'cadastro ativo' : 'cadastros ativos',
       href: '/tutores',
     },
     {
-      title: 'Convide sua equipe',
-      description: 'Recepção, banhistas, tosadores e veterinários, cada um com seu acesso.',
-      module: 'MOD-IDENT-06',
-      done: false,
+      label: 'Pets',
+      value: pets,
+      hint: pets === 1 ? 'animal cadastrado' : 'animais cadastrados',
+      href: '/pets',
     },
   ]
 
-  const trialDaysLeft = tenant.trialEndsAt
-    ? Math.max(
-        0,
-        Math.ceil((new Date(tenant.trialEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
-      )
-    : null
-
   return (
     <Shell>
-      <header className="flex items-center justify-between px-6 py-5 sm:px-10">
-        <Logo />
-        <div className="flex items-center gap-4">
-          {tenant.status === 'TRIAL' && trialDaysLeft !== null && (
-            <Badge tone="accent">
-              {trialDaysLeft === 0
-                ? 'Último dia de teste'
-                : `${trialDaysLeft} ${trialDaysLeft === 1 ? 'dia' : 'dias'} de teste`}
-            </Badge>
-          )}
-          <UserButton />
-        </div>
-      </header>
+      <AppHeader
+        active="inicio"
+        canReadSettings={me.permissions.includes('tenant:read_settings')}
+        trialDaysLeft={trialDaysLeftOf(tenant.trialEndsAt)}
+      />
 
-      <main className="flex-1 px-6 pb-16 sm:px-10">
-        <div className="mx-auto max-w-3xl">
+      <main className="flex-1 px-6 pb-16 pt-8 sm:px-10">
+        <div className="mx-auto max-w-5xl">
           <p className="hint">{ROLE_LABELS[role]}</p>
           <h1 className="mt-2 text-4xl font-semibold leading-tight sm:text-5xl">
-            Tudo pronto, <span className="font-serif italic">{tenant.name}</span>.
+            {greetingFor(settings?.timezone)},{' '}
+            <span className="font-serif italic">{firstNameOf(me.user.fullName)}</span>.
           </h1>
           <p className="hint mt-3">
-            Seu portal está em{' '}
-            <span className="font-medium text-ink">{tenant.slug}.petshopai.app</span>
+            {tenant.name} · <span className="font-medium text-ink">{tenant.slug}.petshopai.app</span>
           </p>
 
-          <h2 className="mt-12 text-lg font-semibold">Próximos passos</h2>
-          <div className="mt-4 space-y-3">
-            {checklist.map((item) => (
-              <Card key={item.title} className="flex items-start gap-4">
-                <span
-                  className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${
-                    item.done ? 'bg-success-soft text-success' : 'bg-black/5 text-subtle'
-                  }`}
-                  aria-hidden="true"
-                >
-                  {item.done ? '✓' : '·'}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold">
-                      {item.href ? (
-                        <Link href={item.href} className="hover:underline">
-                          {item.title}
-                        </Link>
-                      ) : (
-                        <span className={item.done ? 'text-subtle line-through' : ''}>
-                          {item.title}
-                        </span>
-                      )}
-                    </h3>
-                    {!item.done && !item.href && <Badge>Em breve · {item.module}</Badge>}
-                  </div>
-                  <p className="hint mt-1">{item.description}</p>
-                  {item.href && (
-                    <Link href={item.href} className="btn btn-ghost mt-2 px-0 text-sm text-accent-ink">
-                      Abrir tutores →
-                    </Link>
-                  )}
-                </div>
+          <div className="mt-10 grid gap-3 sm:grid-cols-2">
+            {stats.map((stat) => (
+              <Card key={stat.label}>
+                <p className="text-4xl font-semibold tabular-nums">
+                  {stat.value ?? <span className="text-subtle">—</span>}
+                </p>
+                <p className="mt-2 font-medium">{stat.label}</p>
+                <p className="hint mt-0.5">
+                  {stat.value === null ? 'indisponível agora' : stat.hint}
+                </p>
+                {stat.href && (
+                  <Link href={stat.href} className="btn btn-ghost mt-4 px-0 text-sm text-accent-ink">
+                    Abrir →
+                  </Link>
+                )}
               </Card>
             ))}
           </div>
 
           {/* Diagnóstico útil enquanto os demais módulos não chegam. */}
-          <details className="mt-10">
+          <details className="mt-12">
             <summary className="hint cursor-pointer">Suas permissões neste estabelecimento</summary>
             <div className="mt-3 flex flex-wrap gap-2">
               {me.permissions.map((permission) => (
@@ -152,4 +122,29 @@ export default async function DashboardPage() {
       </main>
     </Shell>
   )
+}
+
+/**
+ * Saudação pelo fuso do estabelecimento, não pelo do servidor.
+ *
+ * O petshop de Rio Branco abre às 8h locais; renderizar "boa tarde" porque o Node
+ * roda em UTC seria errado de um jeito que o dono nota todo dia.
+ */
+function greetingFor(timezone: string | undefined): string {
+  const hour = Number(
+    new Intl.DateTimeFormat('pt-BR', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: timezone ?? 'America/Sao_Paulo',
+    }).format(new Date()),
+  )
+
+  if (hour < 12) return 'Bom dia'
+  if (hour < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+/** Só o primeiro nome: é assim que se cumprimenta alguém no balcão. */
+function firstNameOf(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] ?? fullName
 }

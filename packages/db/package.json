@@ -10,7 +10,8 @@
     "./tenant-middleware": "./src/tenant-middleware.ts",
     "./crypto": "./src/crypto.ts",
     "./testing": "./src/testing.ts",
-    "./seed-rbac": "./src/seed-rbac.ts"
+    "./seed-rbac": "./src/seed-rbac.ts",
+    "./seed-catalog": "./src/seed-catalog.ts"
   },
   "scripts": {
     "generate": "prisma generate",

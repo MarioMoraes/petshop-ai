@@ -181,3 +181,99 @@ export interface TutorEventMap {
   'tutor.tag.aplicada': TutorTagEvent
   'tutor.tag.removida': TutorTagEvent
 }
+
+// ─── MOD-PET ─────────────────────────────────────────────────────────────────
+// PRD pets_03 §8.
+
+export const PET_ROUTING_KEYS = {
+  petCriado: 'pet.criado',
+  petAtualizado: 'pet.atualizado',
+  petTransferido: 'pet.transferido',
+  petObito: 'pet.obito',
+  petInativado: 'pet.inativado',
+  petFotoAdicionada: 'pet.foto.adicionada',
+  petPesoRegistrado: 'pet.peso.registrado',
+  petVinculoAlterado: 'pet.vinculo.alterado',
+} as const
+
+export type PetRoutingKey = (typeof PET_ROUTING_KEYS)[keyof typeof PET_ROUTING_KEYS]
+
+/** Eventos que o pet-service consome (PRD pets_03 §8, parágrafo final). */
+export const PET_CONSUMED_ROUTING_KEYS = [
+  'tutor.anonimizado',
+  'tutor.mesclado',
+  'atendimento.concluido',
+] as const
+
+export interface PetCriadoEvent extends BaseEvent {
+  tenantId: string
+  petId: string
+  /** Chave do catálogo, não o UUID: quem consome segmenta por espécie, não por id. */
+  speciesKey: string
+  primaryTutorId: string
+  birthDate: string | null
+}
+
+export interface PetAtualizadoEvent extends BaseEvent {
+  tenantId: string
+  petId: string
+  changedFields: string[]
+}
+
+export interface PetTransferidoEvent extends BaseEvent {
+  tenantId: string
+  petId: string
+  fromTutorId: string
+  toTutorId: string
+  reason: string
+}
+
+export interface PetObitoEvent extends BaseEvent {
+  tenantId: string
+  petId: string
+  tutorIds: string[]
+  deceasedAt: string | null
+}
+
+export interface PetInativadoEvent extends BaseEvent {
+  tenantId: string
+  petId: string
+  lastAttendanceAt: string | null
+}
+
+export interface PetFotoAdicionadaEvent extends BaseEvent {
+  tenantId: string
+  petId: string
+  photoId: string
+  source: string
+  attendanceId: string | null
+}
+
+export interface PetPesoRegistradoEvent extends BaseEvent {
+  tenantId: string
+  petId: string
+  weightKg: number
+  previousWeightKg: number | null
+  /** RN-11: variação acima de 15% em 60 dias vira alerta ao veterinário. */
+  variationPercent: number | null
+}
+
+/** `action` distingue vínculo criado, alterado e encerrado (MOD-PET-02). */
+export interface PetVinculoAlteradoEvent extends BaseEvent {
+  tenantId: string
+  petId: string
+  tutorId: string
+  action: 'LINKED' | 'UPDATED' | 'UNLINKED'
+  role: 'PRIMARY' | 'SECONDARY'
+}
+
+export interface PetEventMap {
+  'pet.criado': PetCriadoEvent
+  'pet.atualizado': PetAtualizadoEvent
+  'pet.transferido': PetTransferidoEvent
+  'pet.obito': PetObitoEvent
+  'pet.inativado': PetInativadoEvent
+  'pet.foto.adicionada': PetFotoAdicionadaEvent
+  'pet.peso.registrado': PetPesoRegistradoEvent
+  'pet.vinculo.alterado': PetVinculoAlteradoEvent
+}

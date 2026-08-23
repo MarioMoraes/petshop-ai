@@ -3,15 +3,16 @@
 import { useState } from 'react'
 import type { Branding } from '@petshop/shared-types'
 import { Card, Field } from '@/components/ui'
-import { finishOnboardingAction, skipStep5Action } from '../actions'
+import { finishOnboardingAction, skipBrandingAction } from '../actions'
 import type { StepProps } from '../wizard'
 
 /**
- * Etapa 5 — identidade visual e conclusão.
+ * Etapa 4 — identidade visual e conclusão.
  *
  * A cor escolhida vale para o portal do tutor e para o site público do
  * estabelecimento (MOD-SITE). Pular é permitido (AC-03): a cor padrão funciona, e
- * prender o onboarding numa escolha estética seria fricção à toa.
+ * prender o onboarding numa escolha estética seria fricção à toa. Tudo o que se
+ * escolhe aqui é reeditável depois em `/configuracoes`.
  */
 
 const PRESETS = [
@@ -117,7 +118,7 @@ export function StepBranding({
           type="button"
           className="btn btn-ghost"
           disabled={pending}
-          onClick={() => onSubmit(skipStep5Action)}
+          onClick={() => onSubmit(skipBrandingAction)}
         >
           Pular por enquanto
         </button>

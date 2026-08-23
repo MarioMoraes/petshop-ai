@@ -16,7 +16,7 @@ interface PageProps {
 export default async function TutorPage({ params }: PageProps) {
   const { id } = await params
 
-  const [overview, consents, tags] = await Promise.all([
+  const [overview, consents, tags, pets] = await Promise.all([
     serverApi()
       .getTutorOverview(id)
       .catch((error: unknown) => {
@@ -25,6 +25,12 @@ export default async function TutorPage({ params }: PageProps) {
       }),
     serverApi().getConsents(id),
     serverApi().listTags(),
+    // Os pets vêm do pet-service, não da visão 360º: a composição é aqui, e não no
+    // tutor-service lendo tabela de outro módulo.
+    serverApi()
+      .listPets({ tutorId: id, limit: 50 })
+      .then((page) => page.data)
+      .catch(() => []),
   ])
 
   const tutor = overview.tutor
@@ -51,7 +57,7 @@ export default async function TutorPage({ params }: PageProps) {
         subtitle={`${tutor.phoneMasked}${tutor.email ? ` · ${tutor.email}` : ''}`}
       />
 
-      <TutorDetailView overview={overview} consents={consents} tags={tags} />
+      <TutorDetailView overview={overview} consents={consents} tags={tags} pets={pets} />
     </div>
   )
 }

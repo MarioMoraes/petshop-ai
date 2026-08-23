@@ -16,6 +16,7 @@ import {
   DEFAULT_BRANDING,
   DEFAULT_BUSINESS_HOURS,
   IDENTITY_ROUTING_KEYS,
+  ONBOARDING_LAST_STEP,
   isReservedSlug,
   isValidSlug,
   slugSuggestions,
@@ -425,6 +426,18 @@ async function readCnpj(row: Tenant): Promise<string | null> {
   return withTenant(row.id, (tx) => decryptForTenant(tx, row.id, row.cnpjEncrypted as string))
 }
 
+/**
+ * Prende a etapa ao último passo vigente.
+ *
+ * O wizard já teve cinco etapas; a de convite de equipe saiu quando ficou claro que
+ * ela não coletava nada enquanto MOD-IDENT-06 não existir. Tenants gravados naquele
+ * momento têm `onboarding_step = 5`, valor que o contrato não admite mais. Prender na
+ * leitura evita uma migration para corrigir um número que só diz "acabou".
+ */
+export function clampOnboardingStep(step: number): number {
+  return Math.min(Math.max(step, 1), ONBOARDING_LAST_STEP)
+}
+
 export function toTenantResponse(row: Tenant, cnpj: string | null): TenantResponse {
   return {
     id: row.id,
@@ -435,7 +448,7 @@ export function toTenantResponse(row: Tenant, cnpj: string | null): TenantRespon
     status: row.status,
     plan: row.plan,
     trialEndsAt: row.trialEndsAt?.toISOString() ?? null,
-    onboardingStep: row.onboardingStep,
+    onboardingStep: clampOnboardingStep(row.onboardingStep),
     onboardingCompletedAt: row.onboardingCompletedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

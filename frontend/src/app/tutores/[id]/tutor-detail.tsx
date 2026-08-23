@@ -7,10 +7,11 @@ import {
   CURRENT_TERMS_VERSION,
   type ConsentChannel,
   type ConsentsResponse,
+  type PetResponse,
   type Tag,
   type TutorOverview,
 } from '@petshop/shared-types'
-import { Card, DataRow, FormError, Tabs } from '@/components/ui'
+import { Badge, Card, DataRow, FormError, Tabs } from '@/components/ui'
 import {
   anonymizeTutorAction,
   assignTagAction,
@@ -23,13 +24,15 @@ import {
 /**
  * Detalhe do tutor em abas.
  *
- * As abas de pets, agenda e financeiro existem e dizem que o módulo ainda não
- * chegou, em vez de sumirem: o atendente precisa saber que o dado *vai* estar ali,
- * e uma aba vazia sem explicação lê como "este tutor não tem pets".
+ * As abas de agenda e financeiro existem e dizem que o módulo ainda não chegou, em
+ * vez de sumirem: o atendente precisa saber que o dado *vai* estar ali, e uma aba
+ * vazia sem explicação lê como "este tutor não tem agendamento".
+ *
+ * A de pets deixou de ser uma dessas. Os pets vêm do pet-service e são compostos pela
+ * página, e não pela visão 360º do tutor-service.
  */
 
 const MODULE_LABELS: Record<string, string> = {
-  'MOD-PET': 'os pets',
   'MOD-AGENDA': 'os agendamentos',
   'MOD-LEDGER': 'a conta corrente',
   'MOD-CRM': 'o histórico de mensagens',
@@ -39,9 +42,10 @@ interface Props {
   overview: TutorOverview
   consents: ConsentsResponse
   tags: Tag[]
+  pets: PetResponse[]
 }
 
-export function TutorDetailView({ overview, consents, tags }: Props) {
+export function TutorDetailView({ overview, consents, tags, pets }: Props) {
   const tutor = overview.tutor
   const [tab, setTab] = useState('dados')
 
@@ -53,7 +57,7 @@ export function TutorDetailView({ overview, consents, tags }: Props) {
           { id: 'enderecos', label: `Endereços (${tutor.addresses.length})` },
           { id: 'consentimentos', label: 'Consentimento' },
           { id: 'tags', label: 'Tags' },
-          { id: 'pets', label: 'Pets' },
+          { id: 'pets', label: `Pets (${pets.length})` },
           { id: 'financeiro', label: 'Financeiro' },
         ]}
         active={tab}
@@ -64,7 +68,7 @@ export function TutorDetailView({ overview, consents, tags }: Props) {
       {tab === 'enderecos' && <EnderecosTab overview={overview} />}
       {tab === 'consentimentos' && <ConsentimentosTab tutorId={tutor.id} consents={consents} />}
       {tab === 'tags' && <TagsTab tutorId={tutor.id} tutorTags={tutor.tags} allTags={tags} />}
-      {tab === 'pets' && <PendingTab module="MOD-PET" />}
+      {tab === 'pets' && <PetsTab tutorId={tutor.id} pets={pets} />}
       {tab === 'financeiro' && <PendingTab module="MOD-LEDGER" />}
     </div>
   )
@@ -406,6 +410,64 @@ function TagsTab({
           })}
         </div>
       </Card>
+    </div>
+  )
+}
+
+// ─── Pets (MOD-PET) ──────────────────────────────────────────────────────────
+
+function PetsTab({ tutorId, pets }: { tutorId: string; pets: PetResponse[] }) {
+  if (pets.length === 0) {
+    return (
+      <Card className="flex flex-col items-start gap-4">
+        <p className="hint">
+          Nenhum pet vinculado a este tutor. Todo pet nasce com um responsável, então o
+          cadastro do animal começa por aqui.
+        </p>
+        <Link href="/pets/novo" className="btn btn-primary">
+          Cadastrar pet
+        </Link>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <ul className="space-y-2">
+        {pets.map((pet) => {
+          const link = pet.tutors.find((item) => item.tutorId === tutorId)
+
+          return (
+            <li key={pet.id}>
+              <Link
+                href={`/pets/${pet.id}`}
+                className="card flex flex-wrap items-center gap-4 px-5 py-4 transition-transform hover:-translate-y-0.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold">{pet.name}</span>
+                    {pet.status === 'INACTIVE' && <Badge>Inativo</Badge>}
+                    {pet.status === 'DECEASED' && <Badge tone="danger">Falecido</Badge>}
+                  </div>
+                  <p className="hint mt-1">
+                    {[pet.species.label, pet.breed?.label, pet.size.label, pet.ageLabel]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                </div>
+                {/* Quem responde pelo animal muda o que este tutor pode fazer com ele. */}
+                <span className="hint">
+                  {link?.role === 'PRIMARY' ? 'Responsável principal' : 'Responsável secundário'}
+                </span>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+
+      <Link href="/pets/novo" className="btn btn-ghost">
+        Cadastrar outro pet
+      </Link>
     </div>
   )
 }

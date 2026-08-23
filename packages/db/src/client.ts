@@ -34,6 +34,16 @@ const RLS_MODELS = new Set([
   'TutorTagAssignment',
   'TutorConsent',
   'TutorMergeLog',
+  'Pet',
+  'PetTutor',
+  'PetWeight',
+  // Catálogo de domínio: a política é mista (global legível, escrita só do
+  // tenant), mas a guarda continua exigindo contexto — ler catálogo sem saber de
+  // que tenant é esconde a extensão do tenant e devolve só o global, calado.
+  'Species',
+  'Breed',
+  'Size',
+  'Coat',
 ])
 
 export interface DbLogger {

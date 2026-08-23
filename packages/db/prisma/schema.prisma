@@ -460,6 +460,8 @@ model Tutor {
   consents       TutorConsent[]
   tagAssignments TutorTagAssignment[]
 
+  petTutors  PetTutor[]
+
   mergedInto Tutor?  @relation("TutorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom Tutor[] @relation("TutorMerge")
 
@@ -581,4 +583,238 @@ model TutorMergeLog {
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@map("tutor_merge_log")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MOD-PET — Cadastro de pets e tabelas de domínio (PRD pets_03 §4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum PetSex {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+enum PetStatus {
+  ACTIVE
+  INACTIVE
+  DECEASED
+  /// Terminal no tenant de origem.
+  TRANSFERRED_OUT
+}
+
+/// AC-03 de MOD-PET-01: o pet resgatado entra com idade estimada, e a tela precisa
+/// saber a diferença — "2 anos" e "≈ 2 anos" mudam a conduta clínica.
+enum BirthDatePrecision {
+  EXACT
+  ESTIMATED
+  UNKNOWN
+}
+
+enum PetTutorRole {
+  PRIMARY
+  SECONDARY
+}
+
+/// Espécie. `tenant_id` nulo é catálogo global, somente leitura para o tenant (RN-02).
+model Species {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String? @map("tenant_id") @db.Uuid
+
+  key   String @db.VarChar(40)
+  label String @db.VarChar(60)
+  /// Não está no PRD: sem ele "Outros" apareceria no meio da lista, em ordem
+  /// alfabética. A ordenação do seletor é decisão de produto, não do acaso.
+  sortOrder Int     @default(0) @map("sort_order") @db.SmallInt
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  breeds Breed[]
+  pets   Pet[]
+
+  @@map("species")
+}
+
+/// Raça. O catálogo global cobre o comum; o tenant acrescenta o que faltar.
+model Breed {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String? @map("tenant_id") @db.Uuid
+  speciesId String  @map("species_id") @db.Uuid
+
+  label String @db.VarChar(80)
+  /// Minúsculo e sem acento, para o dedupe do AC-03 de MOD-PET-03.
+  normalizedLabel String @map("normalized_label") @db.VarChar(80)
+
+  /// Sugestão de porte ao selecionar a raça; a recepção pode trocar.
+  defaultSizeId String? @map("default_size_id") @db.Uuid
+  groomingNotes String? @map("grooming_notes")
+  active        Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  species     Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  defaultSize Size?   @relation(fields: [defaultSizeId], references: [id], onDelete: SetNull)
+  pets        Pet[]
+
+  @@index([speciesId])
+  @@map("breeds")
+}
+
+/// Porte. RN-03: insumo direto do preço e da duração do serviço.
+model Size {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String? @map("tenant_id") @db.Uuid
+
+  key   String @db.VarChar(40)
+  label String @db.VarChar(60)
+
+  /// Faixa de referência do AC-04: fora dela o cadastro avisa, nunca bloqueia.
+  weightMinKg Decimal @map("weight_min_kg") @db.Decimal(5, 2)
+  weightMaxKg Decimal @map("weight_max_kg") @db.Decimal(5, 2)
+
+  sortOrder Int     @default(0) @map("sort_order") @db.SmallInt
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pets   Pet[]
+  breeds Breed[]
+
+  @@map("sizes")
+}
+
+/// Pelagem. RN-03: `grooming_time_factor` multiplica a duração base do serviço.
+model Coat {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String? @map("tenant_id") @db.Uuid
+
+  key   String @db.VarChar(40)
+  label String @db.VarChar(60)
+
+  groomingTimeFactor Decimal @default(1.00) @map("grooming_time_factor") @db.Decimal(3, 2)
+
+  sortOrder Int     @default(0) @map("sort_order") @db.SmallInt
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pets Pet[]
+
+  @@map("coats")
+}
+
+/// O paciente. A agenda é dele, o prontuário é dele, e o preço do banho depende do
+/// porte e da pelagem dele.
+///
+/// `microchip` e `notes` ficam cifrados com a DEK do tenant (PRD §4). Como o
+/// AES-GCM é não determinístico, a unicidade do microchip por tenant se apoia em
+/// `microchip_hash` — mesmo par cifra/hash que o MOD-TUTOR usa para CPF e telefone.
+model Pet {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  name String @db.VarChar(60)
+
+  speciesId String  @map("species_id") @db.Uuid
+  /// Nulo é legítimo: "SRD" é raça do catálogo, mas nem todo cadastro sabe a raça.
+  breedId   String? @map("breed_id") @db.Uuid
+  sizeId    String  @map("size_id") @db.Uuid
+  coatId    String? @map("coat_id") @db.Uuid
+
+  sex PetSex @default(UNKNOWN)
+
+  birthDate          DateTime?          @map("birth_date") @db.Date
+  birthDatePrecision BirthDatePrecision @default(UNKNOWN) @map("birth_date_precision")
+
+  /// RN-10: reflete sempre a pesagem mais recente; a série vive em `pet_weights`.
+  weightKg Decimal? @map("weight_kg") @db.Decimal(5, 2)
+  neutered Boolean?
+
+  microchipEncrypted String? @map("microchip_encrypted")
+  microchipHash      String? @map("microchip_hash")
+
+  color String? @db.VarChar(40)
+
+  status     PetStatus @default(ACTIVE)
+  deceasedAt DateTime? @map("deceased_at") @db.Date
+
+  notesEncrypted String? @map("notes_encrypted")
+
+  /// Mantido pelo trigger `pets_search_trigger`; a aplicação nunca escreve aqui.
+  searchVector Unsupported("tsvector")? @map("search_vector")
+
+  /// TODO(MOD-AGENDA): escrito pelo consumo de `atendimento.concluido`.
+  lastAttendanceAt DateTime? @map("last_attendance_at") @db.Timestamptz(6)
+
+  createdBy String? @map("created_by") @db.Uuid
+  updatedBy String? @map("updated_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  species Species @relation(fields: [speciesId], references: [id])
+  breed   Breed?  @relation(fields: [breedId], references: [id])
+  size    Size    @relation(fields: [sizeId], references: [id])
+  coat    Coat?   @relation(fields: [coatId], references: [id])
+
+  petTutors PetTutor[]
+  weights   PetWeight[]
+
+  @@map("pets")
+}
+
+/// Vínculo N:N com papel (MOD-PET-02). RN-04: exatamente um PRIMARY ativo por pet,
+/// garantido por índice único parcial.
+///
+/// O vínculo é encerrado com `unlinked_at`, não apagado: quem autorizou um
+/// procedimento ano passado precisa continuar rastreável depois da transferência.
+model PetTutor {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  petId    String @map("pet_id") @db.Uuid
+  tutorId  String @map("tutor_id") @db.Uuid
+
+  role         PetTutorRole @default(SECONDARY)
+  relationship String?      @db.VarChar(40)
+
+  canAuthorizeProcedures Boolean @default(true) @map("can_authorize_procedures")
+
+  linkedAt   DateTime  @default(now()) @map("linked_at") @db.Timestamptz(6)
+  unlinkedAt DateTime? @map("unlinked_at") @db.Timestamptz(6)
+
+  createdBy String? @map("created_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet   Pet   @relation(fields: [petId], references: [id], onDelete: Cascade)
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@map("pet_tutors")
+}
+
+/// Série de pesagens (MOD-PET-07). Base da dosagem clínica e do alerta do RN-11.
+model PetWeight {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  petId    String @map("pet_id") @db.Uuid
+
+  weightKg   Decimal  @map("weight_kg") @db.Decimal(5, 2)
+  measuredAt DateTime @default(now()) @map("measured_at") @db.Timestamptz(6)
+
+  /// TODO(MOD-AGENDA): pesagem aferida no check-in do atendimento.
+  attendanceId String? @map("attendance_id") @db.Uuid
+  measuredBy   String? @map("measured_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("pet_weights")
 }

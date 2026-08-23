@@ -12,11 +12,12 @@ import { recordConsentsIn } from '../consents/service.js'
 /**
  * Eventos que o tutor-service **consome** (PRD tutores_02 §8, parágrafo final).
  *
- * Os três mantêm dado denormalizado que a listagem de balcão não pode calcular na
- * hora (RN-10): último atendimento, saldo e as tags automáticas que derivam deles.
+ * Todos mantêm dado denormalizado que a listagem de balcão não pode calcular na hora
+ * (RN-10): último atendimento, saldo, quantidade de pets e as tags automáticas que
+ * derivam deles.
  *
- * Os publicadores (MOD-PRONT, MOD-LEDGER, MOD-CRM) ainda não existem. Os handlers
- * existem e são testados — o que falta é quem emite, não quem trata.
+ * Os publicadores de MOD-PRONT, MOD-LEDGER e MOD-CRM ainda não existem; os de
+ * MOD-PET, sim. Os handlers existem e são testados — o que falta é quem emite.
  */
 
 const QUEUE = 'tutor-service.events'
@@ -31,6 +32,16 @@ const LancamentoCriadoSchema = z.object({
   tenantId: z.uuid(),
   tutorId: z.uuid(),
   balanceCents: z.number().int(),
+})
+
+const PetCriadoSchema = z.object({
+  tenantId: z.uuid(),
+  primaryTutorId: z.uuid(),
+})
+
+const PetVinculoAlteradoSchema = z.object({
+  tenantId: z.uuid(),
+  tutorId: z.uuid(),
 })
 
 const MensagemRecebidaSchema = z.object({
@@ -142,12 +153,43 @@ export async function handleMensagemRecebida(payload: unknown): Promise<boolean>
   return true
 }
 
+/**
+ * `tutors.pets_count`, alimentado por MOD-PET.
+ *
+ * Reconta em vez de incrementar: a entrega do RabbitMQ é *ao menos uma vez*, e um
+ * contador incrementado processaria a mesma mensagem duas vezes sem perceber. A
+ * consulta lê `pet_tutors`, tabela de outro módulo — o preço de manter um contador
+ * que não pode divergir, e o motivo de a recontagem viver aqui e não numa rotina de
+ * reparo noturna.
+ */
+export async function handlePetCriado(payload: unknown): Promise<void> {
+  const event = PetCriadoSchema.parse(payload)
+  await recountPets(event.tenantId, event.primaryTutorId)
+}
+
+export async function handlePetVinculoAlterado(payload: unknown): Promise<void> {
+  const event = PetVinculoAlteradoSchema.parse(payload)
+  await recountPets(event.tenantId, event.tutorId)
+}
+
+async function recountPets(tenantId: string, tutorId: string): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    const petsCount = await tx.petTutor.count({
+      where: { tutorId, unlinkedAt: null, pet: { deletedAt: null } },
+    })
+    await tx.tutor.updateMany({ where: { id: tutorId }, data: { petsCount } })
+  })
+  await invalidateTutor(tenantId, tutorId)
+}
+
 // ─── Ligação com o broker ────────────────────────────────────────────────────
 
 const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'atendimento.concluido': handleAtendimentoConcluido,
   'lancamento.criado': handleLancamentoCriado,
   'mensagem.recebida': handleMensagemRecebida,
+  'pet.criado': handlePetCriado,
+  'pet.vinculo.alterado': handlePetVinculoAlterado,
 }
 
 let connection: ChannelModel | null = null

@@ -518,8 +518,10 @@ export async function anonymizeTutor(
         },
       })
 
-      // TODO(MOD-PET): desvincular os pets, que ficam órfãos com o histórico
-      // clínico preservado (RN-09). A tabela de pets ainda não existe.
+      // Os pets não são tocados daqui: `tutor.anonimizado` é consumido pelo
+      // pet-service, que encerra os vínculos e promove o responsável seguinte. O
+      // histórico clínico fica com o animal (RN-09), e escrever em `pet_tutors` a
+      // partir daqui furaria a fronteira entre os dois módulos.
 
       await recordAudit(tx, {
         tenantId: actor.tenantId,
