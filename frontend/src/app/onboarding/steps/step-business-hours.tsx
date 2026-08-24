@@ -9,13 +9,47 @@ import type { StepProps } from '../wizard'
 /**
  * Etapa 3 — configuração operacional.
  *
- * Horário de funcionamento e as políticas que a agenda vai respeitar. A validação de
- * `closesAt > opensAt` acontece nos dois lados: aqui, para o usuário ver o problema
- * na hora, e no servidor (AC-02), que é quem de fato decide.
+ * Horário de funcionamento, as políticas que a agenda vai respeitar e quem atende. A
+ * validação de `closesAt > opensAt` acontece nos dois lados: aqui, para o usuário ver
+ * o problema na hora, e no servidor (AC-02), que é quem de fato decide.
  *
- * TODO(MOD-AGENDA): o AC-01 inclui serviços e profissionais nesta etapa; as tabelas
- * são de MOD-AGENDA e ainda não existem.
+ * O AC-01 pede serviços **e** profissionais nesta etapa. Os serviços não são
+ * perguntados: eles já vieram semeados no provisionamento, com preço de referência
+ * por porte, e revisar preço dentro de um wizard é pior do que fazê-lo na tela de
+ * serviços, com calma. O que se pergunta é o que o sistema não consegue adivinhar —
+ * nome de gente.
+ *
+ * A jornada de cada pessoa também não é perguntada: nasce igual ao horário de
+ * funcionamento definido logo acima. Quem trabalha em horário diferente é a exceção,
+ * e a exceção se ajusta depois.
  */
+
+/** Os papéis que executam atendimento (`PROFESSIONAL_ROLE_KEYS` do RBAC). */
+const PROFESSIONAL_ROLES = [
+  { key: 'BATHER', label: 'Banhista' },
+  { key: 'GROOMER', label: 'Tosador' },
+  { key: 'VET', label: 'Veterinário' },
+  { key: 'DRIVER', label: 'Motorista' },
+] as const
+
+type ProfessionalRole = (typeof PROFESSIONAL_ROLES)[number]['key']
+
+interface ProfessionalDraft {
+  /** Só para a chave do React: a lista é reordenável por remoção. */
+  key: string
+  displayName: string
+  roleKey: ProfessionalRole
+  maxConcurrentPets: number
+}
+
+function emptyProfessional(): ProfessionalDraft {
+  return {
+    key: crypto.randomUUID(),
+    displayName: '',
+    roleKey: 'BATHER',
+    maxConcurrentPets: 1,
+  }
+}
 
 const TIMEZONES = [
   'America/Sao_Paulo',
@@ -48,6 +82,12 @@ export function StepBusinessHours(props: Props) {
   const [cancellation, setCancellation] = useState(props.cancellationWindowHours)
   const [notice, setNotice] = useState(props.minBookingNoticeHours)
   const [noShowFee, setNoShowFee] = useState(props.noShowFeePercent)
+  const [team, setTeam] = useState<ProfessionalDraft[]>([emptyProfessional()])
+
+  // Linha em branco não é erro: é a linha que o formulário já oferece preenchida por
+  // ninguém. Só o que tem nome viaja.
+  const filledTeam = team.filter((person) => person.displayName.trim().length > 0)
+  const shortNames = filledTeam.filter((person) => person.displayName.trim().length < 2)
 
   const invalidDays = WEEKDAYS.filter((day) => {
     const value = hours[day]
@@ -56,6 +96,12 @@ export function StepBusinessHours(props: Props) {
 
   function updateDay(day: Weekday, patch: Partial<BusinessHours[Weekday]>) {
     setHours((current) => ({ ...current, [day]: { ...current[day], ...patch } }))
+  }
+
+  function updatePerson(key: string, patch: Partial<ProfessionalDraft>) {
+    setTeam((current) =>
+      current.map((person) => (person.key === key ? { ...person, ...patch } : person)),
+    )
   }
 
   return (
@@ -201,13 +247,113 @@ export function StepBusinessHours(props: Props) {
             <span className="hint">%</span>
           </div>
         </Field>
+
+        <fieldset>
+          <legend className="label">Quem atende</legend>
+          <p className="hint mb-3">
+            Cada pessoa entra com a jornada do estabelecimento e habilitada em todos os
+            serviços. Dá para ajustar depois em Profissionais.
+          </p>
+
+          <div className="space-y-2">
+            {team.map((person) => (
+              <div
+                key={person.key}
+                className="flex flex-wrap items-end gap-3 rounded-2xl border border-line bg-card px-4 py-3"
+              >
+                <div className="min-w-[12rem] flex-1">
+                  <label className="label text-xs" htmlFor={`nome-${person.key}`}>
+                    Nome
+                  </label>
+                  <input
+                    id={`nome-${person.key}`}
+                    className="field"
+                    placeholder="Ana"
+                    maxLength={60}
+                    value={person.displayName}
+                    onChange={(event) =>
+                      updatePerson(person.key, { displayName: event.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="w-40">
+                  <label className="label text-xs" htmlFor={`papel-${person.key}`}>
+                    Função
+                  </label>
+                  <select
+                    id={`papel-${person.key}`}
+                    className="field"
+                    value={person.roleKey}
+                    onChange={(event) =>
+                      updatePerson(person.key, { roleKey: event.target.value as ProfessionalRole })
+                    }
+                  >
+                    {PROFESSIONAL_ROLES.map((role) => (
+                      <option key={role.key} value={role.key}>
+                        {role.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="w-36">
+                  <label className="label text-xs" htmlFor={`capacidade-${person.key}`}>
+                    Pets por vez
+                  </label>
+                  <input
+                    id={`capacidade-${person.key}`}
+                    type="number"
+                    className="field"
+                    min={1}
+                    max={20}
+                    value={person.maxConcurrentPets}
+                    onChange={(event) =>
+                      updatePerson(person.key, {
+                        maxConcurrentPets: Math.max(1, Number(event.target.value) || 1),
+                      })
+                    }
+                  />
+                </div>
+
+                {team.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() =>
+                      setTeam((current) => current.filter((item) => item.key !== person.key))
+                    }
+                    aria-label={`Remover ${person.displayName || 'esta pessoa'}`}
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-ghost mt-3"
+            disabled={team.length >= 30}
+            onClick={() => setTeam((current) => [...current, emptyProfessional()])}
+          >
+            Adicionar pessoa
+          </button>
+
+          <p className="hint mt-2">
+            {filledTeam.length === 0
+              ? 'Você pode seguir sem cadastrar ninguém agora e fazer isso mais tarde.'
+              : `Pets por vez é quantos atendimentos a pessoa toca ao mesmo tempo — o banhista lava um, põe para secar e começa o próximo.`}
+          </p>
+        </fieldset>
       </div>
 
       <div className="mt-8 flex justify-end">
         <button
           type="button"
           className="btn btn-primary"
-          disabled={props.pending || invalidDays.length > 0}
+          disabled={props.pending || invalidDays.length > 0 || shortNames.length > 0}
           onClick={() =>
             props.onSubmit(() =>
               saveStep3Action({
@@ -216,6 +362,11 @@ export function StepBusinessHours(props: Props) {
                 cancellationWindowHours: cancellation,
                 minBookingNoticeHours: notice,
                 noShowFeePercent: noShowFee,
+                professionals: filledTeam.map((person) => ({
+                  displayName: person.displayName.trim(),
+                  roleKey: person.roleKey,
+                  maxConcurrentPets: person.maxConcurrentPets,
+                })),
               }),
             )
           }

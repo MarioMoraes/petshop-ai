@@ -23,6 +23,12 @@ import {
   PetTutorSchema,
   PetWeightSchema,
   SizeSchema,
+  CalendarBlockCreatedSchema,
+  CalendarBlockResponseSchema,
+  ProfessionalResponseSchema,
+  ProfessionalWithWarningsSchema,
+  ResolvedPricingSchema,
+  ServiceResponseSchema,
   SlugAvailabilitySchema,
   SpeciesSchema,
   TagSchema,
@@ -35,8 +41,18 @@ import {
   type OnboardingState,
   type OnboardingStepInput,
   type ProblemDetails,
+  type CalendarBlockResponse,
+  type CreateCalendarBlockInput,
+  type CreateProfessionalInput,
+  type CreateServiceInput,
+  type ProfessionalResponse,
+  type ServiceResponse,
+  type ScheduleWindow,
+  type ServicePricingItem,
   type SlugAvailability,
   type TenantResponse,
+  type UpdateProfessionalInput,
+  type UpdateServiceInput,
   type TenantSettings,
   type AddressInput,
   type AddressResponse,
@@ -608,6 +624,101 @@ export function createApiClient(options: ApiClientOptions) {
       }),
 
     deleteBreed: (id: string) => request<void>({ method: 'DELETE', path: `/v1/breeds/${id}` }),
+
+    // ─── MOD-AGENDA — catálogo (fatia 1) ───────────────────────────────────
+
+    /** `includeInactive` traz o que foi desativado — a tela de gestão precisa ver. */
+    listServices: (includeInactive = false) =>
+      request({
+        method: 'GET',
+        path: `/v1/services${includeInactive ? '?includeInactive=true' : ''}`,
+        schema: z.array(ServiceResponseSchema),
+      }),
+
+    createService: (input: CreateServiceInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/services',
+        body: input,
+        schema: ServiceResponseSchema,
+      }),
+
+    updateService: (id: string, patch: UpdateServiceInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/services/${id}`,
+        body: patch,
+        schema: ServiceResponseSchema,
+      }),
+
+    deleteService: (id: string) => request<void>({ method: 'DELETE', path: `/v1/services/${id}` }),
+
+    /** `PUT`: a tabela de preços é substituída inteira, não remendada. */
+    replaceServicePricing: (id: string, pricing: ServicePricingItem[]) =>
+      request({
+        method: 'PUT',
+        path: `/v1/services/${id}/pricing`,
+        body: { pricing },
+        schema: ServiceResponseSchema,
+      }),
+
+    /** AC-02: 422 quando o porte não tem preço — nunca um valor interpolado. */
+    resolveServicePricing: (id: string, sizeId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/services/${id}/pricing?sizeId=${sizeId}`,
+        schema: ResolvedPricingSchema,
+      }),
+
+    listProfessionals: (includeInactive = false) =>
+      request({
+        method: 'GET',
+        path: `/v1/professionals${includeInactive ? '?includeInactive=true' : ''}`,
+        schema: z.array(ProfessionalResponseSchema),
+      }),
+
+    createProfessional: (input: CreateProfessionalInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/professionals',
+        body: input,
+        schema: ProfessionalResponseSchema,
+      }),
+
+    updateProfessional: (id: string, patch: UpdateProfessionalInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/professionals/${id}`,
+        body: patch,
+        schema: ProfessionalResponseSchema,
+      }),
+
+    /** Devolve `warnings[]` quando a jornada passa do horário do tenant (AC-03). */
+    replaceProfessionalSchedule: (id: string, windows: ScheduleWindow[]) =>
+      request({
+        method: 'PUT',
+        path: `/v1/professionals/${id}/schedule`,
+        body: { windows },
+        schema: ProfessionalWithWarningsSchema,
+      }),
+
+    listCalendarBlocks: (query: { from: string; to: string; professionalId?: string }) =>
+      request({
+        method: 'GET',
+        path: `/v1/calendar-blocks${toQueryString(query)}`,
+        schema: z.array(CalendarBlockResponseSchema),
+      }),
+
+    createCalendarBlock: (input: CreateCalendarBlockInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/calendar-blocks',
+        body: input,
+        schema: CalendarBlockCreatedSchema,
+      }),
+
+    deleteCalendarBlock: (id: string) =>
+      request<void>({ method: 'DELETE', path: `/v1/calendar-blocks/${id}` }),
   }
 }
 
@@ -656,6 +767,9 @@ export type {
   PetWeightRecord,
   SafetyRecord,
   Size,
+  CalendarBlockResponse,
+  ProfessionalResponse,
+  ServiceResponse,
   SlugAvailability,
   Species,
   Tag,

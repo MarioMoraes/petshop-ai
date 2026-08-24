@@ -153,6 +153,29 @@ describe('autenticação', () => {
     expect(lastEchoed().url).toBe(`/v1/pets/${petId}`)
   })
 
+  it('roteia o catálogo da agenda para o scheduling-service', async () => {
+    const tenant = await seedTenant('rotaagenda')
+    const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
+    const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
+
+    for (const path of ['/v1/services', '/v1/professionals', '/v1/calendar-blocks']) {
+      const response = await call({ url: path, token })
+      expect(response.statusCode).toBe(200)
+      expect(lastEchoed().url).toBe(path)
+
+      const verified = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
+      expect(verified.ok).toBe(true)
+      if (!verified.ok) return
+      expect(verified.context.permissions).toContain('schedule:manage_catalog')
+    }
+
+    // `/v1/sizes` é catálogo de pet e continua no pet-service: `matches` compara
+    // segmento inteiro, então `/v1/services` não o captura por prefixo textual.
+    const sizes = await call({ url: '/v1/sizes', token })
+    expect(sizes.statusCode).toBe(200)
+    expect(lastEchoed().url).toBe('/v1/sizes')
+  })
+
   it('devolve 404 para rota sem serviço de destino', async () => {
     const token = givenToken({ clerkUserId: 'user_semrota' })
     const response = await call({ url: '/v1/inexistente', token })

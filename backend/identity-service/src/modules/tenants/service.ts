@@ -17,6 +17,7 @@ import {
   DEFAULT_BUSINESS_HOURS,
   IDENTITY_ROUTING_KEYS,
   ONBOARDING_LAST_STEP,
+  SEED_SERVICES,
   isReservedSlug,
   isValidSlug,
   slugSuggestions,
@@ -331,15 +332,58 @@ async function registerProvisioningFailure(
 }
 
 /**
- * Cadastros de domínio que o AC-01 manda semear (espécies, portes, pelagens,
- * serviços-modelo).
+ * Cadastros de domínio que o AC-01 manda semear.
  *
- * TODO(MOD-PET, MOD-AGENDA): as tabelas ainda não existem. O ponto de extensão fica
- * aqui, dentro da mesma transação do provisionamento, para que o seed seja atômico
- * com a criação do tenant quando os módulos chegarem.
+ * Espécies, portes e pelagens **não** entram aqui: o MOD-PET decidiu que o catálogo
+ * é global (`tenant_id IS NULL`, seed único da plataforma), e copiá-lo por tenant
+ * multiplicaria por mil linhas que ninguém edita. O que é por tenant são os
+ * serviços-modelo — daí este seed cuidar só deles.
+ *
+ * Roda dentro da transação do provisionamento, de propósito: um tenant que existe
+ * com catálogo pela metade é pior que um provisionamento que falhou e será
+ * retentado (AC-03).
  */
-async function seedTenantDomain(_tx: TenantTransaction, _tenantId: string): Promise<void> {
-  return Promise.resolve()
+async function seedTenantDomain(tx: TenantTransaction, tenantId: string): Promise<void> {
+  // Os portes são catálogo global; o seed dos serviços os referencia por chave, e o
+  // UUID só é resolvido aqui.
+  const sizes = await tx.size.findMany({
+    where: { tenantId: null },
+    select: { id: true, key: true },
+  })
+  const sizeIdByKey = new Map(sizes.map((size) => [size.key, size.id]))
+
+  // Sem catálogo de portes não há preço a semear. Acontece em banco recém-criado
+  // antes do seed de plataforma, e não é motivo para derrubar o provisionamento: o
+  // petshop cadastra os serviços à mão e nada mais quebra.
+  if (sizeIdByKey.size === 0) return
+
+  for (const seed of SEED_SERVICES) {
+    await tx.service.create({
+      data: {
+        tenantId,
+        name: seed.name,
+        category: seed.category,
+        description: seed.description,
+        baseDurationMin: seed.baseDurationMin,
+        requiresVet: seed.requiresVet,
+        pricing: {
+          create: seed.pricing.flatMap((item) => {
+            const sizeId = sizeIdByKey.get(item.sizeKey)
+            return sizeId
+              ? [
+                  {
+                    tenantId,
+                    sizeId,
+                    priceCents: BigInt(item.priceCents),
+                    durationMin: item.durationMin,
+                  },
+                ]
+              : []
+          }),
+        },
+      },
+    })
+  }
 }
 
 // ─── Leitura ─────────────────────────────────────────────────────────────────

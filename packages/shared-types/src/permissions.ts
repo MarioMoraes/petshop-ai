@@ -73,6 +73,13 @@ export const PERMISSIONS = {
   'schedule:write_all': 'Criar e editar qualquer agendamento',
   'schedule:write_own': 'Criar e editar os próprios agendamentos',
   'checkin:manage': 'Fazer check-in e check-out',
+  /**
+   * Serviços, preços, profissionais, jornadas e bloqueios (§9 do PRD da agenda:
+   * "Gerir serviços e jornadas" é a única linha da matriz exclusiva do TENANT_ADMIN).
+   * Separada de `schedule:write_all` porque a recepção agenda o dia inteiro, mas não
+   * decide quanto custa um banho nem quem trabalha no sábado.
+   */
+  'schedule:manage_catalog': 'Gerenciar serviços, profissionais e jornadas',
 
   // Operação e relacionamento
   'taxi:operate': 'Operar o Taxi Dog',
@@ -171,6 +178,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'schedule:read_own',
     'schedule:write_all',
     'schedule:write_own',
+    'schedule:manage_catalog',
     'checkin:manage',
     'taxi:operate',
     'crm:manage',

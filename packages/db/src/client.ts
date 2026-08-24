@@ -50,6 +50,13 @@ const RLS_MODELS = new Set([
   'Breed',
   'Size',
   'Coat',
+  // MOD-AGENDA: catálogo de serviços, quem executa e quando não dá.
+  'Service',
+  'ServicePricing',
+  'Professional',
+  'ProfessionalService',
+  'ProfessionalSchedule',
+  'CalendarBlock',
 ])
 
 export interface DbLogger {

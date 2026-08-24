@@ -1,8 +1,12 @@
-import { withTenant, type Tenant } from '@petshop/db'
+import { withTenant, type Tenant, type TenantTransaction } from '@petshop/db'
 import {
   IDENTITY_ROUTING_KEYS,
   ONBOARDING_LAST_STEP,
   SKIPPABLE_ONBOARDING_STEPS,
+  WEEKDAYS,
+  type BusinessHours,
+  type Weekday,
+  type OnboardingProfessionalInput,
   type OnboardingStepInput,
   type TenantResponse,
 } from '@petshop/shared-types'
@@ -129,8 +133,12 @@ async function applyStep(
             : {}),
         },
       })
-      // TODO(MOD-AGENDA): o AC-01 inclui serviços e profissionais nesta etapa; as
-      // tabelas são de MOD-AGENDA e ainda não existem.
+      await saveOnboardingProfessionals(
+        tx,
+        tenantId,
+        payload.data.professionals,
+        payload.data.businessHours,
+      )
       return
     }
 
@@ -191,4 +199,104 @@ export async function getOnboardingState(tenantId: string) {
     onboardingCompletedAt: row.onboardingCompletedAt?.toISOString() ?? null,
     stepsSkipped: row.onboardingStepsSkipped,
   }
+}
+
+/**
+ * Cria os profissionais do AC-01 e dá a cada um a jornada do estabelecimento.
+ *
+ * Os serviços não aparecem aqui porque já foram semeados no provisionamento
+ * (`seedTenantDomain`): o wizard só pergunta o que não dá para adivinhar.
+ *
+ * A jornada herdada é uma **decisão de produto**, não um atalho. Quem acaba de
+ * definir que abre 08:00–18:00 não quer redigitar isso por pessoa; quem trabalha em
+ * horário diferente é a exceção, e a exceção se ajusta em `/profissionais`. Todos
+ * saem habilitados em todos os serviços pela mesma razão — restringir é o caso raro.
+ *
+ * Reenviar a etapa 3 substitui a lista inteira, como o resto do wizard: o AC-03
+ * permite voltar e reenviar um passo anterior, e um `create` cego duplicaria a
+ * equipe a cada volta.
+ */
+async function saveOnboardingProfessionals(
+  tx: TenantTransaction,
+  tenantId: string,
+  professionals: OnboardingProfessionalInput[],
+  businessHours: BusinessHours,
+): Promise<void> {
+  const existing = await tx.professional.findMany({
+    where: { deletedAt: null },
+    select: { id: true },
+  })
+  if (existing.length > 0) {
+    await tx.professional.deleteMany({ where: { id: { in: existing.map((row) => row.id) } } })
+  }
+
+  if (professionals.length === 0) return
+
+  const services = await tx.service.findMany({
+    where: { deletedAt: null, active: true },
+    select: { id: true },
+  })
+  const windows = businessHoursToWindows(businessHours)
+
+  for (const person of professionals) {
+    await tx.professional.create({
+      data: {
+        tenantId,
+        displayName: person.displayName,
+        roleKey: person.roleKey,
+        maxConcurrentPets: person.maxConcurrentPets,
+        services: {
+          create: services.map((service) => ({ tenantId, serviceId: service.id })),
+        },
+        schedules: {
+          create: windows.map((window) => ({ tenantId, ...window })),
+        },
+      },
+    })
+  }
+}
+
+/**
+ * `WEEKDAYS` começa na segunda, porque é assim que a semana é lida na tela; a coluna
+ * `professional_schedules.weekday` é 0 = domingo, a convenção do Postgres e do
+ * `Date.getDay()`. O índice do array **não** serve como dia da semana — usá-lo
+ * deslocaria a jornada de todo mundo em um dia, calado.
+ */
+const ISO_WEEKDAY: Record<Weekday, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+}
+
+/**
+ * Horário de funcionamento → faixas de jornada.
+ *
+ * `business_hours` fala em "HH:MM" e a jornada em minutos desde a meia-noite; a
+ * conversão mora aqui porque é o único ponto do sistema em que os dois formatos se
+ * encontram. Dia fechado simplesmente não gera faixa.
+ */
+function businessHoursToWindows(
+  businessHours: BusinessHours,
+): { weekday: number; startsAtMin: number; endsAtMin: number }[] {
+  return WEEKDAYS.flatMap((day) => {
+    const weekday = ISO_WEEKDAY[day]
+    const hours = businessHours[day]
+    if (hours.closed) return []
+
+    const startsAtMin = timeToMinutes(hours.opensAt)
+    const endsAtMin = timeToMinutes(hours.closesAt)
+    if (startsAtMin === null || endsAtMin === null || endsAtMin <= startsAtMin) return []
+
+    return [{ weekday, startsAtMin, endsAtMin }]
+  })
+}
+
+function timeToMinutes(value: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value)
+  if (!match) return null
+  return Number(match[1]) * 60 + Number(match[2])
 }

@@ -700,8 +700,9 @@ model Size {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  pets   Pet[]
-  breeds Breed[]
+  pets           Pet[]
+  breeds         Breed[]
+  servicePricing ServicePricing[]
 
   @@map("sizes")
 }
@@ -1063,4 +1064,176 @@ model PetTransferLog {
   pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("pet_transfer_log")
+}
+
+// ─── MOD-AGENDA — catálogo de serviços, profissionais e bloqueios ────────────
+// PRD agenda_operacao_06 §4, sub-features 01 a 03.
+
+enum ServiceCategory {
+  BATH
+  GROOMING
+  VET
+  VACCINE
+  OTHER
+}
+
+/// O que o petshop vende. O preço e a duração **não** ficam aqui: eles variam por
+/// porte e moram em `service_pricing` (MOD-AGENDA-01).
+model Service {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  name        String          @db.VarChar(80)
+  category    ServiceCategory
+  description String?         @db.VarChar(300)
+
+  /// Duração do porte de referência. É o valor que a UI **sugere** ao montar a
+  /// tabela de preços; nunca a fonte do cálculo — ver a nota em `ServicePricing`.
+  baseDurationMin Int @map("base_duration_min") @db.SmallInt
+
+  /// Restringe a execução ao papel VET (AC-01 de MOD-AGENDA-01).
+  requiresVet Boolean @default(false) @map("requires_vet")
+
+  /// AC-03: serviço com agendamento futuro não é excluído, só desativado — some do
+  /// seletor sem tocar no que já está marcado.
+  active Boolean @default(true)
+
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  pricing       ServicePricing[]
+  professionals ProfessionalService[]
+
+  @@index([tenantId, active])
+  @@map("services")
+}
+
+/// Preço **e** duração por porte.
+///
+/// Os dois são obrigatórios: a duração por porte é tabela, não multiplicador sobre a
+/// base (decisão do §11 Q1 do PRD da agenda, que prevalece sobre o RN-03 de pets_03).
+/// O petshop precisa poder dizer que banho em Golden leva 90 min sem que isso mexa em
+/// nenhum outro serviço — e uma agenda que estima errado é uma agenda que mente.
+///
+/// A ausência de linha para um porte é significativa: o AC-02 manda devolver 422 em
+/// vez de interpolar, porque preço inventado no fechamento vira briga no balcão.
+model ServicePricing {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  serviceId String @map("service_id") @db.Uuid
+  sizeId    String @map("size_id") @db.Uuid
+
+  /// Dinheiro é inteiro em centavos (convenção fixada a partir do PRD 05).
+  priceCents  BigInt @map("price_cents")
+  durationMin Int    @map("duration_min") @db.SmallInt
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  size    Size    @relation(fields: [sizeId], references: [id], onDelete: Restrict)
+
+  @@unique([serviceId, sizeId], map: "idx_service_pricing_unique")
+  @@map("service_pricing")
+}
+
+/// Quem executa. Separado de `memberships` de propósito: existe profissional sem
+/// login (o tosador que não usa o sistema) e existe membro que não atende (o
+/// financeiro). O vínculo é opcional, nos dois sentidos.
+model Professional {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String  @map("tenant_id") @db.Uuid
+  userId   String? @map("user_id") @db.Uuid
+
+  displayName String @map("display_name") @db.VarChar(60)
+  roleKey     String @map("role_key") @db.VarChar(30)
+
+  /// Capacidade **simultânea**, não sequencial (decisão do §11 Q7): o banhista lava
+  /// um pet, põe para secar e começa o próximo. O conflito do RN-13 é
+  /// `count(sobreposições) >= este número`, e não "existe sobreposição" — é por isso
+  /// que a garantia vem de transação SERIALIZABLE e não de `EXCLUDE USING GIST`.
+  maxConcurrentPets Int @default(1) @map("max_concurrent_pets") @db.SmallInt
+
+  /// Cor da coluna no painel do dia.
+  color String? @db.VarChar(7)
+
+  /// AC-04: desligar alguém com agendamento futuro exige reatribuição antes.
+  active Boolean @default(true)
+
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  services  ProfessionalService[]
+  schedules ProfessionalSchedule[]
+  blocks    CalendarBlock[]
+
+  @@index([tenantId, active])
+  @@map("professionals")
+}
+
+/// Habilitação N:N. Sem linha aqui, o profissional não aparece no seletor daquele
+/// serviço — é o que impede marcar tosa com quem só dá banho.
+model ProfessionalService {
+  professionalId String @map("professional_id") @db.Uuid
+  serviceId      String @map("service_id") @db.Uuid
+  tenantId       String @map("tenant_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([professionalId, serviceId], map: "idx_professional_service")
+  @@map("professional_services")
+}
+
+/// Uma faixa contínua de trabalho. O almoço não é um campo: é o que **parte** o dia
+/// em duas linhas do mesmo `weekday` — modelar como "início, fim e intervalo" quebra
+/// no dia em que alguém tiver dois intervalos.
+model ProfessionalSchedule {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String @map("tenant_id") @db.Uuid
+  professionalId String @map("professional_id") @db.Uuid
+
+  /// 0 = domingo, 6 = sábado.
+  weekday Int @db.SmallInt
+
+  /// Minutos desde a meia-noite, no fuso do tenant. Guardar minuto e não `time`
+  /// evita a armadilha de um `time` sem fuso ser comparado com `timestamptz`.
+  startsAtMin Int @map("starts_at_min") @db.SmallInt
+  endsAtMin   Int @map("ends_at_min") @db.SmallInt
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, weekday])
+  @@map("professional_schedules")
+}
+
+/// Folga, feriado e manutenção. `professional_id` nulo é o bloqueio do tenant
+/// inteiro: o feriado some da oferta de todo mundo sem precisar de uma linha por
+/// pessoa (AC-03 de MOD-AGENDA-03).
+model CalendarBlock {
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String  @map("tenant_id") @db.Uuid
+  professionalId String? @map("professional_id") @db.Uuid
+
+  startsAt DateTime @map("starts_at") @db.Timestamptz(6)
+  endsAt   DateTime @map("ends_at") @db.Timestamptz(6)
+
+  reason String? @db.VarChar(120)
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, startsAt, endsAt], map: "idx_blocks_window")
+  @@map("calendar_blocks")
 }

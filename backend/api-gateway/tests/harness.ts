@@ -85,6 +85,7 @@ export async function getGateway(): Promise<FastifyInstance> {
   process.env.TUTOR_SERVICE_URL = upstreamAddress
   process.env.PET_SERVICE_URL = upstreamAddress
   process.env.MEDICAL_RECORD_SERVICE_URL = upstreamAddress
+  process.env.SCHEDULING_SERVICE_URL = upstreamAddress
 
   const { resetEnvCache } = await import('../src/env.js')
   resetEnvCache()

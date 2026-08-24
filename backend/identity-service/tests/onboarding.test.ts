@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_BUSINESS_HOURS } from '@petshop/shared-types'
+import { DEFAULT_BUSINESS_HOURS, SEED_SERVICES } from '@petshop/shared-types'
 import {
   callApi,
   closeHarness,
@@ -346,5 +346,151 @@ describe('configurações do tenant', () => {
     expect(updated.json().legalName).toBe('Amarillys Pet ME')
     // O endereço do portal é permanente: o PATCH não o toca.
     expect(updated.json().slug).toBe('dados')
+  })
+})
+
+describe('MOD-AGENDA no onboarding — o tenant nasce podendo agendar', () => {
+  it('o provisionamento semeia os serviços-modelo com preço por porte', async () => {
+    const session = await givenTenant('seedservicos')
+
+    const servicos = await ownerPrisma.service.findMany({
+      where: { tenantId: session.tenantId },
+      include: { pricing: true },
+      orderBy: { name: 'asc' },
+    })
+
+    expect(servicos).toHaveLength(SEED_SERVICES.length)
+    expect(servicos.map((s) => s.name)).toContain('Banho')
+
+    // Todo serviço nasce com os quatro portes precificados: o AC-02 da agenda
+    // devolve 422 em porte sem preço, e um catálogo semeado pela metade entregaria
+    // esse 422 ao petshop no primeiro agendamento.
+    for (const servico of servicos) {
+      expect(servico.pricing).toHaveLength(4)
+      expect(servico.pricing.every((p) => p.priceCents > 0n)).toBe(true)
+      expect(servico.pricing.every((p) => p.durationMin % 15 === 0)).toBe(true)
+    }
+  })
+
+  it('o seed é por tenant e não vaza para o vizinho', async () => {
+    const a = await givenTenant('seedum')
+    const b = await givenTenant('seeddois')
+
+    const doA = await ownerPrisma.service.findMany({ where: { tenantId: a.tenantId } })
+    const doB = await ownerPrisma.service.findMany({ where: { tenantId: b.tenantId } })
+
+    expect(doA).toHaveLength(SEED_SERVICES.length)
+    expect(doB).toHaveLength(SEED_SERVICES.length)
+    expect(doA.map((s) => s.id).some((id) => doB.map((s) => s.id).includes(id))).toBe(false)
+  })
+
+  it('a etapa 3 cria os profissionais e herda a jornada do estabelecimento', async () => {
+    const session = await givenTenant('equipe')
+
+    const response = await callApi({
+      ...asAdmin(session),
+      method: 'PATCH',
+      url: '/v1/tenants/me/onboarding',
+      payload: {
+        step: 3,
+        data: {
+          timezone: 'America/Sao_Paulo',
+          businessHours: {
+            ...DEFAULT_BUSINESS_HOURS,
+            monday: { opensAt: '08:00', closesAt: '18:00', closed: false },
+            sunday: { opensAt: '08:00', closesAt: '12:00', closed: true },
+          },
+          cancellationWindowHours: 24,
+          minBookingNoticeHours: 2,
+          professionals: [
+            { displayName: 'Ana', roleKey: 'BATHER', maxConcurrentPets: 3 },
+            { displayName: 'Carlos', roleKey: 'GROOMER', maxConcurrentPets: 1 },
+          ],
+        },
+      },
+    })
+
+    expect(response.statusCode).toBe(200)
+
+    const equipe = await ownerPrisma.professional.findMany({
+      where: { tenantId: session.tenantId },
+      include: { schedules: true, services: true },
+      orderBy: { displayName: 'asc' },
+    })
+
+    expect(equipe.map((p) => p.displayName)).toEqual(['Ana', 'Carlos'])
+    expect(equipe[0]?.maxConcurrentPets).toBe(3)
+
+    // Segunda é 1, não 0: `WEEKDAYS` começa na segunda, mas a coluna usa a convenção
+    // do Postgres (0 = domingo). Trocar os dois deslocaria a semana inteira.
+    const segunda = equipe[0]?.schedules.find((w) => w.weekday === 1)
+    expect(segunda).toBeDefined()
+    expect(segunda?.startsAtMin).toBe(480)
+    expect(segunda?.endsAtMin).toBe(1080)
+
+    // Domingo fechado não vira faixa.
+    expect(equipe[0]?.schedules.some((w) => w.weekday === 0)).toBe(false)
+
+    // Todos habilitados em todos os serviços semeados; restringir é o caso raro.
+    expect(equipe[0]?.services).toHaveLength(SEED_SERVICES.length)
+  })
+
+  it('reenviar a etapa 3 substitui a equipe em vez de duplicá-la', async () => {
+    const session = await givenTenant('reenvio')
+    const admin = asAdmin(session)
+
+    const payload = (professionals: unknown[]) => ({
+      step: 3,
+      data: {
+        timezone: 'America/Sao_Paulo',
+        businessHours: DEFAULT_BUSINESS_HOURS,
+        cancellationWindowHours: 24,
+        minBookingNoticeHours: 2,
+        professionals,
+      },
+    })
+
+    await callApi({
+      ...admin,
+      method: 'PATCH',
+      url: '/v1/tenants/me/onboarding',
+      payload: payload([{ displayName: 'Ana', roleKey: 'BATHER' }]),
+    })
+    await callApi({
+      ...admin,
+      method: 'PATCH',
+      url: '/v1/tenants/me/onboarding',
+      payload: payload([
+        { displayName: 'Ana', roleKey: 'BATHER' },
+        { displayName: 'Carlos', roleKey: 'GROOMER' },
+      ]),
+    })
+
+    const equipe = await ownerPrisma.professional.findMany({
+      where: { tenantId: session.tenantId },
+    })
+    expect(equipe).toHaveLength(2)
+  })
+
+  it('a etapa 3 sem equipe passa — dá para cadastrar depois', async () => {
+    const session = await givenTenant('semequipe')
+
+    const response = await callApi({
+      ...asAdmin(session),
+      method: 'PATCH',
+      url: '/v1/tenants/me/onboarding',
+      payload: {
+        step: 3,
+        data: {
+          timezone: 'America/Sao_Paulo',
+          businessHours: DEFAULT_BUSINESS_HOURS,
+          cancellationWindowHours: 24,
+          minBookingNoticeHours: 2,
+        },
+      },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().onboardingStep).toBe(4)
   })
 })

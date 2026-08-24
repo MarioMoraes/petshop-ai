@@ -1,0 +1,489 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import type { ProfessionalResponse, ServiceResponse } from '@petshop/shared-types'
+import { Badge, Card, EmptyState, Field } from '@/components/ui'
+import {
+  createProfessionalAction,
+  replaceScheduleAction,
+  updateProfessionalAction,
+  type ActionFailure,
+} from '../actions'
+
+/**
+ * Gestão de profissionais.
+ *
+ * A jornada é editada como faixas por dia, e não como "entra às X, sai às Y, almoça
+ * de A a B": o almoço é o **vão** entre duas faixas. Modelar o intervalo como campo
+ * quebra no primeiro caso de duas pausas, e a agenda passaria a oferecer horário em
+ * que ninguém está.
+ */
+
+interface Props {
+  professionals: ProfessionalResponse[]
+  services: ServiceResponse[]
+}
+
+const ROLES = [
+  { key: 'BATHER', label: 'Banhista' },
+  { key: 'GROOMER', label: 'Tosador' },
+  { key: 'VET', label: 'Veterinário' },
+  { key: 'DRIVER', label: 'Motorista' },
+] as const
+
+type RoleKey = (typeof ROLES)[number]['key']
+
+/** Domingo primeiro, para casar com a coluna `weekday` (0 = domingo). */
+const WEEKDAY_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+
+function minutesToTime(total: number): string {
+  const hours = Math.floor(total / 60)
+  const minutes = total % 60
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+function timeToMinutes(value: string): number {
+  const [hours, minutes] = value.split(':')
+  return Number(hours) * 60 + Number(minutes)
+}
+
+export function ProfessionalsManager({ professionals, services }: Props) {
+  const [editing, setEditing] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [failure, setFailure] = useState<ActionFailure | null>(null)
+  const [warnings, setWarnings] = useState<string[]>([])
+  const [pending, startTransition] = useTransition()
+
+  function run(
+    action: () => Promise<{ ok: true; data: unknown } | ActionFailure>,
+    onDone?: (data: unknown) => void,
+  ) {
+    setFailure(null)
+    setWarnings([])
+    startTransition(async () => {
+      const result = await action()
+      if (result.ok) onDone?.(result.data)
+      else setFailure(result)
+    })
+  }
+
+  if (professionals.length === 0 && !creating) {
+    return (
+      <EmptyState
+        title="Ninguém cadastrado ainda"
+        description="A agenda precisa saber quem atende para oferecer horários. Cada pessoa tem a própria jornada e os serviços que executa."
+        action={
+          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+            Cadastrar profissional
+          </button>
+        }
+      />
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {failure && (
+        <div className="card border-danger/40 px-5 py-4" role="alert">
+          <p className="font-medium">{failure.message}</p>
+          {failure.appointments && failure.appointments.length > 0 && (
+            <ul className="hint mt-2 space-y-1">
+              {failure.appointments.slice(0, 5).map((item) => (
+                <li key={item.id}>
+                  {new Date(item.startsAt).toLocaleString('pt-BR', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}{' '}
+                  — {item.petName}
+                </li>
+              ))}
+              {failure.appointments.length > 5 && (
+                <li>e mais {failure.appointments.length - 5}…</li>
+              )}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {warnings.length > 0 && (
+        <div className="card border-warning/40 px-5 py-4" role="status">
+          <p className="font-medium">Jornada salva, com uma observação</p>
+          <ul className="hint mt-1 space-y-1">
+            {warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {professionals.map((person) => (
+        <ProfessionalRow
+          key={person.id}
+          person={person}
+          services={services}
+          expanded={editing === person.id}
+          pending={pending}
+          onToggle={() => setEditing(editing === person.id ? null : person.id)}
+          onSaveSchedule={(windows) =>
+            run(
+              () => replaceScheduleAction(person.id, { windows }),
+              (data) => {
+                setEditing(null)
+                const result = data as { warnings?: string[] }
+                setWarnings(result.warnings ?? [])
+              },
+            )
+          }
+          onPatch={(patch) => run(() => updateProfessionalAction(person.id, patch))}
+        />
+      ))}
+
+      {creating ? (
+        <NewProfessionalForm
+          pending={pending}
+          onCancel={() => setCreating(false)}
+          onSubmit={(input) =>
+            run(() => createProfessionalAction(input), () => setCreating(false))
+          }
+        />
+      ) : (
+        <button type="button" className="btn btn-ghost" onClick={() => setCreating(true)}>
+          Adicionar profissional
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Linha do profissional ───────────────────────────────────────────────────
+
+interface WindowDraft {
+  key: string
+  weekday: number
+  startsAtMin: number
+  endsAtMin: number
+}
+
+function ProfessionalRow({
+  person,
+  services,
+  expanded,
+  pending,
+  onToggle,
+  onSaveSchedule,
+  onPatch,
+}: {
+  person: ProfessionalResponse
+  services: ServiceResponse[]
+  expanded: boolean
+  pending: boolean
+  onToggle: () => void
+  onSaveSchedule: (windows: { weekday: number; startsAtMin: number; endsAtMin: number }[]) => void
+  onPatch: (patch: Record<string, unknown>) => void
+}) {
+  const [windows, setWindows] = useState<WindowDraft[]>(() =>
+    person.schedule.map((item) => ({ key: crypto.randomUUID(), ...item })),
+  )
+
+  const invalid = windows.filter((window) => window.endsAtMin <= window.startsAtMin)
+  const activeServices = services.filter((service) => service.active)
+  const roleLabel = ROLES.find((role) => role.key === person.roleKey)?.label ?? person.roleKey
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold">{person.displayName}</h2>
+            <Badge tone="neutral">{roleLabel}</Badge>
+            {person.maxConcurrentPets > 1 && (
+              <Badge tone="accent">{person.maxConcurrentPets} pets por vez</Badge>
+            )}
+            {!person.active && <Badge tone="neutral">Inativo</Badge>}
+            {person.active && person.schedule.length === 0 && (
+              <Badge tone="danger">Sem jornada</Badge>
+            )}
+          </div>
+          <p className="hint mt-1">
+            {person.serviceIds.length === 0
+              ? 'Nenhum serviço habilitado'
+              : `${person.serviceIds.length} de ${activeServices.length} serviços`}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 gap-2">
+          <button type="button" className="btn btn-ghost" onClick={onToggle}>
+            {expanded ? 'Fechar' : 'Editar'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={pending}
+            onClick={() => onPatch({ active: !person.active })}
+          >
+            {person.active ? 'Desativar' : 'Reativar'}
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="mt-5 space-y-6 border-t border-line pt-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Pets por vez"
+              htmlFor={`capacidade-${person.id}`}
+              hint="Quantos atendimentos essa pessoa toca ao mesmo tempo."
+            >
+              <input
+                id={`capacidade-${person.id}`}
+                type="number"
+                className="field w-28"
+                min={1}
+                max={20}
+                defaultValue={person.maxConcurrentPets}
+                onBlur={(event) => {
+                  const value = Math.max(1, Number(event.target.value) || 1)
+                  if (value !== person.maxConcurrentPets) onPatch({ maxConcurrentPets: value })
+                }}
+              />
+            </Field>
+          </div>
+
+          <fieldset>
+            <legend className="label">Serviços que executa</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {activeServices.map((service) => {
+                const enabled = person.serviceIds.includes(service.id)
+                return (
+                  <button
+                    key={service.id}
+                    type="button"
+                    disabled={pending}
+                    aria-pressed={enabled}
+                    className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                      enabled
+                        ? 'border-accent bg-accent/10 text-fg'
+                        : 'border-line text-subtle hover:text-fg'
+                    }`}
+                    onClick={() =>
+                      onPatch({
+                        serviceIds: enabled
+                          ? person.serviceIds.filter((id) => id !== service.id)
+                          : [...person.serviceIds, service.id],
+                      })
+                    }
+                  >
+                    {service.name}
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="label">Jornada</legend>
+            <p className="hint mb-3">
+              Duas faixas no mesmo dia é como se marca o almoço: o intervalo é o vão entre elas.
+            </p>
+
+            <div className="space-y-2">
+              {windows.map((window) => (
+                <div
+                  key={window.key}
+                  className="flex flex-wrap items-center gap-3 rounded-2xl border border-line px-4 py-3"
+                >
+                  <select
+                    className="field w-36"
+                    value={window.weekday}
+                    aria-label="Dia da semana"
+                    onChange={(event) =>
+                      setWindows((current) =>
+                        current.map((item) =>
+                          item.key === window.key
+                            ? { ...item, weekday: Number(event.target.value) }
+                            : item,
+                        ),
+                      )
+                    }
+                  >
+                    {WEEKDAY_LABELS.map((label, index) => (
+                      <option key={label} value={index}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="time"
+                    className="field w-32"
+                    value={minutesToTime(window.startsAtMin)}
+                    aria-label="Início"
+                    onChange={(event) =>
+                      setWindows((current) =>
+                        current.map((item) =>
+                          item.key === window.key
+                            ? { ...item, startsAtMin: timeToMinutes(event.target.value) }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  <span className="hint">às</span>
+                  <input
+                    type="time"
+                    className="field w-32"
+                    value={minutesToTime(window.endsAtMin)}
+                    aria-label="Fim"
+                    onChange={(event) =>
+                      setWindows((current) =>
+                        current.map((item) =>
+                          item.key === window.key
+                            ? { ...item, endsAtMin: timeToMinutes(event.target.value) }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() =>
+                      setWindows((current) => current.filter((item) => item.key !== window.key))
+                    }
+                    aria-label="Remover faixa"
+                  >
+                    Remover
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-ghost mt-3"
+              onClick={() =>
+                setWindows((current) => [
+                  ...current,
+                  { key: crypto.randomUUID(), weekday: 1, startsAtMin: 480, endsAtMin: 1080 },
+                ])
+              }
+            >
+              Adicionar faixa
+            </button>
+
+            {invalid.length > 0 && (
+              <p className="error-text mt-3" role="alert">
+                O horário de término deve ser depois do início.
+              </p>
+            )}
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={pending || invalid.length > 0}
+                onClick={() =>
+                  onSaveSchedule(
+                    windows.map(({ weekday, startsAtMin, endsAtMin }) => ({
+                      weekday,
+                      startsAtMin,
+                      endsAtMin,
+                    })),
+                  )
+                }
+              >
+                {pending ? 'Salvando…' : 'Salvar jornada'}
+              </button>
+            </div>
+          </fieldset>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ─── Novo profissional ───────────────────────────────────────────────────────
+
+function NewProfessionalForm({
+  pending,
+  onCancel,
+  onSubmit,
+}: {
+  pending: boolean
+  onCancel: () => void
+  onSubmit: (input: unknown) => void
+}) {
+  const [displayName, setDisplayName] = useState('')
+  const [roleKey, setRoleKey] = useState<RoleKey>('BATHER')
+  const [maxConcurrentPets, setMax] = useState(1)
+
+  return (
+    <Card>
+      <h2 className="text-lg font-semibold">Novo profissional</h2>
+      <p className="hint mt-1">
+        A jornada e os serviços são definidos depois de criar, na própria linha.
+      </p>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-3">
+        <Field label="Nome" htmlFor="novo-prof-nome">
+          <input
+            id="novo-prof-nome"
+            className="field"
+            maxLength={60}
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+          />
+        </Field>
+
+        <Field label="Função" htmlFor="novo-prof-papel">
+          <select
+            id="novo-prof-papel"
+            className="field"
+            value={roleKey}
+            onChange={(event) => setRoleKey(event.target.value as RoleKey)}
+          >
+            {ROLES.map((role) => (
+              <option key={role.key} value={role.key}>
+                {role.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Pets por vez" htmlFor="novo-prof-capacidade">
+          <input
+            id="novo-prof-capacidade"
+            type="number"
+            className="field"
+            min={1}
+            max={20}
+            value={maxConcurrentPets}
+            onChange={(event) => setMax(Math.max(1, Number(event.target.value) || 1))}
+          />
+        </Field>
+      </div>
+
+      <div className="mt-6 flex justify-end gap-2">
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>
+          Cancelar
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={pending || displayName.trim().length < 2}
+          onClick={() =>
+            onSubmit({
+              displayName: displayName.trim(),
+              roleKey,
+              maxConcurrentPets,
+              serviceIds: [],
+            })
+          }
+        >
+          {pending ? 'Criando…' : 'Criar'}
+        </button>
+      </div>
+    </Card>
+  )
+}

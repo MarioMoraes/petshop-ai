@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import type { MeResponse } from '@petshop/shared-types'
 import { Atmosphere } from './atmosphere'
-import { HomeIcon, PawPrintIcon, SettingsIcon, UsersIcon } from './icons'
+import { CalendarIcon, HomeIcon, PawPrintIcon, SettingsIcon, UsersIcon } from './icons'
 import { Badge, Logo } from './ui'
 
 /**
@@ -22,11 +22,11 @@ import { Badge, Logo } from './ui'
  * útil e criava uma segunda borda concorrendo com a dos cartões.
  */
 
-type NavKey = 'inicio' | 'tutores' | 'pets' | 'configuracoes'
+type NavKey = 'inicio' | 'tutores' | 'pets' | 'agenda' | 'configuracoes'
 
 interface NavItem {
   key: NavKey
-  href: '/dashboard' | '/tutores' | '/pets' | '/configuracoes'
+  href: '/dashboard' | '/tutores' | '/pets' | '/agenda/servicos' | '/configuracoes'
   label: string
   icon: ReactNode
   /** Item que só existe para quem tem `tenant:read_settings`. */
@@ -37,6 +37,15 @@ const NAV: NavItem[] = [
   { key: 'inicio', href: '/dashboard', label: 'Início', icon: <HomeIcon /> },
   { key: 'tutores', href: '/tutores', label: 'Tutores', icon: <UsersIcon /> },
   { key: 'pets', href: '/pets', label: 'Pets', icon: <PawPrintIcon /> },
+  {
+    // Aponta para serviços porque é a única tela da agenda que existe hoje. Quando a
+    // fatia 2 trouxer a visão do dia, é ela que vira o destino do item.
+    key: 'agenda',
+    href: '/agenda/servicos',
+    label: 'Agenda',
+    icon: <CalendarIcon />,
+    restricted: true,
+  },
   {
     key: 'configuracoes',
     href: '/configuracoes',

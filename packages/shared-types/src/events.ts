@@ -304,3 +304,76 @@ export interface PetEventMap {
   'pet.peso.registrado': PetPesoRegistradoEvent
   'pet.vinculo.alterado': PetVinculoAlteradoEvent
 }
+
+// ─── MOD-AGENDA ──────────────────────────────────────────────────────────────
+// PRD agenda_operacao_06 §8.
+
+export const AGENDA_ROUTING_KEYS = {
+  agendamentoSolicitado: 'agendamento.solicitado',
+  agendamentoCriado: 'agendamento.criado',
+  agendamentoReagendado: 'agendamento.reagendado',
+  agendamentoCancelado: 'agendamento.cancelado',
+  agendamentoNoShow: 'agendamento.no_show',
+  atendimentoIniciado: 'atendimento.iniciado',
+  atendimentoConcluido: 'atendimento.concluido',
+  bloqueioCriado: 'agenda.bloqueio.criado',
+  servicoAlterado: 'agenda.servico.alterado',
+  profissionalAlterado: 'agenda.profissional.alterado',
+} as const
+
+export type AgendaRoutingKey = (typeof AGENDA_ROUTING_KEYS)[keyof typeof AGENDA_ROUTING_KEYS]
+
+/** Eventos que o scheduling-service consome (PRD §8, parágrafo final). */
+export const AGENDA_CONSUMED_ROUTING_KEYS = [
+  'pet.obito',
+  'pet.transferido',
+  'tutor.anonimizado',
+  'tutor.mesclado',
+  'lancamento.criado',
+] as const
+
+/**
+ * Um bloqueio entrou na agenda. `professionalId` nulo é o feriado do tenant inteiro.
+ *
+ * `cancelledAppointmentIds` existe porque o AC-02 permite cancelar em lote junto com
+ * a criação do bloqueio: quem consome (CRM, notificação) precisa saber **quais**
+ * agendamentos caíram para avisar os tutores, e um evento por agendamento cancelado
+ * separaria a causa do efeito.
+ */
+export interface AgendaBloqueioCriadoEvent extends BaseEvent {
+  tenantId: string
+  blockId: string
+  professionalId: string | null
+  startsAt: string
+  endsAt: string
+  cancelledAppointmentIds: string[]
+}
+
+/**
+ * O catálogo do que se vende mudou. Carrega o **efeito** e não o conteúdo: quem
+ * consome (Portal, site do tenant) precisa saber que o seletor mudou para invalidar
+ * cache, não quanto passou a custar o banho.
+ */
+export interface AgendaServicoAlteradoEvent extends BaseEvent {
+  tenantId: string
+  serviceId: string
+  action: 'CREATED' | 'UPDATED' | 'DEACTIVATED' | 'PRICING_CHANGED'
+}
+
+export interface AgendaProfissionalAlteradoEvent extends BaseEvent {
+  tenantId: string
+  professionalId: string
+  action: 'CREATED' | 'UPDATED' | 'DEACTIVATED' | 'SCHEDULE_CHANGED'
+}
+
+/**
+ * Mapa da fatia 1. Os eventos de agendamento (`agendamento.*`, `atendimento.*`)
+ * entram quando a tabela `appointments` existir — declarar payload de evento antes
+ * de existir quem o publique é inventar a forma do atendimento cedo demais, o mesmo
+ * erro que a porta de agenda do pet-service evitou.
+ */
+export interface AgendaEventMap {
+  'agenda.bloqueio.criado': AgendaBloqueioCriadoEvent
+  'agenda.servico.alterado': AgendaServicoAlteradoEvent
+  'agenda.profissional.alterado': AgendaProfissionalAlteradoEvent
+}

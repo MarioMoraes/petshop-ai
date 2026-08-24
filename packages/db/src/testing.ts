@@ -127,6 +127,13 @@ export function createRawAppClient(): PrismaClient {
 }
 
 const BUSINESS_TABLES = [
+  // MOD-AGENDA — na frente das tabelas de pet e tutor, que elas referenciam.
+  'calendar_blocks',
+  'professional_schedules',
+  'professional_services',
+  'professionals',
+  'service_pricing',
+  'services',
   'allergies',
   'temperaments',
   'medical_alerts',

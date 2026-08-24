@@ -119,6 +119,22 @@ const Step3Schema = z.object({
   cancellationWindowHours: z.number().int().min(0).max(72),
   minBookingNoticeHours: z.number().int().min(0).max(168),
   noShowFeePercent: z.number().int().min(0).max(100),
+  /**
+   * Quem atende. O catálogo de serviços já veio semeado no provisionamento; nome de
+   * gente é o que o sistema não consegue adivinhar, e sem pelo menos um profissional
+   * a agenda não existe. Lista vazia passa: dá para cadastrar depois em
+   * `/profissionais`.
+   */
+  professionals: z
+    .array(
+      z.object({
+        displayName: z.string().trim().min(2).max(60),
+        roleKey: z.enum(['GROOMER', 'BATHER', 'VET', 'DRIVER']),
+        maxConcurrentPets: z.number().int().min(1).max(20),
+      }),
+    )
+    .max(30)
+    .default([]),
 })
 
 export async function saveStep3Action(input: unknown): Promise<ActionResult> {

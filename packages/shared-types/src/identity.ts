@@ -247,6 +247,25 @@ const Step2Schema = z.object({
   data: z.object({ plan: PlanSchema }),
 })
 
+/**
+ * Quem atende, coletado na etapa 3.
+ *
+ * É o único dado da agenda que o provisionamento **não** consegue semear: serviço e
+ * preço têm padrão de mercado, nome de gente não tem. Sem pelo menos um profissional
+ * a agenda não existe, por mais completo que o catálogo esteja.
+ *
+ * A jornada não é perguntada aqui de propósito: ela nasce igual ao horário de
+ * funcionamento que o próprio passo acabou de definir, e quem trabalha em horário
+ * diferente ajusta na tela de profissionais. Perguntar a semana de cada pessoa
+ * dentro de um wizard transformaria a etapa em formulário de RH.
+ */
+const OnboardingProfessionalSchema = z.object({
+  displayName: z.string().trim().min(2).max(60),
+  roleKey: z.enum(['GROOMER', 'BATHER', 'VET', 'DRIVER']),
+  maxConcurrentPets: z.number().int().min(1).max(20).default(1),
+})
+export type OnboardingProfessionalInput = z.output<typeof OnboardingProfessionalSchema>
+
 const Step3Schema = z.object({
   step: z.literal(3),
   data: z.object({
@@ -255,6 +274,8 @@ const Step3Schema = z.object({
     cancellationWindowHours: z.number().int().min(0).max(72),
     minBookingNoticeHours: z.number().int().min(0).max(168),
     noShowFeePercent: z.number().int().min(0).max(100).optional(),
+    /** Vazio é permitido: o admin pode cadastrar a equipe depois, em `/profissionais`. */
+    professionals: z.array(OnboardingProfessionalSchema).max(30).default([]),
   }),
 })
 

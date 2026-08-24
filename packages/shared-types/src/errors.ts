@@ -62,10 +62,29 @@ export const PET_ERRORS = {
 
 export type PetErrorCode = keyof typeof PET_ERRORS
 
+/** PRD agenda_operacao_06 §5. */
+export const AGENDA_ERRORS = {
+  ERR_AGENDA_001: { status: 404, title: 'Agendamento não encontrado' },
+  ERR_AGENDA_002: { status: 422, title: 'Dados de entrada inválidos' },
+  ERR_AGENDA_003: { status: 403, title: 'Permissão insuficiente' },
+  ERR_AGENDA_004: { status: 409, title: 'Capacidade do profissional esgotada' },
+  ERR_AGENDA_005: { status: 409, title: 'Profissional indisponível no horário' },
+  ERR_AGENDA_006: { status: 409, title: 'Transição de status inválida' },
+  ERR_AGENDA_007: { status: 422, title: 'Antecedência mínima não respeitada' },
+  ERR_AGENDA_008: { status: 409, title: 'Débito acima do limite' },
+  ERR_AGENDA_009: { status: 409, title: 'Alerta clínico crítico não reconhecido' },
+  ERR_AGENDA_010: { status: 409, title: 'Pet ou tutor indisponível' },
+  ERR_AGENDA_011: { status: 409, title: 'Serviço em uso' },
+  ERR_AGENDA_012: { status: 409, title: 'Profissional com agendamentos futuros' },
+} as const
+
+export type AgendaErrorCode = keyof typeof AGENDA_ERRORS
+
 export const ERROR_CATALOG = {
   ...IDENTITY_ERRORS,
   ...TUTOR_ERRORS,
   ...PET_ERRORS,
+  ...AGENDA_ERRORS,
 } as const
 
 export type ErrorCode = keyof typeof ERROR_CATALOG
