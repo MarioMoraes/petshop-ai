@@ -1,4 +1,5 @@
 import { PrismaClient } from '../generated/client/index.js'
+import type { Prisma } from '../generated/client/index.js'
 import {
   TenantContextMissingError,
   assertValidTenantId,
@@ -57,6 +58,9 @@ const RLS_MODELS = new Set([
   'ProfessionalService',
   'ProfessionalSchedule',
   'CalendarBlock',
+  'Appointment',
+  'AppointmentItem',
+  'AppointmentStatusLog',
 ])
 
 export interface DbLogger {
@@ -147,6 +151,18 @@ export interface WithTenantOptions {
   /** Teto da transação interativa; o padrão cobre handlers de requisição. */
   timeoutMs?: number
   maxWaitMs?: number
+  /**
+   * Nível de isolamento. O padrão do Postgres (`ReadCommitted`) serve para quase
+   * tudo; `Serializable` existe para o RN-13 do MOD-AGENDA, em que contar os
+   * atendimentos de uma janela e inserir mais um precisa ser atômico contra
+   * *phantom reads* — não há linha a travar, porque a linha em disputa é a que ainda
+   * não existe.
+   *
+   * Quem pedir `Serializable` **precisa** tratar o erro de serialização (40001): sob
+   * esse nível o banco aborta uma das transações concorrentes, e isso é
+   * funcionamento normal, não falha.
+   */
+  isolationLevel?: Prisma.TransactionIsolationLevel
 }
 
 /**
@@ -176,6 +192,7 @@ export async function withTenant<T>(
       {
         maxWait: options.maxWaitMs ?? 5_000,
         timeout: options.timeoutMs ?? 15_000,
+        ...(options.isolationLevel ? { isolationLevel: options.isolationLevel } : {}),
       },
     ),
   )

@@ -133,6 +133,138 @@ export async function sizeIds(): Promise<Record<'SMALL' | 'MEDIUM' | 'LARGE' | '
   }
 }
 
+/**
+ * Pet com responsável principal, criado direto no banco.
+ *
+ * O scheduling-service lê pets e tutores mas não os cria — quem cadastra são os
+ * outros serviços, e chamá-los daqui acoplaria as suítes. O que importa para a agenda
+ * é a linha existir no tenant certo, com porte e pelagem, que são o que decide a
+ * duração.
+ */
+export async function givenPet(
+  fixture: TenantFixture,
+  options: { name?: string; sizeKey?: string; coatKey?: string | null; status?: string } = {},
+): Promise<{ petId: string; tutorId: string }> {
+  const [species, size, coat] = await Promise.all([
+    ownerPrisma.species.findFirstOrThrow({ where: { key: 'DOG', tenantId: null } }),
+    ownerPrisma.size.findFirstOrThrow({
+      where: { key: options.sizeKey ?? 'LARGE', tenantId: null },
+    }),
+    options.coatKey === null
+      ? Promise.resolve(null)
+      : ownerPrisma.coat.findFirstOrThrow({
+          where: { key: options.coatKey ?? 'SHORT', tenantId: null },
+        }),
+  ])
+
+  return withTenant(fixture.tenantId, async (tx) => {
+    const tutor = await tx.tutor.create({
+      data: {
+        tenantId: fixture.tenantId,
+        personType: 'PF',
+        fullName: `Tutor de ${options.name ?? 'Thor'}`,
+        // A agenda não lê telefone; o que importa é a linha existir com o hash único
+        // que o índice de busca exige.
+        phoneEncrypted: 'v1:teste',
+        phoneHash: randomUUID(),
+        status: 'ACTIVE',
+      },
+    })
+
+    const pet = await tx.pet.create({
+      data: {
+        tenantId: fixture.tenantId,
+        name: options.name ?? 'Thor',
+        speciesId: species.id,
+        sizeId: size.id,
+        ...(coat ? { coatId: coat.id } : {}),
+        status: (options.status ?? 'ACTIVE') as 'ACTIVE',
+      },
+    })
+
+    await tx.petTutor.create({
+      data: {
+        tenantId: fixture.tenantId,
+        petId: pet.id,
+        tutorId: tutor.id,
+        role: 'PRIMARY',
+      },
+    })
+
+    return { petId: pet.id, tutorId: tutor.id }
+  })
+}
+
+/** Serviço com preço e duração em todos os portes. */
+export async function givenService(
+  fixture: TenantFixture,
+  options: { name?: string; category?: string; durationMin?: number; priceCents?: number } = {},
+): Promise<string> {
+  const sizes = await ownerPrisma.size.findMany({ where: { tenantId: null } })
+
+  return withTenant(fixture.tenantId, async (tx) => {
+    const service = await tx.service.create({
+      data: {
+        tenantId: fixture.tenantId,
+        name: options.name ?? 'Banho',
+        category: (options.category ?? 'BATH') as 'BATH',
+        baseDurationMin: options.durationMin ?? 60,
+        pricing: {
+          create: sizes.map((size) => ({
+            tenantId: fixture.tenantId,
+            sizeId: size.id,
+            priceCents: BigInt(options.priceCents ?? 7000),
+            durationMin: options.durationMin ?? 60,
+          })),
+        },
+      },
+    })
+    return service.id
+  })
+}
+
+/**
+ * Profissional habilitado nos serviços, com jornada.
+ *
+ * A jornada padrão cobre a semana inteira das 08:00 às 18:00 **em UTC**: os testes
+ * raciocinam em instantes, e misturar fuso aqui só esconderia o que está sendo
+ * verificado.
+ */
+export async function givenProfessional(
+  fixture: TenantFixture,
+  options: {
+    name?: string
+    serviceIds?: string[]
+    maxConcurrentPets?: number
+    windows?: { weekday: number; startsAtMin: number; endsAtMin: number }[]
+  } = {},
+): Promise<string> {
+  const windows =
+    options.windows ??
+    [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, startsAtMin: 480, endsAtMin: 1080 }))
+
+  return withTenant(fixture.tenantId, async (tx) => {
+    const professional = await tx.professional.create({
+      data: {
+        tenantId: fixture.tenantId,
+        displayName: options.name ?? 'Ana',
+        roleKey: 'BATHER',
+        maxConcurrentPets: options.maxConcurrentPets ?? 1,
+        schedules: {
+          create: windows.map((window) => ({ tenantId: fixture.tenantId, ...window })),
+        },
+        services: {
+          create: (options.serviceIds ?? []).map((serviceId) => ({
+            tenantId: fixture.tenantId,
+            serviceId,
+          })),
+        },
+      },
+    })
+    return professional.id
+  })
+}
+
 // ─── Requisições autenticadas ────────────────────────────────────────────────
 
 export interface CallerOptions {
