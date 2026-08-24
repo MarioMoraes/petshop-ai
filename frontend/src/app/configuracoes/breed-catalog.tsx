@@ -99,7 +99,7 @@ export function BreedCatalog({ species, canManage }: Props) {
         <Field label="Espécie" htmlFor="catalog-species">
           <select
             id="catalog-species"
-            className="input"
+            className="field"
             value={speciesId}
             onChange={(event) => setSpeciesId(event.target.value)}
           >
@@ -120,7 +120,7 @@ export function BreedCatalog({ species, canManage }: Props) {
             >
               <input
                 id="catalog-label"
-                className="input w-64"
+                className="field w-64"
                 value={label}
                 onChange={(event) => setLabel(event.target.value)}
                 placeholder="Ex.: Vira-lata Caramelo"

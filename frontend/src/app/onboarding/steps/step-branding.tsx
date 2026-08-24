@@ -102,6 +102,23 @@ export function StepBranding({
               Confirmado
             </span>
           </div>
+
+          {/*
+           * Esta é a mesma cor que passa a focar todo campo de formulário do admin
+           * (via `--color-focus`, herdado do `AppShell`) — a prévia mostra o efeito
+           * antes de concluir, não só o botão e a pílula.
+           */}
+          <input
+            type="text"
+            readOnly
+            value="Um campo do sistema, em foco"
+            aria-label="Prévia do foco em um campo de formulário"
+            className="field mt-3 max-w-xs"
+            style={{
+              borderColor: primaryColor,
+              boxShadow: `0 1px 0 rgba(255,255,255,0.9) inset, 0 8px 20px -14px rgba(35,36,39,0.25), 0 0 0 3px ${primaryColor}33`,
+            }}
+          />
         </div>
       </div>
 

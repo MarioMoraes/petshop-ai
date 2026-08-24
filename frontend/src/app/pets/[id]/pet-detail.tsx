@@ -539,7 +539,7 @@ function PesoTab({
               <input
                 id="weight"
                 inputMode="decimal"
-                className="input w-32"
+                className="field w-32"
                 value={weight}
                 onChange={(event) => setWeight(event.target.value)}
                 placeholder="12,4"
@@ -869,7 +869,7 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
       <Field label="Motivo" htmlFor="transfer-reason">
         <select
           id="transfer-reason"
-          className="input"
+          className="field"
           value={reason}
           onChange={(event) => setReason(event.target.value as TransferReason)}
         >
@@ -884,7 +884,7 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
       <Field label="Observação (opcional)" htmlFor="transfer-notes">
         <textarea
           id="transfer-notes"
-          className="input"
+          className="field"
           rows={2}
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
@@ -897,7 +897,7 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
       >
         <input
           id="transfer-confirmation"
-          className="input font-mono"
+          className="field font-mono"
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
           autoComplete="off"
@@ -998,7 +998,7 @@ function DeathPanel({ pet }: { pet: PetResponse }) {
         <input
           id="deceased-at"
           type="date"
-          className="input"
+          className="field"
           value={deceasedAt}
           max={new Date().toISOString().slice(0, 10)}
           onChange={(event) => setDeceasedAt(event.target.value)}
@@ -1008,7 +1008,7 @@ function DeathPanel({ pet }: { pet: PetResponse }) {
       <Field label="Observação (opcional)" htmlFor="deceased-notes">
         <textarea
           id="deceased-notes"
-          className="input"
+          className="field"
           rows={2}
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
@@ -1073,7 +1073,7 @@ function DeathReversalPanel({ pet }: { pet: PetResponse }) {
       >
         <textarea
           id="reversal-justification"
-          className="input"
+          className="field"
           rows={3}
           value={justification}
           onChange={(event) => setJustification(event.target.value)}

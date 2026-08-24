@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import type { MeResponse } from '@petshop/shared-types'
 import { Atmosphere } from './atmosphere'
@@ -76,8 +76,15 @@ export function AppShell({ active, me, atmosphere = false, children }: AppShellP
   const trialDaysLeft = trialDaysLeftOf(me.currentTenant?.trialEndsAt)
   const roleLabel = roleLabelOf(me)
 
+  // `--color-focus` chega de `/v1/me` como a cor de marca do tenant corrente
+  // (Configurações → Identidade visual). Sem tenant, `me.primaryColor` é `null` e o
+  // campo herda o acento padrão que `globals.css` já define na raiz.
+  const brandStyle = me.primaryColor
+    ? ({ '--color-focus': me.primaryColor } as CSSProperties)
+    : undefined
+
   return (
-    <div className="flex min-h-[100svh] bg-surface">
+    <div className="flex min-h-[100svh] bg-surface" style={brandStyle}>
       <Sidebar active={active} items={items} />
 
       <div className="flex min-w-0 flex-1 flex-col">

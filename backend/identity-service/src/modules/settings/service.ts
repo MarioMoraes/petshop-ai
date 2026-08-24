@@ -2,6 +2,7 @@ import { withTenant, type TenantSettings as TenantSettingsRow } from '@petshop/d
 import {
   BrandingSchema,
   BusinessHoursSchema,
+  DEFAULT_BRANDING,
   IDENTITY_ROUTING_KEYS,
   type Branding,
   type BusinessHours,
@@ -33,6 +34,27 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
   const settings = toSettings(row)
   await cacheSet(CACHE_KEYS.tenantSettings(tenantId), settings, CACHE_TTL_SECONDS.tenantSettings)
   return settings
+}
+
+/**
+ * `branding.primaryColor` do tenant, resolvido com o padrão do sistema quando ele
+ * ainda não tem `TenantSettings` (onboarding em andamento).
+ *
+ * Existe separado de `getSettings` porque quem chama é `/v1/me` — a primeira
+ * requisição de toda sessão (SLO de p95 120ms) e sem `tenant:read_settings` na
+ * maioria dos perfis. Reaproveita o mesmo cache de `getSettings` quando já está
+ * quente; no frio, um `select` só de `branding` evita validar a grade de horários e o
+ * resto das configurações para devolver uma cor.
+ */
+export async function getPrimaryColor(tenantId: string): Promise<string> {
+  const cached = await cacheGet<TenantSettings>(CACHE_KEYS.tenantSettings(tenantId))
+  if (cached) return cached.branding.primaryColor
+
+  const row = await withTenant(tenantId, (tx) =>
+    tx.tenantSettings.findUnique({ where: { tenantId }, select: { branding: true } }),
+  )
+  if (!row) return DEFAULT_BRANDING.primaryColor
+  return parseBranding(row.branding).primaryColor
 }
 
 export interface UpdateSettingsParams {

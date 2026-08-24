@@ -186,7 +186,7 @@ function AllergySection({
             <Field label="Tipo" htmlFor="allergy-type">
               <select
                 id="allergy-type"
-                className="input"
+                className="field"
                 value={type}
                 onChange={(event) => setType(event.target.value as AllergyType)}
               >
@@ -201,7 +201,7 @@ function AllergySection({
             <Field label="Severidade" htmlFor="allergy-severity">
               <select
                 id="allergy-severity"
-                className="input"
+                className="field"
                 value={severity}
                 onChange={(event) => setSeverity(event.target.value as ClinicalSeverity)}
               >
@@ -217,7 +217,7 @@ function AllergySection({
           <Field label="Substância ou produto" htmlFor="allergy-label">
             <input
               id="allergy-label"
-              className="input"
+              className="field"
               value={label}
               onChange={(event) => setLabel(event.target.value)}
               placeholder="Ex.: Shampoo neutro marca X"
@@ -231,7 +231,7 @@ function AllergySection({
           >
             <textarea
               id="allergy-reaction"
-              className="input"
+              className="field"
               rows={2}
               value={reaction}
               onChange={(event) => setReaction(event.target.value)}
@@ -317,7 +317,7 @@ function AllergySection({
                   >
                     <textarea
                       id={`justify-${allergy.id}`}
-                      className="input"
+                      className="field"
                       rows={2}
                       value={justification}
                       onChange={(event) => setJustification(event.target.value)}
@@ -430,7 +430,7 @@ function TemperamentSection({
           <Field label="Classificação" htmlFor="temperament-class">
             <select
               id="temperament-class"
-              className="input"
+              className="field"
               value={classification}
               onChange={(event) =>
                 setClassification(event.target.value as TemperamentClassification)
@@ -483,7 +483,7 @@ function TemperamentSection({
           >
             <textarea
               id="temperament-notes"
-              className="input"
+              className="field"
               rows={2}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
@@ -601,7 +601,7 @@ function MedicalAlertSection({
             <Field label="Condição" htmlFor="alert-condition">
               <input
                 id="alert-condition"
-                className="input"
+                className="field"
                 value={condition}
                 onChange={(event) => setCondition(event.target.value)}
                 placeholder="Ex.: Cardiopatia"
@@ -611,7 +611,7 @@ function MedicalAlertSection({
             <Field label="Severidade" htmlFor="alert-severity">
               <select
                 id="alert-severity"
-                className="input"
+                className="field"
                 value={severity}
                 onChange={(event) => setSeverity(event.target.value as ClinicalSeverity)}
               >
@@ -631,7 +631,7 @@ function MedicalAlertSection({
           >
             <textarea
               id="alert-instructions"
-              className="input"
+              className="field"
               rows={2}
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}
@@ -704,7 +704,7 @@ function MedicalAlertSection({
                   <Field label="Justificativa" htmlFor={`justify-alert-${alert.id}`}>
                     <textarea
                       id={`justify-alert-${alert.id}`}
-                      className="input"
+                      className="field"
                       rows={2}
                       value={justification}
                       onChange={(event) => setJustification(event.target.value)}

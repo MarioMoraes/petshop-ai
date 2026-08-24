@@ -321,6 +321,16 @@ export const MeResponseSchema = z.object({
     mfaEnabled: z.boolean(),
   }),
   currentTenant: TenantResponseSchema.nullable(),
+  /**
+   * `branding.primaryColor` do tenant corrente (Configurações → Identidade visual),
+   * já resolvido com o padrão do sistema quando o estabelecimento ainda não tem
+   * `TenantSettings` (onboarding em andamento). `null` sem tenant corrente. É o que
+   * o frontend usa para colorir o foco dos campos de formulário com a cor da marca.
+   */
+  primaryColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Use uma cor no formato #RRGGBB')
+    .nullable(),
   memberships: z.array(MembershipSummarySchema),
   permissions: z.array(z.string()),
   permVersion: z.number().int(),

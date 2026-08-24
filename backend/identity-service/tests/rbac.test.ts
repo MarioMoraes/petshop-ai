@@ -358,6 +358,8 @@ describe('GET /v1/me', () => {
     const body = response.json()
     expect(body.user.email).toBe('perfil@petshop.test')
     expect(body.currentTenant.slug).toBe('perfil')
+    // `TenantSettings` já nasce com o branding padrão no provisionamento.
+    expect(body.primaryColor).toBe('#E34A32')
     expect(body.memberships).toHaveLength(1)
     expect(body.memberships[0]).toMatchObject({ roleKey: 'TENANT_ADMIN', roleLabel: 'Administrador' })
     expect(body.permissions).toContain('tutor:delete')
@@ -383,6 +385,7 @@ describe('GET /v1/me', () => {
     expect(response.statusCode).toBe(200)
     const body = response.json()
     expect(body.currentTenant).toBeNull()
+    expect(body.primaryColor).toBeNull()
     expect(body.permissions).toEqual([])
     expect(body.memberships).toHaveLength(2)
     expect(body.memberships.map((m: { tenantSlug: string }) => m.tenantSlug).sort()).toEqual([

@@ -44,6 +44,14 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /*
+     * Cor de foco dos campos de formulário. O padrão é o acento do design; o `AppShell`
+     * sobrescreve esta variável com `branding.primaryColor` do tenant (Configurações →
+     * Identidade visual), então cada estabelecimento vê seus próprios campos focarem na
+     * cor que escolheu. Fora do shell autenticado — login, onboarding, antes de a marca
+     * existir — o acento padrão é a única opção sensata.
+     */
+    --color-focus: var(--color-accent);
   }
 
   body {
@@ -350,15 +358,26 @@
     }
   }
 
+  /*
+   * Campo de formulário (§Formulário do design-modelo): borda branca e sombra de
+   * elevação em vez de linha cinza — "o contorno percebido vem da sombra", não da
+   * borda. No foco, a borda e o anel assumem `--color-focus`: o acento do design por
+   * padrão, a cor da marca do tenant dentro do `AppShell`.
+   */
   .field {
     width: 100%;
     border-radius: 14px;
-    border: 1px solid var(--color-line);
+    border: 1px solid #ffffff;
     background-color: var(--color-card);
     padding: 0.75rem 1rem;
     font-size: 0.9375rem;
     color: var(--color-ink);
-    transition: border-color 0.2s;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 8px 20px -14px rgb(35 36 39 / 0.25);
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s;
   }
 
   .field::placeholder {
@@ -366,12 +385,28 @@
   }
 
   .field:focus {
-    border-color: var(--color-ink);
+    border-color: var(--color-focus);
     outline: none;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 8px 20px -14px rgb(35 36 39 / 0.25),
+      0 0 0 3px color-mix(in srgb, var(--color-focus) 20%, transparent);
+  }
+
+  .field:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 
   .field[aria-invalid='true'] {
     border-color: var(--color-danger);
+  }
+
+  .field[aria-invalid='true']:focus {
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 8px 20px -14px rgb(35 36 39 / 0.25),
+      0 0 0 3px color-mix(in srgb, var(--color-danger) 20%, transparent);
   }
 
   .label {
