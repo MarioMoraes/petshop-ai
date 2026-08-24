@@ -169,7 +169,11 @@ export function createApiClient(options: ApiClientOptions) {
     const response = await doFetch(`${options.baseUrl}${path}`, {
       method,
       headers: {
-        'content-type': 'application/json',
+        // Sem corpo, sem `content-type`. O Fastify 5 do gateway rejeita
+        // `application/json` com corpo vazio (`FST_ERR_CTP_EMPTY_JSON_BODY`) — e todo
+        // DELETE sem payload (excluir foto, excluir pet, desvincular tutor…) mandava
+        // esse header à toa e caía no 500 genérico antes de chegar na rota.
+        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
         ...(token ? { authorization: `Bearer ${token}` } : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

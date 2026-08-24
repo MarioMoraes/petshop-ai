@@ -12,6 +12,16 @@ const config: NextConfig = {
   // Os pacotes do monorepo são consumidos como TypeScript, sem passo de build.
   transpilePackages: ['@petshop/shared-types', '@petshop/api-client'],
   typedRoutes: true,
+  experimental: {
+    serverActions: {
+      // `uploadPhotosAction` (MOD-PET-04) recebe o FormData inteiro na Server Action
+      // antes de qualquer validação nossa rodar. O padrão do Next é 1 MB, bem abaixo
+      // do que MAX_PHOTO_BYTES × MAX_PHOTOS_PER_UPLOAD (shared-types/pet.ts) permite:
+      // 10 MB por foto, até 10 fotos por envio. Sem isto o upload morre com "Body
+      // exceeded 1 MB limit" antes mesmo de chegar ao gateway.
+      bodySizeLimit: '100mb',
+    },
+  },
   webpack: (webpackConfig) => {
     // O código dos pacotes usa import ESM com extensão (`./identity.js`), que é o
     // que o TypeScript emite. O webpack precisa saber que o arquivo real é `.ts`.
