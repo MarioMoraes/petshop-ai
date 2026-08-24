@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
-import { AppHeader, trialDaysLeftOf } from '@/components/app-header'
-import { PageHeader, Shell } from '@/components/ui'
+import { AppShell } from '@/components/app-shell'
+import { PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { SettingsForm } from './settings-form'
 
@@ -37,32 +37,24 @@ export default async function ConfiguracoesPage() {
   ])
 
   return (
-    <Shell>
-      <AppHeader
-        active="configuracoes"
-        canReadSettings
-        trialDaysLeft={trialDaysLeftOf(me.currentTenant.trialEndsAt)}
-      />
+    <AppShell active="configuracoes" me={me}>
+      <div className="mx-auto max-w-3xl">
+        <PageHeader
+          eyebrow="Estabelecimento"
+          title="Configurações"
+          subtitle="Dados, horário de funcionamento, políticas de agendamento, identidade visual e catálogo de raças."
+        />
 
-      <main className="flex-1 px-6 pb-16 pt-8 sm:px-10">
-        <div className="mx-auto max-w-3xl">
-          <PageHeader
-            eyebrow="Estabelecimento"
-            title="Configurações"
-            subtitle="Dados, horário de funcionamento, políticas de agendamento, identidade visual e catálogo de raças."
+        <div className="mt-10">
+          <SettingsForm
+            tenant={tenant}
+            settings={settings}
+            species={species}
+            canEdit={me.permissions.includes('tenant:configure')}
+            canManageCatalog={canManageCatalog}
           />
-
-          <div className="mt-10">
-            <SettingsForm
-              tenant={tenant}
-              settings={settings}
-              species={species}
-              canEdit={me.permissions.includes('tenant:configure')}
-              canManageCatalog={canManageCatalog}
-            />
-          </div>
         </div>
-      </main>
-    </Shell>
+      </div>
+    </AppShell>
   )
 }

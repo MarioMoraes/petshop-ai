@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
-import { AppHeader, trialDaysLeftOf } from '@/components/app-header'
-import { Shell } from '@/components/ui'
+import { AppShell } from '@/components/app-shell'
 import { serverApi } from '@/lib/api'
 
 /**
@@ -18,16 +17,8 @@ export default async function TutoresLayout({ children }: { children: React.Reac
   if (!me.currentTenant?.onboardingCompletedAt) redirect('/onboarding')
 
   return (
-    <Shell>
-      <AppHeader
-        active="tutores"
-        canReadSettings={me.permissions.includes('tenant:read_settings')}
-        trialDaysLeft={trialDaysLeftOf(me.currentTenant.trialEndsAt)}
-      />
-
-      <main className="flex-1 px-6 pb-16 pt-8 sm:px-10">
-        <div className="mx-auto max-w-5xl">{children}</div>
-      </main>
-    </Shell>
+    <AppShell active="tutores" me={me}>
+      <div className="mx-auto max-w-5xl">{children}</div>
+    </AppShell>
   )
 }
