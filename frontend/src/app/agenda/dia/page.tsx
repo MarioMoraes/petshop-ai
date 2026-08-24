@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { AgendaTabs } from '../agenda-tabs'
@@ -42,6 +43,11 @@ export default async function DiaPage({ searchParams }: PageProps) {
           total === 0
             ? 'Nenhum atendimento marcado'
             : `${total} ${total === 1 ? 'atendimento' : 'atendimentos'}${emAtendimento > 0 ? ` · ${emAtendimento} em andamento` : ''}`
+        }
+        actions={
+          <Link href={`/agenda/novo?date=${date}`} className="btn btn-primary">
+            Marcar horário
+          </Link>
         }
       />
 

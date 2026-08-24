@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 import type { DayView } from '@petshop/shared-types'
@@ -147,9 +148,19 @@ export function DayBoard({ view, date }: Props) {
 
               <div className="mt-4 space-y-2">
                 {column.appointments.length === 0 ? (
-                  <p className="hint">
-                    {column.absent ? 'Sem atendimentos neste dia.' : 'Agenda livre.'}
-                  </p>
+                  column.absent ? (
+                    <p className="hint">Sem atendimentos neste dia.</p>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="hint">Agenda livre.</p>
+                      <Link
+                        href={`/agenda/novo?date=${date}`}
+                        className="text-sm underline decoration-line hover:decoration-fg"
+                      >
+                        Marcar horário
+                      </Link>
+                    </div>
+                  )
                 ) : (
                   column.appointments.map((appointment) => {
                     const critical = appointment.alerts.some((a) => a.severity === 'CRITICAL')

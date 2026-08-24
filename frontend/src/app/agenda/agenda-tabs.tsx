@@ -13,6 +13,7 @@ import { usePathname } from 'next/navigation'
 
 const TABS = [
   { href: '/agenda/dia', label: 'Dia' },
+  { href: '/agenda/novo', label: 'Marcar' },
   { href: '/agenda/servicos', label: 'Serviços' },
   { href: '/agenda/profissionais', label: 'Profissionais' },
 ] as const

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { ApiError } from '@petshop/api-client'
 import { randomUUID } from 'node:crypto'
 import {
+  CreateAppointmentSchema,
   CreateProfessionalSchema,
   CreateServiceSchema,
   ReplaceScheduleSchema,
@@ -36,6 +37,13 @@ export interface ActionFailure {
    */
   futureAppointments?: number
   appointments?: { id: string; startsAt: string; petName: string }[]
+  /** ERR_AGENDA_009: alerta clínico crítico a reconhecer antes de prosseguir. */
+  alerts?: { id: string; label: string; severity: string }[]
+  /** ERR_AGENDA_008: débito acima do limite; só um admin libera. */
+  requiresOverride?: boolean
+  balanceCents?: number
+  /** ERR_AGENDA_004 e 005: os horários livres mais próximos do que foi pedido. */
+  suggestions?: { startsAt: string; endsAt: string }[]
 }
 
 export type ActionResult<T> = { ok: true; data: T } | ActionFailure
@@ -52,6 +60,16 @@ function toFailure(error: unknown): ActionFailure {
         : {}),
       ...(Array.isArray(problem?.appointments)
         ? { appointments: problem.appointments as ActionFailure['appointments'] }
+        : {}),
+      ...(Array.isArray(problem?.alerts)
+        ? { alerts: problem.alerts as ActionFailure['alerts'] }
+        : {}),
+      ...(problem?.requiresOverride === true ? { requiresOverride: true } : {}),
+      ...(typeof problem?.balanceCents === 'number'
+        ? { balanceCents: problem.balanceCents }
+        : {}),
+      ...(Array.isArray(problem?.suggestions)
+        ? { suggestions: problem.suggestions as ActionFailure['suggestions'] }
         : {}),
     }
   }
@@ -227,6 +245,87 @@ export async function cancelAppointmentAction(
 ): Promise<ActionResult<AppointmentResponse>> {
   try {
     const appointment = await serverApi().cancelAppointment(id, input)
+    revalidatePath('/agenda/dia')
+    return { ok: true, data: appointment }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Busca de pets para o seletor do agendamento.
+ *
+ * Server action e não chamada direta do cliente: o token do Clerk e a URL do gateway
+ * não podem ir para o browser. Devolve o mínimo que o seletor precisa — nome, tutor e
+ * porte —, e não o cadastro inteiro.
+ */
+export async function searchPetsAction(query: string): Promise<
+  ActionResult<{ id: string; name: string; tutorName: string; sizeLabel: string }[]>
+> {
+  try {
+    const result = await serverApi().listPets({ q: query, limit: 8 })
+    return {
+      ok: true,
+      data: result.data.map((pet) => ({
+        id: pet.id,
+        name: pet.name,
+        // O responsável principal é quem responde pelo agendamento; RN-16 admite
+        // cinco "Mel" no mesmo tenant, e é o nome do tutor que desfaz o empate.
+        tutorName:
+          pet.tutors.find((link) => link.role === 'PRIMARY')?.fullName ?? 'Sem responsável',
+        sizeLabel: pet.size.label,
+      })),
+    }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/** Horários livres já com a duração e o preço calculados para **este** pet. */
+export async function availabilityAction(query: {
+  serviceId: string
+  petId: string
+  professionalId?: string
+  from: string
+  to: string
+}): Promise<
+  ActionResult<{
+    slots: {
+      professionalId: string
+      professionalName: string
+      startsAt: string
+      endsAt: string
+      durationMin: number
+      priceCents: number
+    }[]
+    nextAvailable: string | null
+    durationMin: number
+    priceCents: number
+  }>
+> {
+  try {
+    return { ok: true, data: await serverApi().getAvailability(query) }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Cria o agendamento.
+ *
+ * Os gates do MOD-AGENDA-10 voltam como falha estruturada, não como exceção: o alerta
+ * clínico crítico (`alerts`) e o débito acima do limite (`requiresOverride`) são
+ * respostas legítimas que a tela precisa **mostrar** para o atendente decidir, e não
+ * erros a esconder. Reenviar com `acknowledgedAlerts` ou `override` conclui.
+ */
+export async function createAppointmentAction(
+  input: unknown,
+): Promise<ActionResult<AppointmentResponse>> {
+  const parsed = CreateAppointmentSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const appointment = await serverApi().createAppointment(parsed.data)
     revalidatePath('/agenda/dia')
     return { ok: true, data: appointment }
   } catch (error) {
