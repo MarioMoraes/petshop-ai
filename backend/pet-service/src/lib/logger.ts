@@ -1,4 +1,4 @@
-import { pino, type LoggerOptions } from 'pino'
+import { createLogger } from '@petshop/service-kit'
 import { loadEnv } from '../env.js'
 
 /**
@@ -6,33 +6,12 @@ import { loadEnv } from '../env.js'
  * no formato `{ metric, tenantId, value, unit }`.
  */
 
-export const loggerOptions: LoggerOptions = {
-  level: process.env.NODE_ENV === 'test' ? 'silent' : loadEnv().LOG_LEVEL,
-  base: { service: 'pet-service' },
-  redact: {
-    // O pet é dado pessoal por associação ao tutor (PRD §9): nome do tutor,
-    // telefone, microchip e observações não entram no log.
-    paths: [
-      '*.microchip',
-      '*.notes',
-      '*.fullName',
-      '*.phone',
-      '*.phoneMasked',
-      'req.headers.authorization',
-    ],
-    censor: '[redacted]',
-  },
-}
+export const { loggerOptions, logger, recordMetric } = createLogger({
+  service: 'pet-service',
+  level: loadEnv().LOG_LEVEL,
+  // O pet é dado pessoal por associação ao tutor (PRD §9): nome do tutor, telefone,
+  // microchip e observações não entram no log.
+  redact: ['*.microchip', '*.notes', '*.fullName', '*.phone', '*.phoneMasked'],
+})
 
-export const logger = pino(loggerOptions)
-
-export interface BusinessMetric {
-  metric: string
-  tenantId?: string
-  value: number
-  unit: string
-}
-
-export function recordMetric(metric: BusinessMetric): void {
-  logger.info(metric, 'métrica de negócio')
-}
+export type { BusinessMetric } from '@petshop/service-kit'

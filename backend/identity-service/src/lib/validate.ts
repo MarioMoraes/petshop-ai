@@ -1,4 +1,4 @@
-import type { ZodType } from 'zod'
+import { createParseInput } from '@petshop/service-kit'
 import { validationError } from './errors.js'
 
 /**
@@ -8,8 +8,4 @@ import { validationError } from './errors.js'
  * usa — e qualquer falha vira 422 `ERR_IDENT_002` com a lista de campos, no formato
  * que o PRD §5 define.
  */
-export function parseInput<T>(schema: ZodType<T>, value: unknown, detail?: string): T {
-  const parsed = schema.safeParse(value)
-  if (!parsed.success) throw validationError(parsed.error, detail)
-  return parsed.data
-}
+export const parseInput = createParseInput(validationError)

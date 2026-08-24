@@ -17,6 +17,7 @@
     "@fastify/multipart": "^10.1.1",
     "@petshop/db": "workspace:*",
     "@petshop/service-auth": "workspace:*",
+    "@petshop/service-kit": "workspace:*",
     "@petshop/shared-types": "workspace:*",
     "amqplib": "^0.10.9",
     "fastify": "^5.4.0",

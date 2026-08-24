@@ -1,4 +1,4 @@
-import { pino, type LoggerOptions } from 'pino'
+import { createLogger } from '@petshop/service-kit'
 import { loadEnv } from '../env.js'
 
 /**
@@ -6,31 +6,11 @@ import { loadEnv } from '../env.js'
  * no formato `{ metric, tenantId, value, unit }`.
  */
 
-export const loggerOptions: LoggerOptions = {
-  level: process.env.NODE_ENV === 'test' ? 'silent' : loadEnv().LOG_LEVEL,
-  base: { service: 'identity-service' },
-  redact: {
-    // PII nunca entra no log, nem por acidente de spread.
-    paths: ['*.email', '*.phone', '*.cnpj', 'req.headers.authorization'],
-    censor: '[redacted]',
-  },
-}
+export const { loggerOptions, logger, recordMetric } = createLogger({
+  service: 'identity-service',
+  level: loadEnv().LOG_LEVEL,
+  // PII nunca entra no log, nem por acidente de spread.
+  redact: ['*.email', '*.phone', '*.cnpj'],
+})
 
-/**
- * Logger para código fora de requisição — jobs, publisher de eventos, serviços.
- * O Fastify constrói o dele a partir de `loggerOptions`, com a mesma configuração:
- * passar esta instância como `loggerInstance` especializaria o tipo genérico do app
- * e quebraria o encaixe dos registradores de rota.
- */
-export const logger = pino(loggerOptions)
-
-export interface BusinessMetric {
-  metric: string
-  tenantId?: string
-  value: number
-  unit: string
-}
-
-export function recordMetric(metric: BusinessMetric): void {
-  logger.info(metric, 'métrica de negócio')
-}
+export type { BusinessMetric } from '@petshop/service-kit'

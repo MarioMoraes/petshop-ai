@@ -17,6 +17,7 @@
     "@fastify/rate-limit": "^10.3.0",
     "@petshop/db": "workspace:*",
     "@petshop/service-auth": "workspace:*",
+    "@petshop/service-kit": "workspace:*",
     "@petshop/shared-types": "workspace:*",
     "fastify": "^5.4.0",
     "ioredis": "^5.7.0",

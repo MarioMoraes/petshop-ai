@@ -1,82 +1,12 @@
-import { connect, type Channel, type ChannelModel } from 'amqplib'
-import { EVENTS_DLX, EVENTS_EXCHANGE, type RecordEventMap } from '@petshop/shared-types'
+import { createEventPublisher } from '@petshop/service-kit'
+import type { RecordEventMap } from '@petshop/shared-types'
 import { loadEnv } from '../env.js'
 import { logger } from './logger.js'
 
-/**
- * Publicação de eventos de domínio (PRD prontuario_04 §8).
- *
- * Publicação é best-effort e sempre pós-commit: o evento sai depois que a transação
- * fechou, e a falha do broker é registrada sem desfazer a operação de negócio.
- * Perder um evento é aceitável; perder o registro clínico não é.
- *
- * TODO(MOD-ADMIN): trocar por outbox transacional quando o consumo passar a ter
- * garantia de entrega exigida por SLA.
- */
+/** Publicação dos eventos do prontuário (PRD prontuario_04 §8). */
 
-let connection: ChannelModel | null = null
-let channel: Channel | null = null
-let connecting: Promise<void> | null = null
-
-async function ensureChannel(): Promise<Channel | null> {
-  if (loadEnv().DISABLE_EVENTS) return null
-  if (channel) return channel
-
-  connecting ??= (async () => {
-    connection = await connect(loadEnv().RABBITMQ_URL)
-    const ch = await connection.createChannel()
-    await ch.assertExchange(EVENTS_EXCHANGE, 'topic', { durable: true })
-    await ch.assertExchange(EVENTS_DLX, 'topic', { durable: true })
-    connection.on('close', () => {
-      channel = null
-      connection = null
-      connecting = null
-    })
-    channel = ch
-  })()
-
-  try {
-    await connecting
-  } catch (error) {
-    connecting = null
-    logger.error({ err: error }, 'Falha ao conectar no RabbitMQ')
-    return null
-  }
-  return channel
-}
-
-export async function publishEvent<K extends keyof RecordEventMap>(
-  routingKey: K,
-  payload: Omit<RecordEventMap[K], 'timestamp'>,
-): Promise<void> {
-  const body = { ...payload, timestamp: new Date().toISOString() }
-
-  try {
-    const ch = await ensureChannel()
-    if (!ch) {
-      logger.debug({ routingKey }, 'Publicação de evento desabilitada')
-      return
-    }
-    ch.publish(EVENTS_EXCHANGE, routingKey, Buffer.from(JSON.stringify(body)), {
-      contentType: 'application/json',
-      persistent: true,
-      timestamp: Date.now(),
-    })
-    logger.debug({ routingKey }, 'Evento publicado')
-  } catch (error) {
-    // Não propaga: a operação de negócio já foi comitada.
-    logger.error({ err: error, routingKey }, 'Falha ao publicar evento')
-  }
-}
-
-export async function closeEvents(): Promise<void> {
-  try {
-    await channel?.close()
-    await connection?.close()
-  } catch {
-    // Encerramento best-effort.
-  }
-  channel = null
-  connection = null
-  connecting = null
-}
+export const { publishEvent, closeEvents } = createEventPublisher<RecordEventMap>({
+  logger,
+  getUrl: () => loadEnv().RABBITMQ_URL,
+  isDisabled: () => loadEnv().DISABLE_EVENTS,
+})

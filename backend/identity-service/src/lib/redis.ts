@@ -1,4 +1,4 @@
-import { Redis } from 'ioredis'
+import { createCache } from '@petshop/service-kit'
 import { loadEnv } from '../env.js'
 import { logger } from './logger.js'
 
@@ -21,47 +21,8 @@ export const CACHE_TTL_SECONDS = {
   tenantStatus: 60,
 } as const
 
-let client: Redis | null = null
-
-export function getRedis(): Redis | null {
-  if (loadEnv().DISABLE_REDIS) return null
-  client ??= new Redis(loadEnv().REDIS_URL, {
-    maxRetriesPerRequest: 2,
-    lazyConnect: false,
-  }).on('error', (error) => {
-    logger.warn({ err: error }, 'Erro no Redis — seguindo sem cache')
-  })
-  return client
-}
-
-export async function cacheGet<T>(key: string): Promise<T | null> {
-  try {
-    const raw = await getRedis()?.get(key)
-    return raw ? (JSON.parse(raw) as T) : null
-  } catch (error) {
-    logger.warn({ err: error, key }, 'Falha ao ler do cache')
-    return null
-  }
-}
-
-export async function cacheSet(key: string, value: unknown, ttlSeconds: number): Promise<void> {
-  try {
-    await getRedis()?.set(key, JSON.stringify(value), 'EX', ttlSeconds)
-  } catch (error) {
-    logger.warn({ err: error, key }, 'Falha ao gravar no cache')
-  }
-}
-
-export async function cacheDelete(...keys: string[]): Promise<void> {
-  if (keys.length === 0) return
-  try {
-    await getRedis()?.del(...keys)
-  } catch (error) {
-    logger.warn({ err: error, keys }, 'Falha ao invalidar o cache')
-  }
-}
-
-export async function closeRedis(): Promise<void> {
-  await client?.quit().catch(() => undefined)
-  client = null
-}
+export const { getRedis, cacheGet, cacheSet, cacheDelete, closeRedis } = createCache({
+  logger,
+  getUrl: () => loadEnv().REDIS_URL,
+  isDisabled: () => loadEnv().DISABLE_REDIS,
+})

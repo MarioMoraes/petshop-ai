@@ -1,39 +1,17 @@
-import { pino, type LoggerOptions } from 'pino'
+import { createLogger } from '@petshop/service-kit'
 import { loadEnv } from '../env.js'
 
 /**
- * Pino, JSON estruturado (SPEC §8). As métricas do PRD prontuario_04 §10 saem por aqui,
- * no formato `{ metric, tenantId, value, unit }`.
+ * Pino, JSON estruturado (SPEC §8). As métricas do PRD prontuario_04 §10 saem por
+ * aqui, no formato `{ metric, tenantId, value, unit }`.
  */
 
-export const loggerOptions: LoggerOptions = {
-  level: process.env.NODE_ENV === 'test' ? 'silent' : loadEnv().LOG_LEVEL,
-  base: { service: 'medical-record-service' },
-  redact: {
-    // O pet é dado pessoal por associação ao tutor (PRD §9): nome do tutor,
-    // telefone, microchip e observações não entram no log.
-    paths: [
-      '*.reaction',
-      '*.instructions',
-      '*.notes',
-      '*.fullName',
-      '*.phone',
-      '*.phoneMasked',
-      'req.headers.authorization',
-    ],
-    censor: '[redacted]',
-  },
-}
+export const { loggerOptions, logger, recordMetric } = createLogger({
+  service: 'medical-record-service',
+  level: loadEnv().LOG_LEVEL,
+  // O pet é dado pessoal por associação ao tutor (PRD §9), e o conteúdo clínico —
+  // reação e posologia — é dado sensível por si só.
+  redact: ['*.reaction', '*.instructions', '*.notes', '*.fullName', '*.phone', '*.phoneMasked'],
+})
 
-export const logger = pino(loggerOptions)
-
-export interface BusinessMetric {
-  metric: string
-  tenantId?: string
-  value: number
-  unit: string
-}
-
-export function recordMetric(metric: BusinessMetric): void {
-  logger.info(metric, 'métrica de negócio')
-}
+export type { BusinessMetric } from '@petshop/service-kit'
