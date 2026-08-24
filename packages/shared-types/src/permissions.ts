@@ -80,6 +80,12 @@ export const PERMISSIONS = {
    * decide quanto custa um banho nem quem trabalha no sábado.
    */
   'schedule:manage_catalog': 'Gerenciar serviços, profissionais e jornadas',
+  /**
+   * AC-02 de MOD-AGENDA-10: liberar agendamento de tutor acima do limite de crédito.
+   * A matriz do §9 dá isso **só** ao TENANT_ADMIN — a recepção convive com o cliente
+   * e não deve carregar o peso de negar ou liberar crédito no balcão.
+   */
+  'schedule:override_credit': 'Liberar agendamento acima do limite de crédito',
 
   // Operação e relacionamento
   'taxi:operate': 'Operar o Taxi Dog',
@@ -179,6 +185,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'schedule:write_all',
     'schedule:write_own',
     'schedule:manage_catalog',
+    'schedule:override_credit',
     'checkin:manage',
     'taxi:operate',
     'crm:manage',

@@ -61,6 +61,7 @@ const RLS_MODELS = new Set([
   'Appointment',
   'AppointmentItem',
   'AppointmentStatusLog',
+  'AppointmentRecurrence',
 ])
 
 export interface DbLogger {

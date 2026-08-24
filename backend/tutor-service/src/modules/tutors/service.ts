@@ -635,9 +635,41 @@ async function assertNoBlockingHistory(tx: TenantTransaction, row: Tutor): Promi
   await assertNoFutureAppointments(tx, row)
 }
 
-async function assertNoFutureAppointments(_tx: TenantTransaction, _row: Tutor): Promise<void> {
-  // TODO(MOD-AGENDA): bloquear com ERR_TUTOR_005 listando os agendamentos futuros
-  // confirmados (AC-04 de MOD-TUTOR-08). A tabela `appointments` ainda não existe.
+/**
+ * AC-04 de MOD-TUTOR-08: tutor com agendamento futuro não é excluído.
+ *
+ * A leitura é direta em `appointments`, sob RLS — o mesmo acoplamento assumido que o
+ * tutor-service já tem com `pet_tutors`. A alternativa seria uma chamada HTTP ao
+ * scheduling-service dentro da transação de exclusão, o que atrelaria a exclusão à
+ * disponibilidade de outro serviço sem ganhar consistência nenhuma.
+ *
+ * "Futuro" é relativo a agora e só conta o que ainda ocupa lugar na agenda: um
+ * agendamento já cancelado não impede exclusão nenhuma.
+ */
+async function assertNoFutureAppointments(tx: TenantTransaction, row: Tutor): Promise<void> {
+  const future = await tx.appointment.findMany({
+    where: {
+      tutorId: row.id,
+      startsAt: { gt: new Date() },
+      status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] },
+    },
+    select: { id: true, startsAt: true, pet: { select: { name: true } } },
+    orderBy: { startsAt: 'asc' },
+    take: 20,
+  })
+
+  if (future.length === 0) return
+
+  throw blockedByHistory(
+    `Este tutor tem ${future.length} agendamento(s) futuro(s). Cancele-os antes de excluir o cadastro.`,
+    {
+      appointments: future.map((item) => ({
+        id: item.id,
+        startsAt: item.startsAt.toISOString(),
+        petName: item.pet.name,
+      })),
+    },
+  )
 }
 
 /**

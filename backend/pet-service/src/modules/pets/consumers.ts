@@ -15,8 +15,8 @@ import { invalidatePet } from '../../lib/redis.js'
  * estado inválido: anonimizar uma pessoa não pode apagar o histórico clínico do
  * animal, e mesclar dois cadastros não pode duplicar o vínculo com o mesmo pet.
  *
- * TODO(MOD-AGENDA): `atendimento.concluido` alimenta `pets.last_attendance_at`, do
- * mesmo jeito que já faz no tutor-service. O publicador ainda não existe.
+ * O terceiro, `atendimento.concluido`, alimenta dois campos denormalizados que a
+ * listagem lê e o RN-10 proíbe calcular na hora.
  */
 
 const QUEUE = 'pet-service.events'
@@ -35,6 +35,14 @@ const TutorMescladoSchema = z.object({
 const AlertaAlteradoSchema = z.object({
   tenantId: z.uuid(),
   petId: z.uuid(),
+})
+
+const AtendimentoConcluidoSchema = z.object({
+  tenantId: z.uuid(),
+  appointmentId: z.uuid(),
+  petId: z.uuid(),
+  /** Pesagem aferida no check-in; nula quando ninguém pesou. */
+  weightKg: z.number().positive().nullable().optional(),
 })
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
@@ -175,10 +183,67 @@ export async function handleAlertaAlterado(payload: unknown): Promise<void> {
   await invalidatePet(event.tenantId, event.petId)
 }
 
+/**
+ * O atendimento terminou (MOD-AGENDA §6).
+ *
+ * Escreve `pets.last_attendance_at`, que a listagem lê e o RN-10 proíbe calcular na
+ * hora — o SLO de 300ms não sobrevive a um `MAX(starts_at)` por linha.
+ *
+ * A pesagem do check-in, quando houve, entra na série de `pet_weights` e atualiza
+ * `pets.weight_kg`. É o mesmo caminho de MOD-PET-07, e não uma segunda escrita
+ * paralela: o peso do pet segue sendo "a pesagem mais recente da série".
+ *
+ * Idempotente por `appointmentId`: o broker entrega ao menos uma vez, e uma
+ * redundância de entrega não pode criar duas pesagens do mesmo atendimento.
+ */
+export async function handleAtendimentoConcluido(payload: unknown): Promise<void> {
+  const event = AtendimentoConcluidoSchema.parse(payload)
+
+  await withTenant(event.tenantId, async (tx) => {
+    const pet = await tx.pet.findFirst({
+      where: { id: event.petId },
+      select: { id: true, weightKg: true },
+    })
+    // O pet pode ter sido excluído entre o check-out e a entrega do evento.
+    if (!pet) return
+
+    await tx.pet.update({
+      where: { id: event.petId },
+      data: { lastAttendanceAt: new Date() },
+    })
+
+    if (event.weightKg == null) return
+
+    const alreadyRecorded = await tx.petWeight.findFirst({
+      where: { petId: event.petId, attendanceId: event.appointmentId },
+      select: { id: true },
+    })
+    if (alreadyRecorded) return
+
+    await tx.petWeight.create({
+      data: {
+        tenantId: event.tenantId,
+        petId: event.petId,
+        weightKg: event.weightKg,
+        attendanceId: event.appointmentId,
+        measuredAt: new Date(),
+      },
+    })
+
+    await tx.pet.update({
+      where: { id: event.petId },
+      data: { weightKg: event.weightKg },
+    })
+  })
+
+  await invalidatePet(event.tenantId, event.petId)
+}
+
 const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'tutor.anonimizado': handleTutorAnonimizado,
   'tutor.mesclado': handleTutorMesclado,
   'prontuario.alerta.alterado': handleAlertaAlterado,
+  'atendimento.concluido': handleAtendimentoConcluido,
 }
 
 let connection: ChannelModel | null = null

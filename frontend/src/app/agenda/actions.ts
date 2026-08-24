@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { ApiError } from '@petshop/api-client'
+import { randomUUID } from 'node:crypto'
 import {
   CreateProfessionalSchema,
   CreateServiceSchema,
@@ -9,6 +10,7 @@ import {
   ReplaceServicePricingSchema,
   UpdateProfessionalSchema,
   UpdateServiceSchema,
+  type AppointmentResponse,
   type ProfessionalResponse,
   type ServiceResponse,
 } from '@petshop/shared-types'
@@ -181,6 +183,52 @@ export async function replaceScheduleAction(
     const result = await serverApi().replaceProfessionalSchedule(id, parsed.data.windows)
     revalidateCatalog()
     return { ok: true, data: result }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Agendamentos ────────────────────────────────────────────────────────────
+
+export async function checkInAction(id: string): Promise<ActionResult<AppointmentResponse>> {
+  try {
+    const appointment = await serverApi().checkInAppointment(id)
+    revalidatePath('/agenda/dia')
+    return { ok: true, data: appointment }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * A chave de idempotência nasce **aqui**, no servidor, e não no cliente: o duplo
+ * clique no botão de concluir chega como duas requisições, e é esta chave que impede
+ * o débito de ser lançado duas vezes do lado do MOD-LEDGER.
+ */
+export async function checkOutAction(
+  id: string,
+  input: { weightKg?: number; notes?: string; extraItems?: { serviceId: string }[] },
+): Promise<ActionResult<AppointmentResponse>> {
+  try {
+    const appointment = await serverApi().checkOutAppointment(id, {
+      idempotencyKey: randomUUID(),
+      ...input,
+    })
+    revalidatePath('/agenda/dia')
+    return { ok: true, data: appointment }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function cancelAppointmentAction(
+  id: string,
+  input: { reason?: string; waiveFee?: boolean },
+): Promise<ActionResult<AppointmentResponse>> {
+  try {
+    const appointment = await serverApi().cancelAppointment(id, input)
+    revalidatePath('/agenda/dia')
+    return { ok: true, data: appointment }
   } catch (error) {
     return toFailure(error)
   }

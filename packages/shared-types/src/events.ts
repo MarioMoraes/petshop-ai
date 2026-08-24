@@ -367,13 +367,93 @@ export interface AgendaProfissionalAlteradoEvent extends BaseEvent {
 }
 
 /**
- * Mapa da fatia 1. Os eventos de agendamento (`agendamento.*`, `atendimento.*`)
- * entram quando a tabela `appointments` existir — declarar payload de evento antes
- * de existir quem o publique é inventar a forma do atendimento cedo demais, o mesmo
- * erro que a porta de agenda do pet-service evitou.
+ * O tutor pediu um horário e o petshop ainda não decidiu (AC-03 de MOD-AGENDA-06).
+ *
+ * Separado de `agendamento.criado` de propósito: quem consome `criado` manda a
+ * confirmação ao tutor, e confirmar algo que ainda pode ser recusado é pior do que
+ * não avisar. Este aqui alimenta a fila da recepção.
  */
+export interface AgendamentoSolicitadoEvent extends BaseEvent {
+  tenantId: string
+  appointmentId: string
+  petId: string
+  tutorId: string
+  startsAt: string
+}
+
+export interface AgendamentoCriadoEvent extends BaseEvent {
+  tenantId: string
+  appointmentId: string
+  petId: string
+  tutorId: string
+  professionalId: string
+  startsAt: string
+  endsAt: string
+  totalCents: number
+  source: 'STAFF' | 'PORTAL' | 'RECURRENCE' | 'AI_AGENT'
+}
+
+export interface AtendimentoIniciadoEvent extends BaseEvent {
+  tenantId: string
+  appointmentId: string
+  petId: string
+  professionalId: string
+}
+
+/**
+ * O evento mais consumido do sistema.
+ *
+ * Dele nascem o débito (MOD-LEDGER), o registro clínico (MOD-PRONT-01), o
+ * `pets.last_attendance_at` e a régua de relacionamento. Carrega os itens **com o
+ * preço congelado**, e não os ids dos serviços: quem lança o débito não pode
+ * reconsultar o catálogo, que já pode ter mudado de preço desde o agendamento.
+ */
+export interface AtendimentoConcluidoEvent extends BaseEvent {
+  tenantId: string
+  appointmentId: string
+  petId: string
+  tutorId: string
+  professionalId: string
+  items: { serviceId: string; label: string; priceCents: number }[]
+  totalCents: number
+  /** Pesagem aferida no check-in, quando houve (MOD-PET-07). */
+  weightKg: number | null
+}
+
+export interface AgendamentoCanceladoEvent extends BaseEvent {
+  tenantId: string
+  appointmentId: string
+  /** RN-06: dentro da janela de cancelamento. É o que decide a taxa. */
+  late: boolean
+  feeCents: number
+  cancelledBy: string | null
+}
+
+export interface AgendamentoNoShowEvent extends BaseEvent {
+  tenantId: string
+  appointmentId: string
+  tutorId: string
+  feeCents: number
+}
+
+export interface AgendamentoReagendadoEvent extends BaseEvent {
+  tenantId: string
+  appointmentId: string
+  newAppointmentId: string
+  startsAt: string
+  /** RN-16: "quantas vezes remarcou" é dado de negócio. */
+  rescheduleCount: number
+}
+
 export interface AgendaEventMap {
   'agenda.bloqueio.criado': AgendaBloqueioCriadoEvent
   'agenda.servico.alterado': AgendaServicoAlteradoEvent
   'agenda.profissional.alterado': AgendaProfissionalAlteradoEvent
+  'agendamento.solicitado': AgendamentoSolicitadoEvent
+  'agendamento.criado': AgendamentoCriadoEvent
+  'agendamento.cancelado': AgendamentoCanceladoEvent
+  'agendamento.no_show': AgendamentoNoShowEvent
+  'agendamento.reagendado': AgendamentoReagendadoEvent
+  'atendimento.iniciado': AtendimentoIniciadoEvent
+  'atendimento.concluido': AtendimentoConcluidoEvent
 }

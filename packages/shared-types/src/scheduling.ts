@@ -247,3 +247,173 @@ export const ResolvedPricingSchema = z.object({
   priceCents: z.number().int(),
   durationMin: z.number().int(),
 })
+
+// ─── MOD-AGENDA-04, 10 e 11 — agendamento ────────────────────────────────────
+
+export const APPOINTMENT_STATUSES = [
+  'PENDING',
+  'CONFIRMED',
+  'CHECKED_IN',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+  'NO_SHOW',
+  'RESCHEDULED',
+] as const
+export const AppointmentStatusSchema = z.enum(APPOINTMENT_STATUSES)
+export type AppointmentStatus = z.infer<typeof AppointmentStatusSchema>
+
+export const AppointmentSourceSchema = z.enum(['STAFF', 'PORTAL', 'RECURRENCE', 'AI_AGENT'])
+
+export const CreateAppointmentSchema = z.object({
+  petId: z.uuid(),
+  professionalId: z.uuid(),
+  startsAt: z.iso.datetime(),
+  items: z.array(z.object({ serviceId: z.uuid() })).min(1).max(10),
+  notes: z.string().trim().max(1000).optional(),
+  /** MOD-AGENDA-10 AC-01: reconhecimento consciente do alerta clínico crítico. */
+  acknowledgedAlerts: z.boolean().default(false),
+  /** AC-02: libera o gate de inadimplência; exige permissão de override. */
+  override: z.object({ reason: z.string().trim().min(10).max(300) }).optional(),
+  source: AppointmentSourceSchema.default('STAFF'),
+})
+export type CreateAppointmentInput = z.output<typeof CreateAppointmentSchema>
+
+export const CheckoutSchema = z.object({
+  /** Convenção do MOD-LEDGER: todo POST que move dinheiro é idempotente. */
+  idempotencyKey: z.uuid(),
+  weightKg: z.number().min(0.05).max(120).optional(),
+  notes: z.string().trim().max(1000).optional(),
+  /** RN-18: serviço acrescentado durante a execução. */
+  extraItems: z.array(z.object({ serviceId: z.uuid() })).max(10).default([]),
+})
+
+export const CancelAppointmentSchema = z.object({
+  reason: z.string().trim().max(300).optional(),
+  /** O Portal não envia; a recepção pode isentar a taxa do cancelamento tardio. */
+  waiveFee: z.boolean().default(false),
+})
+
+export const AvailabilityQuerySchema = z.object({
+  serviceId: z.uuid(),
+  /** Porte e pelagem mudam a duração — disponibilidade sem pet é aproximação. */
+  petId: z.uuid(),
+  professionalId: z.uuid().optional(),
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+})
+
+export const ListAppointmentsQuerySchema = z.object({
+  from: z.iso.datetime().optional(),
+  to: z.iso.datetime().optional(),
+  professionalId: z.uuid().optional(),
+  petId: z.uuid().optional(),
+  tutorId: z.uuid().optional(),
+  status: AppointmentStatusSchema.optional(),
+})
+
+export const AvailabilitySlotSchema = z.object({
+  professionalId: z.uuid(),
+  professionalName: z.string(),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+  durationMin: z.number().int(),
+  priceCents: z.number().int(),
+})
+
+export const AvailabilityResponseSchema = z.object({
+  slots: z.array(AvailabilitySlotSchema),
+  /** AC-02: lista vazia sozinha obriga o tutor a adivinhar a próxima consulta. */
+  nextAvailable: z.iso.datetime().nullable(),
+  durationMin: z.number().int(),
+  priceCents: z.number().int(),
+})
+
+export const AppointmentResponseSchema = z.object({
+  id: z.uuid(),
+  status: AppointmentStatusSchema,
+  source: AppointmentSourceSchema,
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+  petId: z.uuid(),
+  petName: z.string(),
+  tutorId: z.uuid(),
+  professionalId: z.uuid(),
+  professionalName: z.string(),
+  items: z.array(
+    z.object({
+      serviceId: z.uuid(),
+      label: z.string(),
+      priceCents: z.number().int(),
+      durationMin: z.number().int(),
+      addedAtCheckout: z.boolean(),
+    }),
+  ),
+  totalCents: z.number().int(),
+  checkinAt: z.iso.datetime().nullable(),
+  checkoutAt: z.iso.datetime().nullable(),
+  cancelledAt: z.iso.datetime().nullable(),
+  cancelledLate: z.boolean().nullable(),
+  notes: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+})
+export type AppointmentResponse = z.infer<typeof AppointmentResponseSchema>
+
+export const RescheduleSchema = z.object({
+  startsAt: z.iso.datetime(),
+  /** Remarcar pode trocar de profissional; ausente mantém o mesmo. */
+  professionalId: z.uuid().optional(),
+  reason: z.string().trim().max(200).optional(),
+})
+
+export const RecurrenceScopeSchema = z.enum(['THIS_ONE', 'THIS_AND_FUTURE', 'ALL'])
+
+export const CreateRecurrenceSchema = z.object({
+  petId: z.uuid(),
+  professionalId: z.uuid(),
+  serviceIds: z.array(z.uuid()).min(1).max(10),
+  startsAt: z.iso.datetime(),
+  /** AC-02: só DAILY, WEEKLY e MONTHLY. A validação fina está em `parseRRule`. */
+  rrule: z.string().trim().min(6).max(200),
+  until: z.iso.datetime().optional(),
+})
+
+export const DayViewQuerySchema = z.object({
+  date: z.iso.date(),
+})
+
+export const DayAppointmentSchema = z.object({
+  id: z.uuid(),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+  status: AppointmentStatusSchema,
+  petId: z.uuid(),
+  petName: z.string(),
+  tutorId: z.uuid(),
+  services: z.array(z.string()),
+  totalCents: z.number().int(),
+  alerts: z.array(z.object({ severity: z.string(), label: z.string() })),
+  checkinAt: z.iso.datetime().nullable(),
+})
+
+export const DayColumnSchema = z.object({
+  professionalId: z.uuid(),
+  professionalName: z.string(),
+  color: z.string().nullable(),
+  maxConcurrentPets: z.number().int(),
+  shifts: z.array(z.object({ startsAtMin: z.number().int(), endsAtMin: z.number().int() })),
+  /** AC-02: a coluna do ausente **aparece**, marcada — sumir assusta a equipe. */
+  absent: z.boolean(),
+  absenceReason: z.string().nullable(),
+  appointments: z.array(DayAppointmentSchema),
+  occupancyPercent: z.number().int(),
+})
+
+export const DayViewSchema = z.object({
+  date: z.string(),
+  timezone: z.string(),
+  columns: z.array(DayColumnSchema),
+})
+export type DayView = z.infer<typeof DayViewSchema>
+export type DayColumn = z.infer<typeof DayColumnSchema>
+export type DayAppointment = z.infer<typeof DayAppointmentSchema>

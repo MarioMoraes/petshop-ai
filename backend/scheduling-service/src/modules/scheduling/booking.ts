@@ -1,11 +1,21 @@
 import { Prisma, withTenant, type TenantTransaction } from '@petshop/db'
 import { AppError } from '@petshop/shared-types'
 import { recordAudit } from '../../lib/audit.js'
+import { publishEvent } from '../../lib/events.js'
 import { invalid, notFound, professionalUnavailable } from '../../lib/errors.js'
 import { tenantOptions, type ActorContext } from '../catalog/actor.js'
+import { openCipher } from './crypto.js'
 import { checkWindow, findAvailability } from './availability.js'
 import { countOverlapping, isSerializationError } from './conflicts.js'
 import { resolveItemDuration, totalDuration } from './duration.js'
+import {
+  assertAlertsAcknowledged,
+  assertCreditAllowed,
+  assertMinimumNotice,
+  billing,
+  findBlockingAlerts,
+  loadNoticeHours,
+} from './gates.js'
 
 /**
  * O caminho de escrita do agendamento (MOD-AGENDA-04).
@@ -29,6 +39,15 @@ export interface CreateBookingInput {
   items: BookingItemInput[]
   notes?: string | undefined
   source?: 'STAFF' | 'PORTAL' | 'RECURRENCE' | 'AI_AGENT'
+  /** AC-01 de MOD-AGENDA-10: reconhecimento consciente do alerta clínico crítico. */
+  acknowledgedAlerts?: boolean
+  /** AC-02: libera o gate de inadimplência; exige `schedule:override_credit`. */
+  override?: { reason: string } | undefined
+}
+
+/** O que o chamador pode fazer, vindo da matriz de permissão e não do papel. */
+export interface BookingCapabilities {
+  canOverrideCredit: boolean
 }
 
 /** Quantas sugestões acompanham um 409 de conflito (AC-02 e AC-04). */
@@ -223,6 +242,10 @@ export interface CreatedBooking {
   endsAt: Date
   totalCents: number
   durationMin: number
+  status: 'PENDING' | 'CONFIRMED'
+  petId: string
+  tutorId: string
+  professionalId: string
 }
 
 /**
@@ -234,16 +257,20 @@ export interface CreatedBooking {
  * 40001, e aqui isso vira 409 `ERR_AGENDA_004` — o pedido não estava errado, só
  * chegou em segundo lugar.
  *
- * TODO(MOD-AGENDA-10): os gates de alerta clínico (RN-09), inadimplência (RN-11) e
- * antecedência mínima (RN-07) entram entre `assertBookable` e a contagem de
- * capacidade. Os dois primeiros dependem de decisão pendente — ver §11 do PRD.
+ * Os gates do MOD-AGENDA-10 rodam **antes**, em `runGates`, com transação de leitura
+ * própria: manter a janela serializável curta reduz a chance de dois pedidos
+ * legítimos se abortarem por contenção.
  */
 export async function createBooking(
   actor: ActorContext,
   input: CreateBookingInput,
+  capabilities: BookingCapabilities = { canOverrideCredit: false },
 ): Promise<CreatedBooking> {
+  const gates = await runGates(actor, input, capabilities)
+
+  let created: CreatedBooking
   try {
-    return await withTenant(
+    created = await withTenant(
       actor.tenantId,
       async (tx) => {
         const { items, pet } = await resolveItems(tx, input.petId, input.items)
@@ -256,6 +283,10 @@ export async function createBooking(
           where: { id: input.professionalId },
           select: { displayName: true, maxConcurrentPets: true },
         })
+
+        // A observação é campo livre e vai cifrada (§9). A DEK é do tenant e a
+        // transação já está no contexto dele.
+        const cipher = input.notes ? await openCipher(tx, actor.tenantId) : null
 
         await assertWithinShift(tx, input, durationMin, professional.displayName)
 
@@ -277,6 +308,11 @@ export async function createBooking(
 
         const totalCents = items.reduce((sum, item) => sum + item.priceCents, 0)
 
+        // AC-03 de MOD-AGENDA-06: o tenant que quer triar recebe PENDING. O horário
+        // já fica **reservado** — PENDING ocupa lugar na agenda —, e é isso que
+        // impede o balcão de vender por baixo o horário que o tutor ainda espera.
+        const status = gates.requiresApproval ? 'PENDING' : 'CONFIRMED'
+
         const appointment = await tx.appointment.create({
           data: {
             tenantId: actor.tenantId,
@@ -285,10 +321,25 @@ export async function createBooking(
             professionalId: input.professionalId,
             startsAt: input.startsAt,
             endsAt,
-            status: 'CONFIRMED',
+            status,
             source: input.source ?? 'STAFF',
             totalCents: BigInt(totalCents),
             createdBy: actor.actorUserId ?? null,
+            ...(cipher && input.notes ? { notesEncrypted: cipher.encrypt(input.notes) } : {}),
+            // Quem assumiu o risco clínico, e quando. É esta linha que responde à
+            // pergunta meses depois.
+            ...(gates.acknowledgedAlerts.length > 0
+              ? {
+                  acknowledgedAlertsBy: actor.actorUserId ?? null,
+                  acknowledgedAlertsAt: new Date(),
+                }
+              : {}),
+            ...(input.override
+              ? {
+                  creditOverrideBy: actor.actorUserId ?? null,
+                  creditOverrideReason: input.override.reason,
+                }
+              : {}),
             items: {
               create: items.map((item) => ({
                 tenantId: actor.tenantId,
@@ -301,7 +352,7 @@ export async function createBooking(
             statusLog: {
               create: {
                 tenantId: actor.tenantId,
-                toStatus: 'CONFIRMED',
+                toStatus: status,
                 changedBy: actor.actorUserId ?? null,
               },
             },
@@ -321,6 +372,10 @@ export async function createBooking(
             endsAt: endsAt.toISOString(),
             totalCents,
             items: items.map((item) => item.label),
+            ...(gates.acknowledgedAlerts.length > 0
+              ? { acknowledgedAlerts: gates.acknowledgedAlerts.map((alert) => alert.label) }
+              : {}),
+            ...(input.override ? { creditOverrideReason: input.override.reason } : {}),
           },
           ipAddress: actor.ipAddress ?? null,
           userAgent: actor.userAgent ?? null,
@@ -332,6 +387,10 @@ export async function createBooking(
           endsAt: appointment.endsAt,
           totalCents,
           durationMin,
+          status,
+          petId: input.petId,
+          tutorId,
+          professionalId: input.professionalId,
         }
       },
       { ...tenantOptions(actor), isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -347,4 +406,94 @@ export async function createBooking(
     }
     throw error
   }
+
+  // Pós-commit e best-effort: o evento sai depois que a transação fechou, e falha de
+  // broker não desfaz o agendamento.
+  //
+  // Solicitação pendente publica `agendamento.solicitado`, não `criado`: quem consome
+  // `criado` manda a confirmação ao tutor, e confirmar algo que ainda pode ser
+  // recusado é pior que não avisar. O `criado` sai na aprovação.
+  if (created.status === 'PENDING') {
+    await publishEvent('agendamento.solicitado', {
+      tenantId: actor.tenantId,
+      appointmentId: created.id,
+      petId: created.petId,
+      tutorId: created.tutorId,
+      startsAt: created.startsAt.toISOString(),
+    })
+    return created
+  }
+
+  await publishEvent('agendamento.criado', {
+    tenantId: actor.tenantId,
+    appointmentId: created.id,
+    petId: created.petId,
+    tutorId: created.tutorId,
+    professionalId: created.professionalId,
+    startsAt: created.startsAt.toISOString(),
+    endsAt: created.endsAt.toISOString(),
+    totalCents: created.totalCents,
+    source: input.source ?? 'STAFF',
+  })
+
+  return created
+}
+
+/**
+ * Os três gates do MOD-AGENDA-10, em transação de leitura própria.
+ *
+ * A ordem não é acidental. A antecedência mínima é aritmética pura e falha sem tocar
+ * o banco. O alerta clínico vem antes do crédito porque segurança do animal precede
+ * cobrança — e porque um tutor que vai ouvir "seu pet tem alergia crítica" não deve
+ * ouvir antes "você está devendo".
+ */
+async function runGates(
+  actor: ActorContext,
+  input: CreateBookingInput,
+  capabilities: BookingCapabilities,
+): Promise<{
+  acknowledgedAlerts: { id: string; label: string }[]
+  requiresApproval: boolean
+}> {
+  return withTenant(actor.tenantId, async (tx) => {
+    // RN-07: só o Portal tem antecedência mínima.
+    assertMinimumNotice(
+      input.startsAt,
+      input.source ?? 'STAFF',
+      await loadNoticeHours(tx, actor.tenantId),
+    )
+
+    // RN-09: bloqueio suave por alerta clínico crítico.
+    const alerts = await findBlockingAlerts(
+      tx,
+      input.petId,
+      input.items.map((item) => item.serviceId),
+    )
+    assertAlertsAcknowledged(alerts, input.acknowledgedAlerts ?? false)
+
+    // RN-11: inadimplência. Só chega aqui se houver responsável — a ausência dele é
+    // erro de cadastro e `assertBookable` a reporta com mensagem melhor.
+    const link = await tx.petTutor.findFirst({
+      where: { petId: input.petId, role: 'PRIMARY' },
+      select: { tutorId: true },
+    })
+    if (link) {
+      const status = await billing().creditStatus(tx, link.tutorId)
+      assertCreditAllowed(status, input.override, capabilities.canOverrideCredit)
+    }
+
+    // RN-08: só o Portal passa por aprovação. Agendamento de balcão nunca fica
+    // pendente — a recepção é a própria aprovação.
+    const settings = await tx.tenantSettings.findFirst({
+      where: { tenantId: actor.tenantId },
+      select: { onlineBookingRequiresApproval: true },
+    })
+    const requiresApproval =
+      (input.source ?? 'STAFF') === 'PORTAL' && (settings?.onlineBookingRequiresApproval ?? false)
+
+    return {
+      acknowledgedAlerts: alerts.map((alert) => ({ id: alert.id, label: alert.label })),
+      requiresApproval,
+    }
+  })
 }

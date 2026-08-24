@@ -26,7 +26,7 @@ type NavKey = 'inicio' | 'tutores' | 'pets' | 'agenda' | 'configuracoes'
 
 interface NavItem {
   key: NavKey
-  href: '/dashboard' | '/tutores' | '/pets' | '/agenda/servicos' | '/configuracoes'
+  href: '/dashboard' | '/tutores' | '/pets' | '/agenda/dia' | '/configuracoes'
   label: string
   icon: ReactNode
   /** Item que só existe para quem tem `tenant:read_settings`. */
@@ -38,10 +38,10 @@ const NAV: NavItem[] = [
   { key: 'tutores', href: '/tutores', label: 'Tutores', icon: <UsersIcon /> },
   { key: 'pets', href: '/pets', label: 'Pets', icon: <PawPrintIcon /> },
   {
-    // Aponta para serviços porque é a única tela da agenda que existe hoje. Quando a
-    // fatia 2 trouxer a visão do dia, é ela que vira o destino do item.
+    // A visão do dia é o destino: é a tela que a recepção abre de manhã e mantém
+    // aberta. Serviços e profissionais são configuração, visitada de vez em quando.
     key: 'agenda',
-    href: '/agenda/servicos',
+    href: '/agenda/dia',
     label: 'Agenda',
     icon: <CalendarIcon />,
     restricted: true,

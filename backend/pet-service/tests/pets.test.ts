@@ -418,3 +418,69 @@ describe('MOD-PET-03 — catálogo de domínio', () => {
     expect(coats.json()[0].groomingTimeFactor).toBe(1)
   })
 })
+
+describe('MOD-AGENDA — consumo de `atendimento.concluido`', () => {
+  it('alimenta `last_attendance_at` e a pesagem do atendimento', async () => {
+    const pet = (await createPet()).json()
+    const { handleAtendimentoConcluido } = await import('../src/modules/pets/consumers.js')
+    const appointmentId = '11111111-1111-4111-8111-111111111111'
+
+    await handleAtendimentoConcluido({
+      tenantId: tenant.tenantId,
+      appointmentId,
+      petId: pet.id,
+      weightKg: 31.5,
+    })
+
+    const row = await ownerPrisma.pet.findUniqueOrThrow({ where: { id: pet.id } })
+    expect(row.lastAttendanceAt).not.toBeNull()
+    // RN-10 de pets_03: `weight_kg` segue a pesagem mais recente da série.
+    expect(Number(row.weightKg)).toBe(31.5)
+
+    const weights = await ownerPrisma.petWeight.findMany({
+      where: { petId: pet.id, attendanceId: appointmentId },
+    })
+    expect(weights).toHaveLength(1)
+  })
+
+  it('é idempotente: entrega repetida não cria uma segunda pesagem', async () => {
+    const pet = (await createPet()).json()
+    const { handleAtendimentoConcluido } = await import('../src/modules/pets/consumers.js')
+    const appointmentId = '22222222-2222-4222-8222-222222222222'
+    const evento = {
+      tenantId: tenant.tenantId,
+      appointmentId,
+      petId: pet.id,
+      weightKg: 31.5,
+    }
+
+    // O broker entrega ao menos uma vez; duas entregas não podem virar duas pesagens.
+    await handleAtendimentoConcluido(evento)
+    await handleAtendimentoConcluido(evento)
+
+    const weights = await ownerPrisma.petWeight.findMany({
+      where: { petId: pet.id, attendanceId: appointmentId },
+    })
+    expect(weights).toHaveLength(1)
+  })
+
+  it('atendimento sem pesagem só marca a data', async () => {
+    const pet = (await createPet()).json()
+    const { handleAtendimentoConcluido } = await import('../src/modules/pets/consumers.js')
+
+    await handleAtendimentoConcluido({
+      tenantId: tenant.tenantId,
+      appointmentId: '33333333-3333-4333-8333-333333333333',
+      petId: pet.id,
+      weightKg: null,
+    })
+
+    const row = await ownerPrisma.pet.findUniqueOrThrow({ where: { id: pet.id } })
+    expect(row.lastAttendanceAt).not.toBeNull()
+
+    const weights = await ownerPrisma.petWeight.findMany({
+      where: { petId: pet.id, attendanceId: { not: null } },
+    })
+    expect(weights).toHaveLength(0)
+  })
+})

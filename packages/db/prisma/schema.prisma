@@ -129,6 +129,10 @@ model TenantSettings {
 
   allowOverbooking     Boolean @default(false) @map("allow_overbooking")
   onlineBookingEnabled Boolean @default(true) @map("online_booking_enabled")
+  /// Decisão de negócio 8: agendamento online entra **CONFIRMED** por padrão. Quem
+  /// quiser triar liga isto, e aí a solicitação do Portal vira PENDING com reserva
+  /// de 24h (AC-03 de MOD-AGENDA-06).
+  onlineBookingRequiresApproval Boolean @default(false) @map("online_booking_requires_approval")
 
   /// `{ logoUrl, primaryColor, secondaryColor }`
   branding      Json
@@ -778,7 +782,8 @@ model Pet {
   /// Mantido pelo trigger `pets_search_trigger`; a aplicação nunca escreve aqui.
   searchVector Unsupported("tsvector")? @map("search_vector")
 
-  /// TODO(MOD-AGENDA): escrito pelo consumo de `atendimento.concluido`.
+  /// Escrito pelo consumo de `atendimento.concluido`. Denormalizado porque a
+  /// listagem tem SLO de 300ms e o RN-10 proíbe calcular na hora.
   lastAttendanceAt DateTime? @map("last_attendance_at") @db.Timestamptz(6)
 
   createdBy String? @map("created_by") @db.Uuid
@@ -846,7 +851,9 @@ model PetWeight {
   weightKg   Decimal  @map("weight_kg") @db.Decimal(5, 2)
   measuredAt DateTime @default(now()) @map("measured_at") @db.Timestamptz(6)
 
-  /// TODO(MOD-AGENDA): pesagem aferida no check-in do atendimento.
+  /// Pesagem aferida no atendimento, preenchida pelo consumo de
+  /// `atendimento.concluido`. Nulo é a pesagem avulsa, feita na balança do balcão.
+  /// Serve também de chave de idempotência: o broker entrega ao menos uma vez.
   attendanceId String? @map("attendance_id") @db.Uuid
   measuredBy   String? @map("measured_by") @db.Uuid
 
@@ -1303,6 +1310,9 @@ model Appointment {
   /// RN-16: a cadeia de remarcações. "Quantas vezes remarcou" é dado de negócio.
   rescheduledToId String? @unique @map("rescheduled_to_id") @db.Uuid
 
+  /// Ocorrência de uma série (MOD-AGENDA-05). Nulo é agendamento avulso.
+  recurrenceId String? @map("recurrence_id") @db.Uuid
+
   /// MOD-AGENDA-10: quem assumiu o risco clínico, e quando.
   acknowledgedAlertsBy String?   @map("acknowledged_alerts_by") @db.Uuid
   acknowledgedAlertsAt DateTime? @map("acknowledged_alerts_at") @db.Timestamptz(6)
@@ -1328,6 +1338,8 @@ model Appointment {
   /// A cadeia de remarcação é auto-referente: o cancelado aponta para o novo.
   rescheduledTo   Appointment? @relation("AppointmentReschedule", fields: [rescheduledToId], references: [id], onDelete: SetNull)
   rescheduledFrom Appointment? @relation("AppointmentReschedule")
+
+  recurrence AppointmentRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
 
   @@index([petId, startsAt(sort: Desc)], map: "idx_appointments_pet")
   @@index([tenantId, tutorId, startsAt(sort: Desc)], map: "idx_appointments_tutor")
@@ -1380,4 +1392,45 @@ model AppointmentStatusLog {
 
   @@index([appointmentId, createdAt])
   @@map("appointment_status_log")
+}
+
+/// Série recorrente (MOD-AGENDA-05).
+///
+/// RN-14: a recorrência é **materializada**, não uma regra viva. As ocorrências são
+/// agendamentos reais até 12 semanas à frente, estendidas por job semanal. Interpretar
+/// RRULE em toda leitura de agenda transformaria a consulta mais frequente do sistema
+/// numa avaliação de calendário, e nada — bloqueio, remarcação, cancelamento de uma
+/// ocorrência — poderia ser gravado sem inventar uma tabela de exceções.
+model AppointmentRecurrence {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  petId          String @map("pet_id") @db.Uuid
+  professionalId String @map("professional_id") @db.Uuid
+
+  /// iCal RRULE, restrita a FREQ DAILY/WEEKLY/MONTHLY (AC-02).
+  rrule String @db.VarChar(200)
+
+  /// Primeira ocorrência; a série é gerada a partir dela.
+  startsAt DateTime  @map("starts_at") @db.Timestamptz(6)
+  /// Fim da série. Nulo é série sem prazo, estendida pelo job semanal.
+  until    DateTime? @db.Timestamptz(6)
+  /// Até onde já foi materializado. É o que o job lê para saber o que gerar.
+  materializedUntil DateTime? @map("materialized_until") @db.Timestamptz(6)
+
+  /// Serviços da série, congelados como ids. O preço **não** é congelado aqui: cada
+  /// ocorrência congela o seu na criação (RN-04), e uma série de um ano não pode
+  /// carregar o preço de doze meses atrás.
+  serviceIds String[] @map("service_ids") @db.Uuid
+
+  active Boolean @default(true)
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  appointments Appointment[]
+
+  @@index([tenantId, active, materializedUntil], map: "idx_recurrences_materialize")
+  @@map("appointment_recurrences")
 }

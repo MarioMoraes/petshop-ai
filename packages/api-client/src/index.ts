@@ -23,8 +23,11 @@ import {
   PetTutorSchema,
   PetWeightSchema,
   SizeSchema,
+  AppointmentResponseSchema,
+  AvailabilityResponseSchema,
   CalendarBlockCreatedSchema,
   CalendarBlockResponseSchema,
+  DayViewSchema,
   ProfessionalResponseSchema,
   ProfessionalWithWarningsSchema,
   ResolvedPricingSchema,
@@ -41,7 +44,9 @@ import {
   type OnboardingState,
   type OnboardingStepInput,
   type ProblemDetails,
+  type AppointmentResponse,
   type CalendarBlockResponse,
+  type CreateAppointmentInput,
   type CreateCalendarBlockInput,
   type CreateProfessionalInput,
   type CreateServiceInput,
@@ -719,6 +724,95 @@ export function createApiClient(options: ApiClientOptions) {
 
     deleteCalendarBlock: (id: string) =>
       request<void>({ method: 'DELETE', path: `/v1/calendar-blocks/${id}` }),
+
+    // ─── MOD-AGENDA — agendamentos (fatias 2 e 3) ──────────────────────────
+
+    getDayView: (date: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/agenda/day?date=${date}`,
+        schema: DayViewSchema,
+      }),
+
+    listAppointments: (query: {
+      from?: string
+      to?: string
+      professionalId?: string
+      petId?: string
+      status?: string
+    }) =>
+      request({
+        method: 'GET',
+        path: `/v1/appointments${toQueryString(query)}`,
+        schema: z.array(AppointmentResponseSchema),
+      }),
+
+    getAppointment: (id: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/appointments/${id}`,
+        schema: AppointmentResponseSchema,
+      }),
+
+    /** Horários livres já com a duração e o preço calculados para **este** pet. */
+    getAvailability: (query: {
+      serviceId: string
+      petId: string
+      professionalId?: string
+      from: string
+      to: string
+    }) =>
+      request({
+        method: 'GET',
+        path: `/v1/availability${toQueryString(query)}`,
+        schema: AvailabilityResponseSchema,
+      }),
+
+    createAppointment: (input: CreateAppointmentInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/appointments',
+        body: input,
+        schema: AppointmentResponseSchema,
+      }),
+
+    checkInAppointment: (id: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/appointments/${id}/checkin`,
+        schema: AppointmentResponseSchema,
+      }),
+
+    checkOutAppointment: (id: string, input: { idempotencyKey: string; weightKg?: number; notes?: string; extraItems?: { serviceId: string }[] }) =>
+      request({
+        method: 'POST',
+        path: `/v1/appointments/${id}/checkout`,
+        body: input,
+        schema: AppointmentResponseSchema,
+      }),
+
+    cancelAppointment: (id: string, input: { reason?: string; waiveFee?: boolean }) =>
+      request({
+        method: 'POST',
+        path: `/v1/appointments/${id}/cancel`,
+        body: input,
+        schema: AppointmentResponseSchema,
+      }),
+
+    rescheduleAppointment: (id: string, input: { startsAt: string; professionalId?: string }) =>
+      request({
+        method: 'POST',
+        path: `/v1/appointments/${id}/reschedule`,
+        body: input,
+        schema: AppointmentResponseSchema.extend({ rescheduleCount: z.number().int() }),
+      }),
+
+    approveAppointment: (id: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/appointments/${id}/approve`,
+        schema: AppointmentResponseSchema,
+      }),
   }
 }
 
@@ -767,6 +861,7 @@ export type {
   PetWeightRecord,
   SafetyRecord,
   Size,
+  AppointmentResponse,
   CalendarBlockResponse,
   ProfessionalResponse,
   ServiceResponse,

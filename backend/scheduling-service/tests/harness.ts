@@ -59,8 +59,15 @@ export async function resetDatabase(): Promise<void> {
   // global-setup, e recriá-lo a cada teste custaria mais que a suíte inteira.
   await truncateBusinessTables(ownerPrisma)
   clearTenantKeyCache()
-  const { resetAppointmentsPort } = await import('../src/modules/catalog/port.js')
-  resetAppointmentsPort()
+  // A porta volta à implementação real a cada teste: os que a dublam para exercitar
+  // um AC específico não podem contaminar os seguintes.
+  const [{ setAppointmentsPort }, { livePort }, { resetBillingPort }] = await Promise.all([
+    import('../src/modules/catalog/port.js'),
+    import('../src/modules/scheduling/port-impl.js'),
+    import('../src/modules/scheduling/gates.js'),
+  ])
+  setAppointmentsPort(livePort)
+  resetBillingPort()
 }
 
 // ─── Cenário ─────────────────────────────────────────────────────────────────

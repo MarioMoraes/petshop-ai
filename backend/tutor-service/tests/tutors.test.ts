@@ -379,3 +379,94 @@ describe('MOD-TUTOR-08 — exclusão e anonimização', () => {
     expect(response.statusCode).toBe(422)
   })
 })
+
+describe('AC-04 de MOD-TUTOR-08 — exclusão com agendamento futuro', () => {
+  it('bloqueia a exclusão e lista os agendamentos que impedem', async () => {
+    const tutor = (await createTutor(maria)).json()
+
+    const [species, size] = await Promise.all([
+      ownerPrisma.species.findFirstOrThrow({ where: { key: 'DOG', tenantId: null } }),
+      ownerPrisma.size.findFirstOrThrow({ where: { key: 'LARGE', tenantId: null } }),
+    ])
+
+    // Cenário montado direto no banco: o tutor-service lê `appointments` sob RLS, e
+    // subir o scheduling-service aqui acoplaria as duas suítes.
+    const pet = await ownerPrisma.pet.create({
+      data: {
+        tenantId: tenant.tenantId,
+        name: 'Thor',
+        speciesId: species.id,
+        sizeId: size.id,
+        status: 'ACTIVE',
+      },
+    })
+    const professional = await ownerPrisma.professional.create({
+      data: { tenantId: tenant.tenantId, displayName: 'Ana', roleKey: 'BATHER' },
+    })
+    await ownerPrisma.appointment.create({
+      data: {
+        tenantId: tenant.tenantId,
+        petId: pet.id,
+        tutorId: tutor.id,
+        professionalId: professional.id,
+        startsAt: new Date(Date.now() + 48 * 60 * 60_000),
+        endsAt: new Date(Date.now() + 49 * 60 * 60_000),
+        status: 'CONFIRMED',
+        totalCents: BigInt(7000),
+      },
+    })
+
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'DELETE',
+      url: `/v1/tutors/${tutor.id}`,
+    })
+
+    expect(response.statusCode).toBe(409)
+    const body = response.json()
+    expect(body.code).toBe('ERR_TUTOR_005')
+    expect(body.appointments).toHaveLength(1)
+    expect(body.appointments[0].petName).toBe('Thor')
+  })
+
+  it('agendamento já cancelado não impede a exclusão', async () => {
+    const tutor = (await createTutor(maria)).json()
+
+    const [species, size] = await Promise.all([
+      ownerPrisma.species.findFirstOrThrow({ where: { key: 'DOG', tenantId: null } }),
+      ownerPrisma.size.findFirstOrThrow({ where: { key: 'LARGE', tenantId: null } }),
+    ])
+    const pet = await ownerPrisma.pet.create({
+      data: {
+        tenantId: tenant.tenantId,
+        name: 'Thor',
+        speciesId: species.id,
+        sizeId: size.id,
+        status: 'ACTIVE',
+      },
+    })
+    const professional = await ownerPrisma.professional.create({
+      data: { tenantId: tenant.tenantId, displayName: 'Ana', roleKey: 'BATHER' },
+    })
+    await ownerPrisma.appointment.create({
+      data: {
+        tenantId: tenant.tenantId,
+        petId: pet.id,
+        tutorId: tutor.id,
+        professionalId: professional.id,
+        startsAt: new Date(Date.now() + 48 * 60 * 60_000),
+        endsAt: new Date(Date.now() + 49 * 60 * 60_000),
+        status: 'CANCELLED',
+        totalCents: BigInt(7000),
+      },
+    })
+
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'DELETE',
+      url: `/v1/tutors/${tutor.id}`,
+    })
+
+    expect(response.statusCode).not.toBe(409)
+  })
+})
