@@ -106,11 +106,12 @@ model Tenant {
   updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  settings      TenantSettings?
-  memberships   Membership[]
-  invitations   Invitation[]
-  roleOverrides TenantRoleOverride[]
-  dataKey       DataKey?
+  settings        TenantSettings?
+  billingSettings BillingSettings?
+  memberships     Membership[]
+  invitations     Invitation[]
+  roleOverrides   TenantRoleOverride[]
+  dataKey         DataKey?
 
   @@index([status])
   @@map("tenants")
@@ -466,7 +467,8 @@ model Tutor {
 
   petTutors  PetTutor[]
 
-  appointments Appointment[]
+  appointments   Appointment[]
+  ledgerAccounts LedgerAccount[]
 
   mergedInto Tutor?  @relation("TutorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom Tutor[] @relation("TutorMerge")
@@ -1433,4 +1435,506 @@ model AppointmentRecurrence {
 
   @@index([tenantId, active, materializedUntil], map: "idx_recurrences_materialize")
   @@map("appointment_recurrences")
+}
+
+// ─── MOD-LEDGER — conta corrente do tutor ────────────────────────────────────
+// PRD financeiro_tutor_05 §4.
+//
+// Convenção de dinheiro do módulo: **inteiro em centavos (`BigInt`), nunca `Decimal`
+// nem `Float`**. Soma de saldo corrido é a operação mais executada daqui e a única em
+// que erro de arredondamento é irreversível e visível para o cliente final.
+
+enum EntryDirection {
+  DEBIT
+  CREDIT
+}
+
+enum EntryCategory {
+  SERVICE
+  PRODUCT
+  NO_SHOW_FEE
+  PACKAGE_PURCHASE
+  PACKAGE_REDEMPTION
+  PAYMENT
+  PAYMENT_REVERSAL
+  ADJUSTMENT
+  FEE_WAIVER
+  DISCOUNT
+}
+
+enum EntrySourceType {
+  ATTENDANCE
+  APPOINTMENT
+  PAYMENT
+  PACKAGE
+  MANUAL
+  SYSTEM
+}
+
+enum EntryStatus {
+  POSTED
+  REVERSED
+}
+
+enum PaymentMethod {
+  CASH
+  PIX_MANUAL
+  CARD_MACHINE_DEBIT
+  CARD_MACHINE_CREDIT
+  BANK_TRANSFER
+  PACKAGE_CREDIT
+  OTHER
+}
+
+enum PaymentStatus {
+  RECORDED
+  REVERSED
+}
+
+enum AllocationSource {
+  AUTO_FIFO
+  MANUAL
+}
+
+enum PurchaseStatus {
+  ACTIVE
+  CONSUMED
+  EXPIRED
+  SUSPENDED
+  CANCELLED
+}
+
+/// Uma conta por tutor por tenant (MOD-LEDGER-01).
+///
+/// RN-17: **criada preguiçosamente**. Não se cria conta no cadastro do tutor; a
+/// primeira consulta ou o primeiro lançamento a cria com saldo zero. Tutor sem
+/// movimentação nunca devolve 404 — devolve extrato vazio.
+model LedgerAccount {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  tutorId  String @map("tutor_id") @db.Uuid
+
+  /// RN-02: positivo é crédito do tutor, negativo é inadimplência. Mesma convenção
+  /// de `tutors.balance_cents`, que este módulo alimenta por evento.
+  balanceCents BigInt @default(0) @map("balance_cents")
+  currency     String @default("BRL") @db.Char(3)
+
+  /// Optimistic locking. O caminho de escrita usa `FOR UPDATE`, mas a coluna deixa
+  /// a corrida detectável em auditoria depois do fato.
+  version Int @default(0)
+
+  lastEntryAt   DateTime? @map("last_entry_at") @db.Timestamptz(6)
+  lastPaymentAt DateTime? @map("last_payment_at") @db.Timestamptz(6)
+  /// Início do atraso vigente; nulo se em dia.
+  overdueSince  DateTime? @map("overdue_since") @db.Timestamptz(6)
+
+  /// RN-18: marcado pelo job de reconciliação. **Não bloqueia lançamento novo** — a
+  /// conta não trava para o tenant por um bug nosso.
+  needsReview Boolean @default(false) @map("needs_review")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tutor    Tutor          @relation(fields: [tutorId], references: [id], onDelete: Restrict)
+  entries  LedgerEntry[]
+  payments Payment[]
+
+  @@map("ledger_accounts")
+}
+
+/// O lançamento (MOD-LEDGER-02). **Append-only**, garantido por trigger e por RULE
+/// no banco: erro nunca vira UPDATE, vira contrapartida vinculada (RN-01).
+model LedgerEntry {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  tutorId   String @map("tutor_id") @db.Uuid
+
+  direction EntryDirection
+  /// Sempre positivo (o CHECK garante); o sinal vem de `direction`. A exceção é o
+  /// lançamento informativo de uso de pacote, que vale zero.
+  amountCents BigInt @map("amount_cents")
+
+  /// Coluna **gerada** pelo Postgres: `CREDIT ? +amount : -amount`. A aplicação
+  /// nunca escreve aqui — é opcional no Prisma só para que `create` não a exija.
+  /// É o que o job de reconciliação soma.
+  signedAmountCents BigInt? @map("signed_amount_cents")
+
+  /// Saldo corrido no instante da postagem. É o que faz o extrato não precisar
+  /// somar a tabela inteira para mostrar uma página.
+  balanceAfterCents BigInt @map("balance_after_cents")
+
+  category EntryCategory
+  /// Texto visível ao tutor no extrato.
+  description String @db.VarChar(200)
+  /// Cifrado com a DEK do tenant. **Nunca** exposto ao tutor (AC-03 de MOD-LEDGER-06):
+  /// pode conter juízo de valor ("cliente sempre atrasa").
+  internalNotesEncrypted String? @map("internal_notes_encrypted")
+
+  sourceType EntrySourceType @map("source_type")
+  /// Idempotência com `source_type`, pelo índice único parcial.
+  sourceId   String?         @map("source_id") @db.Uuid
+  petId      String?         @map("pet_id") @db.Uuid
+
+  /// RN-23: data do fato gerador — pode ser retroativa. O extrato ordena por ela.
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
+  /// Data do registro no sistema — nunca retroativa. A auditoria ordena por ela.
+  postedAt   DateTime @default(now()) @map("posted_at") @db.Timestamptz(6)
+
+  status EntryStatus @default(POSTED)
+
+  /// Aponta para a contrapartida que estornou este lançamento.
+  reversedByEntryId String? @map("reversed_by_entry_id") @db.Uuid
+  /// Preenchido quando este lançamento **é** a contrapartida.
+  reversesEntryId   String? @map("reverses_entry_id") @db.Uuid
+
+  /// Quanto do débito já foi quitado por alocação de pagamento.
+  settledCents BigInt @default(0) @map("settled_cents")
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account     LedgerAccount       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  payment     Payment?
+  allocations PaymentAllocation[]
+  usage       PackageCreditUsage?
+  purchase    PackagePurchase?
+
+  @@map("ledger_entries")
+}
+
+/// Pagamento recebido **fora do sistema** e lançado aqui (MOD-LEDGER-03).
+///
+/// A v1 não processa dinheiro: o PIX cai na chave do petshop, a maquininha é do
+/// petshop, e o que se registra é o fato. `external_ref` fica reservado para o `txid`
+/// do PSP quando o gateway entrar, sem migração destrutiva (RN-19).
+model Payment {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  tutorId   String @map("tutor_id") @db.Uuid
+
+  amountCents BigInt @map("amount_cents")
+  /// Quanto do pagamento já foi alocado a débitos. A diferença é o crédito que
+  /// sobrou na conta (RN-07) e que o próximo débito consome.
+  allocatedCents BigInt @default(0) @map("allocated_cents")
+
+  method     PaymentMethod
+  /// Quando o dinheiro entrou de fato — pode ser anterior ao registro.
+  receivedAt DateTime      @map("received_at") @db.Timestamptz(6)
+  /// Quem recebeu no balcão. É a coluna da responsabilização.
+  receivedBy String?       @map("received_by") @db.Uuid
+
+  /// Lançamento de crédito correspondente. 1:1.
+  entryId String @unique @map("entry_id") @db.Uuid
+
+  status         PaymentStatus @default(RECORDED)
+  /// Obrigatório quando REVERSED (RN-25: só TENANT_ADMIN reverte).
+  reversalReason String?       @map("reversal_reason")
+
+  /// Cifrados: o comprovante pode exibir dado bancário de terceiro, e a observação
+  /// do balcão é campo livre onde cabe qualquer coisa.
+  proofUrlEncrypted String? @map("proof_url_encrypted")
+  notesEncrypted    String? @map("notes_encrypted")
+
+  /// Reservado para o `txid` do PSP (RN-19). Não usado na v1.
+  externalRef String? @map("external_ref") @db.VarChar(120)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account     LedgerAccount       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  entry       LedgerEntry         @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  allocations PaymentAllocation[]
+  purchases   PackagePurchase[]
+  receipt     Receipt?
+
+  @@map("payments")
+}
+
+/// Quitação N:N entre pagamento e débito (MOD-LEDGER-04).
+///
+/// RN-06: FIFO por padrão — o pagamento quita os débitos mais antigos primeiro.
+/// Alocação manual é auditada, porque quitação fora do FIFO é o vetor clássico de
+/// desvio no balcão.
+model PaymentAllocation {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  paymentId     String @map("payment_id") @db.Uuid
+  debitEntryId  String @map("debit_entry_id") @db.Uuid
+
+  amountCents BigInt           @map("amount_cents")
+  allocatedBy AllocationSource @default(AUTO_FIFO) @map("allocated_by")
+
+  /// A reversão do pagamento **marca**, não apaga: o AC-05 é explícito em que nada
+  /// desaparece do rastro.
+  reversedAt DateTime? @map("reversed_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  payment    Payment     @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  debitEntry LedgerEntry @relation(fields: [debitEntryId], references: [id], onDelete: Restrict)
+
+  @@map("payment_allocations")
+}
+
+/// Catálogo de pacotes do tenant (MOD-LEDGER-07).
+model ServicePackage {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  name String @db.VarChar(120)
+  /// RN-10: o crédito cobre **estes** serviços. O casamento é por `service_id`,
+  /// nunca por equivalência de valor.
+  serviceIds String[] @map("service_ids") @db.Uuid
+
+  credits    Int
+  priceCents BigInt @map("price_cents")
+  /// Decisão de negócio 2: 90 dias.
+  validityDays Int  @default(90) @map("validity_days")
+
+  /// Descontinuar não apaga as compras já feitas.
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  purchases PackagePurchase[]
+
+  @@map("service_packages")
+}
+
+/// A compra de um pacote por um tutor.
+model PackagePurchase {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  tutorId   String @map("tutor_id") @db.Uuid
+  packageId String @map("package_id") @db.Uuid
+
+  /// Vinculação a um pet. Opcional: pacote de tutor com um pet só não precisa dela,
+  /// e AC-05 permite reatribuir depois.
+  petId String? @map("pet_id") @db.Uuid
+
+  /// Nome, serviços, créditos e preço **no ato da compra**. RN-05: alterar o
+  /// catálogo depois nunca muda o que já foi vendido.
+  snapshot Json
+
+  creditsTotal Int @map("credits_total")
+  creditsUsed  Int @default(0) @map("credits_used")
+
+  purchasedAt DateTime @default(now()) @map("purchased_at") @db.Timestamptz(6)
+  /// `purchased_at + validity_days`. RN-08: vencido, o crédito é perdido e **nada é
+  /// devolvido** — decisão de produto, com aviso prévio obrigatório (RN-09).
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
+
+  status PurchaseStatus @default(ACTIVE)
+  /// Cifrado: pode citar óbito do pet ou situação familiar.
+  suspensionReasonEncrypted String? @map("suspension_reason_encrypted")
+
+  /// Rastro financeiro da compra.
+  paymentId String? @map("payment_id") @db.Uuid
+  entryId   String  @unique @map("entry_id") @db.Uuid
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  package ServicePackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  payment Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  entry   LedgerEntry    @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  usages  PackageCreditUsage[]
+
+  @@map("package_purchases")
+}
+
+/// Um crédito de pacote consumido por um atendimento.
+///
+/// O único `(tenant_id, attendance_id, service_id)` é a idempotência do resgate: a
+/// reentrega de `atendimento.concluido` não pode queimar o crédito duas vezes.
+model PackageCreditUsage {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String @map("tenant_id") @db.Uuid
+  purchaseId String @map("purchase_id") @db.Uuid
+
+  attendanceId  String  @map("attendance_id") @db.Uuid
+  appointmentId String? @map("appointment_id") @db.Uuid
+  serviceId     String  @map("service_id") @db.Uuid
+  petId         String  @map("pet_id") @db.Uuid
+
+  /// Lançamento informativo de valor zero, para o uso aparecer no extrato.
+  entryId String @unique @map("entry_id") @db.Uuid
+
+  usedAt DateTime @default(now()) @map("used_at") @db.Timestamptz(6)
+  /// RN-12: anulação do atendimento devolve o crédito, respeitando a validade
+  /// original — o pacote não ganha sobrevida por causa de um erro nosso.
+  revertedAt DateTime? @map("reverted_at") @db.Timestamptz(6)
+
+  purchase PackagePurchase @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  entry    LedgerEntry     @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@map("package_credit_usages")
+}
+
+/// Políticas financeiras do tenant. Uma linha por tenant.
+///
+/// `no_show_fee_percent` e `cancellation_window_hours` **não** moram aqui: vivem em
+/// `tenant_settings` desde o MOD-AGENDA, e o scheduling-service já calcula a taxa com
+/// eles. Duplicá-los criaria duas fontes de verdade sobre quanto se cobra de quem falta.
+model BillingSettings {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  /// RN-15: nulo **não bloqueia nada**. A política de bloqueio é opt-in por tenant.
+  creditLimitCents BigInt? @map("credit_limit_cents")
+  /// Dias de atraso até a tag de inadimplente.
+  overdueDays      Int     @default(30) @map("overdue_days")
+
+  /// Subconjunto de `PaymentMethod`. Vazio nunca: o tenant desliga o que não usa.
+  enabledPaymentMethods PaymentMethod[] @map("enabled_payment_methods")
+
+  defaultPackageValidityDays Int   @default(90) @map("default_package_validity_days")
+  /// RN-09: avisos em D-15 e D-3 por padrão. Expiração sem aviso é falha de produto.
+  packageExpiryWarningDays   Int[] @default([15, 3]) @map("package_expiry_warning_days")
+
+  noShowConsumesPackageCredit Boolean @default(false) @map("no_show_consumes_package_credit")
+
+  /// RN-20: o sistema emite **recibo**, não nota fiscal. O texto deixa isso explícito.
+  receiptFooterText String? @map("receipt_footer_text")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("billing_settings")
+}
+
+/// RN-04 — idempotência de API.
+///
+/// Todo POST que move dinheiro exige `idempotencyKey`. A repetição com o **mesmo**
+/// payload devolve o mesmo recurso; com payload diferente, `ERR_LEDGER_012`. Não está
+/// no §4 do PRD, mas sem a tabela a regra não tem onde se apoiar: o índice único de
+/// `(source_type, source_id)` cobre evento reentregue, não duplo clique no balcão.
+model LedgerIdempotencyKey {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  key      String @db.Uuid
+  /// Qual operação a chave cobre — a mesma chave em endpoints diferentes é uso
+  /// legítimo, e tratá-la como colisão quebraria o cliente sem motivo.
+  endpoint String @db.VarChar(60)
+  /// SHA-256 do payload normalizado. É o que separa "repetiu" de "mudou de ideia".
+  requestHash String @map("request_hash") @db.VarChar(64)
+  /// Id do recurso criado na primeira vez, para a repetição devolvê-lo.
+  resourceId  String @map("resource_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("ledger_idempotency_keys")
+}
+
+// ─── Agendador de jobs (packages/job-scheduler) ──────────────────────────────
+//
+// Tabelas de **plataforma**: não têm dono de tenant e por isso não têm RLS, como
+// `users`, `roles` e `permissions`. Um job varre todos os tenants por definição —
+// amarrá-lo a um contexto de tenant seria negar o que ele é.
+
+enum JobStatus {
+  OK
+  FAILED
+  TIMEOUT
+}
+
+/// Exclusão mútua entre réplicas. Uma linha por job.
+///
+/// O lease vence sozinho: se o processo que o tomou morrer no meio, a próxima réplica
+/// o reivindica assim que `lease_until` passar. É a propriedade que um lock em memória
+/// nunca tem, e a razão de não usar `pg_advisory_lock` (que ou vive numa conexão do
+/// pool, ou obriga a segurar uma transação aberta pelo job inteiro).
+model JobLease {
+  name       String   @id @db.VarChar(80)
+  /// `servico@host#id` — é o que o log mostra quando outra réplica está com o job.
+  holder     String   @db.VarChar(160)
+  leasedAt   DateTime @default(now()) @map("leased_at") @db.Timestamptz(6)
+  leaseUntil DateTime @map("lease_until") @db.Timestamptz(6)
+
+  @@map("job_leases")
+}
+
+/// Histórico de execução. É a resposta a "o job rodou?" — que sem isto só o log
+/// responderia, e log rotaciona.
+model JobRun {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String    @db.VarChar(80)
+  startedAt  DateTime  @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime  @map("finished_at") @db.Timestamptz(6)
+  status     JobStatus
+  /// O que o job devolveu: `{ marked: 3 }`, `{ expired: 0 }`. É o que se quer ver numa
+  /// consulta de uma linha só.
+  result     Json?
+  error      String?
+
+  @@index([name, startedAt(sort: Desc)], map: "idx_job_runs_name_time")
+  @@map("job_runs")
+}
+
+// ─── MOD-LEDGER-08 — recibo ──────────────────────────────────────────────────
+
+enum ReceiptStatus {
+  PENDING
+  ISSUED
+  SENT
+  CANCELLED
+}
+
+/// Comprovante de pagamento.
+///
+/// RN-20: é **recibo, não nota fiscal**. O PDF diz isso em letras, para não induzir o
+/// tenant a achar que cumpriu obrigação fiscal municipal que não cumpriu.
+model Receipt {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  tutorId   String @map("tutor_id") @db.Uuid
+  paymentId String @unique @map("payment_id") @db.Uuid
+
+  /// RN-21: sequencial por tenant e ano (`2026/000123`). Alocado na criação, dentro da
+  /// transação do pagamento — recibo cancelado **não** devolve o número.
+  number String @db.VarChar(20)
+
+  /// Chave do objeto no R2. O §4 previa `document_id` apontando para o MOD-DOC; sem a
+  /// tabela `documents`, um UUID para o nada seria pior que o endereço real do arquivo.
+  storageKey String? @map("storage_key")
+
+  status ReceiptStatus @default(PENDING)
+
+  issuedAt    DateTime? @map("issued_at") @db.Timestamptz(6)
+  /// Inalcançável até o MOD-NOTIF existir: não há quem envie.
+  sentAt      DateTime? @map("sent_at") @db.Timestamptz(6)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
+
+  /// Última falha de geração, para o job de reprocesso não ser cego.
+  lastError String? @map("last_error")
+  attempts  Int     @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@map("receipts")
+}
+
+/// Contador de recibo por tenant e ano (RN-21).
+///
+/// Uma `CREATE SEQUENCE` do Postgres é global e não sabe de tenant; criar uma por
+/// tenant exigiria DDL em tempo de execução. `INSERT … ON CONFLICT DO UPDATE …
+/// RETURNING` é atômico numa instrução e cabe na transação do pagamento.
+model ReceiptCounter {
+  tenantId   String @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int    @default(0) @map("last_number")
+
+  @@id([tenantId, year])
+  @@map("receipt_counters")
 }

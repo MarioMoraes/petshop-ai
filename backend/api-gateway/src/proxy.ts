@@ -169,6 +169,23 @@ function isRecordPath(path: string): boolean {
   )
 }
 
+const LEDGER_PREFIXES = [
+  '/v1/ledger',
+  '/v1/payments',
+  '/v1/packages',
+  '/v1/billing-settings',
+]
+
+/**
+ * Os pacotes de um tutor moram em `/v1/tutors/:tutorId/packages`, porque é da conta
+ * dele que se fala. Mesmo problema do prontuário: o roteamento é por prefixo, então
+ * esta checagem precisa vir **antes** de `TUTOR_PREFIXES` — senão a rota cairia no
+ * tutor-service, que não conhece pacote nenhum.
+ */
+function isLedgerTutorPath(path: string): boolean {
+  return path.startsWith('/v1/tutors/') && path.endsWith('/packages')
+}
+
 function matches(path: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
@@ -176,9 +193,11 @@ function matches(path: string, prefixes: string[]): boolean {
 export function resolveTarget(path: string): string | null {
   const env = loadEnv()
   if (matches(path, IDENTITY_PREFIXES)) return env.IDENTITY_SERVICE_URL
+  if (isLedgerTutorPath(path)) return env.BILLING_LEDGER_SERVICE_URL
   if (matches(path, TUTOR_PREFIXES)) return env.TUTOR_SERVICE_URL
   if (isRecordPath(path)) return env.MEDICAL_RECORD_SERVICE_URL
   if (matches(path, PET_PREFIXES)) return env.PET_SERVICE_URL
   if (matches(path, SCHEDULING_PREFIXES)) return env.SCHEDULING_SERVICE_URL
+  if (matches(path, LEDGER_PREFIXES)) return env.BILLING_LEDGER_SERVICE_URL
   return null
 }

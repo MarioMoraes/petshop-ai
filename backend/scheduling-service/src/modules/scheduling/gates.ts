@@ -1,5 +1,5 @@
 import type { TenantTransaction } from '@petshop/db'
-import { AppError } from '@petshop/shared-types'
+import { AppError, formatBRL } from '@petshop/shared-types'
 import { invalid } from '../../lib/errors.js'
 
 /**
@@ -141,7 +141,14 @@ export function assertCreditAllowed(
 ): void {
   // AC-03: limite nulo nunca bloqueia. O saldo vira alerta na tela, não barreira.
   if (status.creditLimitCents === null) return
-  if (status.balanceCents <= status.creditLimitCents) return
+
+  // **Atenção ao sinal.** `balanceCents` é negativo quando o tutor deve (RN-02), e
+  // `creditLimitCents` é positivo. Comparar os dois diretamente — como esta linha
+  // fazia — nunca bloqueava nada: `-28000 <= 30000` é sempre verdade. O que se compara
+  // é a **dívida** com o limite. O bug era inerte enquanto o limite era sempre nulo;
+  // deixou de ser no dia em que `billing_settings` passou a existir.
+  const debtCents = Math.max(0, -status.balanceCents)
+  if (debtCents <= status.creditLimitCents) return
 
   if (override) {
     if (!canOverride) {
@@ -157,7 +164,7 @@ export function assertCreditAllowed(
 
   throw new AppError(
     'ERR_AGENDA_008',
-    `O tutor tem ${formatCents(status.balanceCents)} em aberto, acima do limite de ${formatCents(status.creditLimitCents)}`,
+    `O tutor tem ${formatBRL(debtCents)} em aberto, acima do limite de ${formatBRL(status.creditLimitCents)}`,
     undefined,
     {
       balanceCents: status.balanceCents,
@@ -165,10 +172,6 @@ export function assertCreditAllowed(
       requiresOverride: true,
     },
   )
-}
-
-function formatCents(cents: number): string {
-  return `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 }
 
 // ─── RN-07 — antecedência mínima ─────────────────────────────────────────────

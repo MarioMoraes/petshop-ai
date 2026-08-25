@@ -66,6 +66,19 @@ export const PERMISSIONS = {
   'finance:read_own': 'Ler o próprio extrato',
   'finance:create': 'Lançar no financeiro',
   'finance:refund': 'Estornar lançamentos',
+  /**
+   * §9 do PRD financeiro: a matriz dá "lançar débito manual" à recepção (ela vende
+   * ração no balcão) mas guarda "lançar crédito manual / desconto" para o
+   * TENANT_ADMIN. Crédito sem contrapartida é dinheiro saindo do caixa, e quem
+   * concede desconto assume o custo dele.
+   */
+  'finance:credit': 'Lançar crédito manual e conceder desconto',
+  /**
+   * `billing_settings` e o catálogo de pacotes. Mudar limite de crédito ou validade
+   * de pacote é decisão de política comercial, não de balcão — mesmo corte que
+   * separa `schedule:manage_catalog` de `schedule:write_all`.
+   */
+  'finance:configure': 'Configurar políticas financeiras e pacotes',
 
   // Agenda
   'schedule:read_all': 'Ver todas as agendas',
@@ -180,6 +193,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'finance:read',
     'finance:create',
     'finance:refund',
+    'finance:credit',
+    'finance:configure',
     'schedule:read_all',
     'schedule:read_own',
     'schedule:write_all',

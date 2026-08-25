@@ -16,6 +16,7 @@ import {
   type ServiceResponse,
 } from '@petshop/shared-types'
 import { z } from 'zod'
+import type { CreditCheckResponse } from '@petshop/shared-types'
 import { serverApi } from '@/lib/api'
 
 /**
@@ -260,7 +261,9 @@ export async function cancelAppointmentAction(
  * porte —, e não o cadastro inteiro.
  */
 export async function searchPetsAction(query: string): Promise<
-  ActionResult<{ id: string; name: string; tutorName: string; sizeLabel: string }[]>
+  ActionResult<
+    { id: string; name: string; tutorId: string | null; tutorName: string; sizeLabel: string }[]
+  >
 > {
   try {
     const result = await serverApi().listPets({ q: query, limit: 8 })
@@ -269,6 +272,9 @@ export async function searchPetsAction(query: string): Promise<
       data: result.data.map((pet) => ({
         id: pet.id,
         name: pet.name,
+        // O `tutorId` é o que permite consultar o débito antes de montar o
+        // agendamento inteiro. Pet sem responsável principal não tem a quem cobrar.
+        tutorId: pet.tutors.find((link) => link.role === 'PRIMARY')?.tutorId ?? null,
         // O responsável principal é quem responde pelo agendamento; RN-16 admite
         // cinco "Mel" no mesmo tenant, e é o nome do tutor que desfaz o empate.
         tutorName:
@@ -330,5 +336,26 @@ export async function createAppointmentAction(
     return { ok: true, data: appointment }
   } catch (error) {
     return toFailure(error)
+  }
+}
+
+/**
+ * O débito do tutor, para o passo 1 do wizard (MOD-LEDGER-09).
+ *
+ * Consultado quando o pet é escolhido, e não na confirmação: descobrir que o tutor
+ * está acima do limite depois de montar serviços, profissional e horário é fazer o
+ * atendente refazer tudo com o cliente na frente.
+ *
+ * Falha de rede devolve `null` em vez de erro — o aviso é um extra, e não poder
+ * exibi-lo não é motivo para impedir o agendamento.
+ */
+export async function creditCheckAction(
+  tutorId: string,
+  amountCents = 0,
+): Promise<CreditCheckResponse | null> {
+  try {
+    return await serverApi().creditCheck(tutorId, amountCents)
+  } catch {
+    return null
   }
 }

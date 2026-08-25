@@ -53,6 +53,22 @@ services:
       timeout: 10s
       retries: 10
 
+  gotenberg:
+    # Geração de PDF (SPEC §5). O Chromium fica aqui dentro, e não numa dependência
+    # npm do serviço: um navegador headless em cada imagem de backend seria centenas
+    # de MB replicados para imprimir um recibo.
+    image: gotenberg/gotenberg:8
+    container_name: petshop-gotenberg
+    restart: unless-stopped
+    # Ele escuta 3000 lá dentro, que no host é a porta do gateway. Daí o 3030.
+    ports:
+      - '3030:3000'
+    healthcheck:
+      test: ['CMD', 'curl', '--silent', '--fail', 'http://localhost:3000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres-data:
   redis-data:

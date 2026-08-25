@@ -120,6 +120,8 @@ export type TutorRoutingKey = (typeof TUTOR_ROUTING_KEYS)[keyof typeof TUTOR_ROU
 export const TUTOR_CONSUMED_ROUTING_KEYS = [
   'atendimento.concluido',
   'lancamento.criado',
+  'inadimplencia.detectada',
+  'inadimplencia.resolvida',
   'mensagem.recebida',
 ] as const
 
@@ -456,4 +458,183 @@ export interface AgendaEventMap {
   'agendamento.reagendado': AgendamentoReagendadoEvent
   'atendimento.iniciado': AtendimentoIniciadoEvent
   'atendimento.concluido': AtendimentoConcluidoEvent
+}
+
+// ─── MOD-LEDGER ──────────────────────────────────────────────────────────────
+// PRD financeiro_tutor_05 §8.
+
+export const LEDGER_ROUTING_KEYS = {
+  lancamentoCriado: 'lancamento.criado',
+  lancamentoEstornado: 'lancamento.estornado',
+  saldoAlterado: 'saldo.alterado',
+  pagamentoRegistrado: 'pagamento.registrado',
+  pagamentoEstornado: 'pagamento.estornado',
+  pacoteComprado: 'pacote.comprado',
+  pacoteCreditoConsumido: 'pacote.credito.consumido',
+  pacoteConsumido: 'pacote.consumido',
+  pacoteExpirado: 'pacote.expirado',
+  reciboEmitido: 'recibo.emitido',
+  inadimplenciaDetectada: 'inadimplencia.detectada',
+  inadimplenciaResolvida: 'inadimplencia.resolvida',
+} as const
+
+export type LedgerRoutingKey = (typeof LEDGER_ROUTING_KEYS)[keyof typeof LEDGER_ROUTING_KEYS]
+
+/** Eventos que o billing-ledger-service consome (PRD §8, parágrafo final). */
+export const LEDGER_CONSUMED_ROUTING_KEYS = [
+  'atendimento.concluido',
+  'pet.obito',
+  'pet.transferido',
+  'tutor.mesclado',
+  'tutor.anonimizado',
+] as const
+
+/**
+ * Um lançamento entrou na conta.
+ *
+ * `balanceCents` é redundante com `balanceAfterCents` de propósito: o
+ * `tutor-service` já consome este evento desde o MOD-TUTOR para manter
+ * `tutors.balance_cents` e a tag INADIMPLENTE, e o campo que ele lê chama-se
+ * `balanceCents`. Publicar o superset é o que permite ligar o ledger sem tocar em
+ * consumidor nenhum.
+ */
+export interface LancamentoCriadoEvent extends BaseEvent {
+  tenantId: string
+  entryId: string
+  tutorId: string
+  direction: 'DEBIT' | 'CREDIT'
+  amountCents: number
+  category: string
+  balanceAfterCents: number
+  /** Mesmo valor de `balanceAfterCents`; ver a nota acima. */
+  balanceCents: number
+  occurredAt: string
+}
+
+export interface LancamentoEstornadoEvent extends BaseEvent {
+  tenantId: string
+  entryId: string
+  tutorId: string
+  reversalEntryId: string
+  reason: string
+  reversedBy: string | null
+  balanceCents: number
+}
+
+export interface SaldoAlteradoEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+  balanceCents: number
+  previousBalanceCents: number
+}
+
+export interface PagamentoRegistradoEvent extends BaseEvent {
+  tenantId: string
+  paymentId: string
+  tutorId: string
+  amountCents: number
+  method: string
+  receivedAt: string
+  balanceCents: number
+}
+
+export interface PagamentoEstornadoEvent extends BaseEvent {
+  tenantId: string
+  paymentId: string
+  tutorId: string
+  reason: string
+  reversedBy: string | null
+  balanceCents: number
+}
+
+export interface PacoteCompradoEvent extends BaseEvent {
+  tenantId: string
+  purchaseId: string
+  tutorId: string
+  petId: string | null
+  packageName: string
+  creditsTotal: number
+  expiresAt: string
+}
+
+export interface PacoteCreditoConsumidoEvent extends BaseEvent {
+  tenantId: string
+  purchaseId: string
+  tutorId: string
+  attendanceId: string
+  creditsRemaining: number
+  expiresAt: string
+}
+
+export interface PacoteConsumidoEvent extends BaseEvent {
+  tenantId: string
+  purchaseId: string
+  tutorId: string
+}
+
+/**
+ * RN-08: o crédito venceu e **nada é devolvido**.
+ *
+ * `creditsLost` vai no payload porque é o número que o MOD-CRM usa para calibrar a
+ * oferta de recompra — e porque `package_expiry_waste_cents` é métrica de alerta,
+ * não de receita: expiração alta é cliente frustrado a caminho do churn.
+ */
+export interface PacoteExpiradoEvent extends BaseEvent {
+  tenantId: string
+  purchaseId: string
+  tutorId: string
+  creditsLost: number
+  expiredAt: string
+}
+
+/**
+ * O comprovante ficou pronto (MOD-LEDGER-08).
+ *
+ * Sai **depois** do `pagamento.registrado`, e não junto: o PDF é gerado fora da
+ * transação e pode demorar — ou falhar e só sair no reprocesso. Quem quiser anexar o
+ * recibo a um e-mail espera por este, não por aquele.
+ */
+export interface ReciboEmitidoEvent extends BaseEvent {
+  tenantId: string
+  receiptId: string
+  paymentId: string
+  tutorId: string
+  number: string
+}
+
+/**
+ * RN-16 — a inadimplência começou.
+ *
+ * O gatilho é o **atraso**, não o sinal do saldo: `billing_settings.overdue_days` (30
+ * por padrão) define quando um débito em aberto vira inadimplência. Quem fez banho de
+ * manhã e paga na saída deve dinheiro o dia inteiro sem ser inadimplente — e marcá-lo
+ * como tal seria a plataforma insultando o cliente do petshop.
+ */
+export interface InadimplenciaDetectadaEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+  balanceCents: number
+  overdueDays: number
+  oldestOpenDebitAt: string
+}
+
+export interface InadimplenciaResolvidaEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+  settledAt: string
+}
+
+export interface LedgerEventMap {
+  'lancamento.criado': LancamentoCriadoEvent
+  'lancamento.estornado': LancamentoEstornadoEvent
+  'saldo.alterado': SaldoAlteradoEvent
+  'pagamento.registrado': PagamentoRegistradoEvent
+  'pagamento.estornado': PagamentoEstornadoEvent
+  'pacote.comprado': PacoteCompradoEvent
+  'pacote.credito.consumido': PacoteCreditoConsumidoEvent
+  'pacote.consumido': PacoteConsumidoEvent
+  'pacote.expirado': PacoteExpiradoEvent
+  'recibo.emitido': ReciboEmitidoEvent
+  'inadimplencia.detectada': InadimplenciaDetectadaEvent
+  'inadimplencia.resolvida': InadimplenciaResolvidaEvent
 }

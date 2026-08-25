@@ -6,16 +6,19 @@ import { finalizeProvisioning } from './service.js'
 /**
  * Job `tenant-provisioning-retry` (AC-03 de MOD-IDENT-01).
  *
- * Roda a cada 2 minutos e retoma os tenants presos em `PROVISIONING`. A varredura é
- * cross-tenant, então usa `app_maintenance` — que é exatamente o caso em que o PRD
- * autoriza a role com BYPASSRLS. O trabalho por tenant, esse sim, volta a passar por
- * `withTenant`.
+ * Retoma os tenants presos em `PROVISIONING`. A varredura é cross-tenant, então usa
+ * `app_maintenance` — que é exatamente o caso em que o PRD autoriza a role com
+ * BYPASSRLS. O trabalho por tenant, esse sim, volta a passar por `withTenant`.
  *
  * `finalizeProvisioning` é idempotente: reencontra a Organization pelo slug em vez de
  * criar uma segunda, e conta a tentativa a cada falha até `PROVISIONING_FAILED`.
+ *
+ * **Quem chama no relógio é `jobs/schedule.ts`.** Este arquivo teve o próprio
+ * `setInterval` até a chegada do `@petshop/job-scheduler`; manter dois mecanismos de
+ * agendamento seria garantir que divergissem — e só um deles impede duas réplicas de
+ * provisionar o mesmo tenant ao mesmo tempo.
  */
 
-let timer: NodeJS.Timeout | null = null
 let running = false
 
 export async function runProvisioningRetryOnce(): Promise<{ processed: number }> {
@@ -44,17 +47,3 @@ export async function runProvisioningRetryOnce(): Promise<{ processed: number }>
   }
 }
 
-export function startProvisioningRetry(): void {
-  if (timer) return
-  const intervalMs = loadEnv().PROVISIONING_RETRY_INTERVAL_MS
-  timer = setInterval(() => {
-    void runProvisioningRetryOnce()
-  }, intervalMs)
-  timer.unref()
-  logger.info({ intervalMs }, 'job tenant-provisioning-retry iniciado')
-}
-
-export function stopProvisioningRetry(): void {
-  if (timer) clearInterval(timer)
-  timer = null
-}

@@ -82,6 +82,64 @@ importers:
         specifier: ^8.0.0
         version: 8.0.0
 
+  backend/billing-ledger-service:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1116.0
+        version: 3.1116.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.1116.0
+        version: 3.1116.0
+      '@petshop/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@petshop/job-scheduler':
+        specifier: workspace:*
+        version: link:../../packages/job-scheduler
+      '@petshop/pdf':
+        specifier: workspace:*
+        version: link:../../packages/pdf
+      '@petshop/service-auth':
+        specifier: workspace:*
+        version: link:../../packages/service-auth
+      '@petshop/service-kit':
+        specifier: workspace:*
+        version: link:../../packages/service-kit
+      '@petshop/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      amqplib:
+        specifier: ^0.10.9
+        version: 0.10.9
+      fastify:
+        specifier: ^5.4.0
+        version: 5.12.1
+      ioredis:
+        specifier: ^5.7.0
+        version: 5.11.1
+      pino:
+        specifier: ^9.7.0
+        version: 9.14.0
+      zod:
+        specifier: ^4.0.17
+        version: 4.4.3
+    devDependencies:
+      '@petshop/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/amqplib':
+        specifier: ^0.10.7
+        version: 0.10.8
+      dotenv:
+        specifier: ^17.2.1
+        version: 17.4.2
+      dotenv-cli:
+        specifier: ^8.0.0
+        version: 8.0.0
+      pino-pretty:
+        specifier: ^13.0.0
+        version: 13.1.3
+
   backend/identity-service:
     dependencies:
       '@clerk/backend':
@@ -93,6 +151,9 @@ importers:
       '@petshop/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@petshop/job-scheduler':
+        specifier: workspace:*
+        version: link:../../packages/job-scheduler
       '@petshop/service-auth':
         specifier: workspace:*
         version: link:../../packages/service-auth
@@ -243,6 +304,9 @@ importers:
       '@petshop/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@petshop/job-scheduler':
+        specifier: workspace:*
+        version: link:../../packages/job-scheduler
       '@petshop/service-auth':
         specifier: workspace:*
         version: link:../../packages/service-auth
@@ -421,6 +485,31 @@ importers:
       prisma:
         specifier: ^6.14.0
         version: 6.19.3(typescript@5.9.3)
+
+  packages/job-scheduler:
+    dependencies:
+      '@petshop/db':
+        specifier: workspace:*
+        version: link:../db
+      '@petshop/service-kit':
+        specifier: workspace:*
+        version: link:../service-kit
+      pino:
+        specifier: ^9.7.0
+        version: 9.14.0
+    devDependencies:
+      '@petshop/config':
+        specifier: workspace:*
+        version: link:../config
+      dotenv:
+        specifier: ^17.2.1
+        version: 17.4.2
+
+  packages/pdf:
+    devDependencies:
+      '@petshop/config':
+        specifier: workspace:*
+        version: link:../config
 
   packages/service-auth:
     dependencies:

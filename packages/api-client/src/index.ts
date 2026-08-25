@@ -25,6 +25,16 @@ import {
   SizeSchema,
   AppointmentResponseSchema,
   AvailabilityResponseSchema,
+  BillingSettingsSchema,
+  LedgerAccountSchema,
+  LedgerEntrySchema,
+  PackagePurchaseSchema,
+  PaginatedPaymentsSchema,
+  PaymentSchema,
+  ReceiptSchema,
+  CreditCheckResponseSchema,
+  ServicePackageSchema,
+  StatementSchema,
   CalendarBlockCreatedSchema,
   CalendarBlockResponseSchema,
   DayViewSchema,
@@ -46,8 +56,25 @@ import {
   type ProblemDetails,
   type AppointmentResponse,
   type CalendarBlockResponse,
+  type BillingSettings,
   type CreateAppointmentInput,
   type CreateCalendarBlockInput,
+  type CreateLedgerEntryInput,
+  type CreatePackagePurchaseInput,
+  type CreatePaymentInput,
+  type CreateServicePackageInput,
+  type LedgerAccount,
+  type LedgerEntry,
+  type PackagePurchase,
+  type CreditCheckResponse,
+  type PaginatedPayments,
+  type Payment,
+  type Receipt,
+  type ServicePackage,
+  type Statement,
+  type UpdateBillingSettingsInput,
+  type UpdatePackagePurchaseInput,
+  type UpdateServicePackageInput,
   type CreateProfessionalInput,
   type CreateServiceInput,
   type ProfessionalResponse,
@@ -817,6 +844,152 @@ export function createApiClient(options: ApiClientOptions) {
         path: `/v1/appointments/${id}/approve`,
         schema: AppointmentResponseSchema,
       }),
+
+    // ─── MOD-LEDGER — conta corrente do tutor ──────────────────────────────
+
+    getLedgerAccount: (tutorId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/ledger/accounts/${tutorId}`,
+        schema: LedgerAccountSchema,
+      }),
+
+    getStatement: (tutorId: string, query: { from?: string; to?: string; page?: number; limit?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/ledger/accounts/${tutorId}/statement${toQueryString(query)}`,
+        schema: StatementSchema,
+      }),
+
+    createLedgerEntry: (input: CreateLedgerEntryInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/ledger/entries',
+        body: input,
+        schema: LedgerEntrySchema,
+      }),
+
+    reverseLedgerEntry: (id: string, input: { reason: string }) =>
+      request({
+        method: 'POST',
+        path: `/v1/ledger/entries/${id}/reverse`,
+        body: input,
+        schema: z.object({ entryId: z.uuid(), reversalEntryId: z.uuid() }),
+      }),
+
+    createPayment: (input: CreatePaymentInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/payments',
+        body: input,
+        schema: PaymentSchema,
+      }),
+
+    listPayments: (query: { tutorId?: string; from?: string; to?: string; method?: string; page?: number; limit?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/payments${toQueryString(query)}`,
+        schema: PaginatedPaymentsSchema,
+      }),
+
+    reversePayment: (id: string, input: { reason: string }) =>
+      request({
+        method: 'POST',
+        path: `/v1/payments/${id}/reverse`,
+        body: input,
+        schema: z.object({ paymentId: z.uuid(), reversalEntryId: z.uuid() }),
+      }),
+
+    listServicePackages: (query: { includeInactive?: boolean } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/packages${toQueryString(query)}`,
+        schema: z.object({ data: z.array(ServicePackageSchema) }),
+      }),
+
+    createServicePackage: (input: CreateServicePackageInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/packages',
+        body: input,
+        schema: z.object({ id: z.uuid() }),
+      }),
+
+    updateServicePackage: (id: string, input: UpdateServicePackageInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/packages/${id}`,
+        body: input,
+        schema: z.object({ id: z.uuid() }),
+      }),
+
+    purchasePackage: (packageId: string, input: CreatePackagePurchaseInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/packages/${packageId}/purchases`,
+        body: input,
+        schema: PackagePurchaseSchema,
+      }),
+
+    listTutorPackages: (tutorId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/tutors/${tutorId}/packages`,
+        schema: z.object({ data: z.array(PackagePurchaseSchema) }),
+      }),
+
+    updatePackagePurchase: (id: string, input: UpdatePackagePurchaseInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/packages/purchases/${id}`,
+        body: input,
+        schema: PackagePurchaseSchema,
+      }),
+
+    getBillingSettings: () =>
+      request({
+        method: 'GET',
+        path: '/v1/billing-settings',
+        schema: BillingSettingsSchema,
+      }),
+
+    updateBillingSettings: (input: UpdateBillingSettingsInput) =>
+      request({
+        method: 'PATCH',
+        path: '/v1/billing-settings',
+        body: input,
+        schema: BillingSettingsSchema,
+      }),
+
+    /** MOD-LEDGER-08 — número, status e URL assinada. Nunca o PDF em stream. */
+    getReceipt: (paymentId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/payments/${paymentId}/receipt`,
+        schema: ReceiptSchema,
+      }),
+
+    /** MOD-LEDGER-09 — o que a agenda pergunta antes de marcar. Sempre 200. */
+    creditCheck: (tutorId: string, amountCents = 0) =>
+      request({
+        method: 'GET',
+        path: `/v1/ledger/accounts/${tutorId}/credit-check?amountCents=${amountCents}`,
+        schema: CreditCheckResponseSchema,
+      }),
+
+    getReceivables: () =>
+      request({
+        method: 'GET',
+        path: '/v1/ledger/reports/receivables',
+        schema: z.object({
+          buckets: z.object({
+            '0_30d': z.number().int(),
+            '30_60d': z.number().int(),
+            '60d_plus': z.number().int(),
+          }),
+          totalCents: z.number().int(),
+        }),
+      }),
   }
 }
 
@@ -866,10 +1039,20 @@ export type {
   SafetyRecord,
   Size,
   AppointmentResponse,
+  BillingSettings,
   CalendarBlockResponse,
+  LedgerAccount,
+  LedgerEntry,
+  PackagePurchase,
+  CreditCheckResponse,
+  PaginatedPayments,
+  Payment,
   ProfessionalResponse,
+  Receipt,
+  ServicePackage,
   ServiceResponse,
   SlugAvailability,
+  Statement,
   Species,
   Tag,
   Temperament,

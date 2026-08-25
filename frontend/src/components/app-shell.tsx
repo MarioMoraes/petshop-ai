@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import type { CSSProperties, ReactNode } from 'react'
 import { UserButton } from '@clerk/nextjs'
-import type { MeResponse } from '@petshop/shared-types'
+import type { MeResponse, PermissionKey } from '@petshop/shared-types'
 import { Atmosphere } from './atmosphere'
-import { CalendarIcon, HomeIcon, PawPrintIcon, SettingsIcon, UsersIcon } from './icons'
+import { CalendarIcon, HomeIcon, PawPrintIcon, SettingsIcon, UsersIcon, WalletIcon } from './icons'
 import { Badge, Logo } from './ui'
 
 /**
@@ -22,15 +22,20 @@ import { Badge, Logo } from './ui'
  * útil e criava uma segunda borda concorrendo com a dos cartões.
  */
 
-type NavKey = 'inicio' | 'tutores' | 'pets' | 'agenda' | 'configuracoes'
+type NavKey = 'inicio' | 'tutores' | 'pets' | 'agenda' | 'financeiro' | 'configuracoes'
 
 interface NavItem {
   key: NavKey
-  href: '/dashboard' | '/tutores' | '/pets' | '/agenda/dia' | '/configuracoes'
+  href: '/dashboard' | '/tutores' | '/pets' | '/agenda/dia' | '/financeiro/pacotes' | '/configuracoes'
   label: string
   icon: ReactNode
-  /** Item que só existe para quem tem `tenant:read_settings`. */
-  restricted?: boolean
+  /**
+   * Permissão que o item exige. Cada módulo declara a sua, em vez de todos
+   * dependerem de `tenant:read_settings` — o financeiro é a primeira área que a
+   * recepção acessa sem ser configuração, e um gate único já não descreveria a
+   * matriz do RBAC.
+   */
+  requires?: PermissionKey
 }
 
 const NAV: NavItem[] = [
@@ -44,14 +49,23 @@ const NAV: NavItem[] = [
     href: '/agenda/dia',
     label: 'Agenda',
     icon: <CalendarIcon />,
-    restricted: true,
+    requires: 'tenant:read_settings',
+  },
+  {
+    // Pacotes e políticas. O extrato de um tutor mora na ficha dele, que é onde o
+    // balcão trabalha — aqui fica o que é do estabelecimento.
+    key: 'financeiro',
+    href: '/financeiro/pacotes',
+    label: 'Financeiro',
+    icon: <WalletIcon />,
+    requires: 'finance:read',
   },
   {
     key: 'configuracoes',
     href: '/configuracoes',
     label: 'Configurações',
     icon: <SettingsIcon />,
-    restricted: true,
+    requires: 'tenant:read_settings',
   },
 ]
 
@@ -70,8 +84,9 @@ export interface AppShellProps {
 export function AppShell({ active, me, atmosphere = false, children }: AppShellProps) {
   // O menu não oferece o que a página recusaria: um link que sempre devolve o usuário
   // ao início é pior do que link nenhum.
-  const canReadSettings = me.permissions.includes('tenant:read_settings')
-  const items = NAV.filter((item) => !item.restricted || canReadSettings)
+  const items = NAV.filter(
+    (item) => !item.requires || me.permissions.includes(item.requires),
+  )
 
   const trialDaysLeft = trialDaysLeftOf(me.currentTenant?.trialEndsAt)
   const roleLabel = roleLabelOf(me)

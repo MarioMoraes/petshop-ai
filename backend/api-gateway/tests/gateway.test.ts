@@ -378,3 +378,56 @@ describe('RN-04 — tenant suspenso', () => {
     expect(response.statusCode).toBe(200)
   })
 })
+
+/**
+ * Roteamento por prefixo.
+ *
+ * `resolveTarget` é função pura, e testá-la direto vale mais que subir o proxy: o que
+ * pode dar errado aqui é **ordem**, não transporte. Um prefixo colocado depois de
+ * outro que o engloba manda a rota para o serviço errado sem erro nenhum — o pedido
+ * chega, alguém responde 404, e ninguém desconfia do gateway.
+ */
+describe('resolveTarget — a que serviço cada rota pertence', () => {
+  it('manda o financeiro para o billing-ledger-service', async () => {
+    const { resolveTarget } = await import('../src/proxy.js')
+    const { loadEnv } = await import('../src/env.js')
+    const ledger = loadEnv().BILLING_LEDGER_SERVICE_URL
+
+    for (const path of [
+      '/v1/ledger/accounts/abc',
+      '/v1/ledger/accounts/abc/statement',
+      '/v1/ledger/entries',
+      '/v1/payments',
+      '/v1/packages',
+      '/v1/packages/abc/purchases',
+      '/v1/billing-settings',
+    ]) {
+      expect(resolveTarget(path)).toBe(ledger)
+    }
+  })
+
+  it('os pacotes do tutor vencem o prefixo de tutores', async () => {
+    const { resolveTarget } = await import('../src/proxy.js')
+    const { loadEnv } = await import('../src/env.js')
+    const env = loadEnv()
+
+    // A checagem por sufixo precisa vir antes de `TUTOR_PREFIXES`; senão esta rota
+    // cairia no tutor-service, que não conhece pacote nenhum.
+    expect(resolveTarget('/v1/tutors/abc/packages')).toBe(env.BILLING_LEDGER_SERVICE_URL)
+    // E o resto do tutor continua com quem é dele.
+    expect(resolveTarget('/v1/tutors/abc')).toBe(env.TUTOR_SERVICE_URL)
+    expect(resolveTarget('/v1/tutors/abc/overview')).toBe(env.TUTOR_SERVICE_URL)
+  })
+
+  it('`/v1/services` continua sendo da agenda, não do catálogo de pacotes', async () => {
+    const { resolveTarget } = await import('../src/proxy.js')
+    const { loadEnv } = await import('../src/env.js')
+
+    expect(resolveTarget('/v1/services')).toBe(loadEnv().SCHEDULING_SERVICE_URL)
+  })
+
+  it('rota desconhecida não é roteada para lugar nenhum', async () => {
+    const { resolveTarget } = await import('../src/proxy.js')
+    expect(resolveTarget('/v1/inexistente')).toBeNull()
+  })
+})

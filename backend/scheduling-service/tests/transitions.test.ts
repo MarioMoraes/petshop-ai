@@ -45,6 +45,31 @@ async function givenBooking(overrides: { priceCents?: number } = {}) {
   return { ...booking, serviceId, professionalId, petId }
 }
 
+/**
+ * Um horário **dentro da janela de 24h** que não cruza a meia-noite UTC.
+ *
+ * A jornada é conferida por faixa de um dia da semana: um atendimento que começa às
+ * 23:30 e termina 00:30 não cabe em faixa nenhuma, por mais que o profissional atenda
+ * 24 horas nos sete dias. `Date.now() + 2h` funciona em quase todo horário do dia e
+ * quebra entre 22h e meia-noite UTC — foi assim que estes três testes passaram meses
+ * e falharam numa quarta-feira às 21h21.
+ *
+ * A saída é a madrugada do dia seguinte: sempre no futuro, sempre a menos de 24h de
+ * distância quando `agora` está na faixa perigosa, e sempre dentro de um único dia.
+ */
+function dentroDaJanela(duracaoMin = 60): Date {
+  const agora = new Date()
+  const candidato = new Date(agora.getTime() + 2 * 3_600_000)
+  const fim = new Date(candidato.getTime() + duracaoMin * 60_000)
+
+  if (candidato.getUTCDate() === fim.getUTCDate()) return candidato
+
+  const madrugada = new Date(candidato)
+  madrugada.setUTCDate(madrugada.getUTCDate() + (candidato.getUTCHours() >= 12 ? 1 : 0))
+  madrugada.setUTCHours(2, 0, 0, 0)
+  return madrugada
+}
+
 describe('§6 — check-in e check-out', () => {
   it('o fluxo completo leva a COMPLETED e a trilha registra cada passo', async () => {
     const booking = await givenBooking()
@@ -179,7 +204,7 @@ describe('RN-06 — cancelamento e a janela de 24h', () => {
       })),
     })
     const { petId } = await givenPet(tenant)
-    const daquiDuasHoras = new Date(Date.now() + 2 * 60 * 60_000)
+    const daquiDuasHoras = dentroDaJanela()
     const booking = await createBooking(actor(), {
       petId,
       professionalId,
@@ -217,7 +242,7 @@ describe('RN-06 — cancelamento e a janela de 24h', () => {
     const booking = await createBooking(actor(), {
       petId,
       professionalId,
-      startsAt: new Date(Date.now() + 2 * 60 * 60_000),
+      startsAt: dentroDaJanela(),
       items: [{ serviceId }],
     })
 
@@ -252,7 +277,7 @@ describe('RN-06 — cancelamento e a janela de 24h', () => {
     const booking = await createBooking(actor(), {
       petId,
       professionalId,
-      startsAt: new Date(Date.now() + 2 * 60 * 60_000),
+      startsAt: dentroDaJanela(),
       items: [{ serviceId }],
     })
 

@@ -127,6 +127,21 @@ export function createRawAppClient(): PrismaClient {
 }
 
 const BUSINESS_TABLES = [
+  // MOD-LEDGER-08 — o recibo aponta para o pagamento, então vem antes dele.
+  'receipts',
+  'receipt_counters',
+  // MOD-LEDGER — na frente de tudo: referencia tutores, pets e serviços.
+  // A ordem interna também importa: `package_credit_usages` e `payment_allocations`
+  // apontam para lançamentos e pagamentos, que apontam para a conta.
+  'ledger_idempotency_keys',
+  'package_credit_usages',
+  'package_purchases',
+  'service_packages',
+  'payment_allocations',
+  'payments',
+  'ledger_entries',
+  'ledger_accounts',
+  'billing_settings',
   // MOD-AGENDA — na frente das tabelas de pet e tutor, que elas referenciam.
   'appointment_status_log',
   'appointment_items',
@@ -161,6 +176,9 @@ const BUSINESS_TABLES = [
   'tenant_settings',
   'tenants',
   'users',
+  // Plataforma, sem tenant: não referenciam nada e por isso vêm por último.
+  'job_runs',
+  'job_leases',
 ]
 
 /**

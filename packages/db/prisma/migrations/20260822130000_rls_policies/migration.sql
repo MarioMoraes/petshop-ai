@@ -144,6 +144,8 @@ CREATE POLICY tenant_isolation ON "security_events"
 
 -- Tabelas deliberadamente SEM RLS, por não terem dono de tenant:
 --   · users, roles, permissions, role_permissions — globais (RN-01, RN-05).
+--   · job_leases, job_runs — plataforma (`20260826090000_jobs_e_recibos`). Um job varre
+--     todos os tenants por definição; amarrá-lo a um contexto negaria o que ele é.
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 4. Trilha de auditoria append-only (PRD §9)

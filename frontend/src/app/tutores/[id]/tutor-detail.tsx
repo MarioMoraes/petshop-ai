@@ -11,7 +11,9 @@ import {
   type Tag,
   type TutorOverview,
 } from '@petshop/shared-types'
+import type { LedgerAccount, PackagePurchase, ServicePackage, Statement } from '@petshop/shared-types'
 import { Badge, Card, DataRow, FormError, Tabs } from '@/components/ui'
+import { FinanceiroTab } from './financeiro-tab'
 import {
   anonymizeTutorAction,
   assignTagAction,
@@ -24,18 +26,21 @@ import {
 /**
  * Detalhe do tutor em abas.
  *
- * As abas de agenda e financeiro existem e dizem que o módulo ainda não chegou, em
- * vez de sumirem: o atendente precisa saber que o dado *vai* estar ali, e uma aba
- * vazia sem explicação lê como "este tutor não tem agendamento".
+ * Pets e financeiro são compostos **pela página**, não pela visão 360º do
+ * tutor-service: um vem do pet-service, o outro do billing-ledger-service, e nenhum
+ * dos dois é dado que o serviço de tutores deva ler de tabela alheia.
  *
- * A de pets deixou de ser uma dessas. Os pets vêm do pet-service e são compostos pela
- * página, e não pela visão 360º do tutor-service.
+ * O `PendingTab` que anunciava "chega com o MOD-LEDGER" saiu junto com a chegada do
+ * módulo — era o último uso dele.
  */
 
-const MODULE_LABELS: Record<string, string> = {
-  'MOD-AGENDA': 'os agendamentos',
-  'MOD-LEDGER': 'a conta corrente',
-  'MOD-CRM': 'o histórico de mensagens',
+/** O que a página carregou do billing-ledger-service para a aba Financeiro. */
+export interface FinanceData {
+  account: LedgerAccount
+  statement: Statement
+  packages: PackagePurchase[]
+  catalog: ServicePackage[]
+  can: { read: boolean; create: boolean; refund: boolean; credit: boolean }
 }
 
 interface Props {
@@ -43,9 +48,10 @@ interface Props {
   consents: ConsentsResponse
   tags: Tag[]
   pets: PetResponse[]
+  finance: FinanceData | null
 }
 
-export function TutorDetailView({ overview, consents, tags, pets }: Props) {
+export function TutorDetailView({ overview, consents, tags, pets, finance }: Props) {
   const tutor = overview.tutor
   const [tab, setTab] = useState('dados')
 
@@ -58,7 +64,9 @@ export function TutorDetailView({ overview, consents, tags, pets }: Props) {
           { id: 'consentimentos', label: 'Consentimento' },
           { id: 'tags', label: 'Tags' },
           { id: 'pets', label: `Pets (${pets.length})` },
-          { id: 'financeiro', label: 'Financeiro' },
+          // A aba só existe para quem pode ver o financeiro (§9). Escondê-la é mais
+          // honesto que abri-la para um 403.
+          ...(finance ? [{ id: 'financeiro', label: 'Financeiro' }] : []),
         ]}
         active={tab}
         onSelect={setTab}
@@ -69,7 +77,17 @@ export function TutorDetailView({ overview, consents, tags, pets }: Props) {
       {tab === 'consentimentos' && <ConsentimentosTab tutorId={tutor.id} consents={consents} />}
       {tab === 'tags' && <TagsTab tutorId={tutor.id} tutorTags={tutor.tags} allTags={tags} />}
       {tab === 'pets' && <PetsTab tutorId={tutor.id} pets={pets} />}
-      {tab === 'financeiro' && <PendingTab module="MOD-LEDGER" />}
+      {tab === 'financeiro' && finance && (
+        <FinanceiroTab
+          tutorId={tutor.id}
+          account={finance.account}
+          statement={finance.statement}
+          packages={finance.packages}
+          catalog={finance.catalog}
+          pets={pets}
+          can={finance.can}
+        />
+      )}
     </div>
   )
 }
@@ -469,19 +487,6 @@ function PetsTab({ tutorId, pets }: { tutorId: string; pets: PetResponse[] }) {
         Cadastrar outro pet
       </Link>
     </div>
-  )
-}
-
-// ─── Abas dependentes de outros módulos ──────────────────────────────────────
-
-function PendingTab({ module }: { module: string }) {
-  return (
-    <Card>
-      <p className="hint">
-        Ainda não é possível ver {MODULE_LABELS[module] ?? 'esta informação'} — chega com o{' '}
-        <span className="font-medium text-ink">{module}</span>.
-      </p>
-    </Card>
   )
 }
 

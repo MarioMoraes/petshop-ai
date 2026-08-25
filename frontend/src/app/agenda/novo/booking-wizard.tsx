@@ -2,11 +2,16 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
-import type { ProfessionalResponse, ServiceResponse } from '@petshop/shared-types'
+import type {
+  CreditCheckResponse,
+  ProfessionalResponse,
+  ServiceResponse,
+} from '@petshop/shared-types'
 import { Badge, Card, Field } from '@/components/ui'
 import {
   availabilityAction,
   createAppointmentAction,
+  creditCheckAction,
   searchPetsAction,
   type ActionFailure,
 } from '../actions'
@@ -33,6 +38,7 @@ interface Props {
 interface PetOption {
   id: string
   name: string
+  tutorId: string | null
   tutorName: string
   sizeLabel: string
 }
@@ -158,17 +164,20 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
       <Card>
         <StepTitle n={1} title="Qual pet" done={pet !== null} />
         {pet ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="font-medium">
-                {pet.name} <span className="hint">· {pet.sizeLabel}</span>
-              </p>
-              <p className="hint">{pet.tutorName}</p>
+          <>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-medium">
+                  {pet.name} <span className="hint">· {pet.sizeLabel}</span>
+                </p>
+                <p className="hint">{pet.tutorName}</p>
+              </div>
+              <button type="button" className="btn btn-ghost" onClick={() => setPet(null)}>
+                Trocar
+              </button>
             </div>
-            <button type="button" className="btn btn-ghost" onClick={() => setPet(null)}>
-              Trocar
-            </button>
-          </div>
+            {pet.tutorId && <DebtNotice tutorId={pet.tutorId} amountCents={total} />}
+          </>
         ) : (
           <PetPicker initialPetId={initialPetId} onPick={setPet} />
         )}
@@ -349,6 +358,41 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
  * do risco, ou justificar a liberação de crédito. Esconder isso atrás de um "erro ao
  * salvar" faria a recepção tentar de novo até desistir.
  */
+/**
+ * O débito do tutor, no passo 1 (MOD-LEDGER-09).
+ *
+ * Aparece assim que o pet é escolhido — antes de o atendente montar serviços,
+ * profissional e horário. Descobrir o bloqueio só na confirmação é fazer refazer tudo
+ * com o cliente na frente.
+ *
+ * Some quando a conta está em dia: um aviso que aparece sempre deixa de ser aviso.
+ */
+function DebtNotice({ tutorId, amountCents }: { tutorId: string; amountCents: number }) {
+  const [check, setCheck] = useState<CreditCheckResponse | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void creditCheckAction(tutorId, amountCents).then((result) => {
+      if (active) setCheck(result)
+    })
+    return () => {
+      active = false
+    }
+  }, [tutorId, amountCents])
+
+  if (!check?.warning) return null
+
+  return (
+    <p
+      className={`hint mt-3 ${check.allowed ? '' : 'text-danger'}`}
+      role={check.allowed ? undefined : 'alert'}
+    >
+      {check.message}
+      {!check.allowed && ' — será preciso a liberação de um administrador.'}
+    </p>
+  )
+}
+
 function GateBanner({
   failure,
   reason,

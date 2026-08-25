@@ -62,6 +62,22 @@ const RLS_MODELS = new Set([
   'AppointmentItem',
   'AppointmentStatusLog',
   'AppointmentRecurrence',
+  // MOD-LEDGER: a conta corrente do tutor. Nenhuma leitura financeira acontece sem
+  // saber de que tenant — extrato é o dado mais sensível que o módulo guarda.
+  'LedgerAccount',
+  'LedgerEntry',
+  'Payment',
+  'PaymentAllocation',
+  'ServicePackage',
+  'PackagePurchase',
+  'PackageCreditUsage',
+  'BillingSettings',
+  'LedgerIdempotencyKey',
+  'Receipt',
+  'ReceiptCounter',
+  // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
+  // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
+  // tenants por definição, e exigir contexto dele seria negar o que ele é.
 ])
 
 export interface DbLogger {

@@ -28,6 +28,8 @@ useTestDatabase()
 // Broker e cache ficam fora: os testes verificam o efeito no banco, e subir
 // RabbitMQ/Redis por teste só adicionaria intermitência.
 process.env.DISABLE_EVENTS = 'true'
+// A grade não roda na suíte: um `setInterval` de um minuto é intermitência garantida.
+process.env.DISABLE_JOBS = 'true'
 process.env.DISABLE_REDIS = 'true'
 process.env.NODE_ENV = 'test'
 

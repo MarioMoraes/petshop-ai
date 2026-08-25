@@ -15,6 +15,7 @@
     "@clerk/backend": "^2.17.0",
     "@fastify/swagger": "^9.5.1",
     "@petshop/db": "workspace:*",
+    "@petshop/job-scheduler": "workspace:*",
     "@petshop/service-auth": "workspace:*",
     "@petshop/service-kit": "workspace:*",
     "@petshop/shared-types": "workspace:*",

@@ -80,11 +80,30 @@ export const AGENDA_ERRORS = {
 
 export type AgendaErrorCode = keyof typeof AGENDA_ERRORS
 
+/** PRD financeiro_tutor_05 §5. */
+export const LEDGER_ERRORS = {
+  ERR_LEDGER_001: { status: 404, title: 'Registro financeiro não encontrado' },
+  ERR_LEDGER_002: { status: 422, title: 'Valor inválido para lançamento' },
+  ERR_LEDGER_003: { status: 422, title: 'Forma de pagamento não habilitada' },
+  ERR_LEDGER_004: { status: 409, title: 'Lançamento ou pagamento já estornado' },
+  ERR_LEDGER_005: { status: 409, title: 'Lançamento imutável' },
+  ERR_LEDGER_006: { status: 409, title: 'Limite de crédito excedido' },
+  ERR_LEDGER_007: { status: 409, title: 'Pacote indisponível' },
+  ERR_LEDGER_008: { status: 422, title: 'Serviço não coberto pelo pacote' },
+  ERR_LEDGER_009: { status: 409, title: 'Alocação inválida' },
+  ERR_LEDGER_010: { status: 403, title: 'Permissão financeira insuficiente' },
+  ERR_LEDGER_011: { status: 409, title: 'Conta em revisão de consistência' },
+  ERR_LEDGER_012: { status: 409, title: 'Chave de idempotência reutilizada' },
+} as const
+
+export type LedgerErrorCode = keyof typeof LEDGER_ERRORS
+
 export const ERROR_CATALOG = {
   ...IDENTITY_ERRORS,
   ...TUTOR_ERRORS,
   ...PET_ERRORS,
   ...AGENDA_ERRORS,
+  ...LEDGER_ERRORS,
 } as const
 
 export type ErrorCode = keyof typeof ERROR_CATALOG

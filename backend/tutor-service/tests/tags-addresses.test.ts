@@ -12,6 +12,8 @@ import {
 } from './harness.js'
 import {
   handleAtendimentoConcluido,
+  handleInadimplenciaDetectada,
+  handleInadimplenciaResolvida,
   handleLancamentoCriado,
   handlePetCriado,
   handlePetVinculoAlterado,
@@ -263,17 +265,36 @@ describe('MOD-TUTOR-05 — tags', () => {
     expect(tutor.json().tags).toEqual([])
   })
 
-  it('RN-12: a tag INADIMPLENTE segue o saldo do ledger, nos dois sentidos', async () => {
+  it('RN-10: `lancamento.criado` atualiza o saldo e **não** marca inadimplência', async () => {
     await handleLancamentoCriado({ tenantId: tenant.tenantId, tutorId, balanceCents: -12_000 })
 
-    let tutor = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/tutors/${tutorId}` })
+    const tutor = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/tutors/${tutorId}` })
     expect(tutor.json().balance).toBe(-120)
+    // Dever R$ 120 do banho de hoje não faz de ninguém inadimplente. Quem tomou banho
+    // de manhã e paga na saída passaria o dia inteiro marcado — e a régua de cobrança
+    // do MOD-CRM iria atrás dele. Quem decide é o atraso, não o sinal.
+    expect(tutor.json().tags).toEqual([])
+  })
+
+  it('RN-16: a tag INADIMPLENTE segue os eventos de atraso, nos dois sentidos', async () => {
+    await handleLancamentoCriado({ tenantId: tenant.tenantId, tutorId, balanceCents: -12_000 })
+    await handleInadimplenciaDetectada({ tenantId: tenant.tenantId, tutorId })
+
+    let tutor = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/tutors/${tutorId}` })
     expect(tutor.json().tags.map((t: { key: string }) => t.key)).toEqual(['INADIMPLENTE'])
 
-    await handleLancamentoCriado({ tenantId: tenant.tenantId, tutorId, balanceCents: 0 })
+    await handleInadimplenciaResolvida({ tenantId: tenant.tenantId, tutorId })
 
     tutor = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/tutors/${tutorId}` })
     expect(tutor.json().tags).toEqual([])
+  })
+
+  it('a reentrega do evento de inadimplência não duplica a tag', async () => {
+    await handleInadimplenciaDetectada({ tenantId: tenant.tenantId, tutorId })
+    await handleInadimplenciaDetectada({ tenantId: tenant.tenantId, tutorId })
+
+    const tutor = await callApi({ ...asAdmin(tenant), method: 'GET', url: `/v1/tutors/${tutorId}` })
+    expect(tutor.json().tags).toHaveLength(1)
   })
 
   it('RN-10: `petsCount` é recontado por MOD-PET e sobrevive à entrega repetida', async () => {
@@ -297,7 +318,10 @@ describe('MOD-TUTOR-05 — tags', () => {
   })
 
   it('filtra a listagem por tag e por inadimplência', async () => {
+    // O saldo vem do lançamento; a tag, do evento de atraso. São filtros diferentes
+    // porque respondem a perguntas diferentes: "quem deve" e "quem está atrasado".
     await handleLancamentoCriado({ tenantId: tenant.tenantId, tutorId, balanceCents: -5_000 })
+    await handleInadimplenciaDetectada({ tenantId: tenant.tenantId, tutorId })
 
     const porTag = await callApi({
       ...asAdmin(tenant),

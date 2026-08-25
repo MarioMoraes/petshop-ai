@@ -34,6 +34,12 @@ const LancamentoCriadoSchema = z.object({
   balanceCents: z.number().int(),
 })
 
+/** Os dois eventos de inadimplência trazem o mesmo mínimo de que a tag precisa. */
+const InadimplenciaSchema = z.object({
+  tenantId: z.uuid(),
+  tutorId: z.uuid(),
+})
+
 const PetCriadoSchema = z.object({
   tenantId: z.uuid(),
   primaryTutorId: z.uuid(),
@@ -88,38 +94,66 @@ export async function handleAtendimentoConcluido(payload: unknown): Promise<void
 }
 
 /**
- * RN-12 — a tag INADIMPLENTE segue o ledger e só o ledger. Saldo negativo aplica,
- * saldo quitado remove; ninguém marca à mão.
+ * RN-10 — o saldo denormalizado, que a listagem de balcão não pode calcular na hora.
+ *
+ * **Este handler não mexe mais na tag INADIMPLENTE.** Ele marcava qualquer saldo
+ * negativo, o que fazia de quem tomou banho às 10h e paga na saída um inadimplente
+ * durante o dia inteiro — e a régua de cobrança do MOD-CRM iria atrás dele. Quem decide
+ * agora é o `inadimplencia.detectada`, publicado pelo job que olha **dias de atraso**
+ * (`billing_settings.overdue_days`), não o sinal do número.
  */
 export async function handleLancamentoCriado(payload: unknown): Promise<void> {
   const event = LancamentoCriadoSchema.parse(payload)
-  const inDebt = event.balanceCents < 0
 
-  const changed = await withTenant(event.tenantId, async (tx) => {
-    await tx.tutor.updateMany({
+  await withTenant(event.tenantId, (tx) =>
+    tx.tutor.updateMany({
       where: { id: event.tutorId },
       data: { balanceCents: event.balanceCents },
-    })
-    return setSystemTag(tx, {
+    }),
+  )
+
+  await invalidateTutor(event.tenantId, event.tutorId)
+}
+
+/**
+ * RN-16 — a tag INADIMPLENTE, nos dois sentidos.
+ *
+ * Aplicada quando o débito passa de `overdue_days`, removida na quitação, sem
+ * intervenção manual nenhuma. Uma tag que só entra é pior que tag nenhuma: o petshop
+ * para de confiar nela e a cobrança passa a perseguir quem já pagou.
+ */
+export async function handleInadimplenciaDetectada(payload: unknown): Promise<void> {
+  await applyOverdueTag(payload, true)
+}
+
+export async function handleInadimplenciaResolvida(payload: unknown): Promise<void> {
+  await applyOverdueTag(payload, false)
+}
+
+async function applyOverdueTag(payload: unknown, applied: boolean): Promise<void> {
+  const event = InadimplenciaSchema.parse(payload)
+
+  const changed = await withTenant(event.tenantId, (tx) =>
+    setSystemTag(tx, {
       tenantId: event.tenantId,
       tutorId: event.tutorId,
       key: 'INADIMPLENTE',
-      applied: inDebt,
-    })
-  })
+      applied,
+    }),
+  )
 
   await invalidateTutor(event.tenantId, event.tutorId)
-  if (changed) {
-    await publishEvent(
-      inDebt ? TUTOR_ROUTING_KEYS.tutorTagAplicada : TUTOR_ROUTING_KEYS.tutorTagRemovida,
-      {
-        tenantId: event.tenantId,
-        tutorId: event.tutorId,
-        tagKey: 'INADIMPLENTE',
-        automatic: true,
-      },
-    )
-  }
+  if (!changed) return
+
+  await publishEvent(
+    applied ? TUTOR_ROUTING_KEYS.tutorTagAplicada : TUTOR_ROUTING_KEYS.tutorTagRemovida,
+    {
+      tenantId: event.tenantId,
+      tutorId: event.tutorId,
+      tagKey: 'INADIMPLENTE',
+      automatic: true,
+    },
+  )
 }
 
 /**
@@ -187,6 +221,8 @@ async function recountPets(tenantId: string, tutorId: string): Promise<void> {
 const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'atendimento.concluido': handleAtendimentoConcluido,
   'lancamento.criado': handleLancamentoCriado,
+  'inadimplencia.detectada': handleInadimplenciaDetectada,
+  'inadimplencia.resolvida': handleInadimplenciaResolvida,
   'mensagem.recebida': handleMensagemRecebida,
   'pet.criado': handlePetCriado,
   'pet.vinculo.alterado': handlePetVinculoAlterado,

@@ -15,6 +15,9 @@ em SQL escrito à mão dentro das migrations:
 | Coluna e trigger de `tutors.search_vector` | `*_mod_tutor` | `tsvector` é `Unsupported` no Prisma |
 | Índices GIN e de expressão (aniversário) | `*_mod_tutor` | O Prisma não declara índice por expressão |
 | Trigger append-only de `tutor_consents` | `*_mod_tutor` | RN-05 do PRD tutores_02 |
+| Coluna gerada `ledger_entries.signed_amount_cents` | `*_mod_ledger` | `GENERATED ALWAYS … STORED` não existe no Prisma |
+| CHECKs de invariante do ledger | `*_mod_ledger` | Saldo, quitação e créditos de pacote têm limites que a aplicação não pode ser a única a garantir |
+| Trigger + RULE de imutabilidade de `ledger_entries` | `*_mod_ledger` | RN-01: lançamento não é editado nem excluído |
 
 ## A pegadinha
 
@@ -35,7 +38,13 @@ idx_*`, `DROP TRIGGER`, `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` ou
 
 Vale também para os índices **totais** que o Prisma recria por cima dos parciais:
 a migration do MOD-TUTOR veio com um `CREATE UNIQUE INDEX "tenants_slug_key"` que
-teria desfeito `idx_tenants_slug`, e foi removido à mão.
+teria desfeito `idx_tenants_slug`, e foi removido à mão. A do MOD-LEDGER veio com
+**16** `DROP INDEX` e o mesmo `tenants_slug_key` — se o diff parecer curto demais,
+provavelmente a poda comeu algo que deveria ficar.
+
+`ledger_entries.signed_amount_cents` merece atenção própria: o Prisma a declara como
+coluna comum (ele não sabe dizer `GENERATED`), e a migration a derruba e recria com a
+expressão. Todo diff futuro vai querer "corrigi-la" de volta — **não deixe**.
 
 Quando `migrate dev` recusar rodar porque uma migration já aplicada foi editada,
 gere o SQL sem tocar no banco de desenvolvimento:

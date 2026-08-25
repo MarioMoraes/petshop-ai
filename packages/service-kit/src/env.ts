@@ -44,6 +44,12 @@ export const serviceEnvShape = {
 
   /** Desligam broker e cache em teste, onde ambos são substituídos por dublês. */
   DISABLE_EVENTS: z.coerce.boolean().default(false),
+  /**
+   * Desliga o agendador de jobs. A suíte o liga por `process.env`, como faz com
+   * `DISABLE_EVENTS` e `DISABLE_REDIS`: um `setInterval` de um minuto rodando durante
+   * os testes é intermitência garantida.
+   */
+  DISABLE_JOBS: z.coerce.boolean().default(false),
 } as const
 
 export interface EnvLoader<T> {

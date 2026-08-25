@@ -22,6 +22,7 @@ export const { loadEnv, resetEnvCache } = defineEnv('api-gateway', {
   PET_SERVICE_URL: z.string().url().default('http://localhost:3004'),
   MEDICAL_RECORD_SERVICE_URL: z.string().url().default('http://localhost:3005'),
   SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3006'),
+  BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3007'),
 
   /** Origens aceitas pelo CORS (SPEC §7.4: CORS restritivo por domínio). */
   CORS_ORIGINS: z.string().default('http://localhost:3002'),
