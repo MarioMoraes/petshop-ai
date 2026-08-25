@@ -472,3 +472,36 @@ export const ReceiptSchema = z.object({
   url: z.url().nullable(),
 })
 export type Receipt = z.infer<typeof ReceiptSchema>
+
+// ─── Relatórios ──────────────────────────────────────────────────────────────
+
+export const CashflowQuerySchema = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+})
+export type CashflowQuery = z.output<typeof CashflowQuerySchema>
+
+export const CashflowSchema = z.object({
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  totalCents: z.number().int(),
+  paymentsCount: z.number().int(),
+  byMethod: z.array(
+    z.object({
+      method: PaymentMethodSchema,
+      totalCents: z.number().int(),
+      count: z.number().int(),
+    }),
+  ),
+})
+export type Cashflow = z.infer<typeof CashflowSchema>
+
+export const ReceivablesSchema = z.object({
+  buckets: z.object({
+    '0_30d': z.number().int(),
+    '30_60d': z.number().int(),
+    '60d_plus': z.number().int(),
+  }),
+  totalCents: z.number().int(),
+})
+export type Receivables = z.infer<typeof ReceivablesSchema>

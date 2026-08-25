@@ -5,6 +5,11 @@ import { Badge } from '@/components/ui'
 /**
  * Indicadores que o Início ainda vai mostrar, transcritos dos PRDs de `docs/prd/`.
  *
+ * **Esta lista encolhe.** Agenda do dia, ocupação, contas a receber e recebido no
+ * período saíram daqui quando ganharam endpoint — hoje são cartões de verdade lá em
+ * cima. Um item que continua nesta lista depois de existir transforma o painel em
+ * mentira, então tirar daqui é parte de entregar o módulo.
+ *
  * Estão aqui, visíveis e desligados, em vez de esperarem os módulos ficarem prontos,
  * por duas razões. A primeira é para o dono do petshop: um painel que mostra três
  * números e nada mais parece um produto raso — mostrando o que vem, ele entende que
@@ -46,14 +51,6 @@ const PLANNED: PlannedBlock[] = [
     permissions: ['schedule:read_all', 'schedule:read_own'],
     indicators: [
       {
-        label: 'Agenda do dia',
-        detail: 'Quantos atendimentos hoje, por profissional e em que estado — agendado, check-in feito, concluído.',
-      },
-      {
-        label: 'Ocupação da agenda',
-        detail: 'Horas agendadas ÷ horas de jornada disponível. É o número que diz se falta cliente ou falta profissional.',
-      },
-      {
         label: 'Faltas (no-show)',
         detail: 'Percentual de agendamentos não cumpridos na semana — insumo da régua de relacionamento.',
       },
@@ -75,20 +72,12 @@ const PLANNED: PlannedBlock[] = [
     permissions: ['finance:read'],
     indicators: [
       {
-        label: 'Contas a receber',
-        detail: 'Total em aberto e o vencido por faixa (0–30, 30–60, 60+ dias). É o indicador que o dono abre primeiro.',
-      },
-      {
-        label: 'Recebido no período',
-        detail: 'Por forma de pagamento — revela quanto do balcão ainda é dinheiro vivo.',
-      },
-      {
         label: 'Prazo médio de recebimento',
         detail: 'Quantos dias, em média, entre prestar o serviço e receber por ele.',
       },
       {
-        label: 'Pacotes ativos',
-        detail: 'Percentual de tutores com pacote vigente: a medida de recorrência do negócio.',
+        label: 'Taxa de adesão a pacotes',
+        detail: 'Percentual da carteira com pacote vigente. Os pacotes já existem e são vendidos; o que falta é a razão sobre a base.',
       },
       {
         label: 'Crédito expirado sem uso',
@@ -109,7 +98,7 @@ const PLANNED: PlannedBlock[] = [
     indicators: [
       {
         label: 'Atendimentos concluídos',
-        detail: 'Por tipo, profissional e período. Hoje o sistema guarda alergias e alertas, mas ainda não fecha atendimento.',
+        detail: 'Por tipo, profissional e período. O check-out já fecha o atendimento; falta o registro clínico do que foi feito.',
       },
       {
         label: 'Vacinas atrasadas',
@@ -145,8 +134,8 @@ const PLANNED: PlannedBlock[] = [
         detail: 'Quem não aparece há 90 dias. Depende do atendimento concluído para saber quando foi a última vez.',
       },
       {
-        label: 'Tutores com saldo devedor',
-        detail: 'A lista de cobrança do dia — nasce junto com o financeiro.',
+        label: 'Régua de cobrança',
+        detail: 'Quem cobrar hoje e por qual canal. O saldo e a tag de inadimplente já existem; falta o MOD-CRM disparar.',
       },
     ],
   },

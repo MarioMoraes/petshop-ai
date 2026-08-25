@@ -214,3 +214,63 @@ export async function receivablesByBucket(tenantId: string, now: Date = new Date
     return { buckets, totalCents: total }
   })
 }
+
+interface CashflowRow {
+  method: string
+  total: bigint
+  count: bigint
+}
+
+export interface CashflowResult {
+  from: string
+  to: string
+  totalCents: number
+  paymentsCount: number
+  /** Uma linha por forma de pagamento usada no período; as não usadas ficam de fora. */
+  byMethod: { method: string; totalCents: number; count: number }[]
+}
+
+/**
+ * Entradas por período e forma de pagamento (§5).
+ *
+ * `payment_recorded_total` por método é a métrica que "revela a realidade do balcão"
+ * (§10) — quanto ainda é dinheiro vivo. Aqui ela vira consulta, não só log.
+ *
+ * Conta pelo `received_at`, não pelo `created_at`: o pagamento de ontem lançado hoje
+ * pertence a ontem no fluxo de caixa. E ignora o revertido, porque dinheiro estornado
+ * nunca entrou.
+ */
+export async function cashflowByMethod(
+  tenantId: string,
+  from: Date,
+  to: Date,
+): Promise<CashflowResult> {
+  return withTenant(tenantId, async (tx) => {
+    const rows = await tx.$queryRaw<CashflowRow[]>`
+      SELECT method::text, SUM(amount_cents) AS total, COUNT(*) AS count
+        FROM payments
+       WHERE tenant_id = ${tenantId}::uuid
+         AND status = 'RECORDED'
+         AND received_at >= ${from}
+         AND received_at <= ${to}
+       GROUP BY 1
+       ORDER BY 2 DESC
+    `
+
+    const byMethod = rows.map((row) => ({
+      method: row.method,
+      totalCents: Number(row.total),
+      count: Number(row.count),
+    }))
+
+    const totalCents = byMethod.reduce((sum, row) => sum + row.totalCents, 0)
+
+    return {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      totalCents,
+      paymentsCount: byMethod.reduce((sum, row) => sum + row.count, 0),
+      byMethod,
+    }
+  })
+}

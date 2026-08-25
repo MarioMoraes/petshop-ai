@@ -4,6 +4,7 @@ import {
   CreatePackagePurchaseSchema,
   CreatePaymentSchema,
   CreateServicePackageSchema,
+  CashflowQuerySchema,
   CreditCheckQuerySchema,
   ListPaymentsQuerySchema,
   ReverseSchema,
@@ -11,6 +12,8 @@ import {
   UpdateBillingSettingsSchema,
   UpdatePackagePurchaseSchema,
   UpdateServicePackageSchema,
+  todayIn,
+  zonedDayRange,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
@@ -31,7 +34,7 @@ import {
 } from './packages.js'
 import { getPayment, listPayments, recordPayment, reversePayment } from './payments.js'
 import { getReceiptForPayment } from './receipts.js'
-import { receivablesByBucket } from './reconciliation.js'
+import { cashflowByMethod, receivablesByBucket } from './reconciliation.js'
 import { getSettings, updateSettings } from './settings.js'
 import { getStatement } from './statement.js'
 
@@ -238,6 +241,21 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
     return receivablesByBucket(actorFrom(request).tenantId)
   })
 
+  /**
+   * Entradas por período e forma de pagamento (§5).
+   *
+   * Sem `from`/`to`, o dia de hoje — que é o recorte do painel. O fuso é o do
+   * estabelecimento: "hoje" para um petshop em Rio Branco não é o mesmo "hoje" do
+   * servidor em UTC, e o caixa do dia fecharia três horas cedo.
+   */
+  app.get('/v1/ledger/reports/cashflow', CONFIGURE, async (request) => {
+    const query = parseInput(CashflowQuerySchema, request.query)
+    const actor = actorFrom(request)
+
+    const { from, to } = await resolvePeriod(actor.tenantId, query)
+    return cashflowByMethod(actor.tenantId, from, to)
+  })
+
   app.get('/v1/billing-settings', READ, async (request) => {
     return getSettings(actorFrom(request))
   })
@@ -248,3 +266,33 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
   })
 }
 
+
+/**
+ * O período pedido, ou o dia de hoje — sempre **no fuso do estabelecimento**.
+ *
+ * `tenant_settings.timezone` é a única fonte de "que dia é hoje" que faz sentido aqui:
+ * o servidor roda em UTC e o dono do petshop não. Em São Paulo, o dia começa às 03:00
+ * UTC — montar a janela como `00:00Z`–`23:59Z` joga três horas de movimento noturno
+ * para o dia errado, e é o erro que parece certo.
+ */
+async function resolvePeriod(
+  tenantId: string,
+  query: { from?: string; to?: string },
+): Promise<{ from: Date; to: Date }> {
+  const timezone = await withTenant(tenantId, async (tx) => {
+    const settings = await tx.tenantSettings.findFirst({
+      where: { tenantId },
+      select: { timezone: true },
+    })
+    return settings?.timezone ?? 'America/Sao_Paulo'
+  })
+
+  if (query.from || query.to) {
+    return {
+      from: query.from ? zonedDayRange(query.from, timezone).from : new Date(0),
+      to: query.to ? zonedDayRange(query.to, timezone).to : new Date(),
+    }
+  }
+
+  return zonedDayRange(todayIn(timezone), timezone)
+}

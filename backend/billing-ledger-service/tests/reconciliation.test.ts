@@ -2,13 +2,16 @@ import { randomUUID } from 'node:crypto'
 import { withTenant } from '@petshop/db'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createManualEntry } from '../src/modules/ledger/entries.js'
+import { recordPayment, reversePayment } from '../src/modules/ledger/payments.js'
 import {
+  cashflowByMethod,
   receivablesByBucket,
   reconcileAccounts,
 } from '../src/modules/ledger/reconciliation.js'
 import {
   actorOf,
   asAdmin,
+  asReceptionist,
   callApi,
   closeHarness,
   givenTenant,
@@ -215,5 +218,80 @@ describe('Contas a receber por faixa de atraso', () => {
       ...asAdmin(tenant),
     })
     expect(response.statusCode).toBe(200)
+  })
+})
+
+describe('Entradas por período e forma de pagamento', () => {
+  async function pay(amountCents: number, method: 'CASH' | 'PIX_MANUAL', daysAgo = 0) {
+    return recordPayment(actorOf(tenant), {
+      tutorId,
+      amountCents,
+      method,
+      receivedAt: new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
+      idempotencyKey: randomUUID(),
+    })
+  }
+
+  const HOJE = { from: new Date(Date.now() - 3_600_000), to: new Date(Date.now() + 3_600_000) }
+
+  it('soma por forma de pagamento, do maior para o menor', async () => {
+    await pay(10_000, 'PIX_MANUAL')
+    await pay(5_000, 'PIX_MANUAL')
+    await pay(3_000, 'CASH')
+
+    const result = await cashflowByMethod(tenant.tenantId, HOJE.from, HOJE.to)
+
+    expect(result.totalCents).toBe(18_000)
+    expect(result.paymentsCount).toBe(3)
+    expect(result.byMethod).toEqual([
+      { method: 'PIX_MANUAL', totalCents: 15_000, count: 2 },
+      { method: 'CASH', totalCents: 3_000, count: 1 },
+    ])
+  })
+
+  it('conta pelo `received_at`, não pelo registro — o de ontem pertence a ontem', async () => {
+    await pay(10_000, 'CASH', 5)
+
+    expect((await cashflowByMethod(tenant.tenantId, HOJE.from, HOJE.to)).totalCents).toBe(0)
+  })
+
+  it('dinheiro estornado nunca entrou', async () => {
+    const payment = await pay(10_000, 'CASH')
+    await pay(4_000, 'PIX_MANUAL')
+
+    await reversePayment(actorOf(tenant), payment.paymentId, 'Lançado no tutor errado')
+
+    const result = await cashflowByMethod(tenant.tenantId, HOJE.from, HOJE.to)
+    expect(result.totalCents).toBe(4_000)
+    expect(result.paymentsCount).toBe(1)
+  })
+
+  it('período sem movimento devolve zero, não erro', async () => {
+    const result = await cashflowByMethod(tenant.tenantId, HOJE.from, HOJE.to)
+
+    expect(result).toMatchObject({ totalCents: 0, paymentsCount: 0, byMethod: [] })
+  })
+
+  it('a rota usa o dia de hoje no fuso do estabelecimento quando não recebe período', async () => {
+    await pay(7_000, 'CASH')
+
+    const response = await callApi({
+      method: 'GET',
+      url: '/v1/ledger/reports/cashflow',
+      ...asAdmin(tenant),
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().totalCents).toBe(7_000)
+  })
+
+  it('§9: o caixa do estabelecimento é do gestor, não do balcão', async () => {
+    const response = await callApi({
+      method: 'GET',
+      url: '/v1/ledger/reports/cashflow',
+      ...asReceptionist(tenant),
+    })
+
+    expect(response.statusCode).toBe(403)
   })
 })

@@ -32,6 +32,8 @@ import {
   PaginatedPaymentsSchema,
   PaymentSchema,
   ReceiptSchema,
+  ReceivablesSchema,
+  CashflowSchema,
   CreditCheckResponseSchema,
   ServicePackageSchema,
   StatementSchema,
@@ -66,6 +68,7 @@ import {
   type LedgerAccount,
   type LedgerEntry,
   type PackagePurchase,
+  type Cashflow,
   type CreditCheckResponse,
   type PaginatedPayments,
   type Payment,
@@ -981,14 +984,15 @@ export function createApiClient(options: ApiClientOptions) {
       request({
         method: 'GET',
         path: '/v1/ledger/reports/receivables',
-        schema: z.object({
-          buckets: z.object({
-            '0_30d': z.number().int(),
-            '30_60d': z.number().int(),
-            '60d_plus': z.number().int(),
-          }),
-          totalCents: z.number().int(),
-        }),
+        schema: ReceivablesSchema,
+      }),
+
+    /** Sem `from`/`to`, o dia de hoje no fuso do estabelecimento. */
+    getCashflow: (query: { from?: string; to?: string } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/ledger/reports/cashflow${toQueryString(query)}`,
+        schema: CashflowSchema,
       }),
   }
 }
@@ -1044,6 +1048,7 @@ export type {
   LedgerAccount,
   LedgerEntry,
   PackagePurchase,
+  Cashflow,
   CreditCheckResponse,
   PaginatedPayments,
   Payment,

@@ -1,9 +1,16 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
+import { formatBRL, todayIn, type DayView } from '@petshop/shared-types'
 import { AppShell } from '@/components/app-shell'
 import { CardBloom } from '@/components/atmosphere'
-import { PawPrintIcon, TrendingUpIcon, UsersIcon } from '@/components/icons'
+import {
+  CalendarIcon,
+  PawPrintIcon,
+  TrendingUpIcon,
+  UsersIcon,
+  WalletIcon,
+} from '@/components/icons'
 import { serverApi } from '@/lib/api'
 import { Roadmap } from './roadmap'
 
@@ -12,21 +19,22 @@ import { Roadmap } from './roadmap'
  *
  * Já foi um checklist de onboarding ("cadastre seu primeiro tutor", "convide sua
  * equipe"). Não é mais: terminar a configuração e continuar sendo cobrado por tarefas
- * faz o produto parecer que nunca começou. O que fica é o estado do negócio — os
- * números e o caminho até eles. A navegação para cadastrar mora no menu, e repeti-la
- * aqui como atalho só dava duas portas para a mesma sala.
+ * faz o produto parecer que nunca começou. O que fica é o estado do negócio.
  *
- * A tela tem duas metades de natureza diferente, e a diferença é visível de propósito:
- * em cima, os números que a API responde hoje; embaixo, os indicadores que os PRDs já
- * especificaram e que dependem de módulos ainda não construídos (ver `roadmap.tsx`).
+ * Os números estão em duas faixas, e a divisão não é decorativa: **Hoje** muda ao longo
+ * do dia e é o que a recepção olha de manhã; **Sua base** só muda quando alguém cadastra
+ * ou cobra alguém. Misturar as duas faria o dono não saber quais números vale atualizar
+ * a página para reler.
  *
- * Nenhum número é calculado aqui a partir de listagem — `total` é o que o serviço já
- * sabe responder, e um contador próprio divergiria na primeira exclusão. A única conta
- * feita nesta tela é a média de pets por tutor, que é divisão de dois totais.
+ * Nenhum número é calculado a partir de listagem — `total` é o que o serviço já sabe
+ * responder, e um contador próprio divergiria na primeira exclusão. Cada bloco cai para
+ * `null` sozinho: um serviço fora do ar apaga o número dele, não a tela toda. E cada
+ * cartão respeita a permissão do módulo — um banhista não vê contas a receber.
+ *
+ * Embaixo, o roadmap com o que os PRDs especificaram e ainda não tem quem responda.
  *
  * É a única tela com a atmosfera do design ligada. Ela custa nada e dá identidade ao
- * ponto de entrada; repetida nas telas de trabalho — listagem, formulário — passaria a
- * disputar atenção com o dado.
+ * ponto de entrada; repetida nas telas de trabalho passaria a disputar atenção com o dado.
  */
 
 export const dynamic = 'force-dynamic'
@@ -37,7 +45,9 @@ interface Stat {
   value: string | null
   hint: string
   icon: ReactNode
-  href?: '/tutores' | '/pets'
+  href?: '/tutores' | '/pets' | '/agenda/dia' | '/financeiro/configuracoes'
+  /** Destaca o número quando ele pede ação — dívida vencida, dia lotado. */
+  tone?: 'danger'
 }
 
 export default async function DashboardPage() {
@@ -46,28 +56,94 @@ export default async function DashboardPage() {
   if (!me.currentTenant?.onboardingCompletedAt) redirect('/onboarding')
 
   const tenant = me.currentTenant
+  const can = (permission: string): boolean => me.permissions.includes(permission)
+
+  const settings = await serverApi()
+    .getSettings()
+    .catch(() => null)
+  const timezone = settings?.timezone ?? 'America/Sao_Paulo'
+  // "Hoje" é o dia do estabelecimento, não o do servidor: um petshop em Rio Branco
+  // veria a agenda do dia seguinte a partir das 21h se isto viesse de UTC.
+  const hoje = todayIn(timezone)
 
   /*
-   * `limit: 1` porque só o `total` interessa: a listagem inteira seria desperdício.
-   * Cada contagem cai para `null` sozinha — um serviço fora do ar apaga o número dele,
-   * não a tela toda.
+   * `limit: 1` porque só o `total` interessa. Ativos e inativos vêm em chamadas
+   * separadas porque a listagem sem filtro devolve os dois somados (e some com os
+   * terminais: MERGED, ANONYMIZED, falecido, transferido).
    *
-   * Ativos e inativos vêm em chamadas separadas porque a listagem sem filtro devolve
-   * os dois somados (e some com os terminais: MERGED, ANONYMIZED, falecido,
-   * transferido). Somar aqui é mais barato que pedir ao serviço um agregado que ele
-   * ainda não expõe.
+   * A agenda e o financeiro só são consultados por quem pode vê-los — pedir e receber
+   * 403 funcionaria, mas gastaria a viagem e sujaria o log de segurança todo dia.
    */
-  const [activeTutors, inactiveTutors, activePets, inactivePets, settings] = await Promise.all([
-    countOf(() => serverApi().listTutors({ status: 'ACTIVE', limit: 1 })),
-    countOf(() => serverApi().listTutors({ status: 'INACTIVE', limit: 1 })),
-    countOf(() => serverApi().listPets({ status: 'ACTIVE', limit: 1 })),
-    countOf(() => serverApi().listPets({ status: 'INACTIVE', limit: 1 })),
-    serverApi()
-      .getSettings()
-      .catch(() => null),
-  ])
+  const [activeTutors, inactiveTutors, activePets, inactivePets, dayView, receivables, cashflow] =
+    await Promise.all([
+      countOf(() => serverApi().listTutors({ status: 'ACTIVE', limit: 1 })),
+      countOf(() => serverApi().listTutors({ status: 'INACTIVE', limit: 1 })),
+      countOf(() => serverApi().listPets({ status: 'ACTIVE', limit: 1 })),
+      countOf(() => serverApi().listPets({ status: 'INACTIVE', limit: 1 })),
+      can('schedule:read_all')
+        ? serverApi()
+            .getDayView(hoje)
+            .catch(() => null)
+        : Promise.resolve(null),
+      can('finance:read')
+        ? serverApi()
+            .getReceivables()
+            .catch(() => null)
+        : Promise.resolve(null),
+      // O caixa do dia é do gestor: a recepção registra o pagamento, mas o faturamento
+      // do estabelecimento não é informação de balcão (§9).
+      can('finance:configure')
+        ? serverApi()
+            .getCashflow()
+            .catch(() => null)
+        : Promise.resolve(null),
+    ])
 
-  const stats: Stat[] = [
+  const day = dayView ? summarizeDay(dayView) : null
+
+  const hoje_: Stat[] = []
+  if (can('schedule:read_all')) {
+    hoje_.push(
+      {
+        label: 'Atendimentos hoje',
+        value: day === null ? null : String(day.total),
+        hint:
+          day === null
+            ? 'A agenda não respondeu agora.'
+            : day.total === 0
+              ? 'Nenhum agendamento para hoje.'
+              : `${day.done} concluído${day.done === 1 ? '' : 's'}, ${day.pending} pela frente.`,
+        icon: <CalendarIcon />,
+        href: '/agenda/dia',
+      },
+      {
+        label: 'Ocupação de hoje',
+        value: day === null ? null : `${day.occupancy}%`,
+        hint:
+          day === null
+            ? 'A agenda não respondeu agora.'
+            : day.workingColumns === 0
+              ? 'Ninguém com jornada hoje.'
+              : `Das horas de jornada de ${day.workingColumns} profissiona${day.workingColumns === 1 ? 'l' : 'is'}. Diz se falta cliente ou falta gente.`,
+        icon: <TrendingUpIcon />,
+        href: '/agenda/dia',
+      },
+    )
+  }
+  if (cashflow) {
+    hoje_.push({
+      label: 'Recebido hoje',
+      value: formatBRL(cashflow.totalCents),
+      hint:
+        cashflow.paymentsCount === 0
+          ? 'Nenhum pagamento registrado hoje.'
+          : `${cashflow.paymentsCount} pagamento${cashflow.paymentsCount === 1 ? '' : 's'}${topMethod(cashflow.byMethod)}.`,
+      icon: <WalletIcon />,
+      href: '/financeiro/configuracoes',
+    })
+  }
+
+  const base: Stat[] = [
     {
       label: 'Tutores ativos',
       value: format(activeTutors),
@@ -83,23 +159,30 @@ export default async function DashboardPage() {
     {
       label: 'Pets ativos',
       value: format(activePets),
-      hint:
-        activePets === null
-          ? 'Contagem indisponível agora.'
-          : inactivePets
-            ? `Mais ${format(inactivePets)} sem visita recente.`
-            : 'Os animais atendidos, com espécie, porte e responsáveis.',
+      // `pet_per_tutor_avg` do PRD de pets virou a dica deste cartão: é indicador de
+      // ticket potencial, mas é razão entre dois números que já estão nesta faixa —
+      // como cartão próprio, ocupava o lugar de algo em que se pode agir.
+      hint: petsHint(activePets, inactivePets, activeTutors, inactiveTutors),
       icon: <PawPrintIcon />,
       href: '/pets',
     },
-    {
-      // `pet_per_tutor_avg` do PRD de pets: indicador de ticket potencial.
-      label: 'Pets por tutor',
-      value: petsPerTutor(activePets, inactivePets, activeTutors, inactiveTutors),
-      hint: 'Média da base inteira. Quanto maior, mais o mesmo cliente rende por visita.',
-      icon: <TrendingUpIcon />,
-    },
   ]
+  if (receivables) {
+    const overdue = receivables.buckets['30_60d'] + receivables.buckets['60d_plus']
+    base.push({
+      label: 'Em aberto',
+      value: formatBRL(receivables.totalCents),
+      hint:
+        receivables.totalCents === 0
+          ? 'Nenhum débito em aberto na carteira.'
+          : overdue > 0
+            ? `${formatBRL(overdue)} vencidos há mais de 30 dias.`
+            : 'Tudo dentro do prazo de 30 dias.',
+      icon: <WalletIcon />,
+      href: '/financeiro/configuracoes',
+      ...(overdue > 0 ? { tone: 'danger' as const } : {}),
+    })
+  }
 
   return (
     <AppShell active="inicio" me={me} atmosphere>
@@ -115,53 +198,133 @@ export default async function DashboardPage() {
         </h1>
         {/* Título 4 · Card padrão do design: 1.125rem / 1.75rem, peso 600. */}
         <p className="mt-2 text-lg font-semibold">
-          {greetingFor(settings?.timezone)}, {firstNameOf(me.user.fullName)}.
+          {greetingFor(timezone)}, {firstNameOf(me.user.fullName)}.
         </p>
 
-        <section className="mt-10">
-          <h2 className="sr-only">Sua base hoje</h2>
-
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {stats.map((stat) => {
-              const body = (
-                <>
-                  <CardBloom />
-
-                  {/* O conteúdo sobe acima do bloom pelo mesmo motivo do shell. */}
-                  <div className="relative z-10">
-                    <span className="icon-chip">{stat.icon}</span>
-                    <p className="mt-5 text-4xl font-semibold tabular-nums">
-                      {stat.value ?? <span className="text-subtle">—</span>}
-                    </p>
-                    <p className="mt-1 text-lg font-semibold">{stat.label}</p>
-                    <p className="mt-3 text-sm leading-relaxed text-muted">{stat.hint}</p>
-                  </div>
-                </>
-              )
-
-              // Só vira link o cartão que tem para onde levar: um cartão clicável que
-              // não navega é pior que um cartão parado.
-              return stat.href ? (
-                <Link
-                  key={stat.label}
-                  href={stat.href}
-                  className="card card-interactive relative overflow-hidden p-7"
-                >
-                  {body}
-                </Link>
-              ) : (
-                <div key={stat.label} className="card relative overflow-hidden p-7">
-                  {body}
-                </div>
-              )
-            })}
-          </div>
-        </section>
+        {hoje_.length > 0 && <StatSection title="Hoje" stats={hoje_} />}
+        <StatSection title="Sua base" stats={base} />
 
         <Roadmap permissions={me.permissions} />
       </div>
     </AppShell>
   )
+}
+
+/**
+ * Uma faixa de cartões com título visível.
+ *
+ * O título saiu do `sr-only` quando passou a haver duas faixas: com uma só, ele era
+ * ruído; com duas, é ele que diz por que os números estão separados.
+ */
+function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
+  return (
+    <section className="mt-10">
+      <h2 className="text-sm font-medium uppercase tracking-[0.06em] text-subtle">{title}</h2>
+
+      <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {stats.map((stat) => {
+          const body = (
+            <>
+              <CardBloom />
+
+              {/* O conteúdo sobe acima do bloom pelo mesmo motivo do shell. */}
+              <div className="relative z-10">
+                <span className="icon-chip">{stat.icon}</span>
+                <p
+                  className={`mt-5 text-4xl font-semibold tabular-nums ${
+                    stat.tone === 'danger' ? 'text-danger' : ''
+                  }`}
+                >
+                  {stat.value ?? <span className="text-subtle">—</span>}
+                </p>
+                <p className="mt-1 text-lg font-semibold">{stat.label}</p>
+                <p className="mt-3 text-sm leading-relaxed text-muted">{stat.hint}</p>
+              </div>
+            </>
+          )
+
+          // Só vira link o cartão que tem para onde levar: um cartão clicável que não
+          // navega é pior que um cartão parado.
+          return stat.href ? (
+            <Link
+              key={stat.label}
+              href={stat.href}
+              className="card card-interactive relative overflow-hidden p-7"
+            >
+              {body}
+            </Link>
+          ) : (
+            <div key={stat.label} className="card relative overflow-hidden p-7">
+              {body}
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+interface DaySummary {
+  total: number
+  done: number
+  pending: number
+  occupancy: number
+  workingColumns: number
+}
+
+/**
+ * O dia em quatro números.
+ *
+ * A ocupação é a **média das colunas de quem trabalha hoje** — quem está de folga ou
+ * sem jornada fica de fora. Incluir os ausentes com 0% faria o dia parecer vazio toda
+ * vez que alguém tirasse férias, que é o oposto do que o número existe para dizer.
+ *
+ * Cancelados e faltas não contam como atendimento: o cartão responde "quanto trabalho
+ * há hoje", não "quantas linhas existem no banco".
+ */
+function summarizeDay(dayView: DayView): DaySummary {
+  const working = dayView.columns.filter((column) => !column.absent && column.shifts.length > 0)
+
+  const appointments = dayView.columns.flatMap((column) => column.appointments)
+  const real = appointments.filter(
+    (appointment) => appointment.status !== 'CANCELLED' && appointment.status !== 'RESCHEDULED',
+  )
+  const done = real.filter((appointment) => appointment.status === 'COMPLETED').length
+  const noShow = real.filter((appointment) => appointment.status === 'NO_SHOW').length
+
+  const occupancy =
+    working.length === 0
+      ? 0
+      : Math.round(
+          working.reduce((sum, column) => sum + column.occupancyPercent, 0) / working.length,
+        )
+
+  return {
+    total: real.length,
+    done,
+    // A falta já não vai acontecer: contá-la como "pela frente" mandaria a recepção
+    // esperar por alguém que não vem.
+    pending: real.length - done - noShow,
+    occupancy,
+    workingColumns: working.length,
+  }
+}
+
+/** A forma de pagamento que mais entrou hoje — a "realidade do balcão" do §10. */
+function topMethod(byMethod: { method: string; totalCents: number }[]): string {
+  const top = byMethod[0]
+  if (!top || byMethod.length === 0) return ''
+
+  const labels: Record<string, string> = {
+    CASH: 'dinheiro',
+    PIX_MANUAL: 'PIX',
+    CARD_MACHINE_DEBIT: 'débito',
+    CARD_MACHINE_CREDIT: 'crédito',
+    BANK_TRANSFER: 'transferência',
+    PACKAGE_CREDIT: 'crédito de pacote',
+    OTHER: 'outros',
+  }
+  return `, a maior parte em ${labels[top.method] ?? 'outros'}`
 }
 
 /** Total de uma listagem paginada, ou `null` se o serviço não respondeu. */
@@ -177,11 +340,30 @@ function format(value: number | null): string | null {
 }
 
 /**
- * Média de pets por tutor, uma casa decimal.
+ * A dica do cartão de pets: quantos inativos, e a média por tutor.
  *
- * Só existe se as quatro contagens vieram — com uma faltando, a média seria uma razão
- * entre bases diferentes, e um número errado é pior que um traço.
+ * A média só entra se as quatro contagens vieram — com uma faltando, seria razão entre
+ * bases diferentes, e um número errado é pior que a frase sem ele.
  */
+function petsHint(
+  activePets: number | null,
+  inactivePets: number | null,
+  activeTutors: number | null,
+  inactiveTutors: number | null,
+): string {
+  if (activePets === null) return 'Contagem indisponível agora.'
+
+  const partes: string[] = []
+  if (inactivePets) partes.push(`Mais ${format(inactivePets)} sem visita recente`)
+
+  const media = petsPerTutor(activePets, inactivePets, activeTutors, inactiveTutors)
+  if (media) partes.push(`média de ${media} por tutor`)
+
+  if (partes.length === 0) return 'Os animais atendidos, com espécie, porte e responsáveis.'
+  return `${partes.join(' · ')}.`
+}
+
+/** `pet_per_tutor_avg` do PRD de pets: indicador de ticket potencial. */
 function petsPerTutor(
   activePets: number | null,
   inactivePets: number | null,
@@ -206,12 +388,12 @@ function petsPerTutor(
  * O petshop de Rio Branco abre às 8h locais; renderizar "boa tarde" porque o Node
  * roda em UTC seria errado de um jeito que o dono nota todo dia.
  */
-function greetingFor(timezone: string | undefined): string {
+function greetingFor(timezone: string): string {
   const hour = Number(
     new Intl.DateTimeFormat('pt-BR', {
       hour: 'numeric',
       hour12: false,
-      timeZone: timezone ?? 'America/Sao_Paulo',
+      timeZone: timezone,
     }).format(new Date()),
   )
 
