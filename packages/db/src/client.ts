@@ -1,5 +1,5 @@
-import { PrismaClient } from '../generated/client/index.js'
-import type { Prisma } from '../generated/client/index.js'
+import { PrismaClient } from '#prisma-client'
+import type { Prisma } from '#prisma-client'
 import {
   TenantContextMissingError,
   assertValidTenantId,

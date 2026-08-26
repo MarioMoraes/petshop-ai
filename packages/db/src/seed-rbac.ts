@@ -6,7 +6,7 @@ import {
   type PermissionKey,
   type RoleKey,
 } from '@petshop/shared-types'
-import type { PrismaClient } from '../generated/client/index.js'
+import type { PrismaClient } from '#prisma-client'
 
 /**
  * Seed dos dados globais de RBAC (MOD-IDENT-04).

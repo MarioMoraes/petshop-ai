@@ -1,7 +1,19 @@
+import path from 'node:path'
 import type { NextConfig } from 'next'
 
 const config: NextConfig = {
   reactStrictMode: true,
+  /**
+   * Saída autocontida para a imagem de produção (infra/Dockerfile, alvo
+   * `frontend`): o Next copia para `standalone/` só os arquivos de node_modules
+   * que o servidor realmente carrega. Sem isto a imagem carregaria o
+   * node_modules inteiro do monorepo — mais de 1 GB para servir umas dezenas de
+   * rotas. Não afeta `next dev` nem `next start` locais, que continuam lendo o
+   * distDir normal; é um diretório a mais gerado no build.
+   */
+  output: 'standalone',
+  /** O contexto do build é a raiz do monorepo, não `frontend/`. */
+  outputFileTracingRoot: path.join(import.meta.dirname, '..'),
   /**
    * `next dev` e `next build` compartilham `.next` por padrão — e um build rodando
    * com o dev server de pé sobrescreve os assets que ele está servindo, deixando a

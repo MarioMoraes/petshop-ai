@@ -1,0 +1,253 @@
+# Composição de produção — um VPS, um docker compose.
+#
+# Difere do infra/docker-compose.yml (que é o de desenvolvimento) em três coisas
+# que importam: nenhuma porta de banco, cache ou fila é publicada no host; todas
+# as senhas vêm de .env.production; e o único processo exposto à internet é o
+# Caddy, que termina o TLS.
+#
+#   docker compose -f infra/docker-compose.prod.yml --env-file .env.production up -d
+#
+# Ver infra/README.md para o passo a passo do primeiro deploy.
+
+name: petshop-prod
+
+# Âncora com o que todo serviço de backend precisa. Cada um acrescenta só o que é seu.
+x-backend: &backend
+  image: petshop/backend:${IMAGE_TAG:-latest}
+  build:
+    context: ..
+    dockerfile: infra/Dockerfile
+    target: backend
+  restart: unless-stopped
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+    rabbitmq: { condition: service_healthy }
+    migrator: { condition: service_completed_successfully }
+  environment: &backend-env
+    NODE_ENV: production
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD}@postgres:5432/petshop?schema=public
+    DATABASE_MAINTENANCE_URL: postgresql://app_maintenance:${APP_MAINTENANCE_PASSWORD}@postgres:5432/petshop?schema=public
+    REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    RABBITMQ_URL: amqp://petshop:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    ENCRYPTION_KEK: ${ENCRYPTION_KEK}
+    EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER}
+    INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+    IDENTITY_SERVICE_URL: http://identity-service:3001
+    TUTOR_SERVICE_URL: http://tutor-service:3003
+    PET_SERVICE_URL: http://pet-service:3004
+    MEDICAL_RECORD_SERVICE_URL: http://medical-record-service:3005
+    SCHEDULING_SERVICE_URL: http://scheduling-service:3006
+    BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
+    GOTENBERG_URL: http://gotenberg:3000
+  networks: [interna]
+
+services:
+  # ─── Dependências ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: petshop
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d petshop']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [interna]
+    # Sem `ports`: o banco não tem por que ser alcançável da internet. Para abrir
+    # um psql, use `docker compose exec postgres psql` ou um túnel SSH.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD}']
+    volumes:
+      - redis-data:/data
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [interna]
+
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: petshop
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks: [interna]
+    # Imagem sem `-management`: o painel web do RabbitMQ é uma superfície a menos
+    # para expor num servidor de produção. Para depurar, troque a tag e suba o
+    # painel atrás de um túnel SSH.
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '--silent', '--fail', 'http://localhost:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [interna]
+
+  # ─── Migração ───────────────────────────────────────────────────────────────
+  # Roda uma vez a cada `up`, antes de qualquer serviço. Os outros containers
+  # esperam por `service_completed_successfully`: se a migração falhar, nada sobe
+  # com o schema errado.
+  migrator:
+    image: petshop/migrator:${IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      target: migrator
+    restart: 'no'
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      # Migrations rodam como owner: só ele cria papéis, políticas de RLS e triggers.
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/petshop?schema=public
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD}
+      APP_MAINTENANCE_PASSWORD: ${APP_MAINTENANCE_PASSWORD}
+      ENCRYPTION_KEK: ${ENCRYPTION_KEK}
+      EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER}
+    networks: [interna]
+
+  # ─── Serviços ───────────────────────────────────────────────────────────────
+  api-gateway:
+    <<: *backend
+    command: ['node', 'backend/api-gateway/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      GATEWAY_PORT: 3000
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      CLERK_AUTHORIZED_PARTIES: https://${APP_DOMAIN},https://*.${APP_DOMAIN}
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  identity-service:
+    <<: *backend
+    command: ['node', 'backend/identity-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      IDENTITY_SERVICE_PORT: 3001
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+
+  tutor-service:
+    <<: *backend
+    command: ['node', 'backend/tutor-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      TUTOR_SERVICE_PORT: 3003
+      VIACEP_BASE_URL: ${VIACEP_BASE_URL:-https://viacep.com.br/ws}
+      CEP_LOOKUP_TIMEOUT_MS: ${CEP_LOOKUP_TIMEOUT_MS:-3000}
+      INACTIVITY_THRESHOLD_DAYS: ${INACTIVITY_THRESHOLD_DAYS:-90}
+
+  pet-service:
+    <<: *backend
+    command: ['node', 'backend/pet-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      PET_SERVICE_PORT: 3004
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_REGION: ${R2_REGION:-auto}
+
+  medical-record-service:
+    <<: *backend
+    command: ['node', 'backend/medical-record-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      MEDICAL_RECORD_SERVICE_PORT: 3005
+
+  scheduling-service:
+    <<: *backend
+    command: ['node', 'backend/scheduling-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      SCHEDULING_SERVICE_PORT: 3006
+
+  billing-ledger-service:
+    <<: *backend
+    command: ['node', 'backend/billing-ledger-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      BILLING_LEDGER_SERVICE_PORT: 3007
+
+  # ─── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    image: petshop/frontend:${IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      target: frontend
+      args:
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+    restart: unless-stopped
+    depends_on:
+      api-gateway: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      # Nome de container, não domínio: o browser nunca fala com o gateway (o
+      # cliente é `server-only`), então a chamada não precisa sair da rede interna.
+      API_URL: http://api-gateway:3000
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+      NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+    networks: [interna]
+
+  # ─── Borda ──────────────────────────────────────────────────────────────────
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    image: petshop/caddy:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on: [frontend]
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [interna]
+
+networks:
+  interna:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  caddy-data:
+  caddy-config:

@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PrismaClient } from '../generated/client/index.js'
-export type { PrismaClient } from '../generated/client/index.js'
+import { PrismaClient } from '#prisma-client'
+export type { PrismaClient } from '#prisma-client'
 import { seedCatalog } from './seed-catalog.js'
 import { seedRbac } from './seed-rbac.js'
 

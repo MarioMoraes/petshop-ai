@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1.7
+#
+# Caddy com o módulo de DNS da Cloudflare.
+#
+# A imagem oficial não serve aqui: o slug do tenant é subdomínio (`petshop-x.dominio`,
+# e o slug está impresso em QR code), então o certificado precisa ser wildcard — e
+# wildcard só sai por desafio DNS-01, que exige um módulo de provedor compilado
+# dentro do binário. A Cloudflare é a escolha porque a conta já existe: as fotos de
+# pet vivem no R2 dela.
+#
+# Trocar de provedor de DNS = trocar este módulo e o bloco `dns` do Caddyfile.
+FROM caddy:2-builder AS builder
+RUN xcaddy build --with github.com/caddy-dns/cloudflare
+
+FROM caddy:2
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy

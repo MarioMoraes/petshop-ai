@@ -1,5 +1,5 @@
 import { normalizeBreedLabel, type SizeKey, type SpeciesKey } from '@petshop/shared-types'
-import type { PrismaClient } from '../generated/client/index.js'
+import type { PrismaClient } from '#prisma-client'
 
 /**
  * Seed do catálogo global de domínio (MOD-PET-03).

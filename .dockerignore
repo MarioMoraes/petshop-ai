@@ -1,0 +1,32 @@
+# O contexto de build é a raiz do monorepo. Tudo que não entra na imagem sai aqui:
+# node_modules é reinstalado dentro do container (musl/glibc diferem do host) e os
+# artefatos locais de build seriam sobrescritos de qualquer forma.
+node_modules
+**/node_modules
+dist
+**/dist
+.next
+**/.next
+.next-build
+**/.next-build
+packages/db/generated
+coverage
+**/coverage
+.turbo
+**/.turbo
+*.tsbuildinfo
+
+# Segredos jamais vão para uma camada de imagem.
+.env
+.env.local
+.env.*.local
+.env.production
+
+.git
+.github
+.agents
+.claude
+design
+docs
+*.log
+.DS_Store

@@ -4,8 +4,8 @@ export * from './permissions-query.js'
 export * from './platform.js'
 export * from './tenant-middleware.js'
 export * from './tenant-keys.js'
-export { Prisma } from '../generated/client/index.js'
-export type { PrismaClient } from '../generated/client/index.js'
+export { Prisma } from '#prisma-client'
+export type { PrismaClient } from '#prisma-client'
 export type {
   Tenant,
   TenantSettings,
@@ -61,4 +61,4 @@ export type {
   ClinicalSeverity,
   AllergyType,
   TemperamentClassification,
-} from '../generated/client/index.js'
+} from '#prisma-client'

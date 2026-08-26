@@ -1,0 +1,44 @@
+# Borda do PetShop AI. O único processo com porta aberta para a internet.
+#
+# Duas decisões estão embutidas aqui:
+#
+# 1. O gateway NÃO é publicado. O cliente HTTP do frontend é `server-only` — o
+#    browser nunca fala com a API — então o gateway atende só na rede interna do
+#    compose. Isso apaga a superfície pública inteira da API e torna o CORS
+#    desnecessário. Se um dia o MOD-PORTAL precisar de chamadas do browser, aí sim
+#    se abre `api.{$APP_DOMAIN}` — e não antes.
+#
+# 2. O wildcard existe porque o slug do tenant é subdomínio. Ele exige DNS-01, que
+#    exige o módulo da Cloudflare (ver Dockerfile.caddy) e um token de API com
+#    permissão de editar a zona.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN}, *.{$APP_DOMAIN} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		# Sem `resolvers` explícitos o desafio pode consultar um resolver que ainda
+		# serve o registro TXT em cache e falhar por propagação.
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# O Caddy anuncia a si mesmo por padrão; não há razão para contar a versão.
+		-Server
+	}
+
+	reverse_proxy frontend:3002
+
+	log {
+		output stdout
+		format json
+	}
+}

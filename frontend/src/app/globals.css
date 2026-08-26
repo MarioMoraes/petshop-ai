@@ -550,4 +550,46 @@
     font-size: 0.8125rem;
     color: var(--color-danger);
   }
+
+  /*
+   * Entrada em sequência do hero (`design/design-modelo.html` §Motion, `data-rise`).
+   *
+   * O modelo dispara por IntersectionObserver porque documenta seções abaixo da dobra.
+   * Aqui não há dobra: a tela de entrada cabe inteira, e observar o que já está visível
+   * seria pagar JavaScript para descobrir algo que o CSS sabe no primeiro quadro. Só a
+   * cascata de `animation-delay` sobrevive da versão original, e é ela que faz a
+   * diferença — os elementos chegam em ordem de leitura, não todos de uma vez.
+   *
+   * `cubic-bezier(0.22, 1, 0.36, 1)` no lugar do `ease-out` do modelo: mesma família,
+   * desaceleração mais longa. O elemento chega com peso e pousa — o `ease` padrão
+   * termina rápido demais e o movimento lê como mecânico.
+   *
+   * `both` preenche o estado inicial: sem ele o elemento pisca opaco no quadro entre a
+   * pintura e o início do atraso.
+   */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .rise {
+    animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /*
+   * Na origem reduzida o movimento não encolhe: ele some. Quem pede menos movimento
+   * costuma pedir por enjoo ou vertigem, e uma versão rápida do mesmo deslocamento
+   * ainda desloca. O conteúdo aparece pronto, sem atraso nenhum.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .rise {
+      animation: none;
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { PrismaClient } from '../generated/client/index.js'
+import { PrismaClient } from '#prisma-client'
 import { seedCatalog } from '../src/seed-catalog.js'
 import { seedRbac } from '../src/seed-rbac.js'
 
