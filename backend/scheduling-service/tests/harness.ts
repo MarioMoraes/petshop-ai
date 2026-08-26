@@ -112,21 +112,40 @@ export async function givenTenant(name = 'Petshop Teste'): Promise<TenantFixture
 
   await withTenant(tenantId, (tx) => createTenantKey(tx, tenantId))
 
+  // Todo tenant real sai do onboarding com `tenant_settings`, e a agenda depende
+  // dele: a jornada do profissional é hora de parede no fuso do tenant. O fuso aqui
+  // é **UTC de propósito** — assim os minutos das janelas dos fixtures (0–1440,
+  // 480–1080) e os instantes UTC das asserções falam a mesma língua, e um teste que
+  // marca 09:00 não passa a depender do horário de verão de São Paulo.
+  await ownerPrisma.tenantSettings.create({
+    data: { tenantId, branding: {}, businessHours: {}, timezone: 'UTC' },
+  })
+
   return { tenantId, userId: user.id, clerkUserId: user.clerkUserId }
 }
 
-/**
- * Horário de funcionamento do tenant, para o AC-03 da jornada. Só quem testa o aviso
- * precisa dele — o resto da suíte não depende de `tenant_settings` existir.
- */
+/** Horário de funcionamento do tenant, para o AC-03 da jornada. */
 export async function givenBusinessHours(
   fixture: TenantFixture,
   hours: Record<string, { open: string; close: string }>,
 ): Promise<void> {
-  await ownerPrisma.tenantSettings.create({
-    // `branding` é obrigatório no modelo (etapa 4 do onboarding). Vazio serve: o que
-    // este fixture existe para configurar é o horário.
-    data: { tenantId: fixture.tenantId, businessHours: hours, branding: {} },
+  await ownerPrisma.tenantSettings.update({
+    where: { tenantId: fixture.tenantId },
+    data: { businessHours: hours },
+  })
+}
+
+/**
+ * Ajusta `tenant_settings` do fixture. O registro já existe desde `givenTenant`, e
+ * cada teste sobrescreve só o que o seu cenário precisa.
+ */
+export async function givenTenantSettings(
+  fixture: TenantFixture,
+  settings: Record<string, unknown>,
+): Promise<void> {
+  await ownerPrisma.tenantSettings.update({
+    where: { tenantId: fixture.tenantId },
+    data: settings,
   })
 }
 

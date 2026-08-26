@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { formatBRL, todayIn, type DayView } from '@petshop/shared-types'
+import { formatBRL, todayIn, type AppointmentResponse, type DayView } from '@petshop/shared-types'
 import { AppShell } from '@/components/app-shell'
 import { CardBloom } from '@/components/atmosphere'
 import {
@@ -10,6 +10,7 @@ import {
   TrendingUpIcon,
   UsersIcon,
   WalletIcon,
+  type IconTone,
 } from '@/components/icons'
 import { serverApi } from '@/lib/api'
 import { Roadmap } from './roadmap'
@@ -21,9 +22,10 @@ import { Roadmap } from './roadmap'
  * equipe"). Não é mais: terminar a configuração e continuar sendo cobrado por tarefas
  * faz o produto parecer que nunca começou. O que fica é o estado do negócio.
  *
- * Os números estão em duas faixas, e a divisão não é decorativa: **Hoje** muda ao longo
- * do dia e é o que a recepção olha de manhã; **Sua base** só muda quando alguém cadastra
- * ou cobra alguém. Misturar as duas faria o dono não saber quais números vale atualizar
+ * Os números estão em faixas, e a divisão não é decorativa: **Hoje** muda ao longo do
+ * dia e é o que a recepção olha de manhã; **Esta semana** é a janela móvel dos últimos
+ * 7 dias, que só se mexe uma vez por dia; **Sua base** só muda quando alguém cadastra
+ * ou cobra alguém. Misturar as três faria o dono não saber quais números vale atualizar
  * a página para reler.
  *
  * Nenhum número é calculado a partir de listagem — `total` é o que o serviço já sabe
@@ -45,6 +47,12 @@ interface Stat {
   value: string | null
   hint: string
   icon: ReactNode
+  /**
+   * Família de cor do chip: diz de que assunto o cartão trata. É informação diferente
+   * de `tone`, logo abaixo — o chip diz o tipo, o número diz o estado. Um cartão de
+   * dinheiro é verde mesmo quando o valor está vencido e sai em vermelho.
+   */
+  iconTone: IconTone
   href?: '/tutores' | '/pets' | '/agenda/dia' | '/financeiro/configuracoes'
   /** Destaca o número quando ele pede ação — dívida vencida, dia lotado. */
   tone?: 'danger'
@@ -74,32 +82,59 @@ export default async function DashboardPage() {
    * A agenda e o financeiro só são consultados por quem pode vê-los — pedir e receber
    * 403 funcionaria, mas gastaria a viagem e sujaria o log de segurança todo dia.
    */
-  const [activeTutors, inactiveTutors, activePets, inactivePets, dayView, receivables, cashflow] =
-    await Promise.all([
-      countOf(() => serverApi().listTutors({ status: 'ACTIVE', limit: 1 })),
-      countOf(() => serverApi().listTutors({ status: 'INACTIVE', limit: 1 })),
-      countOf(() => serverApi().listPets({ status: 'ACTIVE', limit: 1 })),
-      countOf(() => serverApi().listPets({ status: 'INACTIVE', limit: 1 })),
-      can('schedule:read_all')
-        ? serverApi()
-            .getDayView(hoje)
-            .catch(() => null)
-        : Promise.resolve(null),
-      can('finance:read')
-        ? serverApi()
-            .getReceivables()
-            .catch(() => null)
-        : Promise.resolve(null),
-      // O caixa do dia é do gestor: a recepção registra o pagamento, mas o faturamento
-      // do estabelecimento não é informação de balcão (§9).
-      can('finance:configure')
-        ? serverApi()
-            .getCashflow()
-            .catch(() => null)
-        : Promise.resolve(null),
-    ])
+  // Janela móvel dos últimos 7 dias (inclui hoje) — as métricas semanais do MOD-AGENDA
+  // não têm reset de segunda-feira no PRD, e uma janela móvel evita o cartão zerar
+  // toda manhã de segunda.
+  const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  // 90 dias sem `last_attendance_at` é o corte de "reativar" do MOD-CRM (tutores_02).
+  const noventaDiasAtras = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10)
+
+  const [
+    activeTutors,
+    inactiveTutors,
+    tutorsToReactivate,
+    activePets,
+    inactivePets,
+    dayView,
+    weekAppointments,
+    receivables,
+    cashflow,
+  ] = await Promise.all([
+    countOf(() => serverApi().listTutors({ status: 'ACTIVE', limit: 1 })),
+    countOf(() => serverApi().listTutors({ status: 'INACTIVE', limit: 1 })),
+    countOf(() =>
+      serverApi().listTutors({ status: 'ACTIVE', inactiveSince: noventaDiasAtras, limit: 1 }),
+    ),
+    countOf(() => serverApi().listPets({ status: 'ACTIVE', limit: 1 })),
+    countOf(() => serverApi().listPets({ status: 'INACTIVE', limit: 1 })),
+    can('schedule:read_all')
+      ? serverApi()
+          .getDayView(hoje)
+          .catch(() => null)
+      : Promise.resolve(null),
+    can('schedule:read_all')
+      ? serverApi()
+          .listAppointments({ from: seteDiasAtras.toISOString(), to: new Date().toISOString() })
+          .catch(() => null)
+      : Promise.resolve(null),
+    can('finance:read')
+      ? serverApi()
+          .getReceivables()
+          .catch(() => null)
+      : Promise.resolve(null),
+    // O caixa do dia é do gestor: a recepção registra o pagamento, mas o faturamento
+    // do estabelecimento não é informação de balcão (§9).
+    can('finance:configure')
+      ? serverApi()
+          .getCashflow()
+          .catch(() => null)
+      : Promise.resolve(null),
+  ])
 
   const day = dayView ? summarizeDay(dayView) : null
+  const week = weekAppointments ? summarizeWeek(weekAppointments) : null
 
   const hoje_: Stat[] = []
   if (can('schedule:read_all')) {
@@ -114,6 +149,7 @@ export default async function DashboardPage() {
               ? 'Nenhum agendamento para hoje.'
               : `${day.done} concluído${day.done === 1 ? '' : 's'}, ${day.pending} pela frente.`,
         icon: <CalendarIcon />,
+        iconTone: 'icon-time',
         href: '/agenda/dia',
       },
       {
@@ -126,6 +162,7 @@ export default async function DashboardPage() {
               ? 'Ninguém com jornada hoje.'
               : `Das horas de jornada de ${day.workingColumns} profissiona${day.workingColumns === 1 ? 'l' : 'is'}. Diz se falta cliente ou falta gente.`,
         icon: <TrendingUpIcon />,
+        iconTone: 'icon-metric',
         href: '/agenda/dia',
       },
     )
@@ -139,8 +176,63 @@ export default async function DashboardPage() {
           ? 'Nenhum pagamento registrado hoje.'
           : `${cashflow.paymentsCount} pagamento${cashflow.paymentsCount === 1 ? '' : 's'}${topMethod(cashflow.byMethod)}.`,
       icon: <WalletIcon />,
+      iconTone: 'icon-money',
       href: '/financeiro/configuracoes',
     })
+  }
+
+  // Os três indicadores que o roadmap prometia para MOD-AGENDA (agenda_operacao_06.md)
+  // e que o `AppointmentResponse` já carrega: `status`, `cancelledLate`, `checkinAt` e
+  // `checkoutAt` vêm de uma única listagem de 7 dias, sem endpoint novo.
+  const semana_: Stat[] = []
+  if (can('schedule:read_all')) {
+    semana_.push(
+      {
+        label: 'Faltas na semana',
+        value:
+          week === null ? null : week.real === 0 ? '—' : `${Math.round((week.noShow / week.real) * 100)}%`,
+        hint:
+          week === null
+            ? 'A agenda não respondeu agora.'
+            : week.real === 0
+              ? 'Nenhum atendimento nos últimos 7 dias.'
+              : `${week.noShow} falta${week.noShow === 1 ? '' : 's'} de ${week.real} agendamentos.`,
+        icon: <CalendarIcon />,
+        iconTone: 'icon-time',
+        href: '/agenda/dia',
+      },
+      {
+        label: 'Cancelamentos em cima da hora',
+        value: week === null ? null : String(week.cancelledLate),
+        hint:
+          week === null
+            ? 'A agenda não respondeu agora.'
+            : week.cancelled === 0
+              ? 'Nenhum cancelamento nos últimos 7 dias.'
+              : `${week.cancelledLate} de ${week.cancelled} cancelamento${week.cancelled === 1 ? '' : 's'} vieram dentro da janela de 24h.`,
+        icon: <TrendingUpIcon />,
+        iconTone: 'icon-metric',
+        href: '/agenda/dia',
+      },
+      {
+        label: 'Pontualidade',
+        value:
+          week === null
+            ? null
+            : week.avgArrivalDelayMin === null
+              ? '—'
+              : `${week.avgArrivalDelayMin > 0 ? '+' : ''}${week.avgArrivalDelayMin} min`,
+        hint:
+          week === null
+            ? 'A agenda não respondeu agora.'
+            : week.avgArrivalDelayMin === null
+              ? 'Nenhum check-in nos últimos 7 dias.'
+              : `Chegada em relação ao horário marcado${durationHint(week.avgDurationDeltaMin)}.`,
+        icon: <CalendarIcon />,
+        iconTone: 'icon-time',
+        href: '/agenda/dia',
+      },
+    )
   }
 
   const base: Stat[] = [
@@ -154,6 +246,7 @@ export default async function DashboardPage() {
             ? `Mais ${format(inactiveTutors)} na carteira, marcados como inativos.`
             : 'Quem responde pelos animais e recebe os lançamentos.',
       icon: <UsersIcon />,
+      iconTone: 'icon-people',
       href: '/tutores',
     },
     {
@@ -164,7 +257,21 @@ export default async function DashboardPage() {
       // como cartão próprio, ocupava o lugar de algo em que se pode agir.
       hint: petsHint(activePets, inactivePets, activeTutors, inactiveTutors),
       icon: <PawPrintIcon />,
+      iconTone: 'icon-pet',
       href: '/pets',
+    },
+    {
+      label: 'Tutores para reativar',
+      value: format(tutorsToReactivate),
+      hint:
+        tutorsToReactivate === null
+          ? 'Contagem indisponível agora.'
+          : tutorsToReactivate === 0
+            ? 'Ninguém sem visita há mais de 90 dias.'
+            : 'Ativos, mas sem visita registrada nos últimos 90 dias.',
+      icon: <UsersIcon />,
+      iconTone: 'icon-people',
+      href: '/tutores',
     },
   ]
   if (receivables) {
@@ -179,6 +286,7 @@ export default async function DashboardPage() {
             ? `${formatBRL(overdue)} vencidos há mais de 30 dias.`
             : 'Tudo dentro do prazo de 30 dias.',
       icon: <WalletIcon />,
+      iconTone: 'icon-money',
       href: '/financeiro/configuracoes',
       ...(overdue > 0 ? { tone: 'danger' as const } : {}),
     })
@@ -202,6 +310,7 @@ export default async function DashboardPage() {
         </p>
 
         {hoje_.length > 0 && <StatSection title="Hoje" stats={hoje_} />}
+        {semana_.length > 0 && <StatSection title="Esta semana" stats={semana_} />}
         <StatSection title="Sua base" stats={base} />
 
         <Roadmap permissions={me.permissions} />
@@ -229,7 +338,7 @@ function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
 
               {/* O conteúdo sobe acima do bloom pelo mesmo motivo do shell. */}
               <div className="relative z-10">
-                <span className="icon-chip">{stat.icon}</span>
+                <span className={`icon-chip ${stat.iconTone}`}>{stat.icon}</span>
                 <p
                   className={`mt-5 text-4xl font-semibold tabular-nums ${
                     stat.tone === 'danger' ? 'text-danger' : ''
@@ -308,6 +417,83 @@ function summarizeDay(dayView: DayView): DaySummary {
     occupancy,
     workingColumns: working.length,
   }
+}
+
+interface WeekSummary {
+  /** Excluídos cancelamento e remarcação — mesma régua de `summarizeDay`. */
+  real: number
+  noShow: number
+  cancelled: number
+  /** RN-06: dentro da janela de 24h da política. */
+  cancelledLate: number
+  /** Minutos entre `checkinAt` e `startsAt`, média de quem chegou. `null` sem check-in. */
+  avgArrivalDelayMin: number | null
+  /** Minutos de diferença entre a duração real (`checkoutAt` − `checkinAt`) e a
+   *  prevista (`endsAt` − `startsAt`), média de quem fechou o atendimento. */
+  avgDurationDeltaMin: number | null
+}
+
+/**
+ * Os últimos 7 dias em seis números — os três indicadores que `Roadmap` prometia
+ * para MOD-AGENDA, agora que `AppointmentResponse` já carrega `cancelledLate`,
+ * `checkinAt` e `checkoutAt` (agenda_operacao_06.md).
+ */
+function summarizeWeek(appointments: AppointmentResponse[]): WeekSummary {
+  const real = appointments.filter(
+    (appointment) => appointment.status !== 'CANCELLED' && appointment.status !== 'RESCHEDULED',
+  )
+  const noShow = real.filter((appointment) => appointment.status === 'NO_SHOW').length
+
+  const cancelled = appointments.filter((appointment) => appointment.status === 'CANCELLED')
+  const cancelledLate = cancelled.filter((appointment) => appointment.cancelledLate === true).length
+
+  const arrived = real.filter((appointment) => appointment.checkinAt !== null)
+  const avgArrivalDelayMin =
+    arrived.length === 0 ? null : Math.round(average(arrived.map(arrivalDelayMin)))
+
+  const finished = real.filter(
+    (appointment) => appointment.checkinAt !== null && appointment.checkoutAt !== null,
+  )
+  const avgDurationDeltaMin =
+    finished.length === 0 ? null : Math.round(average(finished.map(durationDeltaMin)))
+
+  return {
+    real: real.length,
+    noShow,
+    cancelled: cancelled.length,
+    cancelledLate,
+    avgArrivalDelayMin,
+    avgDurationDeltaMin,
+  }
+}
+
+function arrivalDelayMin(appointment: AppointmentResponse): number {
+  return (
+    (new Date(appointment.checkinAt as string).getTime() - new Date(appointment.startsAt).getTime()) /
+    60_000
+  )
+}
+
+function durationDeltaMin(appointment: AppointmentResponse): number {
+  const realMin =
+    (new Date(appointment.checkoutAt as string).getTime() -
+      new Date(appointment.checkinAt as string).getTime()) /
+    60_000
+  const plannedMin =
+    (new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime()) / 60_000
+  return realMin - plannedMin
+}
+
+function average(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+/** Completa a dica de pontualidade com a duração real, só quando há dado para ela. */
+function durationHint(avgDurationDeltaMin: number | null): string {
+  if (avgDurationDeltaMin === null) return ''
+  if (Math.abs(avgDurationDeltaMin) < 1) return '. Duração bate com a prevista'
+  const sinal = avgDurationDeltaMin > 0 ? 'a mais' : 'a menos'
+  return `. Atendimentos duram, em média, ${Math.abs(avgDurationDeltaMin)} min ${sinal} que o previsto`
 }
 
 /** A forma de pagamento que mais entrou hoje — a "realidade do balcão" do §10. */

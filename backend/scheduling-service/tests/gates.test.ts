@@ -353,13 +353,9 @@ describe('RN-11 — inadimplência alerta; bloqueia por opt-in', () => {
 describe('RN-07 — antecedência mínima só vale para o Portal', () => {
   it('o Portal respeita as 2h de antecedência', async () => {
     const { serviceId, professionalId, petId } = await cenario()
-    await ownerPrisma.tenantSettings.create({
-      data: {
-        tenantId: tenant.tenantId,
-        branding: {},
-        businessHours: {},
-        minBookingNoticeHours: 2,
-      },
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { minBookingNoticeHours: 2 },
     })
 
     const daquiUmaHora = new Date(Date.now() + 60 * 60_000)
@@ -377,13 +373,9 @@ describe('RN-07 — antecedência mínima só vale para o Portal', () => {
 
   it('no balcão não existe antecedência mínima — o tutor está na frente do atendente', async () => {
     const { serviceId, professionalId, petId } = await cenario()
-    await ownerPrisma.tenantSettings.create({
-      data: {
-        tenantId: tenant.tenantId,
-        branding: {},
-        businessHours: {},
-        minBookingNoticeHours: 2,
-      },
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { minBookingNoticeHours: 2 },
     })
 
     // Daqui a 15 minutos, dentro da jornada. STAFF passa.

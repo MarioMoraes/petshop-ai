@@ -183,14 +183,9 @@ describe('RN-06 — cancelamento e a janela de 24h', () => {
   })
 
   it('dentro da janela é tardio e calcula a taxa pelo percentual do tenant', async () => {
-    await ownerPrisma.tenantSettings.create({
-      data: {
-        tenantId: tenant.tenantId,
-        branding: {},
-        businessHours: {},
-        cancellationWindowHours: 24,
-        noShowFeePercent: 50,
-      },
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { cancellationWindowHours: 24, noShowFeePercent: 50 },
     })
 
     // Agendamento para daqui a 2 horas: dentro da janela de 24h.
@@ -219,14 +214,9 @@ describe('RN-06 — cancelamento e a janela de 24h', () => {
   })
 
   it('a recepção pode isentar a taxa do cancelamento tardio', async () => {
-    await ownerPrisma.tenantSettings.create({
-      data: {
-        tenantId: tenant.tenantId,
-        branding: {},
-        businessHours: {},
-        cancellationWindowHours: 24,
-        noShowFeePercent: 50,
-      },
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { cancellationWindowHours: 24, noShowFeePercent: 50 },
     })
 
     const serviceId = await givenService(tenant, { priceCents: 10_000 })
@@ -254,14 +244,9 @@ describe('RN-06 — cancelamento e a janela de 24h', () => {
   })
 
   it('RN-12: cancelamento do sistema nunca é tardio', async () => {
-    await ownerPrisma.tenantSettings.create({
-      data: {
-        tenantId: tenant.tenantId,
-        branding: {},
-        businessHours: {},
-        cancellationWindowHours: 24,
-        noShowFeePercent: 50,
-      },
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { cancellationWindowHours: 24, noShowFeePercent: 50 },
     })
 
     const serviceId = await givenService(tenant, { priceCents: 10_000 })
@@ -291,13 +276,9 @@ describe('RN-06 — cancelamento e a janela de 24h', () => {
 
 describe('no-show', () => {
   it('calcula a taxa pelo percentual e é terminal', async () => {
-    await ownerPrisma.tenantSettings.create({
-      data: {
-        tenantId: tenant.tenantId,
-        branding: {},
-        businessHours: {},
-        noShowFeePercent: 30,
-      },
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { noShowFeePercent: 30 },
     })
     const booking = await givenBooking({ priceCents: 10_000 })
 

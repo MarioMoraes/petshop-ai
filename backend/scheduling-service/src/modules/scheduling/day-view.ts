@@ -1,5 +1,6 @@
 import { withTenant } from '@petshop/db'
 import type { ActorContext } from '../catalog/actor.js'
+import { zonedMidnight } from './timezone.js'
 
 /**
  * Visão do dia (MOD-AGENDA-09).
@@ -210,44 +211,11 @@ function severityRank(severity: string): number {
   return SEVERITY_RANK[severity] ?? 0
 }
 
-/**
- * O início e o fim do dia no fuso do tenant.
- *
- * Calculado por diferença de offset, e não por aritmética de UTC: o horário de verão
- * muda a duração real do dia, e somar 24h daria o instante errado exatamente na
- * madrugada em que a agenda mais precisa acertar.
- */
+/** O início e o fim do dia no fuso do tenant. Ver `timezone.ts`. */
 export function dayBounds(date: string, timezone: string): { start: Date; end: Date } {
   const start = zonedMidnight(date, timezone)
   const next = new Date(`${date}T00:00:00Z`)
   next.setUTCDate(next.getUTCDate() + 1)
   const end = zonedMidnight(next.toISOString().slice(0, 10), timezone)
   return { start, end }
-}
-
-function zonedMidnight(date: string, timezone: string): Date {
-  const naive = new Date(`${date}T00:00:00Z`)
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-  const parts = Object.fromEntries(
-    formatter.formatToParts(naive).map((part) => [part.type, part.value]),
-  )
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour === '24' ? '0' : parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  )
-  // A diferença entre o instante formatado no fuso e o instante original é o offset.
-  return new Date(naive.getTime() + (naive.getTime() - asUtc))
 }

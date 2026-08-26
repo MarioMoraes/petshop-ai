@@ -22,6 +22,7 @@ import { resolveItemDuration } from './duration.js'
 import { getDayView } from './day-view.js'
 import { getAppointment, listAppointments } from './queries.js'
 import { createRecurrence, endRecurrence } from './recurrence.js'
+import { loadTimezone } from './timezone.js'
 import { approve, cancel, checkIn, checkOut, markNoShow, reschedule } from './transitions.js'
 
 /**
@@ -115,6 +116,7 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
         nextAvailable: result.nextAvailable?.toISOString() ?? null,
         durationMin,
         priceCents: Number(pricing.priceCents),
+        timezone: await loadTimezone(tx),
       }
     })
   })
@@ -217,13 +219,7 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
     const actor = actorFrom(request)
 
     // RN-19: o fuso é do tenant. "Hoje" em Manaus não é "hoje" em São Paulo.
-    const timezone = await withTenant(actor.tenantId, async (tx) => {
-      const settings = await tx.tenantSettings.findFirst({
-        where: { tenantId: actor.tenantId },
-        select: { timezone: true },
-      })
-      return settings?.timezone ?? 'America/Sao_Paulo'
-    })
+    const timezone = await withTenant(actor.tenantId, loadTimezone)
 
     return getDayView(actor, query.date, timezone)
   })

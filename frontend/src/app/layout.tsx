@@ -46,7 +46,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       }}
     >
       <html lang="pt-BR" className={`${inter.variable} ${instrumentSerif.variable}`}>
-        <body>{children}</body>
+        {/*
+          `suppressHydrationWarning`: o `<body>` é o único nó do app que só renderiza
+          uma vez, e é onde extensão de navegador (gerenciador de senha, Grammarly,
+          dark mode) injeta atributo antes do React hidratar — o React compara contra
+          um HTML que a própria aplicação nunca alterou. Só ignora divergência neste
+          nó; não propaga para os filhos, então não mascara mismatch de verdade.
+        */}
+        <body suppressHydrationWarning>{children}</body>
       </html>
     </ClerkProvider>
   )

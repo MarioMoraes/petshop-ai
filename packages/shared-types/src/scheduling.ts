@@ -327,6 +327,12 @@ export const AvailabilityResponseSchema = z.object({
   nextAvailable: z.iso.datetime().nullable(),
   durationMin: z.number().int(),
   priceCents: z.number().int(),
+  /**
+   * RN-19. Vai junto porque a tela precisa mostrar a hora do **petshop**, não a do
+   * navegador de quem está olhando: a recepção que acessa de outro fuso — ou o tutor
+   * viajando — leria um horário que não é o do agendamento.
+   */
+  timezone: z.string(),
 })
 
 export const AppointmentResponseSchema = z.object({

@@ -33,6 +33,54 @@
   --color-danger: #b4231b;
   --color-danger-soft: #fdeceb;
 
+  /*
+   * Cor por tipo dos ícones.
+   *
+   * Oito famílias derivadas em oklch com a mesma clareza (L 0.55) e o croma limitado
+   * ao que cada matiz alcança — daí o ocre do Pets ser menos saturado que a safira da
+   * Agenda: no amarelo o sRGB acaba antes. Clareza igual é o que faz os seis ícones do
+   * menu pesarem o mesmo empilhados; com clareza livre o verde salta e o ocre some.
+   *
+   * Ficam um degrau abaixo do acento em saturação de propósito: `--color-accent`
+   * continua sendo a coisa mais alta da tela (botão, foco, logo) e a cor do ícone
+   * informa sem disputar com ele.
+   *
+   * `-soft` é o fundo do chip e `-ring` a linha de 1px por dentro que lhe dá silhueta,
+   * do mesmo jeito que a borda branca recorta o cartão sobre o cinza do shell.
+   */
+  --color-icon-brand: #b0503e;
+  --color-icon-brand-soft: #fff1ee;
+  --color-icon-brand-ring: #ffd4cb;
+
+  --color-icon-people: #7e5db1;
+  --color-icon-people-soft: #f6f2ff;
+  --color-icon-people-ring: #e4d9fd;
+
+  --color-icon-pet: #966700;
+  --color-icon-pet-soft: #fbf3e8;
+  --color-icon-pet-ring: #f2dcbb;
+
+  --color-icon-time: #466fbd;
+  --color-icon-time-soft: #eff5ff;
+  --color-icon-time-ring: #cfe0ff;
+
+  --color-icon-money: #22864a;
+  --color-icon-money-soft: #edf8ef;
+  --color-icon-money-ring: #c8ead0;
+
+  --color-icon-metric: #00818c;
+  --color-icon-metric-soft: #e8f8fa;
+  --color-icon-metric-ring: #baeaef;
+
+  --color-icon-health: #a94d79;
+  --color-icon-health-soft: #fef0f6;
+  --color-icon-health-ring: #fbd3e3;
+
+  /* Configurações é encanamento, não domínio: fica em grafite, sem matiz. */
+  --color-icon-system: #6e7179;
+  --color-icon-system-soft: #f3f4f7;
+  --color-icon-system-ring: #dddfe5;
+
   /* As variáveis vêm do `next/font` no layout raiz. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
@@ -141,7 +189,82 @@
     box-shadow: 0 24px 44px -18px rgb(35 36 39 / 0.3);
   }
 
-  /* Chip do ícone no topo do card: 48px, raio 16px, ícone no acento. */
+  /*
+   * Tom do ícone: a família de cor do tipo que ele representa.
+   *
+   * A cor diz o TIPO, não o estado — azul é Agenda em repouso, em hover e ativa. Quem
+   * marca onde o usuário está continua sendo a pastilha branca do `.nav-item-active`;
+   * fazer o ícone acender junto daria dois sinais para a mesma informação e apagaria a
+   * leitura por cor no repouso, que é justamente onde ela serve.
+   *
+   * E tipo não é estado semântico: o verde do Financeiro quer dizer "isto é dinheiro",
+   * não "deu certo" — sucesso e erro seguem em `--color-success` e `--color-danger`,
+   * no badge e no número, nunca no chip.
+   *
+   * Cada classe só declara as três variáveis; quem pinta é `.icon-chip` (fundo, anel e
+   * traço) ou `.icon-tint` (só o traço, no menu, onde não há chip). Sem tom, os dois
+   * caem no comportamento antigo — chip off-white, traço no acento —, então nenhum uso
+   * existente precisa ser tocado para continuar funcionando.
+   */
+  .icon-brand {
+    --icon: var(--color-icon-brand);
+    --icon-soft: var(--color-icon-brand-soft);
+    --icon-ring: var(--color-icon-brand-ring);
+  }
+
+  .icon-people {
+    --icon: var(--color-icon-people);
+    --icon-soft: var(--color-icon-people-soft);
+    --icon-ring: var(--color-icon-people-ring);
+  }
+
+  .icon-pet {
+    --icon: var(--color-icon-pet);
+    --icon-soft: var(--color-icon-pet-soft);
+    --icon-ring: var(--color-icon-pet-ring);
+  }
+
+  .icon-time {
+    --icon: var(--color-icon-time);
+    --icon-soft: var(--color-icon-time-soft);
+    --icon-ring: var(--color-icon-time-ring);
+  }
+
+  .icon-money {
+    --icon: var(--color-icon-money);
+    --icon-soft: var(--color-icon-money-soft);
+    --icon-ring: var(--color-icon-money-ring);
+  }
+
+  .icon-metric {
+    --icon: var(--color-icon-metric);
+    --icon-soft: var(--color-icon-metric-soft);
+    --icon-ring: var(--color-icon-metric-ring);
+  }
+
+  .icon-health {
+    --icon: var(--color-icon-health);
+    --icon-soft: var(--color-icon-health-soft);
+    --icon-ring: var(--color-icon-health-ring);
+  }
+
+  .icon-system {
+    --icon: var(--color-icon-system);
+    --icon-soft: var(--color-icon-system-soft);
+    --icon-ring: var(--color-icon-system-ring);
+  }
+
+  /* Ícone solto, sem chip: só o traço ganha a cor do tipo. */
+  .icon-tint {
+    color: var(--icon, currentColor);
+  }
+
+  /*
+   * Chip do ícone no topo do card: 48px, raio 16px.
+   *
+   * O anel é `box-shadow ... inset` e não `border` porque borda empurraria os 48px para
+   * 50 e desalinharia o chip de tudo que já foi medido a partir dele.
+   */
   .icon-chip {
     display: inline-flex;
     height: 3rem;
@@ -149,8 +272,9 @@
     align-items: center;
     justify-content: center;
     border-radius: 1rem;
-    background-color: var(--color-chip);
-    color: var(--color-accent);
+    background-color: var(--icon-soft, var(--color-chip));
+    box-shadow: 0 0 0 1px var(--icon-ring, transparent) inset;
+    color: var(--icon, var(--color-accent));
   }
 
   /* Pílula de meta-informação no rodapé do card. */

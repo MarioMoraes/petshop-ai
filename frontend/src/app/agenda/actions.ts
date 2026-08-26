@@ -307,6 +307,7 @@ export async function availabilityAction(query: {
     nextAvailable: string | null
     durationMin: number
     priceCents: number
+    timezone: string
   }>
 > {
   try {

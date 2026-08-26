@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import type {
   CreditCheckResponse,
   ProfessionalResponse,
@@ -56,16 +56,38 @@ function money(cents: number): string {
   return `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 }
 
-function hour(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+/**
+ * A hora é sempre a **do petshop**, nunca a do navegador.
+ *
+ * Sem `timeZone` explícito o `toLocaleTimeString` usa o fuso de quem está olhando: a
+ * recepcionista acessando de outro estado, ou o tutor viajando, leriam um horário que
+ * não é o do agendamento. O fuso vem do tenant, junto com os horários.
+ */
+function hour(iso: string, timezone: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: timezone,
+  })
 }
 
-function dayLabel(iso: string): string {
+function dayLabel(iso: string, timezone: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
     month: '2-digit',
+    timeZone: timezone,
   })
+}
+
+/** O dia civil de um instante, no fuso do petshop — a chave do seletor de data. */
+function dayKey(iso: string, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(iso))
 }
 
 export function BookingWizard({ services, professionals, initialDate, initialPetId }: Props) {
@@ -78,10 +100,16 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
   const [date, setDate] = useState(initialDate)
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [nextAvailable, setNextAvailable] = useState<string | null>(null)
+  // Até a primeira resposta chegar, o fuso do próprio navegador é o palpite menos
+  // errado: quase sempre é o mesmo do petshop, e nada é exibido antes disso.
+  const [timezone, setTimezone] = useState(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+  )
   const [chosen, setChosen] = useState<Slot | null>(null)
   const [notes, setNotes] = useState('')
   const [failure, setFailure] = useState<ActionFailure | null>(null)
   const [overrideReason, setOverrideReason] = useState('')
+  const slotsRequestId = useRef(0)
 
   const activeServices = services.filter((service) => service.active)
   const chosenServices = activeServices.filter((service) => serviceIds.includes(service.id))
@@ -100,6 +128,13 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
     setFailure(null)
     setChosen(null)
 
+    // Cada chamada leva sua própria marca. Trocar profissional, dia ou serviço
+    // rápido demais deixa duas buscas em voo ao mesmo tempo, e sem isso a que
+    // chegasse por último venceria — mesmo sendo a resposta da busca **anterior**,
+    // vinda para um profissional ou dia que não é mais o selecionado. Descartar
+    // toda resposta que não seja a da última chamada corrige o horário fantasma.
+    const requestId = ++slotsRequestId.current
+
     startTransition(async () => {
       // A disponibilidade é consultada por serviço; com mais de um, o primeiro define
       // a grade e a confirmação valida o conjunto. É a aproximação honesta: combinar
@@ -113,6 +148,8 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
         to: `${date}T23:59:59.999Z`,
       })
 
+      if (requestId !== slotsRequestId.current) return
+
       if (!result.ok) {
         setFailure(result)
         setSlots([])
@@ -120,6 +157,7 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
       }
       setSlots(result.data.slots)
       setNextAvailable(result.data.nextAvailable)
+      setTimezone(result.data.timezone)
     })
   }
 
@@ -274,7 +312,7 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
                       }`}
                       onClick={() => setChosen(slot)}
                     >
-                      <span className="font-medium">{hour(slot.startsAt)}</span>
+                      <span className="font-medium">{hour(slot.startsAt, timezone)}</span>
                       {!professionalId && (
                         <span className="hint block text-xs">{slot.professionalName}</span>
                       )}
@@ -289,9 +327,10 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
                   <button
                     type="button"
                     className="btn btn-ghost mt-2"
-                    onClick={() => setDate(nextAvailable.slice(0, 10))}
+                    onClick={() => setDate(dayKey(nextAvailable, timezone))}
                   >
-                    Ir para {dayLabel(nextAvailable)}, às {hour(nextAvailable)}
+                    Ir para {dayLabel(nextAvailable, timezone)}, às{' '}
+                    {hour(nextAvailable, timezone)}
                   </button>
                 )}
               </div>
@@ -310,7 +349,7 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
             <Row label="Serviços" value={chosenServices.map((s) => s.name).join(', ')} />
             <Row
               label="Horário"
-              value={`${dayLabel(chosen.startsAt)}, ${hour(chosen.startsAt)} às ${hour(chosen.endsAt)}`}
+              value={`${dayLabel(chosen.startsAt, timezone)}, ${hour(chosen.startsAt, timezone)} às ${hour(chosen.endsAt, timezone)}`}
             />
             <Row label="Profissional" value={chosen.professionalName} />
             <Row label="Duração" value={`${chosen.durationMin} min`} />
@@ -330,7 +369,7 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
             </Field>
           </div>
 
-          {failure && <GateBanner failure={failure} reason={overrideReason} onReason={setOverrideReason} onConfirm={confirm} pending={pending} />}
+          {failure && <GateBanner failure={failure} reason={overrideReason} onReason={setOverrideReason} onConfirm={confirm} pending={pending} timezone={timezone} />}
 
           <div className="mt-5 flex justify-end">
             <button
@@ -399,12 +438,14 @@ function GateBanner({
   onReason,
   onConfirm,
   pending,
+  timezone,
 }: {
   failure: ActionFailure
   reason: string
   onReason: (value: string) => void
   onConfirm: (extra?: { acknowledgedAlerts?: boolean; override?: { reason: string } }) => void
   pending: boolean
+  timezone: string
 }) {
   if (failure.alerts && failure.alerts.length > 0) {
     return (
@@ -463,7 +504,8 @@ function GateBanner({
       <p className="font-medium">{failure.message}</p>
       {failure.suggestions && failure.suggestions.length > 0 && (
         <p className="hint mt-1">
-          Horários próximos: {failure.suggestions.map((s) => hour(s.startsAt)).join(', ')}
+          Horários próximos:{' '}
+          {failure.suggestions.map((s) => hour(s.startsAt, timezone)).join(', ')}
         </p>
       )}
     </div>

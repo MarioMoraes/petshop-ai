@@ -1,14 +1,16 @@
 import type { ReactNode } from 'react'
-import { CalendarIcon, HeartPulseIcon, UsersIcon, WalletIcon } from '@/components/icons'
+import { HeartPulseIcon, UsersIcon, WalletIcon } from '@/components/icons'
 import { Badge } from '@/components/ui'
 
 /**
  * Indicadores que o Início ainda vai mostrar, transcritos dos PRDs de `docs/prd/`.
  *
- * **Esta lista encolhe.** Agenda do dia, ocupação, contas a receber e recebido no
- * período saíram daqui quando ganharam endpoint — hoje são cartões de verdade lá em
- * cima. Um item que continua nesta lista depois de existir transforma o painel em
- * mentira, então tirar daqui é parte de entregar o módulo.
+ * **Esta lista encolhe.** Agenda do dia, ocupação, contas a receber, recebido no
+ * período, faltas, cancelamentos em cima da hora e pontualidade saíram daqui — hoje
+ * são cartões de verdade lá em cima. As três últimas nem esperaram endpoint novo:
+ * `/v1/appointments` já devolvia `status`, `cancelledLate`, `checkinAt` e `checkoutAt`,
+ * só faltava alguém somar. Um item que continua nesta lista depois de existir
+ * transforma o painel em mentira, então tirar daqui é parte de entregar o módulo.
  *
  * Estão aqui, visíveis e desligados, em vez de esperarem os módulos ficarem prontos,
  * por duas razões. A primeira é para o dono do petshop: um painel que mostra três
@@ -43,27 +45,6 @@ interface PlannedBlock {
 }
 
 const PLANNED: PlannedBlock[] = [
-  {
-    module: 'MOD-AGENDA',
-    title: 'Agenda e operação',
-    prd: 'agenda_operacao_06.md',
-    icon: <CalendarIcon />,
-    permissions: ['schedule:read_all', 'schedule:read_own'],
-    indicators: [
-      {
-        label: 'Faltas (no-show)',
-        detail: 'Percentual de agendamentos não cumpridos na semana — insumo da régua de relacionamento.',
-      },
-      {
-        label: 'Cancelamentos em cima da hora',
-        detail: 'Os que caem dentro da janela de 24h da política, que são os que realmente furam a agenda.',
-      },
-      {
-        label: 'Pontualidade e duração real',
-        detail: 'Diferença entre a hora marcada e a chegada, e entre a duração estimada e a executada. Desvio persistente significa que a agenda está mentindo.',
-      },
-    ],
-  },
   {
     module: 'MOD-LEDGER',
     title: 'Financeiro',
@@ -130,10 +111,6 @@ const PLANNED: PlannedBlock[] = [
         detail: 'Teto de alcance de qualquer campanha: sem consentimento não há mensagem.',
       },
       {
-        label: 'Tutores para reativar',
-        detail: 'Quem não aparece há 90 dias. Depende do atendimento concluído para saber quando foi a última vez.',
-      },
-      {
         label: 'Régua de cobrança',
         detail: 'Quem cobrar hoje e por qual canal. O saldo e a tag de inadimplente já existem; falta o MOD-CRM disparar.',
       },
@@ -147,6 +124,11 @@ const PLANNED: PlannedBlock[] = [
  * Tratamento deliberadamente mais leve que o dos números reais: borda tracejada, fundo
  * rebaixado, sem sombra. O olho precisa separar em um relance o que é dado do que é
  * promessa — se as duas seções tivessem o mesmo peso, o painel mentiria.
+ *
+ * Por isso os chips ficam de fora da cor por tipo e seguem em `--color-subtle`: é a
+ * única exceção à regra de que a cor diz o tipo, e ela existe porque aqui o cinza está
+ * dizendo outra coisa — "ainda não existe". Colorir estes chips daria aos módulos que
+ * faltam o mesmo brilho dos que já respondem.
  */
 export function Roadmap({ permissions }: { permissions: string[] }) {
   const blocks = PLANNED.filter((block) =>

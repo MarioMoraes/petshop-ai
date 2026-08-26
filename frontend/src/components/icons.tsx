@@ -18,6 +18,27 @@ const BASE = {
   'aria-hidden': true,
 } as const
 
+/**
+ * Tom do ícone — a família de cor do tipo que ele representa (`globals.css`, §Tom do
+ * ícone). Os traços continuam em `currentColor`: quem pinta é quem embrulha, com
+ * `.icon-chip` no cartão ou `.icon-tint` no menu. É o que mantém o mesmo ícone
+ * utilizável nos dois lugares sem duas versões dele.
+ *
+ * O tom é intrínseco ao ícone e não à tela: o calendário é azul na Agenda, no painel e
+ * onde mais aparecer. Cada função abaixo declara o seu logo acima, e é dali que o valor
+ * deve ser copiado para o `className` — não do fundo do arquivo, para não divergirem.
+ */
+export type IconTone =
+  | 'icon-brand'
+  | 'icon-people'
+  | 'icon-pet'
+  | 'icon-time'
+  | 'icon-money'
+  | 'icon-metric'
+  | 'icon-health'
+  | 'icon-system'
+
+/** Tom: `icon-people`. */
 export function UsersIcon() {
   return (
     <svg {...BASE}>
@@ -29,6 +50,7 @@ export function UsersIcon() {
   )
 }
 
+/** Tom: `icon-pet`. */
 export function PawPrintIcon() {
   return (
     <svg {...BASE}>
@@ -40,6 +62,7 @@ export function PawPrintIcon() {
   )
 }
 
+/** Tom: `icon-brand`. */
 export function HomeIcon() {
   return (
     <svg {...BASE}>
@@ -49,6 +72,7 @@ export function HomeIcon() {
   )
 }
 
+/** Tom: `icon-system`. */
 export function SettingsIcon() {
   return (
     <svg {...BASE}>
@@ -58,6 +82,7 @@ export function SettingsIcon() {
   )
 }
 
+/** Tom: `icon-metric`. */
 export function TrendingUpIcon() {
   return (
     <svg {...BASE}>
@@ -67,6 +92,7 @@ export function TrendingUpIcon() {
   )
 }
 
+/** Tom: `icon-time`. */
 export function CalendarIcon() {
   return (
     <svg {...BASE}>
@@ -76,6 +102,7 @@ export function CalendarIcon() {
   )
 }
 
+/** Tom: `icon-money`. */
 export function WalletIcon() {
   return (
     <svg {...BASE}>
@@ -86,6 +113,7 @@ export function WalletIcon() {
   )
 }
 
+/** Tom: `icon-health`. */
 export function HeartPulseIcon() {
   return (
     <svg {...BASE}>

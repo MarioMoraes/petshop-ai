@@ -154,14 +154,9 @@ describe('MOD-AGENDA-08 AC-04 — remarcação preserva a cadeia', () => {
 
 describe('MOD-AGENDA-06 AC-03 — aprovação do Portal', () => {
   async function comAprovacao() {
-    await ownerPrisma.tenantSettings.create({
-      data: {
-        tenantId: tenant.tenantId,
-        branding: {},
-        businessHours: {},
-        onlineBookingRequiresApproval: true,
-        minBookingNoticeHours: 0,
-      },
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { onlineBookingRequiresApproval: true, minBookingNoticeHours: 0 },
     })
   }
 
@@ -508,14 +503,9 @@ describe('jobs', () => {
   })
 
   it('a solicitação esquecida por 24h expira e libera o horário', async () => {
-    await ownerPrisma.tenantSettings.create({
-      data: {
-        tenantId: tenant.tenantId,
-        branding: {},
-        businessHours: {},
-        onlineBookingRequiresApproval: true,
-        minBookingNoticeHours: 0,
-      },
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { onlineBookingRequiresApproval: true, minBookingNoticeHours: 0 },
     })
     const { serviceId, professionalId, petId } = await cenario()
     const booking = await createBooking(actor(), {
@@ -617,8 +607,9 @@ describe('rotas novas', () => {
       startsAt: QUINTA_09H,
       items: [{ serviceId }],
     })
-    await ownerPrisma.tenantSettings.create({
-      data: { tenantId: tenant.tenantId, branding: {}, businessHours: {}, timezone: 'UTC' },
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { timezone: 'UTC' },
     })
 
     const response = await callApi({

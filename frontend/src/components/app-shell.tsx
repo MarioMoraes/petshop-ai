@@ -3,7 +3,15 @@ import type { CSSProperties, ReactNode } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import type { MeResponse, PermissionKey } from '@petshop/shared-types'
 import { Atmosphere } from './atmosphere'
-import { CalendarIcon, HomeIcon, PawPrintIcon, SettingsIcon, UsersIcon, WalletIcon } from './icons'
+import {
+  CalendarIcon,
+  HomeIcon,
+  PawPrintIcon,
+  SettingsIcon,
+  UsersIcon,
+  WalletIcon,
+  type IconTone,
+} from './icons'
 import { Badge, Logo } from './ui'
 
 /**
@@ -30,6 +38,11 @@ interface NavItem {
   label: string
   icon: ReactNode
   /**
+   * Família de cor do ícone. Anda junto com `icon` porque é o ícone que tem tom, não o
+   * item de menu — o calendário é azul aqui e em qualquer outro lugar que o use.
+   */
+  tone: IconTone
+  /**
    * Permissão que o item exige. Cada módulo declara a sua, em vez de todos
    * dependerem de `tenant:read_settings` — o financeiro é a primeira área que a
    * recepção acessa sem ser configuração, e um gate único já não descreveria a
@@ -39,9 +52,9 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { key: 'inicio', href: '/dashboard', label: 'Início', icon: <HomeIcon /> },
-  { key: 'tutores', href: '/tutores', label: 'Tutores', icon: <UsersIcon /> },
-  { key: 'pets', href: '/pets', label: 'Pets', icon: <PawPrintIcon /> },
+  { key: 'inicio', href: '/dashboard', label: 'Início', icon: <HomeIcon />, tone: 'icon-brand' },
+  { key: 'tutores', href: '/tutores', label: 'Tutores', icon: <UsersIcon />, tone: 'icon-people' },
+  { key: 'pets', href: '/pets', label: 'Pets', icon: <PawPrintIcon />, tone: 'icon-pet' },
   {
     // A visão do dia é o destino: é a tela que a recepção abre de manhã e mantém
     // aberta. Serviços e profissionais são configuração, visitada de vez em quando.
@@ -49,6 +62,7 @@ const NAV: NavItem[] = [
     href: '/agenda/dia',
     label: 'Agenda',
     icon: <CalendarIcon />,
+    tone: 'icon-time',
     requires: 'tenant:read_settings',
   },
   {
@@ -58,6 +72,7 @@ const NAV: NavItem[] = [
     href: '/financeiro/pacotes',
     label: 'Financeiro',
     icon: <WalletIcon />,
+    tone: 'icon-money',
     requires: 'finance:read',
   },
   {
@@ -65,6 +80,7 @@ const NAV: NavItem[] = [
     href: '/configuracoes',
     label: 'Configurações',
     icon: <SettingsIcon />,
+    tone: 'icon-system',
     requires: 'tenant:read_settings',
   },
 ]
@@ -185,7 +201,8 @@ function Sidebar({ active, items }: { active: NavKey; items: NavItem[] }) {
             aria-current={item.key === active ? 'page' : undefined}
             className={`nav-item ${item.key === active ? 'nav-item-active' : ''}`}
           >
-            <span className="shrink-0">{item.icon}</span>
+            {/* O tom não muda com o estado: azul é Agenda em repouso, em hover e ativa. */}
+            <span className={`icon-tint shrink-0 ${item.tone}`}>{item.icon}</span>
             {item.label}
           </Link>
         ))}

@@ -1,6 +1,7 @@
 import type { TenantTransaction } from '@petshop/db'
 import { SCHEDULE_GRID_MIN } from '@petshop/shared-types'
 import { OCCUPYING_STATUSES } from './conflicts.js'
+import { addDays, loadTimezone, weekdayOf, zonedDate, zonedMidnight } from './timezone.js'
 
 /**
  * Disponibilidade (MOD-AGENDA-11).
@@ -18,9 +19,11 @@ import { OCCUPYING_STATUSES } from './conflicts.js'
  * O único jeito honesto de saber se um horário cabe é perguntar, para cada início
  * candidato, quantos atendimentos cobrem cada instante da duração pedida.
  *
- * Tudo em UTC. O fuso do tenant (RN-19) decide o que é "hoje" na borda de entrada;
- * aqui dentro só existem instantes, e é o que impede o horário de verão de deslocar
- * a agenda.
+ * Agendamento e bloqueio são **instantes** (`timestamptz`), e a aritmética daqui é
+ * toda sobre eles. A jornada é a exceção, e a única: ela é hora de parede no fuso do
+ * tenant (RN-19), convertida em instantes por `shiftsBetween`. Tratá-la como se já
+ * fosse UTC deslocava a agenda inteira pelo offset do fuso — era o bug de "a agenda
+ * vai até as 18h, mas o sistema só oferece até as 14h".
  */
 
 const MS_PER_MINUTE = 60_000
@@ -76,12 +79,14 @@ export async function findAvailability(
   const plans = await loadPlans(tx, request.professionalIds)
   if (plans.length === 0) return { slots: [], nextAvailable: null }
 
-  const slots = await scan(tx, plans, request, request.from, request.to)
+  const timezone = await loadTimezone(tx)
+
+  const slots = await scan(tx, plans, request, request.from, request.to, timezone)
   if (slots.length > 0) return { slots, nextAvailable: slots[0]?.startsAt ?? null }
 
   // Nada na janela pedida: procura à frente, com teto, e devolve só o primeiro.
   const horizonEnd = new Date(request.to.getTime() + NEXT_AVAILABLE_HORIZON_MS)
-  const ahead = await scan(tx, plans, request, request.to, horizonEnd, true)
+  const ahead = await scan(tx, plans, request, request.to, horizonEnd, timezone, true)
   return { slots: [], nextAvailable: ahead[0]?.startsAt ?? null }
 }
 
@@ -118,6 +123,7 @@ async function scan(
   request: AvailabilityRequest,
   from: Date,
   to: Date,
+  timezone: string,
   stopAtFirst = false,
 ): Promise<AvailabilitySlot[]> {
   const professionalIds = plans.map((plan) => plan.id)
@@ -162,7 +168,7 @@ async function scan(
       .map((row) => ({ start: row.startsAt.getTime(), end: row.endsAt.getTime() }))
     const mine = busy.filter((row) => row.professionalId === plan.id)
 
-    for (const shift of shiftsBetween(plan, from, to)) {
+    for (const shift of shiftsBetween(plan, from, to, timezone)) {
       // Alinha o primeiro candidato à grade, para não oferecer 08:07.
       let cursor = alignUp(Math.max(shift.start, from.getTime()), stepMs)
 
@@ -191,25 +197,39 @@ async function scan(
 /**
  * As faixas de trabalho concretas entre dois instantes.
  *
- * A jornada é semanal e abstrata ("segunda, 08:00 às 12:00"); aqui ela vira intervalos
- * de verdade, dia a dia. Os minutos são somados sobre a meia-noite **UTC** de cada
- * dia percorrido — a mesma base em que `business_hours` foi convertida no onboarding.
+ * A jornada é semanal e abstrata ("segunda, 10:00 às 18:00"); aqui ela vira intervalos
+ * de verdade, dia a dia.
+ *
+ * Os minutos são **hora de parede no fuso do tenant** — é o que o profissional digita
+ * na tela de jornada e o que ele lê no relógio. Somá-los sobre a meia-noite UTC, como
+ * esta função fazia, deslocava a jornada inteira pelo offset do fuso: em São Paulo,
+ * 10:00–18:00 virava 07:00–15:00, e a agenda oferecia manhã cedo e fechava às duas da
+ * tarde. Por isso a âncora é a meia-noite **local** de cada dia civil percorrido, com
+ * o offset daquele dia — o que também mantém a conta certa na virada do horário de
+ * verão.
  */
-function shiftsBetween(plan: ProfessionalPlan, from: Date, to: Date): Window[] {
+function shiftsBetween(
+  plan: ProfessionalPlan,
+  from: Date,
+  to: Date,
+  timezone: string,
+): Window[] {
   const shifts: Window[] = []
-  const day = new Date(
-    Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()),
-  )
 
-  while (day.getTime() < to.getTime()) {
-    const windows = plan.scheduleByWeekday.get(day.getUTCDay()) ?? []
-    for (const window of windows) {
+  // Começa um dia antes: uma jornada que atravessa a meia-noite local já está em
+  // curso no instante `from`, e sair do dia civil de `from` a perderia.
+  let day = addDays(zonedDate(from, timezone), -1)
+  const lastDay = zonedDate(to, timezone)
+
+  while (day <= lastDay) {
+    const midnight = zonedMidnight(day, timezone).getTime()
+    for (const window of plan.scheduleByWeekday.get(weekdayOf(day)) ?? []) {
       shifts.push({
-        start: day.getTime() + window.start * MS_PER_MINUTE,
-        end: day.getTime() + window.end * MS_PER_MINUTE,
+        start: midnight + window.start * MS_PER_MINUTE,
+        end: midnight + window.end * MS_PER_MINUTE,
       })
     }
-    day.setUTCDate(day.getUTCDate() + 1)
+    day = addDays(day, 1)
   }
 
   return shifts
@@ -272,7 +292,7 @@ export async function checkWindow(
   // A janela tem de caber **inteira** numa faixa de jornada. Um banho que começa às
   // 11:30 e termina 12:30 não cabe numa jornada que para 12:00, mesmo que o início
   // esteja dentro dela.
-  const shifts = shiftsBetween(plan, startsAt, endsAt)
+  const shifts = shiftsBetween(plan, startsAt, endsAt, await loadTimezone(tx))
   const fits = shifts.some((shift) => start >= shift.start && end <= shift.end)
   if (!fits) return { ok: false, reason: 'OUT_OF_SHIFT' }
 

@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    a { color: #b0503e; } a:hover { color: #883324; }
+  </style>
+</helmet>
+
+<div style="width: 1180px; min-height: 780px; box-sizing: border-box; background-color: #ecedee; padding: 48px; color: #232427;">
+
+  <p style="margin: 0; font-size: 13px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #86888d;">Chip do cartão · três tratamentos</p>
+  <h2 style="margin: 8px 0 0; font-size: 32px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 600;">Quanta cor cabe no chip</h2>
+  <p style="margin: 14px 0 0; max-width: 720px; font-size: 14px; line-height: 1.65; color: #4b4d52; text-wrap: pretty;">Mesma paleta nos três — o que muda é quanto dela vai para o fundo. O painel tem até sete cartões visíveis ao mesmo tempo, então a decisão é sobre densidade de cor na tela cheia, não sobre um chip isolado.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 32px;">
+
+    <!-- A · Chip tingido -->
+    <div style="background-color: #ffffff; border: 1px solid #ffffff; border-radius: 24px; padding: 28px; box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 14px 30px -18px rgb(35 36 39 / 0.25);">
+      <div style="display: flex; gap: 12px;">
+        <span style="display: inline-flex; height: 48px; width: 48px; align-items: center; justify-content: center; border-radius: 16px; background-color: #eff5ff; box-shadow: 0 0 0 1px #cfe0ff inset; color: #466fbd;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
+        </span>
+        <span style="display: inline-flex; height: 48px; width: 48px; align-items: center; justify-content: center; border-radius: 16px; background-color: #edf8ef; box-shadow: 0 0 0 1px #c8ead0 inset; color: #22864a;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
+        </span>
+        <span style="display: inline-flex; height: 48px; width: 48px; align-items: center; justify-content: center; border-radius: 16px; background-color: #fbf3e8; box-shadow: 0 0 0 1px #f2dcbb inset; color: #966700;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="4" r="2"></circle><circle cx="18" cy="8" r="2"></circle><circle cx="20" cy="16" r="2"></circle><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"></path></svg>
+        </span>
+      </div>
+
+      <p style="margin: 22px 0 0; font-size: 18px; line-height: 28px; font-weight: 600;">A · Chip tingido</p>
+      <span style="display: inline-flex; align-items: center; border-radius: 9999px; background-color: #fbe9e5; padding: 3px 10px; margin-top: 8px; font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #a8321f;">Recomendado</span>
+
+      <p style="margin: 16px 0 0; font-size: 13px; line-height: 1.65; color: #4b4d52; text-wrap: pretty;"><strong style="font-weight: 600; color: #232427;">Por quê:</strong> o anel de 1px por dentro é o mesmo truque das bordas brancas do sistema — desenha a silhueta sem pesar. A lavagem de fundo é fraca o bastante (croma ~0.017) para o cartão continuar branco e forte o bastante para o chip parecer feito de material, não pintado.</p>
+      <p style="margin: 10px 0 0; font-size: 13px; line-height: 1.65; color: #4b4d52; text-wrap: pretty;"><strong style="font-weight: 600; color: #232427;">Custo:</strong> três valores por tipo em vez de um. Se um dia a marca do tenant colorir os chips, são três a recalcular.</p>
+    </div>
+
+    <!-- B · Chip neutro -->
+    <div style="background-color: #ffffff; border: 1px solid #ffffff; border-radius: 24px; padding: 28px; box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 14px 30px -18px rgb(35 36 39 / 0.25);">
+      <div style="display: flex; gap: 12px;">
+        <span style="display: inline-flex; height: 48px; width: 48px; align-items: center; justify-content: center; border-radius: 16px; background-color: #f7f7f5; color: #466fbd;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
+        </span>
+        <span style="display: inline-flex; height: 48px; width: 48px; align-items: center; justify-content: center; border-radius: 16px; background-color: #f7f7f5; color: #22864a;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
+        </span>
+        <span style="display: inline-flex; height: 48px; width: 48px; align-items: center; justify-content: center; border-radius: 16px; background-color: #f7f7f5; color: #966700;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="4" r="2"></circle><circle cx="18" cy="8" r="2"></circle><circle cx="20" cy="16" r="2"></circle><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"></path></svg>
+        </span>
+      </div>
+
+      <p style="margin: 22px 0 0; font-size: 18px; line-height: 28px; font-weight: 600;">B · Chip neutro</p>
+      <span style="display: inline-flex; align-items: center; border-radius: 9999px; background-color: rgb(0 0 0 / 0.05); padding: 3px 10px; margin-top: 8px; font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #4b4d52;">Mudança mínima</span>
+
+      <p style="margin: 16px 0 0; font-size: 13px; line-height: 1.65; color: #4b4d52; text-wrap: pretty;"><strong style="font-weight: 600; color: #232427;">Por quê:</strong> um valor por tipo, o <span style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;">--color-chip</span> fica como está e a mudança cabe em uma linha por ícone. É o caminho de menor risco.</p>
+      <p style="margin: 10px 0 0; font-size: 13px; line-height: 1.65; color: #4b4d52; text-wrap: pretty;"><strong style="font-weight: 600; color: #232427;">Custo:</strong> o traço de 1.5px sozinho é pouca tinta para carregar a identidade. Fica correto e discreto — resolve a leitura, mas não é o que deixa o painel bonito.</p>
+    </div>
+
+    <!-- C · Duotone sólido -->
+    <div style="background-color: #ffffff; border: 1px solid #ffffff; border-radius: 24px; padding: 28px; box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 14px 30px -18px rgb(35 36 39 / 0.25);">
+      <div style="display: flex; gap: 12px;">
+        <span style="display: inline-flex; height: 48px; width: 48px; align-items: center; justify-content: center; border-radius: 16px; background-image: linear-gradient(180deg, #5a80c8 0%, #466fbd 62%); box-shadow: 0 1px 0 rgb(255 255 255 / 0.28) inset, 0 8px 18px -10px rgb(70 111 189 / 0.6); color: #ffffff;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
+        </span>
+        <span style="display: inline-flex; height: 48px; width: 48px; align-items: center; justify-content: center; border-radius: 16px; background-image: linear-gradient(180deg, #35935a 0%, #22864a 62%); box-shadow: 0 1px 0 rgb(255 255 255 / 0.28) inset, 0 8px 18px -10px rgb(34 134 74 / 0.6); color: #ffffff;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
+        </span>
+        <span style="display: inline-flex; height: 48px; width: 48px; align-items: center; justify-content: center; border-radius: 16px; background-image: linear-gradient(180deg, #a67515 0%, #966700 62%); box-shadow: 0 1px 0 rgb(255 255 255 / 0.28) inset, 0 8px 18px -10px rgb(150 103 0 / 0.6); color: #ffffff;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="4" r="2"></circle><circle cx="18" cy="8" r="2"></circle><circle cx="20" cy="16" r="2"></circle><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"></path></svg>
+        </span>
+      </div>
+
+      <p style="margin: 22px 0 0; font-size: 18px; line-height: 28px; font-weight: 600;">C · Duotone sólido</p>
+      <span style="display: inline-flex; align-items: center; border-radius: 9999px; background-color: rgb(0 0 0 / 0.05); padding: 3px 10px; margin-top: 8px; font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #4b4d52;">Mais alto</span>
+
+      <p style="margin: 16px 0 0; font-size: 13px; line-height: 1.65; color: #4b4d52; text-wrap: pretty;"><strong style="font-weight: 600; color: #232427;">Por quê:</strong> herda a física dos botões — gradiente vertical curto, brilho de 1px no topo, sombra colorida. É o tratamento mais vistoso dos três, e o que mais chama num cartão isolado.</p>
+      <p style="margin: 10px 0 0; font-size: 13px; line-height: 1.65; color: #4b4d52; text-wrap: pretty;"><strong style="font-weight: 600; color: #232427;">Custo:</strong> sete pastilhas sólidas competindo com o número de 36px em cada cartão — a tela cheia vira vitrine. E o chip passa a parecer clicável sem ser.</p>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1180,"height":780}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>
