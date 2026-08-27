@@ -55,7 +55,7 @@ const SUGGESTION_COUNT = 3
 
 // ─── Montagem do pedido ──────────────────────────────────────────────────────
 
-interface ResolvedItem {
+export interface ResolvedItem {
   serviceId: string
   label: string
   priceCents: number
@@ -69,7 +69,7 @@ interface ResolvedItem {
  * 422, em vez de interpolar. Um valor inventado no fechamento vira discussão no
  * balcão, e a discussão é com quem não errou.
  */
-async function resolveItems(
+export async function resolveItems(
   tx: TenantTransaction,
   petId: string,
   items: BookingItemInput[],
@@ -133,7 +133,7 @@ async function resolveItems(
  * Rodam antes da transação serializável de propósito: falhar aqui é barato, e manter
  * a janela serializável curta reduz a chance de dois pedidos legítimos se abortarem.
  */
-async function assertBookable(
+export async function assertBookable(
   tx: TenantTransaction,
   input: CreateBookingInput,
   pet: { status: string; name: string },

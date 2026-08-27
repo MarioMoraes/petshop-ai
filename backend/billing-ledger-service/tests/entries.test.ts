@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { withTenant } from '@petshop/db'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createManualEntry, reverseEntry } from '../src/modules/ledger/entries.js'
-import { handleAtendimentoConcluido } from '../src/modules/ledger/consumers.js'
+import {
+  handleAtendimentoAnulado,
+  handleAtendimentoConcluido,
+} from '../src/modules/ledger/consumers.js'
 import {
   actorOf,
   asAdmin,
@@ -334,6 +337,62 @@ describe('MOD-LEDGER-05 — estorno por contrapartida', () => {
     })
 
     expect(response.statusCode).toBe(403)
+  })
+})
+
+describe('MOD-PRONT-09 AC-03 — o atendimento anulado estorna o débito', () => {
+  function voided(event: ReturnType<typeof attendance>, overrides: Record<string, unknown> = {}) {
+    return {
+      tenantId: tenant.tenantId,
+      attendanceId: randomUUID(),
+      appointmentId: event.appointmentId,
+      petId: event.petId,
+      tutorId,
+      reason: 'Registrado no pet errado',
+      voidedBy: null,
+      timestamp: new Date().toISOString(),
+      ...overrides,
+    }
+  }
+
+  it('gera a contrapartida e devolve o saldo ao que era antes do atendimento', async () => {
+    const event = attendance()
+    await handleAtendimentoConcluido(event)
+    expect(await balanceOf(tenant, tutorId)).toBe(-12000)
+
+    await handleAtendimentoAnulado(voided(event))
+
+    expect(await balanceOf(tenant, tutorId)).toBe(0)
+
+    const entries = await entriesOf(tenant, tutorId)
+    expect(entries).toHaveLength(2)
+    // Os dois ficam no extrato: uma linha que some é indistinguível de uma que
+    // nunca existiu, e é a segunda coisa que o tutor vai supor.
+    expect(entries.map((entry) => entry.status).sort()).toEqual(['POSTED', 'REVERSED'])
+  })
+
+  it('reentrega do evento não estorna duas vezes — seria criar dinheiro', async () => {
+    const event = attendance()
+    await handleAtendimentoConcluido(event)
+
+    await handleAtendimentoAnulado(voided(event))
+    await handleAtendimentoAnulado(voided(event))
+
+    expect(await balanceOf(tenant, tutorId)).toBe(0)
+    expect(await entriesOf(tenant, tutorId)).toHaveLength(2)
+  })
+
+  it('atendimento sem débito — tudo coberto por pacote — não tem o que estornar', async () => {
+    await expect(
+      handleAtendimentoAnulado(voided(attendance())),
+    ).resolves.toBeUndefined()
+    expect(await entriesOf(tenant, tutorId)).toHaveLength(0)
+  })
+
+  it('o registro de reparo sem agendamento é ignorado: não há débito ligado a ele', async () => {
+    await expect(
+      handleAtendimentoAnulado(voided(attendance(), { appointmentId: null })),
+    ).resolves.toBeUndefined()
   })
 })
 

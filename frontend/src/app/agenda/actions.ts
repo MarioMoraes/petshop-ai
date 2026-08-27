@@ -226,18 +226,53 @@ export async function checkInAction(id: string): Promise<ActionResult<Appointmen
  */
 export async function checkOutAction(
   id: string,
-  input: { weightKg?: number; notes?: string; extraItems?: { serviceId: string }[] },
+  input: {
+    weightKg?: number
+    notes?: string
+    extraItems?: { serviceId: string }[]
+    /** MOD-PRONT-01: o registro clínico do que foi feito com o animal. */
+    observations?: string
+  },
 ): Promise<ActionResult<AppointmentResponse>> {
+  const { observations, ...checkout } = input
+
   try {
+    // A ordem importa. A observação vai **antes**, para o rascunho que o check-in
+    // abriu: ela é o único dado desta tela que não viaja no evento, e escrevê-la
+    // depois deixaria uma janela em que o check-out já aconteceu e o texto ainda
+    // não existe em lugar nenhum. Se o check-out falhar, o texto está salvo e o
+    // agendamento continua aberto — perde-se o clique, não o que a pessoa escreveu.
+    const texto = observations?.trim()
+    const salvo = texto ? await saveObservations(id, texto) : true
+
     const appointment = await serverApi().checkOutAppointment(id, {
       idempotencyKey: randomUUID(),
-      ...input,
+      ...checkout,
+      ...(texto && !salvo ? { notes: [checkout.notes, texto].filter(Boolean).join(' — ') } : {}),
     })
     revalidatePath('/agenda/dia')
     return { ok: true, data: appointment }
   } catch (error) {
     return toFailure(error)
   }
+}
+
+/**
+ * Grava a observação no atendimento aberto pelo check-in.
+ *
+ * O rascunho pode não existir — o evento do check-in é assíncrono, e o balcão que
+ * clica "Chegou" e "Concluir" em sequência rápida pode chegar aqui antes dele. Nesse
+ * caso a observação é passada adiante como `notes` do check-out, que a agenda grava
+ * no agendamento: é uma segunda casa pior que a primeira, mas melhor que perder o
+ * texto porque um evento estava a caminho.
+ */
+async function saveObservations(appointmentId: string, observations: string): Promise<boolean> {
+  const api = serverApi()
+  const { attendances } = await api.listAttendances({ appointmentId, limit: 1 })
+  const draft = attendances[0]
+  if (!draft) return false
+  await api.updateAttendance(draft.id, { observations })
+  return true
 }
 
 export async function cancelAppointmentAction(

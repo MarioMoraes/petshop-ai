@@ -11,6 +11,9 @@ import {
   PaginatedTutorsSchema,
   AllergyCheckResultSchema,
   AllergySchema,
+  AttendanceSchema,
+  PetClinicalSummarySchema,
+  TimelinePageSchema,
   ManagedBreedSchema,
   MedicalAlertSchema,
   PetAlbumSchema,
@@ -675,6 +678,77 @@ export function createApiClient(options: ApiClientOptions) {
         schema: MedicalAlertSchema,
       }),
 
+    // ─── Atendimento e linha do tempo (MOD-PRONT-01/02/09/10) ──────────────
+
+    /**
+     * O histórico unificado do pet. O servidor decide **o que** cabe na resposta a
+     * partir da permissão de quem pergunta (AC-02): não há filtro a aplicar aqui.
+     */
+    getPetTimeline: (petId: string, query: { limit?: number; cursor?: string } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/pets/${petId}/timeline${toQueryString(query)}`,
+        schema: TimelinePageSchema,
+      }),
+
+    getPetClinicalSummary: (petId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/pets/${petId}/summary`,
+        schema: PetClinicalSummarySchema,
+      }),
+
+    getAttendance: (id: string) =>
+      request({ method: 'GET', path: `/v1/attendances/${id}`, schema: AttendanceSchema }),
+
+    listAttendances: (
+      query: { petId?: string; appointmentId?: string; limit?: number; cursor?: string } = {},
+    ) =>
+      request({
+        method: 'GET',
+        path: `/v1/attendances${toQueryString(query)}`,
+        schema: z.object({
+          attendances: z.array(AttendanceSchema),
+          nextCursor: z.string().nullable(),
+        }),
+      }),
+
+    /** Correção dentro da janela de 24h; fora dela o servidor devolve 409. */
+    updateAttendance: (
+      id: string,
+      patch: { observations?: string | null; type?: string },
+    ) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/attendances/${id}`,
+        body: patch,
+        schema: AttendanceSchema,
+      }),
+
+    addAttendanceAddendum: (id: string, input: { body: string; visibility?: string }) =>
+      request({
+        method: 'POST',
+        path: `/v1/attendances/${id}/addendum`,
+        body: input,
+        schema: AttendanceSchema,
+      }),
+
+    addAttendanceNote: (id: string, input: { body: string; visibility?: string }) =>
+      request({
+        method: 'POST',
+        path: `/v1/attendances/${id}/notes`,
+        body: input,
+        schema: AttendanceSchema,
+      }),
+
+    voidAttendance: (id: string, input: { reason: string }) =>
+      request({
+        method: 'POST',
+        path: `/v1/attendances/${id}/void`,
+        body: input,
+        schema: AttendanceSchema,
+      }),
+
     /** RN-03: o serviço esbarra em alguma alergia deste pet? */
     checkAllergies: (petId: string, serviceIds: string[]) =>
       request({
@@ -868,6 +942,22 @@ export function createApiClient(options: ApiClientOptions) {
       request({
         method: 'POST',
         path: '/v1/appointments',
+        body: input,
+        schema: AppointmentResponseSchema,
+      }),
+
+    /** O encaixe: o pet chegou sem hora marcada e já foi atendido. */
+    createWalkIn: (input: {
+      petId: string
+      professionalId: string
+      items: { serviceId: string }[]
+      idempotencyKey: string
+      weightKg?: number
+      notes?: string
+    }) =>
+      request({
+        method: 'POST',
+        path: '/v1/appointments/walk-in',
         body: input,
         schema: AppointmentResponseSchema,
       }),

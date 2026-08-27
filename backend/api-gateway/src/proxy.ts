@@ -160,7 +160,18 @@ const RECORD_SUFFIXES = [
   '/allergy-check',
   '/temperament',
   '/medical-alerts',
+  // MOD-PRONT-02 e 11.
+  '/timeline',
+  '/summary',
 ]
+
+/**
+ * O atendimento (MOD-PRONT-01) tem prefixo próprio, e ele precisa ser avaliado
+ * **antes** do da agenda: `/v1/attendances` não colide com `/v1/appointments`, mas a
+ * proximidade dos dois é justamente o tipo de coisa que alguém "consolida" um dia.
+ * O registro é do prontuário; o horário é da agenda.
+ */
+const ATTENDANCE_PREFIXES = ['/v1/attendances']
 
 function isRecordPath(path: string): boolean {
   if (!path.startsWith('/v1/pets/')) return false
@@ -196,6 +207,7 @@ export function resolveTarget(path: string): string | null {
   if (isLedgerTutorPath(path)) return env.BILLING_LEDGER_SERVICE_URL
   if (matches(path, TUTOR_PREFIXES)) return env.TUTOR_SERVICE_URL
   if (isRecordPath(path)) return env.MEDICAL_RECORD_SERVICE_URL
+  if (matches(path, ATTENDANCE_PREFIXES)) return env.MEDICAL_RECORD_SERVICE_URL
   if (matches(path, PET_PREFIXES)) return env.PET_SERVICE_URL
   if (matches(path, SCHEDULING_PREFIXES)) return env.SCHEDULING_SERVICE_URL
   if (matches(path, LEDGER_PREFIXES)) return env.BILLING_LEDGER_SERVICE_URL

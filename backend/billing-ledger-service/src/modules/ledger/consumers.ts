@@ -10,7 +10,7 @@ import { invalidatePackages } from '../../lib/redis.js'
 import type { ActorContext } from './actor.js'
 import { openAccount, postEntry } from './accounts.js'
 import { absorbLeftoverCredit } from './allocation.js'
-import { publishPosted } from './entries.js'
+import { publishPosted, reverseEntry } from './entries.js'
 import { redeemCredit, suspendPurchasesForPet } from './packages.js'
 
 /**
@@ -37,6 +37,15 @@ const AtendimentoConcluidoSchema = z.object({
     }),
   ),
   totalCents: z.number().int().min(0),
+})
+
+const AtendimentoAnuladoSchema = z.object({
+  tenantId: z.uuid(),
+  attendanceId: z.uuid(),
+  appointmentId: z.uuid().nullable(),
+  tutorId: z.uuid(),
+  reason: z.string(),
+  voidedBy: z.uuid().nullable().optional(),
 })
 
 const PetObitoSchema = z.object({ tenantId: z.uuid(), petId: z.uuid() })
@@ -334,10 +343,69 @@ export async function handleTutorAnonimizado(payload: unknown): Promise<void> {
   })
 }
 
+/**
+ * MOD-PRONT-09, AC-03 — o atendimento foi anulado.
+ *
+ * O débito é desfeito por **contrapartida**, nunca por edição: `reverseEntry` gera o
+ * lançamento inverso e marca o original como `REVERSED`, e os dois continuam no
+ * extrato. O tutor precisa poder ver que houve uma cobrança e que ela foi desfeita —
+ * uma linha que some do extrato é indistinguível de uma linha que nunca existiu, e
+ * é a segunda coisa que ele vai supor.
+ *
+ * Idempotente por dois caminhos: o lançamento já estornado é ignorado em silêncio
+ * (reentrega do evento), e o atendimento sem débito — tudo coberto por pacote, ou
+ * ainda em rascunho — simplesmente não tem o que estornar.
+ *
+ * O crédito de pacote consumido **não** volta. É decisão consciente e diverge do que
+ * uma leitura literal do AC-03 sugeriria: devolver crédito exigiria saber se ele já
+ * foi reusado desde então, e um crédito devolvido em cima de um já gasto criaria
+ * saldo do nada. O caminho para isso é o lançamento manual, com alguém decidindo.
+ */
+export async function handleAtendimentoAnulado(payload: unknown): Promise<void> {
+  const event = AtendimentoAnuladoSchema.parse(payload)
+  if (!event.appointmentId) return
+
+  const actor: ActorContext = {
+    tenantId: event.tenantId,
+    ...(event.voidedBy ? { actorUserId: event.voidedBy } : {}),
+  }
+
+  const entryId = await withTenant(event.tenantId, async (tx) => {
+    const entry = await tx.ledgerEntry.findFirst({
+      where: {
+        sourceType: 'ATTENDANCE',
+        sourceId: event.appointmentId,
+        direction: 'DEBIT',
+        status: 'POSTED',
+      },
+      select: { id: true },
+    })
+    return entry?.id ?? null
+  })
+
+  if (!entryId) {
+    logger.info(
+      { tenantId: event.tenantId, attendanceId: event.attendanceId },
+      'atendimento anulado sem débito em aberto — nada a estornar',
+    )
+    return
+  }
+
+  await reverseEntry(actor, entryId, `Atendimento anulado: ${event.reason}`.slice(0, 200))
+
+  recordMetric({
+    metric: 'attendance_voided_reversal_total',
+    tenantId: event.tenantId,
+    value: 1,
+    unit: 'count',
+  })
+}
+
 // ─── Ligação com o broker ────────────────────────────────────────────────────
 
 const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'atendimento.concluido': handleAtendimentoConcluido,
+  'atendimento.anulado': handleAtendimentoAnulado,
   'pet.obito': handlePetObito,
   'pet.transferido': handlePetTransferido,
   'tutor.mesclado': handleTutorMesclado,

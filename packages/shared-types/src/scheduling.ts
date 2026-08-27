@@ -263,7 +263,23 @@ export const APPOINTMENT_STATUSES = [
 export const AppointmentStatusSchema = z.enum(APPOINTMENT_STATUSES)
 export type AppointmentStatus = z.infer<typeof AppointmentStatusSchema>
 
-export const AppointmentSourceSchema = z.enum(['STAFF', 'PORTAL', 'RECURRENCE', 'AI_AGENT'])
+/** Todos os valores da coluna — é o que a **leitura** devolve. */
+export const AppointmentSourceSchema = z.enum([
+  'STAFF',
+  'PORTAL',
+  'RECURRENCE',
+  'AI_AGENT',
+  'WALK_IN',
+])
+export type AppointmentSource = z.infer<typeof AppointmentSourceSchema>
+
+/**
+ * O subconjunto que se pode **pedir** ao criar um agendamento. `WALK_IN` fica de
+ * fora: o encaixe nasce por `POST /v1/appointments/walk-in`, já concluído, e um
+ * agendamento futuro marcado como encaixe seria uma contradição — encaixe é o que
+ * não foi marcado.
+ */
+export const BookableSourceSchema = z.enum(['STAFF', 'PORTAL', 'RECURRENCE', 'AI_AGENT'])
 
 export const CreateAppointmentSchema = z.object({
   petId: z.uuid(),
@@ -275,7 +291,7 @@ export const CreateAppointmentSchema = z.object({
   acknowledgedAlerts: z.boolean().default(false),
   /** AC-02: libera o gate de inadimplência; exige permissão de override. */
   override: z.object({ reason: z.string().trim().min(10).max(300) }).optional(),
-  source: AppointmentSourceSchema.default('STAFF'),
+  source: BookableSourceSchema.default('STAFF'),
 })
 export type CreateAppointmentInput = z.output<typeof CreateAppointmentSchema>
 
@@ -287,6 +303,24 @@ export const CheckoutSchema = z.object({
   /** RN-18: serviço acrescentado durante a execução. */
   extraItems: z.array(z.object({ serviceId: z.uuid() })).max(10).default([]),
 })
+
+/**
+ * O encaixe (AC-03 de MOD-PRONT-01): o pet chegou sem hora marcada.
+ *
+ * Não há `startsAt` — o intervalo é reconstruído da duração estimada, terminando
+ * agora. Pedir o horário a quem está fechando a conta seria perguntar uma coisa que
+ * o sistema sabe calcular, no pior momento possível.
+ */
+export const CreateWalkInSchema = z.object({
+  petId: z.uuid(),
+  professionalId: z.uuid(),
+  items: z.array(z.object({ serviceId: z.uuid() })).min(1).max(10),
+  /** Convenção do MOD-LEDGER: todo POST que move dinheiro é idempotente. */
+  idempotencyKey: z.uuid(),
+  weightKg: z.number().min(0.05).max(120).optional(),
+  notes: z.string().trim().max(1000).optional(),
+})
+export type CreateWalkInInput = z.output<typeof CreateWalkInSchema>
 
 export const CancelAppointmentSchema = z.object({
   reason: z.string().trim().max(300).optional(),

@@ -192,3 +192,142 @@ export function asAdmin(fixture: TenantFixture) {
     permissions: [...PERMISSION_KEYS],
   }
 }
+
+// ─── Cenário do atendimento (MOD-PRONT-01/02/09/10) ──────────────────────────
+
+/**
+ * O atendimento não nasce de um POST — nasce do check-out da agenda. Testá-lo exige
+ * então o cenário inteiro do outro lado: tutor, pet vinculado, profissional, serviço
+ * com preço e agendamento. Tudo criado direto no banco, pelo mesmo motivo de
+ * `givenPet`: chamar o scheduling-service daqui acoplaria as duas suítes.
+ */
+export async function givenTutor(fixture: TenantFixture, name = 'Ana Souza'): Promise<string> {
+  const suffix = randomUUID().slice(0, 8)
+  return withTenant(fixture.tenantId, async (tx) => {
+    const tutor = await tx.tutor.create({
+      data: {
+        tenantId: fixture.tenantId,
+        fullName: name,
+        phoneEncrypted: 'v1:x:x:x',
+        phoneHash: `phone-${suffix}`,
+      },
+    })
+    return tutor.id
+  })
+}
+
+export async function linkTutor(
+  fixture: TenantFixture,
+  petId: string,
+  tutorId: string,
+): Promise<void> {
+  await withTenant(fixture.tenantId, async (tx) => {
+    await tx.petTutor.create({
+      data: { tenantId: fixture.tenantId, petId, tutorId, role: 'PRIMARY' },
+    })
+  })
+}
+
+export async function givenProfessional(
+  fixture: TenantFixture,
+  userId?: string,
+): Promise<string> {
+  return withTenant(fixture.tenantId, async (tx) => {
+    const professional = await tx.professional.create({
+      data: {
+        tenantId: fixture.tenantId,
+        displayName: 'Bruna Tosadora',
+        roleKey: 'GROOMER',
+        ...(userId ? { userId } : {}),
+      },
+    })
+    return professional.id
+  })
+}
+
+export async function givenService(fixture: TenantFixture, name = 'Banho'): Promise<string> {
+  return withTenant(fixture.tenantId, async (tx) => {
+    const service = await tx.service.create({
+      data: {
+        tenantId: fixture.tenantId,
+        name,
+        category: 'BATH',
+        baseDurationMin: 60,
+      },
+    })
+    return service.id
+  })
+}
+
+export interface AppointmentFixture {
+  appointmentId: string
+  petId: string
+  tutorId: string
+  professionalId: string
+  serviceId: string
+}
+
+export async function givenAppointment(
+  fixture: TenantFixture,
+  options: { status?: 'CHECKED_IN' | 'COMPLETED'; professionalUserId?: string } = {},
+): Promise<AppointmentFixture> {
+  const petId = await givenPet(fixture)
+  const tutorId = await givenTutor(fixture)
+  await linkTutor(fixture, petId, tutorId)
+  const professionalId = await givenProfessional(fixture, options.professionalUserId)
+  const serviceId = await givenService(fixture)
+
+  const startsAt = new Date(Date.now() - 3_600_000)
+
+  const appointmentId = await withTenant(fixture.tenantId, async (tx) => {
+    const appointment = await tx.appointment.create({
+      data: {
+        tenantId: fixture.tenantId,
+        petId,
+        tutorId,
+        professionalId,
+        startsAt,
+        endsAt: new Date(startsAt.getTime() + 3_600_000),
+        status: options.status ?? 'CHECKED_IN',
+        totalCents: BigInt(8000),
+        checkinAt: startsAt,
+        items: {
+          create: [
+            {
+              tenantId: fixture.tenantId,
+              serviceId,
+              label: 'Banho',
+              priceCents: BigInt(8000),
+              durationMin: 60,
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    })
+    return appointment.id
+  })
+
+  return { appointmentId, petId, tutorId, professionalId, serviceId }
+}
+
+/** O payload que o check-out da agenda publica — a porta de entrada do módulo. */
+export function checkoutEvent(
+  fixture: TenantFixture,
+  appointment: AppointmentFixture,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    tenantId: fixture.tenantId,
+    appointmentId: appointment.appointmentId,
+    petId: appointment.petId,
+    tutorId: appointment.tutorId,
+    professionalId: appointment.professionalId,
+    items: [{ serviceId: appointment.serviceId, label: 'Banho', priceCents: 8000 }],
+    totalCents: 8000,
+    weightKg: 12.5,
+    origin: 'SCHEDULED',
+    startedAt: new Date(Date.now() - 3_600_000).toISOString(),
+    ...overrides,
+  }
+}

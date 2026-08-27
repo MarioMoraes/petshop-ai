@@ -43,6 +43,10 @@ const RLS_MODELS = new Set([
   'Allergy',
   'Temperament',
   'MedicalAlert',
+  // MOD-PRONT-01/09/10: o registro do que foi feito com o animal.
+  'Attendance',
+  'AttendanceItem',
+  'AttendanceNote',
   'BreedVisibility',
   // Catálogo de domínio: a política é mista (global legível, escrita só do
   // tenant), mas a guarda continua exigindo contexto — ler catálogo sem saber de

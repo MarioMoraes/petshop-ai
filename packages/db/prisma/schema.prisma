@@ -128,8 +128,8 @@ model TenantSettings {
   noShowFeePercent        Int @default(0) @map("no_show_fee_percent") @db.SmallInt
   minBookingNoticeHours   Int @default(2) @map("min_booking_notice_hours") @db.SmallInt
 
-  allowOverbooking     Boolean @default(false) @map("allow_overbooking")
-  onlineBookingEnabled Boolean @default(true) @map("online_booking_enabled")
+  allowOverbooking              Boolean @default(false) @map("allow_overbooking")
+  onlineBookingEnabled          Boolean @default(true) @map("online_booking_enabled")
   /// Decisão de negócio 8: agendamento online entra **CONFIRMED** por padrão. Quem
   /// quiser triar liga isto, e aí a solicitação do Portal vira PENDING com reserva
   /// de 24h (AC-03 de MOD-AGENDA-06).
@@ -465,9 +465,10 @@ model Tutor {
   consents       TutorConsent[]
   tagAssignments TutorTagAssignment[]
 
-  petTutors  PetTutor[]
+  petTutors PetTutor[]
 
   appointments   Appointment[]
+  attendances    Attendance[]
   ledgerAccounts LedgerAccount[]
 
   mergedInto Tutor?  @relation("TutorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
@@ -647,8 +648,8 @@ model Species {
   id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId String? @map("tenant_id") @db.Uuid
 
-  key   String @db.VarChar(40)
-  label String @db.VarChar(60)
+  key       String  @db.VarChar(40)
+  label     String  @db.VarChar(60)
   /// Não está no PRD: sem ele "Outros" apareceria no meio da lista, em ordem
   /// alfabética. A ordenação do seletor é decisão de produto, não do acaso.
   sortOrder Int     @default(0) @map("sort_order") @db.SmallInt
@@ -669,7 +670,7 @@ model Breed {
   tenantId  String? @map("tenant_id") @db.Uuid
   speciesId String  @map("species_id") @db.Uuid
 
-  label String @db.VarChar(80)
+  label           String @db.VarChar(80)
   /// Minúsculo e sem acento, para o dedupe do AC-03 de MOD-PET-03.
   normalizedLabel String @map("normalized_label") @db.VarChar(80)
 
@@ -681,8 +682,8 @@ model Breed {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  species     Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
-  defaultSize Size?   @relation(fields: [defaultSizeId], references: [id], onDelete: SetNull)
+  species     Species           @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  defaultSize Size?             @relation(fields: [defaultSizeId], references: [id], onDelete: SetNull)
   pets        Pet[]
   visibility  BreedVisibility[]
 
@@ -773,8 +774,8 @@ model Pet {
   /// é garantida no serviço, que só grava id de foto viva do próprio pet.
   coverPhotoId String? @map("cover_photo_id") @db.Uuid
 
-  status     PetStatus @default(ACTIVE)
-  deceasedAt DateTime? @map("deceased_at") @db.Date
+  status             PetStatus @default(ACTIVE)
+  deceasedAt         DateTime? @map("deceased_at") @db.Date
   /// AC-03 de MOD-PET-08 conta 30 dias a partir do **registro**, não da data do
   /// óbito: o tutor comunica dias depois, e a janela de correção é do lançamento.
   deceasedRecordedAt DateTime? @map("deceased_recorded_at") @db.Timestamptz(6)
@@ -810,6 +811,7 @@ model Pet {
   allergies     Allergy[]
   temperaments  Temperament[]
   medicalAlerts MedicalAlert[]
+  attendances   Attendance[]
 
   @@map("pets")
 }
@@ -880,12 +882,14 @@ model PetPhoto {
   /// `{ thumb, medium, full }` — chave de cada variante no bucket.
   variants Json
 
-  caption String? @db.VarChar(140)
-  takenAt DateTime @default(now()) @map("taken_at") @db.Timestamptz(6)
+  caption String?     @db.VarChar(140)
+  takenAt DateTime    @default(now()) @map("taken_at") @db.Timestamptz(6)
   source  PhotoSource @default(STAFF)
 
-  /// TODO(MOD-AGENDA): foto de antes e depois presa ao atendimento.
-  attendanceId String? @map("attendance_id") @db.Uuid
+  /// MOD-PRONT-10: a foto de antes e depois presa ao atendimento. `attendancePhase`
+  /// nulo é a foto de álbum, que não pertence a momento nenhum da execução.
+  attendanceId    String?          @map("attendance_id") @db.Uuid
+  attendancePhase AttendancePhase? @map("attendance_phase")
 
   /// RN-14: só vira material de campanha com o consentimento IMAGE_USE do tutor,
   /// conferido no momento da marcação — não no do upload.
@@ -1036,6 +1040,190 @@ model MedicalAlert {
   pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("medical_alerts")
+}
+
+// ─── MOD-PRONT — atendimento (01, 09, 10) ────────────────────────────────────
+
+/// Natureza do que foi feito. Não é o serviço do catálogo: um atendimento de banho
+/// pode ter três itens, e o tipo é a lente pela qual o histórico se lê.
+enum AttendanceType {
+  GROOMING
+  BATH
+  VET_CONSULT
+  VACCINE
+  PROCEDURE
+  DAYCARE
+  OTHER
+}
+
+/// De onde veio o atendimento. `RETROACTIVE` é o registro lançado depois do fato,
+/// pelo caminho de reparo — e existir como categoria própria é o que impede que ele
+/// se confunda com o encaixe, que é atendimento de verdade sem hora marcada.
+enum AttendanceOrigin {
+  SCHEDULED
+  WALK_IN
+  RETROACTIVE
+}
+
+/// `DRAFT` nasce no check-in e vive enquanto o pet está no salão: é onde o banhista
+/// anota o que viu durante a execução. `VOIDED` é terminal — anular não apaga.
+enum AttendanceStatus {
+  DRAFT
+  COMPLETED
+  VOIDED
+}
+
+/// RN-09 do prontuário: o tutor vê o que foi feito, não o que a equipe escreveu
+/// entre si.
+enum AttendanceNoteVisibility {
+  INTERNAL
+  TUTOR_VISIBLE
+}
+
+/// `ADDENDUM` é a correção versionada de um registro fechado (MOD-PRONT-09);
+/// `OPERATIONAL` é a nota rápida durante a execução (MOD-PRONT-10). Vivem na mesma
+/// tabela porque ambas são texto append-only preso ao atendimento, e separá-las em
+/// duas tabelas duplicaria o trigger e a linha do tempo.
+enum AttendanceNoteKind {
+  ADDENDUM
+  OPERATIONAL
+}
+
+/// Foto de antes e depois (MOD-PRONT-10). Nulo é a foto de álbum, que não pertence
+/// a nenhum momento do atendimento.
+enum AttendancePhase {
+  BEFORE
+  AFTER
+}
+
+/// O registro do que foi feito com o animal (MOD-PRONT-01).
+///
+/// Nasce do check-in em `DRAFT` e fecha no check-out — o serviço não o cria por
+/// chamada direta, consome `atendimento.iniciado` e `atendimento.concluido`. É o
+/// mesmo contrato assíncrono pelo qual o MOD-LEDGER lança o débito do mesmo evento.
+///
+/// A imutabilidade da RN-05 é dupla: `editable_until` é conferido na aplicação para
+/// devolver um 409 explicável, e um trigger recusa a escrita no banco para o caso de
+/// alguém chegar por fora dela.
+model Attendance {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  petId         String  @map("pet_id") @db.Uuid
+  /// Snapshot: quem respondia pelo pet no dia. A transferência de titularidade não
+  /// reescreve quem autorizou o procedimento (RN-14).
+  tutorId       String  @map("tutor_id") @db.Uuid
+  /// Nulo só no registro de reparo lançado sem agendamento correspondente.
+  appointmentId String? @map("appointment_id") @db.Uuid
+
+  type   AttendanceType
+  origin AttendanceOrigin @default(SCHEDULED)
+
+  performedBy String @map("performed_by") @db.Uuid
+
+  startedAt  DateTime  @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  /// Cifrada: o campo livre costuma citar o tutor ("a tutora contou que ele passou
+  /// a noite no veterinário") — dado pessoal por associação (§4).
+  observationsEncrypted String? @map("observations_encrypted")
+
+  /// Pesagem do dia, repetida aqui como fato do atendimento. A série canônica
+  /// continua em `pet_weights`, alimentada pelo mesmo evento.
+  weightKg Decimal? @map("weight_kg") @db.Decimal(5, 2)
+
+  status AttendanceStatus @default(DRAFT)
+
+  /// Obrigatório quando `VOIDED` — anulação sem motivo é exclusão disfarçada.
+  voidReason String?   @map("void_reason")
+  voidedBy   String?   @map("voided_by") @db.Uuid
+  voidedAt   DateTime? @map("voided_at") @db.Timestamptz(6)
+
+  /// `finished_at + 24h` (RN-05). Nulo enquanto o atendimento é rascunho.
+  editableUntil DateTime? @map("editable_until") @db.Timestamptz(6)
+
+  /// Incrementa a cada adendo. É o que a linha do tempo mostra como "v2".
+  version Int @default(1)
+
+  /// Soma dos itens no momento do fechamento (RN-07).
+  totalCents BigInt @default(0) @map("total_cents")
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  items AttendanceItem[]
+  notes AttendanceNote[]
+
+  pet         Pet          @relation(fields: [petId], references: [id], onDelete: Restrict)
+  tutor       Tutor        @relation(fields: [tutorId], references: [id], onDelete: Restrict)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, petId, startedAt(sort: Desc)])
+  @@index([tenantId, performedBy, startedAt(sort: Desc)])
+  @@map("attendances")
+}
+
+/// Um serviço executado dentro do atendimento.
+///
+/// RN-07: `unit_price_cents` é fotografia, não referência. Reajuste do catálogo não
+/// pode reescrever o que foi cobrado ano passado — e `label` existe pela mesma
+/// razão, para o histórico sobreviver ao serviço renomeado ou excluído.
+model AttendanceItem {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String @map("tenant_id") @db.Uuid
+  attendanceId String @map("attendance_id") @db.Uuid
+
+  serviceId String @map("service_id") @db.Uuid
+  label     String @db.VarChar(120)
+
+  /// Quem executou **este** item. Costuma ser o profissional do atendimento, mas o
+  /// banho e a tosa do mesmo pet podem ser de duas pessoas.
+  executedBy String @map("executed_by") @db.Uuid
+
+  unitPriceCents  BigInt @map("unit_price_cents")
+  quantity        Int    @default(1)
+  totalPriceCents BigInt @map("total_price_cents")
+
+  notes String?
+
+  /// `[{ name, batch }]` — RN-11: o lote é o que permite rastrear a origem de uma
+  /// reação alérgica que só aparece dois dias depois.
+  productsUsed Json? @map("products_used")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, attendanceId])
+  @@map("attendance_items")
+}
+
+/// Adendo (MOD-PRONT-09) e nota operacional (MOD-PRONT-10).
+///
+/// **Append-only por trigger**, como `audit_logs` e `tutor_consents`: um adendo que
+/// pode ser editado não corrige nada, só move o problema um nível acima.
+model AttendanceNote {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String @map("tenant_id") @db.Uuid
+  attendanceId String @map("attendance_id") @db.Uuid
+
+  kind       AttendanceNoteKind
+  visibility AttendanceNoteVisibility @default(INTERNAL)
+
+  /// Cifrado pela mesma razão de `observations`: é campo livre de equipe.
+  bodyEncrypted String @map("body_encrypted")
+
+  /// A versão do atendimento no momento em que o adendo entrou.
+  version Int @default(1)
+
+  authorId  String?  @map("author_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, attendanceId, createdAt])
+  @@map("attendance_notes")
 }
 
 /// AC-02 de MOD-PET-03: o tenant não edita nem apaga raça global — esconde da lista
@@ -1274,6 +1462,9 @@ enum AppointmentSource {
   PORTAL
   RECURRENCE
   AI_AGENT
+  /// Encaixe: o pet chegou sem hora marcada e o agendamento nasce retroativo, já
+  /// concluído, só para a agenda continuar contando a mesma história que o caixa.
+  WALK_IN
 }
 
 /// Um atendimento marcado.
@@ -1303,11 +1494,11 @@ model Appointment {
   checkinAt  DateTime? @map("checkin_at") @db.Timestamptz(6)
   checkoutAt DateTime? @map("checkout_at") @db.Timestamptz(6)
 
-  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancelledAt           DateTime? @map("cancelled_at") @db.Timestamptz(6)
   /// Cifrado: o motivo pode citar doença do tutor ou do pet (§9).
-  cancelReasonEncrypted String?  @map("cancel_reason_encrypted")
+  cancelReasonEncrypted String?   @map("cancel_reason_encrypted")
   /// RN-06: dentro da janela de 24h. É o que decide a taxa no MOD-LEDGER.
-  cancelledLate         Boolean? @map("cancelled_late")
+  cancelledLate         Boolean?  @map("cancelled_late")
 
   /// RN-16: a cadeia de remarcações. "Quantas vezes remarcou" é dado de negócio.
   rescheduledToId String? @unique @map("rescheduled_to_id") @db.Uuid
@@ -1330,8 +1521,9 @@ model Appointment {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  items     AppointmentItem[]
-  statusLog AppointmentStatusLog[]
+  items       AppointmentItem[]
+  statusLog   AppointmentStatusLog[]
+  attendances Attendance[]
 
   pet          Pet          @relation(fields: [petId], references: [id], onDelete: Restrict)
   tutor        Tutor        @relation(fields: [tutorId], references: [id], onDelete: Restrict)
@@ -1414,9 +1606,9 @@ model AppointmentRecurrence {
   rrule String @db.VarChar(200)
 
   /// Primeira ocorrência; a série é gerada a partir dela.
-  startsAt DateTime  @map("starts_at") @db.Timestamptz(6)
+  startsAt          DateTime  @map("starts_at") @db.Timestamptz(6)
   /// Fim da série. Nulo é série sem prazo, estendida pelo job semanal.
-  until    DateTime? @db.Timestamptz(6)
+  until             DateTime? @db.Timestamptz(6)
   /// Até onde já foi materializado. É o que o job lê para saber o que gerar.
   materializedUntil DateTime? @map("materialized_until") @db.Timestamptz(6)
 
@@ -1535,7 +1727,7 @@ model LedgerAccount {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tutor    Tutor          @relation(fields: [tutorId], references: [id], onDelete: Restrict)
+  tutor    Tutor         @relation(fields: [tutorId], references: [id], onDelete: Restrict)
   entries  LedgerEntry[]
   payments Payment[]
 
@@ -1550,10 +1742,10 @@ model LedgerEntry {
   accountId String @map("account_id") @db.Uuid
   tutorId   String @map("tutor_id") @db.Uuid
 
-  direction EntryDirection
+  direction   EntryDirection
   /// Sempre positivo (o CHECK garante); o sinal vem de `direction`. A exceção é o
   /// lançamento informativo de uso de pacote, que vale zero.
-  amountCents BigInt @map("amount_cents")
+  amountCents BigInt         @map("amount_cents")
 
   /// Coluna **gerada** pelo Postgres: `CREDIT ? +amount : -amount`. A aplicação
   /// nunca escreve aqui — é opcional no Prisma só para que `create` não a exija.
@@ -1564,12 +1756,12 @@ model LedgerEntry {
   /// somar a tabela inteira para mostrar uma página.
   balanceAfterCents BigInt @map("balance_after_cents")
 
-  category EntryCategory
+  category               EntryCategory
   /// Texto visível ao tutor no extrato.
-  description String @db.VarChar(200)
+  description            String        @db.VarChar(200)
   /// Cifrado com a DEK do tenant. **Nunca** exposto ao tutor (AC-03 de MOD-LEDGER-06):
   /// pode conter juízo de valor ("cliente sempre atrasa").
-  internalNotesEncrypted String? @map("internal_notes_encrypted")
+  internalNotesEncrypted String?       @map("internal_notes_encrypted")
 
   sourceType EntrySourceType @map("source_type")
   /// Idempotência com `source_type`, pelo índice único parcial.
@@ -1615,7 +1807,7 @@ model Payment {
   accountId String @map("account_id") @db.Uuid
   tutorId   String @map("tutor_id") @db.Uuid
 
-  amountCents BigInt @map("amount_cents")
+  amountCents    BigInt @map("amount_cents")
   /// Quanto do pagamento já foi alocado a débitos. A diferença é o crédito que
   /// sobrou na conta (RN-07) e que o próximo débito consome.
   allocatedCents BigInt @default(0) @map("allocated_cents")
@@ -1662,8 +1854,8 @@ model PaymentAllocation {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
 
-  paymentId     String @map("payment_id") @db.Uuid
-  debitEntryId  String @map("debit_entry_id") @db.Uuid
+  paymentId    String @map("payment_id") @db.Uuid
+  debitEntryId String @map("debit_entry_id") @db.Uuid
 
   amountCents BigInt           @map("amount_cents")
   allocatedBy AllocationSource @default(AUTO_FIFO) @map("allocated_by")
@@ -1685,15 +1877,15 @@ model ServicePackage {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
 
-  name String @db.VarChar(120)
+  name       String   @db.VarChar(120)
   /// RN-10: o crédito cobre **estes** serviços. O casamento é por `service_id`,
   /// nunca por equivalência de valor.
   serviceIds String[] @map("service_ids") @db.Uuid
 
-  credits    Int
-  priceCents BigInt @map("price_cents")
+  credits      Int
+  priceCents   BigInt @map("price_cents")
   /// Decisão de negócio 2: 90 dias.
-  validityDays Int  @default(90) @map("validity_days")
+  validityDays Int    @default(90) @map("validity_days")
 
   /// Descontinuar não apaga as compras já feitas.
   active Boolean @default(true)
@@ -1729,9 +1921,9 @@ model PackagePurchase {
   /// devolvido** — decisão de produto, com aviso prévio obrigatório (RN-09).
   expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
 
-  status PurchaseStatus @default(ACTIVE)
+  status                    PurchaseStatus @default(ACTIVE)
   /// Cifrado: pode citar óbito do pet ou situação familiar.
-  suspensionReasonEncrypted String? @map("suspension_reason_encrypted")
+  suspensionReasonEncrypted String?        @map("suspension_reason_encrypted")
 
   /// Rastro financeiro da compra.
   paymentId String? @map("payment_id") @db.Uuid
@@ -1741,9 +1933,9 @@ model PackagePurchase {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  package ServicePackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
-  payment Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  entry   LedgerEntry    @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  package ServicePackage       @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  payment Payment?             @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  entry   LedgerEntry          @relation(fields: [entryId], references: [id], onDelete: Restrict)
   usages  PackageCreditUsage[]
 
   @@map("package_purchases")
@@ -1766,7 +1958,7 @@ model PackageCreditUsage {
   /// Lançamento informativo de valor zero, para o uso aparecer no extrato.
   entryId String @unique @map("entry_id") @db.Uuid
 
-  usedAt DateTime @default(now()) @map("used_at") @db.Timestamptz(6)
+  usedAt     DateTime  @default(now()) @map("used_at") @db.Timestamptz(6)
   /// RN-12: anulação do atendimento devolve o crédito, respeitando a validade
   /// original — o pacote não ganha sobrevida por causa de um erro nosso.
   revertedAt DateTime? @map("reverted_at") @db.Timestamptz(6)
@@ -1820,10 +2012,10 @@ model LedgerIdempotencyKey {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
 
-  key      String @db.Uuid
+  key         String @db.Uuid
   /// Qual operação a chave cobre — a mesma chave em endpoints diferentes é uso
   /// legítimo, e tratá-la como colisão quebraria o cliente sem motivo.
-  endpoint String @db.VarChar(60)
+  endpoint    String @db.VarChar(60)
   /// SHA-256 do payload normalizado. É o que separa "repetiu" de "mudou de ideia".
   requestHash String @map("request_hash") @db.VarChar(64)
   /// Id do recurso criado na primeira vez, para a repetição devolvê-lo.

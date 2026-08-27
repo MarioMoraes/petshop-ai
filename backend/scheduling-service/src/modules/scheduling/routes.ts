@@ -5,6 +5,7 @@ import {
   CheckoutSchema,
   CreateAppointmentSchema,
   CreateRecurrenceSchema,
+  CreateWalkInSchema,
   DayViewQuerySchema,
   ListAppointmentsQuerySchema,
   RecurrenceScopeSchema,
@@ -23,6 +24,7 @@ import { getDayView } from './day-view.js'
 import { getAppointment, listAppointments } from './queries.js'
 import { createRecurrence, endRecurrence } from './recurrence.js'
 import { loadTimezone } from './timezone.js'
+import { createWalkIn } from './walkin.js'
 import { approve, cancel, checkIn, checkOut, markNoShow, reschedule } from './transitions.js'
 
 /**
@@ -152,6 +154,18 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
     )
 
     return reply.status(201).send(await getAppointment(actorFrom(request), booking.id))
+  })
+
+  /**
+   * O encaixe. `checkin:manage` e não `schedule:write_all` de propósito: quem
+   * registra um pet que já foi atendido é a mesma pessoa que faz o check-out, e
+   * exigir a permissão de agendar deixaria o banhista sem caminho para fechar o
+   * atendimento que ele mesmo executou.
+   */
+  app.post('/v1/appointments/walk-in', CHECKIN, async (request, reply) => {
+    const input = parseInput(CreateWalkInSchema, request.body)
+    const { id } = await createWalkIn(actorFrom(request), input)
+    return reply.status(201).send(await getAppointment(actorFrom(request), id))
   })
 
   app.post('/v1/appointments/:id/checkin', CHECKIN, async (request) => {

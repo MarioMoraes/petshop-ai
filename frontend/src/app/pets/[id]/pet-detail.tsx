@@ -13,12 +13,14 @@ import {
   type PetResponse,
   type PetTransfer,
   type SafetyRecord,
+  type TimelinePage,
   type PetTutorRole,
   type PetWeightRecord,
   type TransferReason,
 } from '@petshop/shared-types'
 import { Card, DataRow, Field, FormError, Tabs } from '@/components/ui'
 import { SafetyRecordTab } from './safety-record'
+import { TimelineTab } from './timeline'
 import {
   deletePetAction,
   deletePhotoAction,
@@ -49,6 +51,8 @@ interface Props {
   transfers: PetTransfer[]
   album: PetAlbum
   safetyRecord: SafetyRecord
+  /** MOD-PRONT-02: a primeira página do histórico, já filtrada pelo servidor. */
+  timeline: TimelinePage
   canUpdate: boolean
   canDelete: boolean
   /** `pet:upload_photo` — o tosador manda a foto do banho pronto (§9). */
@@ -63,6 +67,8 @@ interface Props {
   canManageRecord: boolean
   /** `record:write_notes` — quem manuseia o animal observa o comportamento. */
   canWriteNotes: boolean
+  /** `record:void` — anular um atendimento estorna o débito do tutor. */
+  canVoidAttendance: boolean
 }
 
 export function PetDetailView(props: Props) {
@@ -125,6 +131,7 @@ export function PetDetailView(props: Props) {
               ? `Prontuário (${safetyRecord.alerts.length})`
               : 'Prontuário',
           },
+          { id: 'historico', label: 'Histórico' },
         ]}
         active={tab}
         onSelect={setTab}
@@ -136,6 +143,16 @@ export function PetDetailView(props: Props) {
         <PesoTab petId={pet.id} pet={pet} weights={weights} canWeigh={canWeigh} />
       )}
       {tab === 'fotos' && <FotosTab {...props} />}
+      {tab === 'historico' && (
+        <TimelineTab
+          petId={pet.id}
+          page={props.timeline}
+          canVoid={props.canVoidAttendance}
+          canWrite={props.canWriteNotes}
+          photos={album.photos}
+          canUploadPhoto={props.canUploadPhoto}
+        />
+      )}
       {tab === 'prontuario' && (
         <SafetyRecordTab
           petId={pet.id}

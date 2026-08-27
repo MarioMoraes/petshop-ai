@@ -557,6 +557,8 @@ export const PetPhotoSchema = z.object({
   takenAt: z.iso.datetime(),
   source: PhotoSourceSchema,
   attendanceId: z.uuid().nullable(),
+  /** MOD-PRONT-10: `BEFORE`/`AFTER` no atendimento; nulo é foto de álbum. */
+  attendancePhase: z.enum(['BEFORE', 'AFTER']).nullable(),
   marketingUse: z.boolean(),
   isCover: z.boolean(),
   sizeBytes: z.number().int(),
@@ -571,6 +573,14 @@ export const UploadPhotoMetaSchema = z.object({
   source: PhotoSourceSchema.default('STAFF'),
   takenAt: z.iso.datetime().optional(),
   attendanceId: z.uuid().optional(),
+  /**
+   * MOD-PRONT-10 — a foto de antes e depois. Só faz sentido com `attendanceId`:
+   * "antes" de nada não quer dizer nada, e é o que o `.refine` abaixo garante.
+   */
+  attendancePhase: z.enum(['BEFORE', 'AFTER']).optional(),
+}).refine((meta) => !meta.attendancePhase || !!meta.attendanceId, {
+  message: 'A fase antes/depois exige o atendimento correspondente',
+  path: ['attendancePhase'],
 })
 export type UploadPhotoMeta = z.output<typeof UploadPhotoMetaSchema>
 

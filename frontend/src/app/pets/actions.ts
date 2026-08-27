@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { ApiError } from '@petshop/api-client'
 import {
+  AddendumSchema,
   CreateAllergySchema,
   CreateMedicalAlertSchema,
   CreatePetSchema,
@@ -18,7 +19,10 @@ import {
   UpdatePetSchema,
   UpdatePetTutorSchema,
   UpdatePhotoSchema,
+  VoidAttendanceSchema,
   type Allergy,
+  type Attendance,
+  type TimelinePage,
   type Breed,
   type MedicalAlert,
   type PetPhoto,
@@ -466,6 +470,84 @@ export async function updateMedicalAlertAction(
     const alert = await serverApi().updateMedicalAlert(petId, alertId, parsed.data)
     revalidateRecord(petId)
     return { ok: true, data: alert }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Atendimento e linha do tempo (MOD-PRONT-01/02/09) ───────────────────────
+
+/**
+ * Página seguinte da linha do tempo.
+ *
+ * Devolve a página crua, sem `ActionResult`: quem chama é o botão "carregar mais", e
+ * a falha dele é uma lista que não cresceu — não há campo onde mostrar erro, nem
+ * decisão que o usuário precise tomar a partir dele.
+ */
+export async function loadTimelineAction(
+  petId: string,
+  cursor: string,
+): Promise<TimelinePage> {
+  try {
+    return await serverApi().getPetTimeline(petId, { cursor, limit: 20 })
+  } catch {
+    return { entries: [], nextCursor: null }
+  }
+}
+
+export async function getAttendanceAction(id: string): Promise<ActionResult<Attendance>> {
+  try {
+    return { ok: true, data: await serverApi().getAttendance(id) }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/** AC-01 do §09: dentro das 24h. Fora delas o servidor devolve 409 e a tela oferece adendo. */
+export async function updateAttendanceAction(
+  petId: string,
+  id: string,
+  observations: string,
+): Promise<ActionResult<Attendance>> {
+  try {
+    const attendance = await serverApi().updateAttendance(id, { observations })
+    revalidateRecord(petId)
+    return { ok: true, data: attendance }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function addAddendumAction(
+  petId: string,
+  id: string,
+  body: string,
+): Promise<ActionResult<Attendance>> {
+  const parsed = AddendumSchema.safeParse({ body })
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const attendance = await serverApi().addAttendanceAddendum(id, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: attendance }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/** AC-03: anular estorna o débito do outro lado — daí exigir `record:void`. */
+export async function voidAttendanceAction(
+  petId: string,
+  id: string,
+  reason: string,
+): Promise<ActionResult<Attendance>> {
+  const parsed = VoidAttendanceSchema.safeParse({ reason })
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const attendance = await serverApi().voidAttendance(id, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: attendance }
   } catch (error) {
     return toFailure(error)
   }

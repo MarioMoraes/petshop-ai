@@ -49,6 +49,28 @@ export function allergyConflict(detail: string, extra?: Record<string, unknown>)
   return new AppError('ERR_PRONT_005', detail, undefined, extra)
 }
 
+/**
+ * RN-13: já existe atendimento vivo para este agendamento. O caminho normal para
+ * chegar aqui é a reentrega do mesmo evento, e nesse caso o consumidor engole o
+ * conflito; o 404 vira 409 quando alguém tenta lançar o registro à mão por cima.
+ */
+export function alreadyRegistered(
+  detail = 'Este agendamento já possui atendimento registrado',
+): AppError {
+  return new AppError('ERR_PRONT_004', detail)
+}
+
+/**
+ * RN-05: passadas as 24h, o registro não é reescrito — recebe adendo. O 409 carrega
+ * a instrução porque a tela precisa oferecer o caminho certo no mesmo lugar em que
+ * negou o errado.
+ */
+export function immutable(
+  detail = 'Registros com mais de 24h não podem ser editados. Adicione um adendo.',
+): AppError {
+  return new AppError('ERR_PRONT_006', detail)
+}
+
 export function registerErrorHandler(app: FastifyInstance): void {
   registerKitErrorHandler(app, { logger, validationError, notFound })
 }

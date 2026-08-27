@@ -30,7 +30,7 @@ export default async function PetPage({ params }: PageProps) {
   // buscá-los aqui evita que o cliente descubra depois que a aba estava vazia. Se
   // qualquer um falhar, o detalhe do pet ainda abre — nenhum dos dois é o assunto
   // principal da página.
-  const [weights, transfers, album, safetyRecord] = await Promise.all([
+  const [weights, transfers, album, safetyRecord, timeline] = await Promise.all([
     serverApi()
       .listPetWeights(id)
       .catch(() => []),
@@ -50,6 +50,12 @@ export default async function PetPage({ params }: PageProps) {
         medicalAlerts: [],
         alerts: [],
       })),
+    // MOD-PRONT-02. A primeira página vem com a tela; o resto entra por cursor,
+    // sob demanda — carregar dois anos de histórico para uma aba que talvez
+    // ninguém abra custaria o tempo de abertura de todas as outras.
+    serverApi()
+      .getPetTimeline(id, { limit: 20 })
+      .catch(() => ({ entries: [], nextCursor: null })),
   ])
 
   return (
@@ -79,6 +85,7 @@ export default async function PetPage({ params }: PageProps) {
         transfers={transfers}
         album={album}
         safetyRecord={safetyRecord}
+        timeline={timeline}
         canUpdate={me.permissions.includes('pet:update')}
         canDelete={me.permissions.includes('pet:delete')}
         canWeigh={me.permissions.includes('pet:weigh')}
@@ -87,6 +94,7 @@ export default async function PetPage({ params }: PageProps) {
         canWriteAlerts={me.permissions.includes('record:write_alerts')}
         canManageRecord={me.permissions.includes('record:write')}
         canWriteNotes={me.permissions.includes('record:write_notes')}
+        canVoidAttendance={me.permissions.includes('record:void')}
       />
     </div>
   )

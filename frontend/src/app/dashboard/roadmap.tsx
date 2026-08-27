@@ -76,10 +76,6 @@ const PLANNED: PlannedBlock[] = [
     permissions: ['record:read', 'record:read_summary'],
     indicators: [
       {
-        label: 'Atendimentos concluídos',
-        detail: 'Por tipo, profissional e período. O check-out já fecha o atendimento; falta o registro clínico do que foi feito.',
-      },
-      {
         label: 'Vacinas atrasadas',
         detail: 'Pets com dose vencida — compliance e oportunidade de receita no mesmo número.',
       },

@@ -426,6 +426,31 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
     expect(resolveTarget('/v1/services')).toBe(loadEnv().SCHEDULING_SERVICE_URL)
   })
 
+  it('o prontuário vence o prefixo de pets, inclusive na linha do tempo e no resumo', async () => {
+    const { resolveTarget } = await import('../src/proxy.js')
+    const { loadEnv } = await import('../src/env.js')
+    const env = loadEnv()
+
+    for (const suffix of ['timeline', 'summary', 'allergies', 'alerts', 'safety-record']) {
+      expect(resolveTarget(`/v1/pets/abc/${suffix}`)).toBe(env.MEDICAL_RECORD_SERVICE_URL)
+    }
+    // E o cadastro do pet continua com quem é dele.
+    expect(resolveTarget('/v1/pets/abc')).toBe(env.PET_SERVICE_URL)
+    expect(resolveTarget('/v1/pets/abc/photos')).toBe(env.PET_SERVICE_URL)
+  })
+
+  it('o atendimento é do prontuário; o agendamento, da agenda', async () => {
+    const { resolveTarget } = await import('../src/proxy.js')
+    const { loadEnv } = await import('../src/env.js')
+    const env = loadEnv()
+
+    expect(resolveTarget('/v1/attendances')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
+    expect(resolveTarget('/v1/attendances/abc/addendum')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
+    // O encaixe cria agendamento: é da agenda, apesar de o registro clínico não ser.
+    expect(resolveTarget('/v1/appointments/walk-in')).toBe(env.SCHEDULING_SERVICE_URL)
+    expect(resolveTarget('/v1/appointments/abc/checkout')).toBe(env.SCHEDULING_SERVICE_URL)
+  })
+
   it('rota desconhecida não é roteada para lugar nenhum', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
     expect(resolveTarget('/v1/inexistente')).toBeNull()

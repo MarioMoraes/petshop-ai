@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useTransition } from 'react'
-import type { DayView } from '@petshop/shared-types'
+import { useState, useTransition } from 'react'
+import type { DayView, ServiceResponse } from '@petshop/shared-types'
 import { Badge, Card } from '@/components/ui'
-import { checkInAction, checkOutAction } from '../actions'
+import { checkInAction } from '../actions'
+import { CheckoutPanel } from './checkout-panel'
 
 /**
  * O painel do dia, uma coluna por profissional.
@@ -20,6 +21,8 @@ import { checkInAction, checkOutAction } from '../actions'
 interface Props {
   view: DayView
   date: string
+  /** Catálogo ativo, para o serviço acrescentado durante a execução (RN-18). */
+  services: ServiceResponse[]
 }
 
 const STATUS_TONE: Record<string, 'neutral' | 'accent' | 'success' | 'danger'> = {
@@ -62,9 +65,11 @@ function shiftDay(date: string, days: number): string {
   return next.toISOString().slice(0, 10)
 }
 
-export function DayBoard({ view, date }: Props) {
+export function DayBoard({ view, date, services }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  /** Qual cartão está com a janela de conclusão aberta. Um por vez. */
+  const [concluindo, setConcluindo] = useState<string | null>(null)
 
   function go(to: string) {
     router.push(`/agenda/dia?date=${to}`)
@@ -207,17 +212,30 @@ export function DayBoard({ view, date }: Props) {
                             </button>
                           )}
                           {(appointment.status === 'CHECKED_IN' ||
-                            appointment.status === 'IN_PROGRESS') && (
-                            <button
-                              type="button"
-                              className="btn btn-primary"
-                              disabled={pending}
-                              onClick={() => act(() => checkOutAction(appointment.id, {}))}
-                            >
-                              Concluir
-                            </button>
-                          )}
+                            appointment.status === 'IN_PROGRESS') &&
+                            concluindo !== appointment.id && (
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                disabled={pending}
+                                onClick={() => setConcluindo(appointment.id)}
+                              >
+                                Concluir
+                              </button>
+                            )}
                         </div>
+
+                        {concluindo === appointment.id && (
+                          <CheckoutPanel
+                            appointment={appointment}
+                            services={services}
+                            onClose={() => setConcluindo(null)}
+                            onDone={() => {
+                              setConcluindo(null)
+                              router.refresh()
+                            }}
+                          />
+                        )}
                       </div>
                     )
                   })

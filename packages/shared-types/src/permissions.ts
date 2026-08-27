@@ -60,6 +60,13 @@ export const PERMISSIONS = {
    * mas quem desativa um alerta de segurança é o veterinário.
    */
   'record:write_alerts': 'Registrar alergias e alertas médicos',
+  /**
+   * Anular um atendimento (MOD-PRONT-09, AC-03). Separada de `record:write` porque
+   * esta é de ADMIN **e** VET, e o §9 do prontuário dá a anulação só ao
+   * administrador: anular estorna dinheiro no ledger, e quem responde por isso é
+   * quem responde pelo caixa.
+   */
+  'record:void': 'Anular atendimento',
 
   // Financeiro
   'finance:read': 'Ler o financeiro dos tutores',
@@ -190,6 +197,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'record:write',
     'record:write_notes',
     'record:write_alerts',
+    'record:void',
     'finance:read',
     'finance:create',
     'finance:refund',

@@ -34,12 +34,20 @@ export default async function DiaPage({ searchParams }: PageProps) {
   const params = await searchParams
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? '') ? params.date! : today()
 
-  const view = await serverApi()
-    .getDayView(date)
-    .catch((error: unknown) => {
-      if (error instanceof ApiError) return error
-      throw error
-    })
+  // O catálogo alimenta o serviço acrescentado no check-out (RN-18). Falha dele não
+  // derruba a agenda: sem a lista, a janela de conclusão simplesmente não oferece
+  // extras — e continua pedindo peso e observação, que é o essencial.
+  const [view, services] = await Promise.all([
+    serverApi()
+      .getDayView(date)
+      .catch((error: unknown) => {
+        if (error instanceof ApiError) return error
+        throw error
+      }),
+    serverApi()
+      .listServices()
+      .catch(() => []),
+  ])
 
   const failed = view instanceof ApiError
   const total = failed ? 0 : view.columns.reduce((sum, column) => sum + column.appointments.length, 0)
@@ -85,7 +93,7 @@ export default async function DiaPage({ searchParams }: PageProps) {
           }
         />
       ) : (
-        <DayBoard view={view} date={date} />
+        <DayBoard view={view} date={date} services={services} />
       )}
     </div>
   )

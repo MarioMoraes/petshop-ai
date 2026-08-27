@@ -306,9 +306,24 @@ export interface PetVinculoAlteradoEvent extends BaseEvent {
 /** MOD-PRONT — eventos do prontuário (PRD prontuario_04 §8). */
 export const RECORD_ROUTING_KEYS = {
   alertaAlterado: 'prontuario.alerta.alterado',
+  atendimentoAnulado: 'atendimento.anulado',
 } as const
 
 export type RecordRoutingKey = (typeof RECORD_ROUTING_KEYS)[keyof typeof RECORD_ROUTING_KEYS]
+
+/**
+ * Eventos que o medical-record-service consome (PRD prontuario_04 §8).
+ *
+ * `atendimento.iniciado` e `atendimento.concluido` são o que **cria** o registro
+ * clínico: o prontuário não tem um POST de criação porque o atendimento é um fato da
+ * operação, e quem o produz é o balcão movendo o pet pelo dia.
+ */
+export const RECORD_CONSUMED_ROUTING_KEYS = [
+  'atendimento.iniciado',
+  'atendimento.concluido',
+  'pet.obito',
+  'pet.transferido',
+] as const
 
 /**
  * Um alerta de segurança do pet mudou: alergia, temperamento ou condição médica.
@@ -326,8 +341,28 @@ export interface ProntuarioAlertaAlteradoEvent extends BaseEvent {
   highestSeverity: string | null
 }
 
+/**
+ * Um atendimento foi anulado (MOD-PRONT-09, AC-03).
+ *
+ * O registro **não** é excluído — vai a `VOIDED` e continua na linha do tempo,
+ * riscado. Quem consome é o MOD-LEDGER, que estorna o débito por contrapartida:
+ * dinheiro lançado por engano se corrige com outro lançamento, nunca apagando o
+ * primeiro.
+ */
+export interface AtendimentoAnuladoEvent extends BaseEvent {
+  tenantId: string
+  attendanceId: string
+  /** Nulo no registro de reparo que nunca teve agendamento. */
+  appointmentId: string | null
+  petId: string
+  tutorId: string
+  reason: string
+  voidedBy: string | null
+}
+
 export interface RecordEventMap {
   'prontuario.alerta.alterado': ProntuarioAlertaAlteradoEvent
+  'atendimento.anulado': AtendimentoAnuladoEvent
 }
 
 export interface PetEventMap {
@@ -454,6 +489,14 @@ export interface AtendimentoConcluidoEvent extends BaseEvent {
   totalCents: number
   /** Pesagem aferida no check-in, quando houve (MOD-PET-07). */
   weightKg: number | null
+  /**
+   * MOD-PRONT-01: o encaixe chega por aqui com `WALK_IN`, e é o único sinal que
+   * distingue "não tinha hora marcada" de "foi agendado" depois que o agendamento
+   * retroativo já existe na tabela como qualquer outro.
+   */
+  origin?: 'SCHEDULED' | 'WALK_IN'
+  /** Hora real de início — o check-in, ou o horário marcado quando não houve. */
+  startedAt?: string
 }
 
 export interface AgendamentoCanceladoEvent extends BaseEvent {
@@ -517,6 +560,7 @@ export type LedgerRoutingKey = (typeof LEDGER_ROUTING_KEYS)[keyof typeof LEDGER_
 /** Eventos que o billing-ledger-service consome (PRD §8, parágrafo final). */
 export const LEDGER_CONSUMED_ROUTING_KEYS = [
   'atendimento.concluido',
+  'atendimento.anulado',
   'pet.obito',
   'pet.transferido',
   'tutor.mesclado',

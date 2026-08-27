@@ -1,5 +1,5 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
-import { AppError } from '@petshop/shared-types'
+import { AppError, type AppointmentSource } from '@petshop/shared-types'
 import { recordAudit } from '../../lib/audit.js'
 import { invalid, notFound } from '../../lib/errors.js'
 import { publishEvent } from '../../lib/events.js'
@@ -211,6 +211,8 @@ export async function checkOut(
           tutorId: appointment.tutorId,
           professionalId: appointment.professionalId,
           totalCents: Number(appointment.totalCents),
+          source: appointment.source as AppointmentSource,
+          startedAt: appointment.checkinAt ?? appointment.startsAt,
           items: appointment.items.map((item) => ({
             serviceId: item.serviceId,
             label: item.label,
@@ -297,6 +299,8 @@ export async function checkOut(
         tutorId: appointment.tutorId,
         professionalId: appointment.professionalId,
         totalCents,
+        source: appointment.source as AppointmentSource,
+        startedAt: appointment.checkinAt ?? appointment.startsAt,
         items: items.map((item) => ({
           serviceId: item.serviceId,
           label: item.label,
@@ -319,6 +323,11 @@ export async function checkOut(
       items: result.items,
       totalCents: result.totalCents,
       weightKg: input.weightKg ?? null,
+      // MOD-PRONT-01: o prontuário precisa distinguir o encaixe do agendado, e
+      // depois que o agendamento retroativo existe na tabela a origem é o único
+      // sinal que resta. `startedAt` é a hora real — o check-in, quando houve.
+      origin: result.source === 'WALK_IN' ? 'WALK_IN' : 'SCHEDULED',
+      startedAt: result.startedAt.toISOString(),
     })
   }
 
@@ -513,7 +522,9 @@ export async function reschedule(
       items: original.items
         .filter((item) => !item.addedAtCheckout)
         .map((item) => ({ serviceId: item.serviceId })),
-      source: original.source,
+      // O encaixe nunca chega aqui — ele nasce `COMPLETED`, e concluído não remarca.
+      // O `STAFF` é o fallback que o compilador exige, não um caso real.
+      source: original.source === 'WALK_IN' ? 'STAFF' : original.source,
       // O alerta clínico já foi reconhecido no original; exigir de novo faria a
       // recepção reconhecer duas vezes o mesmo risco para mover um horário.
       acknowledgedAlerts: original.acknowledgedAlertsAt !== null,
