@@ -79,6 +79,13 @@ const RLS_MODELS = new Set([
   'LedgerIdempotencyKey',
   'Receipt',
   'ReceiptCounter',
+  // MOD-TAXI: o leva-e-traz. `TaxiRideStatusLog` entra junto porque carrega
+  // `tenant_id` próprio — a trilha de uma corrida é tão do tenant quanto a corrida.
+  'TaxiRide',
+  'TaxiRideStatusLog',
+  'TaxiVehicle',
+  'TaxiZone',
+  'TaxiSettings',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
   // tenants por definição, e exigir contexto dele seria negar o que ele é.

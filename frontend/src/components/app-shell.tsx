@@ -10,6 +10,7 @@ import {
   PawPrintIcon,
   SettingsIcon,
   UsersIcon,
+  VanIcon,
   WalletIcon,
   type IconTone,
 } from './icons'
@@ -31,7 +32,15 @@ import { Badge, Logo } from './ui'
  * útil e criava uma segunda borda concorrendo com a dos cartões.
  */
 
-type NavKey = 'inicio' | 'tutores' | 'pets' | 'agenda' | 'financeiro' | 'equipe' | 'configuracoes'
+type NavKey =
+  | 'inicio'
+  | 'tutores'
+  | 'pets'
+  | 'agenda'
+  | 'taxi'
+  | 'financeiro'
+  | 'equipe'
+  | 'configuracoes'
 
 interface NavItem {
   key: NavKey
@@ -40,6 +49,7 @@ interface NavItem {
     | '/tutores'
     | '/pets'
     | '/agenda/dia'
+    | '/taxi'
     | '/financeiro/pacotes'
     | '/equipe'
     | '/configuracoes'
@@ -72,6 +82,21 @@ const NAV: NavItem[] = [
     icon: <CalendarIcon />,
     tone: 'icon-time',
     requires: 'tenant:read_settings',
+  },
+  {
+    // Logo depois da Agenda porque é dela que a corrida nasce: quem acabou de marcar
+    // o banho é quem pergunta "e o leva-e-traz?".
+    //
+    // O gate é `taxi:operate`, que a recepção, o admin e o motorista têm. Quem não
+    // faz leva-e-traz ainda vê o item — a permissão existe, o módulo é que está
+    // desligado (RN-22) — e a própria tela explica como ligar. É melhor que esconder
+    // um recurso que o cliente comprou e não encontra.
+    key: 'taxi',
+    href: '/taxi',
+    label: 'Taxi Dog',
+    icon: <VanIcon />,
+    tone: 'icon-time',
+    requires: 'taxi:operate',
   },
   {
     // Pacotes e políticas. O extrato de um tutor mora na ficha dele, que é onde o

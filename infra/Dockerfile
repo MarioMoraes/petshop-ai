@@ -40,12 +40,13 @@ RUN pnpm build --filter="@petshop/api-gateway" \
       --filter="@petshop/pet-service" \
       --filter="@petshop/medical-record-service" \
       --filter="@petshop/scheduling-service" \
-      --filter="@petshop/billing-ledger-service"
+      --filter="@petshop/billing-ledger-service" \
+      --filter="@petshop/taxidog-service"
 
 # ─── frontend-build ───────────────────────────────────────────────────────────
 # Estágio à parte, e não uma linha a mais em `build`, por causa do cache: a chave
 # publicável do Clerk muda por instância, e se ela vivesse no estágio comum toda
-# troca de ambiente invalidaria também a compilação dos sete serviços.
+# troca de ambiente invalidaria também a compilação dos oito serviços.
 FROM build AS frontend-build
 
 # Esta chave PRECISA existir no build. É o SDK React do Clerk que a exige, e o

@@ -99,3 +99,39 @@ export function zonedDayRange(
     to: zonedTimeToUtc(year, month, day, 23, 59, 59, 999, timeZone),
   }
 }
+
+export const DEFAULT_TIMEZONE = 'America/Sao_Paulo'
+
+/**
+ * A meia-noite de um dia civil, no fuso pedido, como instante UTC.
+ *
+ * Usa a mesma conversão iterativa de `zonedDayRange` — e não uma diferença de offset
+ * de passada única — porque o horário de verão muda a duração real do dia. Uma
+ * subtração fixa erra exatamente na madrugada da virada, que é quando a agenda mais
+ * precisa acertar.
+ *
+ * Vive aqui, e não no scheduling-service, desde que o MOD-TAXI virou o segundo
+ * consumidor: a jornada do motorista é hora de parede pelo mesmo motivo que a do
+ * banhista, e duas implementações de DST divergiriam no primeiro domingo de outubro.
+ */
+export function zonedMidnight(dateISO: string, timeZone: string): Date {
+  const [year, month, day] = dateISO.split('-').map(Number) as [number, number, number]
+  return zonedTimeToUtc(year, month, day, 0, 0, 0, 0, timeZone)
+}
+
+/** O dia civil (`YYYY-MM-DD`) em que um instante cai, no fuso do estabelecimento. */
+export function zonedDate(instant: Date, timeZone: string): string {
+  return todayIn(timeZone, instant)
+}
+
+/** Anda dias sobre um `YYYY-MM-DD`, sem passar por fuso nenhum. */
+export function addDays(dateISO: string, days: number): string {
+  const moved = new Date(`${dateISO}T00:00:00Z`)
+  moved.setUTCDate(moved.getUTCDate() + days)
+  return moved.toISOString().slice(0, 10)
+}
+
+/** O dia da semana (0 = domingo) de um `YYYY-MM-DD`, sem ambiguidade de fuso. */
+export function weekdayOf(dateISO: string): number {
+  return new Date(`${dateISO}T00:00:00Z`).getUTCDay()
+}

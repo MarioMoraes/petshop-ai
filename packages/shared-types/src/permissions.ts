@@ -109,6 +109,9 @@ export const PERMISSIONS = {
 
   // Operação e relacionamento
   'taxi:operate': 'Operar o Taxi Dog',
+  // MOD-TAXI §9: zonas, frota, configuração e preço manual. Separada de
+  // `taxi:operate` porque quem dirige a van não redefine o preço da corrida.
+  'taxi:configure': 'Configurar zonas, frota e preços do Taxi Dog',
   'crm:manage': 'Gerenciar campanhas e CRM',
   'site:manage': 'Gerenciar o site do estabelecimento',
   'audit:read': 'Ler a trilha de auditoria',
@@ -211,6 +214,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'schedule:override_credit',
     'checkin:manage',
     'taxi:operate',
+    'taxi:configure',
     'crm:manage',
     'site:manage',
     'audit:read',

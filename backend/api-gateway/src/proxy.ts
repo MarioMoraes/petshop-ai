@@ -180,6 +180,14 @@ function isRecordPath(path: string): boolean {
   )
 }
 
+/**
+ * MOD-TAXI. Tudo debaixo de `/v1/taxi`, num prefixo só: a corrida é complemento do
+ * agendamento (RN-01), mas as rotas são do Taxi Dog — pendurá-las em
+ * `/v1/appointments/:id/taxi` faria o gateway ter de olhar o sufixo, como já
+ * acontece com o prontuário, sem ganhar nada em troca.
+ */
+const TAXI_PREFIXES = ['/v1/taxi']
+
 const LEDGER_PREFIXES = [
   '/v1/ledger',
   '/v1/payments',
@@ -211,5 +219,6 @@ export function resolveTarget(path: string): string | null {
   if (matches(path, PET_PREFIXES)) return env.PET_SERVICE_URL
   if (matches(path, SCHEDULING_PREFIXES)) return env.SCHEDULING_SERVICE_URL
   if (matches(path, LEDGER_PREFIXES)) return env.BILLING_LEDGER_SERVICE_URL
+  if (matches(path, TAXI_PREFIXES)) return env.TAXIDOG_SERVICE_URL
   return null
 }

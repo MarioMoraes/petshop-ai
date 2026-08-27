@@ -716,3 +716,87 @@ export interface LedgerEventMap {
   'inadimplencia.detectada': InadimplenciaDetectadaEvent
   'inadimplencia.resolvida': InadimplenciaResolvidaEvent
 }
+
+// ─── MOD-TAXI ────────────────────────────────────────────────────────────────
+// PRD taxi_dog_07 §8.
+
+export const TAXI_ROUTING_KEYS = {
+  taxiSolicitado: 'taxi.solicitado',
+  taxiAtribuido: 'taxi.atribuido',
+  taxiACaminho: 'taxi.a_caminho',
+  taxiChegou: 'taxi.chegou',
+  taxiColetado: 'taxi.coletado',
+  taxiEntregue: 'taxi.entregue',
+  taxiFalhou: 'taxi.falhou',
+  taxiCancelado: 'taxi.cancelado',
+} as const
+
+export type TaxiRoutingKey = (typeof TAXI_ROUTING_KEYS)[keyof typeof TAXI_ROUTING_KEYS]
+
+/**
+ * Todo evento do Taxi Dog carrega `notify`.
+ *
+ * O módulo **relata**; quem decide falar com o tutor é o MOD-CRM. Mas nem toda
+ * transição merece mensagem: remanejo interno de motorista e cancelamento por óbito
+ * publicam com `notify: false` (AC-02 e AC-03 de MOD-TAXI-08). Sem esse campo, o CRM
+ * teria de reimplementar a regra a partir do status — e a política moraria em dois
+ * lugares que divergiriam na primeira mudança.
+ */
+interface TaxiBaseEvent extends BaseEvent {
+  tenantId: string
+  rideId: string
+  notify: boolean
+}
+
+export interface TaxiSolicitadoEvent extends TaxiBaseEvent {
+  appointmentId: string
+  petId: string
+  tutorId: string
+  leg: 'PICKUP' | 'DROPOFF'
+  windowStartsAt: string
+  windowEndsAt: string
+  priceCents: number
+}
+
+export interface TaxiAtribuidoEvent extends TaxiBaseEvent {
+  driverId: string
+  vehicleId: string | null
+  /** Quem estava com a corrida antes — a primeira pergunta quando algo dá errado. */
+  previousDriverId: string | null
+}
+
+export interface TaxiExecucaoEvent extends TaxiBaseEvent {
+  appointmentId: string
+  petId: string
+  tutorId: string
+  leg: 'PICKUP' | 'DROPOFF'
+  driverId: string | null
+  /** Hora informada pelo motorista (RN-20), que pode ser retroativa. */
+  occurredAt: string
+}
+
+export interface TaxiFalhouEvent extends TaxiBaseEvent {
+  appointmentId: string
+  tutorId: string
+  reason: string
+  occurredAt: string
+}
+
+export interface TaxiCanceladoEvent extends TaxiBaseEvent {
+  appointmentId: string
+  tutorId: string
+  reason: string
+  /** AC-03 de MOD-TAXI-05: se o item de cobrança saiu do agendamento. */
+  chargeRemoved: boolean
+}
+
+export interface TaxiEventMap {
+  'taxi.solicitado': TaxiSolicitadoEvent
+  'taxi.atribuido': TaxiAtribuidoEvent
+  'taxi.a_caminho': TaxiExecucaoEvent
+  'taxi.chegou': TaxiExecucaoEvent
+  'taxi.coletado': TaxiExecucaoEvent
+  'taxi.entregue': TaxiExecucaoEvent
+  'taxi.falhou': TaxiFalhouEvent
+  'taxi.cancelado': TaxiCanceladoEvent
+}

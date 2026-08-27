@@ -98,12 +98,33 @@ export const LEDGER_ERRORS = {
 
 export type LedgerErrorCode = keyof typeof LEDGER_ERRORS
 
+/** PRD taxi_dog_07 §5. */
+export const TAXI_ERRORS = {
+  ERR_TAXI_001: { status: 404, title: 'Corrida não encontrada' },
+  ERR_TAXI_002: { status: 422, title: 'Corrida sem agendamento' },
+  ERR_TAXI_003: { status: 422, title: 'Janela ou horário inválido' },
+  ERR_TAXI_004: { status: 409, title: 'Perna já solicitada neste agendamento' },
+  ERR_TAXI_005: { status: 422, title: 'Endereço de coleta ausente' },
+  ERR_TAXI_006: { status: 409, title: 'Motorista indisponível na janela' },
+  ERR_TAXI_007: { status: 409, title: 'Capacidade do veículo esgotada' },
+  ERR_TAXI_008: { status: 409, title: 'Transição de status inválida' },
+  ERR_TAXI_009: { status: 403, title: 'Permissão insuficiente' },
+  ERR_TAXI_010: { status: 422, title: 'Serviço de Taxi Dog não configurado' },
+  ERR_TAXI_011: { status: 422, title: 'CEP fora das zonas atendidas' },
+  ERR_TAXI_012: { status: 409, title: 'Prefixo de CEP já coberto' },
+  ERR_TAXI_013: { status: 409, title: 'Zona ou veículo em uso' },
+  ERR_TAXI_014: { status: 409, title: 'Taxi Dog desligado neste estabelecimento' },
+} as const
+
+export type TaxiErrorCode = keyof typeof TAXI_ERRORS
+
 export const ERROR_CATALOG = {
   ...IDENTITY_ERRORS,
   ...TUTOR_ERRORS,
   ...PET_ERRORS,
   ...AGENDA_ERRORS,
   ...LEDGER_ERRORS,
+  ...TAXI_ERRORS,
 } as const
 
 export type ErrorCode = keyof typeof ERROR_CATALOG

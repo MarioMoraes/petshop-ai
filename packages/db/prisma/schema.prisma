@@ -108,6 +108,7 @@ model Tenant {
 
   settings        TenantSettings?
   billingSettings BillingSettings?
+  taxiSettings    TaxiSettings?
   memberships     Membership[]
   invitations     Invitation[]
   roleOverrides   TenantRoleOverride[]
@@ -468,6 +469,7 @@ model Tutor {
   petTutors PetTutor[]
 
   appointments   Appointment[]
+  taxiRides      TaxiRide[]
   attendances    Attendance[]
   ledgerAccounts LedgerAccount[]
 
@@ -807,6 +809,7 @@ model Pet {
   photos    PetPhoto[]
 
   appointments Appointment[]
+  taxiRides    TaxiRide[]
 
   allergies     Allergy[]
   temperaments  Temperament[]
@@ -1275,6 +1278,10 @@ enum ServiceCategory {
   GROOMING
   VET
   VACCINE
+  /// MOD-TAXI: o serviço que ancora a cobrança da corrida. Categoria própria, e não
+  /// `OTHER` com flag, porque o seletor de agendamento precisa **esconder** o taxi da
+  /// lista de serviços marcáveis — corrida se pede pelo painel do Taxi Dog.
+  TAXI
   OTHER
 }
 
@@ -1308,6 +1315,7 @@ model Service {
   professionals ProfessionalService[]
 
   appointmentItems AppointmentItem[]
+  taxiSettings     TaxiSettings[]
 
   @@index([tenantId, active])
   @@map("services")
@@ -1375,6 +1383,7 @@ model Professional {
   blocks    CalendarBlock[]
 
   appointments Appointment[]
+  taxiRides    TaxiRide[]
 
   @@index([tenantId, active])
   @@map("professionals")
@@ -1524,6 +1533,7 @@ model Appointment {
   items       AppointmentItem[]
   statusLog   AppointmentStatusLog[]
   attendances Attendance[]
+  taxiRides   TaxiRide[]
 
   pet          Pet          @relation(fields: [petId], references: [id], onDelete: Restrict)
   tutor        Tutor        @relation(fields: [tutorId], references: [id], onDelete: Restrict)
@@ -2129,4 +2139,258 @@ model ReceiptCounter {
 
   @@id([tenantId, year])
   @@map("receipt_counters")
+}
+
+// ─── MOD-TAXI — leva-e-traz (PRD taxi_dog_07 §4) ─────────────────────────────
+
+enum TaxiLeg {
+  PICKUP
+  DROPOFF
+}
+
+enum TaxiRideStatus {
+  REQUESTED
+  ASSIGNED
+  EN_ROUTE
+  ARRIVED
+  ONBOARD
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum TaxiPriceSource {
+  ZONE
+  DEFAULT
+  MANUAL
+}
+
+enum TaxiFailureReason {
+  NO_ONE_HOME
+  WRONG_ADDRESS
+  PET_REFUSED
+  NO_SPACE
+  VEHICLE_ISSUE
+  OTHER
+}
+
+enum TaxiCancelReason {
+  TUTOR_REQUEST
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_RESCHEDULED
+  PET_DECEASED
+  SHOP_REQUEST
+}
+
+/// Uma perna do leva-e-traz.
+///
+/// **Ida e volta são duas linhas** (RN-02), e não uma com `tipo [ida/volta/ambos]`
+/// como o SPEC §129 previa: cada perna tem janela, motorista, veículo, status, hora
+/// real e falha próprios. Em uma linha só, cada um desses campos precisaria de um
+/// gêmeo com sufixo `_volta`.
+///
+/// `appointment_id` é obrigatório (RN-01): o Taxi Dog é complemento da agenda, não
+/// uma segunda agenda. `pet_id` e `tutor_id` são denormalizados de propósito — a rota
+/// do motorista é a consulta mais quente do módulo e não pode depender de join.
+model TaxiRide {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  appointmentId String @map("appointment_id") @db.Uuid
+  petId         String @map("pet_id") @db.Uuid
+  tutorId       String @map("tutor_id") @db.Uuid
+
+  leg    TaxiLeg
+  status TaxiRideStatus @default(REQUESTED)
+
+  /// A janela **prometida ao tutor**, não a estimada. É contra ela que a métrica
+  /// `taxi_window_adherence_rate` mede o módulo inteiro.
+  windowStartsAt DateTime @map("window_starts_at") @db.Timestamptz(6)
+  windowEndsAt   DateTime @map("window_ends_at") @db.Timestamptz(6)
+
+  /// `professionals` com `role_key = 'DRIVER'` (RN-03). Nulo é a fila sem dono.
+  driverId  String? @map("driver_id") @db.Uuid
+  /// RN-04: a capacidade efetiva é `min(motorista, veículo)`.
+  vehicleId String? @map("vehicle_id") @db.Uuid
+
+  /// Procedência do endereço. Nulo quando foi informado na hora — o endereço em si
+  /// está sempre copiado abaixo (RN-11).
+  addressId String? @map("address_id") @db.Uuid
+
+  /// Em claro, como em `tutor_addresses`: sozinho não identifica ninguém, e é o que
+  /// a resolução de zona consulta.
+  zipCode String @map("zip_code") @db.VarChar(8)
+
+  /// Snapshot cifrado (§4). Mudar o cadastro do tutor depois não reescreve para onde
+  /// o motorista foi.
+  streetEncrypted      String  @map("street_encrypted")
+  numberEncrypted      String  @map("number_encrypted")
+  complementEncrypted  String? @map("complement_encrypted")
+  /// "Portão azul, interfone 12" — dado de segurança física do tutor.
+  accessNotesEncrypted String? @map("access_notes_encrypted")
+
+  district String @db.VarChar(80)
+  city     String @db.VarChar(80)
+  state    String @db.VarChar(2)
+
+  /// Copiadas do endereço quando existem. Insumo do MOD-TAXI-10; a v1 não roteiriza.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  /// Nulo quando o preço veio do padrão do tenant ou foi definido à mão.
+  zoneId      String?         @map("zone_id") @db.Uuid
+  /// RN-07: congelado na criação. Reajuste de zona não retroage.
+  priceCents  BigInt          @map("price_cents")
+  priceSource TaxiPriceSource @default(DEFAULT) @map("price_source")
+
+  /// RN-05: o item do agendamento que cobra esta corrida. Nulo depois do
+  /// cancelamento, que remove o item e recalcula o total.
+  appointmentItemId String? @map("appointment_item_id") @db.Uuid
+
+  /// RN-10: quando o `atendimento.concluido` liberou a perna de volta. Nulo em
+  /// `DROPOFF` significa pet ainda na secagem.
+  readyAt DateTime? @map("ready_at") @db.Timestamptz(6)
+
+  assignedAt  DateTime? @map("assigned_at") @db.Timestamptz(6)
+  enRouteAt   DateTime? @map("en_route_at") @db.Timestamptz(6)
+  arrivedAt   DateTime? @map("arrived_at") @db.Timestamptz(6)
+  onboardAt   DateTime? @map("onboard_at") @db.Timestamptz(6)
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(6)
+
+  failureReason TaxiFailureReason? @map("failure_reason")
+  cancelReason  TaxiCancelReason?  @map("cancel_reason")
+  cancelledAt   DateTime?          @map("cancelled_at") @db.Timestamptz(6)
+
+  /// Campo livre do motorista, propenso a dado pessoal.
+  notesEncrypted String? @map("notes_encrypted")
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  statusLog TaxiRideStatusLog[]
+
+  appointment Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  pet         Pet           @relation(fields: [petId], references: [id], onDelete: Restrict)
+  tutor       Tutor         @relation(fields: [tutorId], references: [id], onDelete: Restrict)
+  driver      Professional? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle     TaxiVehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  zone        TaxiZone?     @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+
+  @@index([appointmentId], map: "idx_taxi_rides_appointment")
+  @@index([tenantId, tutorId, windowStartsAt(sort: Desc)], map: "idx_taxi_rides_tutor")
+  @@map("taxi_rides")
+}
+
+/// Trilha da máquina de estado, append-only por trigger — como `audit_logs` e
+/// `tutor_consents`.
+///
+/// As duas horas existem porque são coisas diferentes (RN-20): `occurred_at` é a que
+/// o motorista informou, e pode ser retroativa em até 6h quando ele estava sem sinal;
+/// `recorded_at` é sempre o servidor. Guardar só uma esconderia a retroação de quem
+/// audita, ou perderia a hora real do fato.
+model TaxiRideStatusLog {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  rideId   String @map("ride_id") @db.Uuid
+
+  fromStatus TaxiRideStatus? @map("from_status")
+  toStatus   TaxiRideStatus  @map("to_status")
+
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+
+  /// Quem estava com a corrida no momento, e quem apertou o botão. Podem diferir:
+  /// a recepção fecha corrida do motorista que ficou sem bateria.
+  driverId String? @map("driver_id") @db.Uuid
+  byUserId String? @map("by_user_id") @db.Uuid
+
+  notesEncrypted String? @map("notes_encrypted")
+
+  ride TaxiRide @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([rideId, recordedAt], map: "idx_taxi_ride_status_log_ride")
+  @@map("taxi_ride_status_log")
+}
+
+/// A frota. `pet_capacity` aperta o limite do motorista quando ele sai com a van
+/// pequena (RN-04).
+model TaxiVehicle {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  plate String  @db.VarChar(8)
+  label String  @db.VarChar(40)
+  model String? @db.VarChar(40)
+
+  petCapacity Int @map("pet_capacity") @db.SmallInt
+
+  /// Veículo na oficina sai do seletor sem sumir do histórico das corridas.
+  active Boolean @default(true)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  rides TaxiRide[]
+
+  @@index([tenantId, active])
+  @@map("taxi_vehicles")
+}
+
+/// Preço por região, resolvido a partir do CEP.
+///
+/// `zip_prefixes` é array porque uma zona comercial costuma ser um punhado de faixas
+/// não contíguas. O **prefixo mais longo vence** (RN-17): quem cadastrou o mais
+/// específico estava descrevendo a exceção.
+model TaxiZone {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  name        String   @db.VarChar(60)
+  zipPrefixes String[] @map("zip_prefixes")
+  priceCents  BigInt   @map("price_cents")
+
+  active Boolean @default(true)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  rides TaxiRide[]
+
+  @@index([tenantId, active])
+  @@map("taxi_zones")
+}
+
+/// Configuração do módulo por tenant, como `billing_settings`.
+///
+/// `enabled` nasce **false** (RN-22): o petshop que não faz leva-e-traz não deve ver
+/// um campo morto no wizard de agendamento.
+model TaxiSettings {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  enabled Boolean @default(false)
+
+  /// O serviço de catálogo, categoria `TAXI`, que ancora a cobrança (RN-05). Sem ele
+  /// a criação de corrida recusa com ERR_TAXI_010.
+  taxiServiceId String? @map("taxi_service_id") @db.Uuid
+
+  /// Fallback do CEP que nenhuma zona cobre (RN-18).
+  defaultPriceCents  BigInt  @default(0) @map("default_price_cents")
+  /// RN-18: recusar CEP fora de zona é opt-in.
+  blockOutsideZones  Boolean @default(false) @map("block_outside_zones")
+  /// RN-16: porta fechada não se cobra por padrão.
+  chargeFailedPickup Boolean @default(false) @map("charge_failed_pickup")
+
+  defaultWindowMinutes Int @default(60) @map("default_window_minutes") @db.SmallInt
+  unassignedAlertHours Int @default(12) @map("unassigned_alert_hours") @db.SmallInt
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  service Service? @relation(fields: [taxiServiceId], references: [id], onDelete: SetNull)
+
+  @@map("taxi_settings")
 }

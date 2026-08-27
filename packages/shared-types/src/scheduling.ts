@@ -8,7 +8,7 @@ import { z } from 'zod'
  * a agenda precisa **antes** de existir: o que se vende, quem executa e quando não dá.
  */
 
-export const SERVICE_CATEGORIES = ['BATH', 'GROOMING', 'VET', 'VACCINE', 'OTHER'] as const
+export const SERVICE_CATEGORIES = ['BATH', 'GROOMING', 'VET', 'VACCINE', 'TAXI', 'OTHER'] as const
 export const ServiceCategorySchema = z.enum(SERVICE_CATEGORIES)
 export type ServiceCategory = z.infer<typeof ServiceCategorySchema>
 
@@ -17,8 +17,21 @@ export const SERVICE_CATEGORY_LABELS: Record<ServiceCategory, string> = {
   GROOMING: 'Tosa',
   VET: 'Veterinário',
   VACCINE: 'Vacina',
+  TAXI: 'Taxi Dog',
   OTHER: 'Outros',
 }
+
+/**
+ * Categorias que o seletor de agendamento oferece.
+ *
+ * `TAXI` fica de fora: a corrida se pede pelo painel do Taxi Dog, que resolve
+ * endereço, janela e motorista — e depois grava o item de cobrança neste mesmo
+ * agendamento (RN-05 do MOD-TAXI). Deixá-la no seletor permitiria marcar "Taxi Dog"
+ * como se fosse um banho, criando uma cobrança sem corrida nenhuma por trás.
+ */
+export const BOOKABLE_SERVICE_CATEGORIES: readonly ServiceCategory[] = SERVICE_CATEGORIES.filter(
+  (category) => category !== 'TAXI',
+)
 
 /** Grade de 15 minutos (convenção do §4 do PRD); toda duração é múltipla dela. */
 export const SCHEDULE_GRID_MIN = 15

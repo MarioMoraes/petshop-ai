@@ -40,6 +40,7 @@ x-backend: &backend
     MEDICAL_RECORD_SERVICE_URL: http://medical-record-service:3005
     SCHEDULING_SERVICE_URL: http://scheduling-service:3006
     BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
+    TAXIDOG_SERVICE_URL: http://taxidog-service:3008
     GOTENBERG_URL: http://gotenberg:3000
   networks: [interna]
 
@@ -201,6 +202,13 @@ services:
     environment:
       <<: *backend-env
       BILLING_LEDGER_SERVICE_PORT: 3007
+
+  taxidog-service:
+    <<: *backend
+    command: ['node', 'backend/taxidog-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      TAXIDOG_SERVICE_PORT: 3008
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:

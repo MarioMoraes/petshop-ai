@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
+import { PetAvatar } from '@/components/pet-avatar'
 import { Badge, PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { PetDetailView } from './pet-detail'
@@ -68,6 +69,14 @@ export default async function PetPage({ params }: PageProps) {
         }
         title={
           <span className="flex flex-wrap items-center gap-3">
+            {/* Na própria ficha o avatar é maior: aqui ele não serve para varrer uma
+                lista, e sim para confirmar num relance que se abriu o pet certo. */}
+            <PetAvatar
+              coverPhotoUrl={pet.coverPhotoUrl}
+              speciesKey={pet.species.key}
+              petName={pet.name}
+              size="lg"
+            />
             {pet.name}
             {pet.status === 'INACTIVE' && <Badge>Inativo</Badge>}
             {pet.status === 'DECEASED' && <Badge tone="danger">Falecido</Badge>}

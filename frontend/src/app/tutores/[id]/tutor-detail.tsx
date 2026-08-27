@@ -12,6 +12,7 @@ import {
   type TutorOverview,
 } from '@petshop/shared-types'
 import type { LedgerAccount, PackagePurchase, ServicePackage, Statement } from '@petshop/shared-types'
+import { PetAvatar } from '@/components/pet-avatar'
 import { Badge, Card, DataRow, FormError, Tabs } from '@/components/ui'
 import { FinanceiroTab } from './financeiro-tab'
 import {
@@ -461,6 +462,15 @@ function PetsTab({ tutorId, pets }: { tutorId: string; pets: PetResponse[] }) {
                 href={`/pets/${pet.id}`}
                 className="card flex flex-wrap items-center gap-4 px-5 py-4 transition-transform hover:-translate-y-0.5"
               >
+                {/* Mesma marca visual de `/pets`: quem vê o pet aqui e lá tem de
+                    reconhecê-lo pela mesma cara. */}
+                <PetAvatar
+                  coverPhotoUrl={pet.coverPhotoUrl}
+                  speciesKey={pet.species.key}
+                  petName={pet.name}
+                  size="sm"
+                />
+
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{pet.name}</span>
