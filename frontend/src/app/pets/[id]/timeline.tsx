@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ATTENDANCE_STATUS_LABELS,
@@ -259,21 +259,34 @@ function AttendanceDetail({
   const [texto, setTexto] = useState('')
   const [motivo, setMotivo] = useState('')
   const [anulando, setAnulando] = useState(false)
-  const [carregando, startCarga] = useTransition()
   const [salvando, startSalvar] = useTransition()
 
-  if (!attendance && !carregando && !erro) {
-    startCarga(async () => {
-      const result = await getAttendanceAction(attendanceId)
+  // A busca precisa nascer de um efeito, e não do corpo do componente: disparada
+  // durante a renderização ela é uma atualização de estado no meio do render, que o
+  // React descarta — o painel abria e ficava em branco para sempre.
+  useEffect(() => {
+    let ativo = true
+    void getAttendanceAction(attendanceId).then((result) => {
+      if (!ativo) return
       if (result.ok) {
         setAttendance(result.data)
         setTexto(result.data.observations ?? '')
       } else setErro(result.message)
     })
-  }
+    return () => {
+      ativo = false
+    }
+  }, [attendanceId])
 
-  if (carregando && !attendance) return <p className="hint mt-3">Carregando…</p>
-  if (!attendance) return <FormError message={erro} />
+  if (!attendance) {
+    return erro ? (
+      <div className="mt-3">
+        <FormError message={erro} />
+      </div>
+    ) : (
+      <p className="hint mt-3">Carregando…</p>
+    )
+  }
 
   function salvar() {
     if (!attendance) return
