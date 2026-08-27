@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { registerAuthContext } from './auth/context.js'
 import { registerErrorHandler } from './lib/errors.js'
 import { logger, loggerOptions } from './lib/logger.js'
+import { registerInvitationRoutes } from './modules/invitations/routes.js'
 import { registerMeRoutes } from './modules/me/routes.js'
 import { registerOnboardingRoutes } from './modules/onboarding/routes.js'
 import { registerRbacRoutes } from './modules/rbac/routes.js'
@@ -45,6 +46,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerOnboardingRoutes(app)
   await registerSettingsRoutes(app)
   await registerRbacRoutes(app)
+  await registerInvitationRoutes(app)
   await registerMeRoutes(app)
 
   return app

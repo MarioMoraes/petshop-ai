@@ -37,6 +37,31 @@ export function unauthorized(detail = 'Credenciais inválidas'): AppError {
   return new AppError('ERR_IDENT_005', detail)
 }
 
+/**
+ * 410 — o recurso existiu e não vale mais. É o convite vencido ou revogado (AC-03 de
+ * MOD-IDENT-06), e a distinção em relação ao 404 é útil para quem recebe: "o link
+ * expirou" pede um convite novo; "não existe" faria a pessoa procurar erro de digitação.
+ */
+export function gone(detail: string): AppError {
+  return new AppError('ERR_IDENT_006', detail)
+}
+
+/** 402 — RN-11, limite de usuários do plano. */
+export function planLimitReached(detail: string): AppError {
+  return new AppError('ERR_IDENT_007', detail)
+}
+
+/**
+ * 423 — RN-04, tenant suspenso ou encerrado.
+ *
+ * O gateway já barra escrita de tenant bloqueado, mas o aceite de convite chega sem
+ * contexto de tenant nenhum — o convidado ainda não é membro. Quem descobre o estado
+ * do estabelecimento é o serviço, e é aqui que ele recusa.
+ */
+export function tenantBlocked(detail: string): AppError {
+  return new AppError('ERR_IDENT_008', detail)
+}
+
 export function registerErrorHandler(app: FastifyInstance): void {
   registerKitErrorHandler(app, { logger, validationError, notFound })
 }

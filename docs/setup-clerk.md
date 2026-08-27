@@ -46,6 +46,13 @@ Ainda em **Organizations**, dois ajustes que não são opcionais:
   não corresponde a tenant nenhum, e o frontend fica preso em "Preparando seu
   estabelecimento…".
 
+Um terceiro ponto vale conferir antes de convidar equipe (MOD-IDENT-06): o
+**limite de membros por Organization** (*Organization membership limit*). O aceite
+de convite chama `createOrganizationMembership`, e com o limite abaixo do número de
+assentos do plano o convidado recebe um erro do Clerk depois de o vínculo local já
+ter sido gravado — o aceite é idempotente e se conserta clicando de novo no link,
+mas só depois que o limite subir. Deixe-o igual ou maior que o maior plano vendido.
+
 Conferindo os dois pela API, se preferir:
 
 ```bash

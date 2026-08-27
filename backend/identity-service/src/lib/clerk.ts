@@ -37,6 +37,22 @@ export interface ClerkPort {
   getUser(clerkUserId: string): Promise<ClerkUser>
 
   /**
+   * Coloca o convidado na Organization do tenant (MOD-IDENT-06).
+   *
+   * Sem esta chamada o convite não vale nada: o gateway resolve o tenant pelo claim
+   * `org_id` do token, então um membership local sem a contrapartida no Clerk produz
+   * alguém que entra no sistema e não enxerga estabelecimento nenhum.
+   *
+   * O papel do Clerk é sempre `org:member` — a autoridade sobre papel é a nossa
+   * matriz RBAC, e espelhar oito papéis lá dentro criaria uma segunda fonte de
+   * verdade que um dia divergiria.
+   */
+  addOrganizationMembership(input: {
+    organizationId: string
+    clerkUserId: string
+  }): Promise<void>
+
+  /**
    * Grava `permVersion` no metadata público do membership, de onde o JWT template
    * do Clerk o publica como claim para o gateway comparar (RN-03).
    */
@@ -93,6 +109,21 @@ function createRealClerkPort(): ClerkPort {
         fullName: fullName || primary.emailAddress,
         avatarUrl: user.imageUrl ?? null,
         mfaEnabled: user.twoFactorEnabled ?? false,
+      }
+    },
+
+    async addOrganizationMembership({ organizationId, clerkUserId }) {
+      try {
+        await clerk.organizations.createOrganizationMembership({
+          organizationId,
+          userId: clerkUserId,
+          role: 'org:member',
+        })
+      } catch (error) {
+        // Já ser membro é sucesso para quem chamou: o aceite é idempotente, e o
+        // Clerk responde 422 nesse caso.
+        if ((error as { status?: number })?.status === 422) return
+        throw error
       }
     },
 

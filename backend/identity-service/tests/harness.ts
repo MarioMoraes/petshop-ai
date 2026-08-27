@@ -46,8 +46,12 @@ export interface FakeClerkState {
   organizations: Map<string, { id: string; slug: string; name: string }>
   users: Map<string, { id: string; email: string; fullName: string }>
   permVersions: Map<string, number>
+  /** `org_...:user_...` de quem entrou na Organization — o aceite de MOD-IDENT-06. */
+  organizationMembers: Set<string>
   /** Quando definido, `createOrganization` estoura — simula o timeout do AC-03. */
   failCreateOrganization: Error | null
+  /** Quando definido, `addOrganizationMembership` estoura: o aceite pela metade. */
+  failAddOrganizationMembership: Error | null
   createOrganizationCalls: number
 }
 
@@ -55,7 +59,9 @@ export const fakeClerk: FakeClerkState = {
   organizations: new Map(),
   users: new Map(),
   permVersions: new Map(),
+  organizationMembers: new Set(),
   failCreateOrganization: null,
+  failAddOrganizationMembership: null,
   createOrganizationCalls: 0,
 }
 
@@ -63,7 +69,9 @@ export function resetFakeClerk(): void {
   fakeClerk.organizations.clear()
   fakeClerk.users.clear()
   fakeClerk.permVersions.clear()
+  fakeClerk.organizationMembers.clear()
   fakeClerk.failCreateOrganization = null
+  fakeClerk.failAddOrganizationMembership = null
   fakeClerk.createOrganizationCalls = 0
 }
 
@@ -100,8 +108,50 @@ setClerkPort({
     }
   },
 
+  async addOrganizationMembership({ organizationId, clerkUserId }) {
+    if (fakeClerk.failAddOrganizationMembership) throw fakeClerk.failAddOrganizationMembership
+    fakeClerk.organizationMembers.add(`${organizationId}:${clerkUserId}`)
+  },
+
   async setMembershipPermVersion({ organizationId, clerkUserId, permVersion }) {
     fakeClerk.permVersions.set(`${organizationId}:${clerkUserId}`, permVersion)
+  },
+})
+
+// ─── Dublê do e-mail ─────────────────────────────────────────────────────────
+
+const { setMailerPort } = await import('../src/lib/mailer.js')
+
+export interface SentMail {
+  to: string
+  tenantName: string
+  roleLabel: string
+  inviteUrl: string
+  invitedByName: string | null
+}
+
+/** O que teria saído por e-mail. A suíte nunca fala com provedor nenhum. */
+export const sentMails: SentMail[] = []
+
+/** Quando `true`, o envio falha — o convite tem que sobreviver a isso. */
+export const mailerState = { failing: false }
+
+export function resetMailer(): void {
+  sentMails.length = 0
+  mailerState.failing = false
+}
+
+setMailerPort({
+  async sendInvitation(mail) {
+    if (mailerState.failing) return false
+    sentMails.push({
+      to: mail.to,
+      tenantName: mail.tenantName,
+      roleLabel: mail.roleLabel,
+      inviteUrl: mail.inviteUrl,
+      invitedByName: mail.invitedByName,
+    })
+    return true
   },
 })
 

@@ -5,12 +5,10 @@ import { Badge } from '@/components/ui'
 /**
  * Indicadores que o Início ainda vai mostrar, transcritos dos PRDs de `docs/prd/`.
  *
- * **Esta lista encolhe.** Agenda do dia, ocupação, contas a receber, recebido no
- * período, faltas, cancelamentos em cima da hora e pontualidade saíram daqui — hoje
- * são cartões de verdade lá em cima. As três últimas nem esperaram endpoint novo:
- * `/v1/appointments` já devolvia `status`, `cancelledLate`, `checkinAt` e `checkoutAt`,
- * só faltava alguém somar. Um item que continua nesta lista depois de existir
- * transforma o painel em mentira, então tirar daqui é parte de entregar o módulo.
+ * **Esta lista encolhe.** Agenda do dia, ocupação, contas a receber e recebido no
+ * período saíram daqui — hoje são cartões de verdade lá em cima. Um item que continua
+ * nesta lista depois de existir transforma o painel em mentira, então tirar daqui é
+ * parte de entregar o módulo.
  *
  * Estão aqui, visíveis e desligados, em vez de esperarem os módulos ficarem prontos,
  * por duas razões. A primeira é para o dono do petshop: um painel que mostra três

@@ -65,14 +65,13 @@ const RECURSOS: Recurso[] = [
 
 /**
  * Cada peça sobe na ordem em que se lê. Os valores são os do hero do modelo
- * (150 · 300 · 500 · 700 ms); a lista de recursos entra depois do parágrafo, e o
- * formulário fecha a sequência — ele é o destino, não a abertura.
+ * (150 · 300 · 700 ms); sem o parágrafo entre título e recursos, a lista ocupa o
+ * tempo dele, e o formulário fecha a sequência — ele é o destino, não a abertura.
  */
 const ATRASO = {
   selo: '0ms',
   titulo: '150ms',
-  paragrafo: '300ms',
-  recursos: '450ms',
+  recursos: '300ms',
   rodape: '700ms',
 } as const
 
@@ -127,16 +126,15 @@ function ProdutoLado() {
         style={{ animationDelay: ATRASO.selo }}
       >
         <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-        Software de gestão para petshop
+        Software Para Gestão de PetShops
       </span>
 
       <h1
         className="rise mt-7 text-5xl font-semibold leading-[1.04] text-ink-soft xl:text-6xl"
         style={{ animationDelay: ATRASO.titulo }}
       >
-        Todo o petshop
-        <br />
-        <span className="relative inline-block font-serif italic">
+        Administre seu{' '}
+        <span className="relative inline-block text-accent">
           {/*
             O calor sob a palavra de destaque.
 
@@ -151,20 +149,14 @@ function ProdutoLado() {
             dos blooms da atmosfera aplicada a uma palavra só.
           */}
           <span
-            className="absolute -inset-x-4 -inset-y-2 -z-10 rounded-full bg-gradient-to-br from-[#f05a3c] to-[#c93a24] opacity-30 blur-2xl"
+            className="absolute -inset-x-4 -inset-y-2 -z-10 rounded-full bg-gradient-to-br from-[#f05a3c] to-[#c93a24] opacity-25 blur-2xl"
             aria-hidden="true"
           />
-          em uma tela
+          PetShop
         </span>
+        <br />
+        em um só lugar
       </h1>
-
-      <p
-        className="rise mt-8 max-w-md text-lg leading-relaxed text-muted"
-        style={{ animationDelay: ATRASO.paragrafo }}
-      >
-        Cada atendimento vira histórico do animal e lançamento na conta do tutor, sem
-        ninguém digitar duas vezes.
-      </p>
 
       {/*
         Duas colunas só a partir de `xl`. Entre 1024 e 1279 a coluna da esquerda tem
@@ -194,9 +186,9 @@ function ProdutoLado() {
  * A mesma promessa, no espaço de um celular.
  *
  * Não é a coluna da esquerda encolhida: é uma edição dela. Cai o título grande, que
- * num celular ocuparia a tela inteira sem dizer mais do que a frase abaixo dele já
- * diz, e caem as duas colunas de recursos, que viram uma lista. O que sobrevive é o
- * que responde à única pergunta que importa aqui: o que este sistema faz.
+ * num celular ocuparia a tela inteira, e caem as duas colunas de recursos, que viram
+ * uma lista. O que sobrevive é o que responde à única pergunta que importa aqui: o
+ * que este sistema faz.
  */
 function ProdutoCompacto() {
   return (
@@ -204,10 +196,6 @@ function ProdutoCompacto() {
       <div className="border-t border-line pt-8">
         <p className="text-xs font-semibold uppercase tracking-widest text-subtle">
           O que o PetShop AI faz
-        </p>
-        <p className="mt-3 text-lg leading-relaxed text-muted">
-          Cada atendimento vira histórico do animal e lançamento na conta do tutor, sem
-          ninguém digitar duas vezes.
         </p>
 
         <ul className="mt-7 grid gap-5 sm:grid-cols-2">

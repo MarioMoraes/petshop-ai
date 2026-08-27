@@ -160,3 +160,83 @@ export async function listTenantsPendingProvisioning(maxAttempts: number) {
     })
   })
 }
+
+export interface InvitationRef {
+  id: string
+  tenantId: string
+  tenantName: string
+  tenantSlug: string
+  tenantStatus: string
+  tenantPlan: string
+  clerkOrgId: string | null
+  roleKey: string
+  status: string
+  expiresAt: Date
+  /**
+   * Índice cego (HMAC com pepper), não o endereço. É o que permite ao serviço
+   * comparar o convite com quem está logado sem que esta camada — que roda fora do
+   * RLS — chegue perto do e-mail em claro.
+   */
+  emailHash: string
+}
+
+/**
+ * MOD-IDENT-06 — resolução do convite pelo token, antes de existir contexto de tenant.
+ *
+ * Quem clica no link ainda não é membro de nada: não há `app.tenant_id` para setar, e
+ * sob RLS a busca voltaria vazia. É o mesmo caso de `resolveTenantByClerkOrgId` — uma
+ * consulta que **precede** o tenant e por isso mora aqui, com o retorno fechado no
+ * mínimo e sem nenhum dado pessoal em claro.
+ *
+ * A busca é por `token_hash`: o token cru nunca foi persistido, e quem não tem o link
+ * não tem como enumerar convite nenhum.
+ */
+export async function resolveInvitationByTokenHash(
+  tokenHash: string,
+): Promise<InvitationRef | null> {
+  return runInPlatformScope(async () => {
+    const row = await getMaintenancePrisma().invitation.findFirst({
+      where: { tokenHash, tenant: { deletedAt: null } },
+      select: {
+        id: true,
+        tenantId: true,
+        roleKey: true,
+        status: true,
+        expiresAt: true,
+        emailHash: true,
+        tenant: {
+          select: { name: true, slug: true, status: true, plan: true, clerkOrgId: true },
+        },
+      },
+    })
+    if (!row) return null
+    return {
+      id: row.id,
+      tenantId: row.tenantId,
+      tenantName: row.tenant.name,
+      tenantSlug: row.tenant.slug,
+      tenantStatus: row.tenant.status,
+      tenantPlan: row.tenant.plan,
+      clerkOrgId: row.tenant.clerkOrgId,
+      roleKey: row.roleKey,
+      status: row.status,
+      expiresAt: row.expiresAt,
+      emailHash: row.emailHash,
+    }
+  })
+}
+
+/**
+ * Varredura do job que expira convites (MOD-IDENT-06). Percorrer convites vencidos de
+ * todos os tenants é cross-tenant por natureza — o caso que o PRD §4 destina à role
+ * `app_maintenance`.
+ */
+export async function expirePendingInvitations(now = new Date()): Promise<number> {
+  return runInPlatformScope(async () => {
+    const result = await getMaintenancePrisma().invitation.updateMany({
+      where: { status: 'PENDING', expiresAt: { lt: now } },
+      data: { status: 'EXPIRED' },
+    })
+    return result.count
+  })
+}

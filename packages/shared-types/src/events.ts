@@ -25,6 +25,12 @@ export const IDENTITY_ROUTING_KEYS = {
   membershipPapelAlterado: 'membership.papel_alterado',
   membershipRemovido: 'membership.removido',
   usuarioSincronizado: 'usuario.sincronizado',
+  // MOD-IDENT-06. O PRD §8 nomeia estes três em inglês (`invitation.created`), mas
+  // as outras dezoito chaves deste serviço estão em português — uma família só de
+  // exceções obrigaria todo consumidor a lembrar de qual módulo veio o evento.
+  conviteCriado: 'convite.criado',
+  conviteRevogado: 'convite.revogado',
+  conviteAceito: 'convite.aceito',
 } as const
 
 export type IdentityRoutingKey =
@@ -80,6 +86,31 @@ export interface MembershipRemovidoEvent extends BaseEvent {
   roleKey: RoleKey
 }
 
+/**
+ * O e-mail do convidado **não** entra em nenhum destes payloads. O broker não é
+ * lugar de PII: a fila fica retida, é lida por qualquer consumidor futuro e sobrevive
+ * ao expurgo do banco. Quem precisar do endereço consulta `invitations` sob RLS.
+ */
+export interface ConviteCriadoEvent extends BaseEvent {
+  tenantId: string
+  invitationId: string
+  roleKey: RoleKey
+  invitedByUserId: string
+}
+
+export interface ConviteRevogadoEvent extends BaseEvent {
+  tenantId: string
+  invitationId: string
+  actorUserId: string
+}
+
+export interface ConviteAceitoEvent extends BaseEvent {
+  tenantId: string
+  invitationId: string
+  userId: string
+  roleKey: RoleKey
+}
+
 /** Mapa routing key → payload, usado para tipar o publisher. */
 export interface IdentityEventMap {
   'tenant.criado': TenantCriadoEvent
@@ -92,6 +123,9 @@ export interface IdentityEventMap {
   'membership.criado': MembershipCriadoEvent
   'membership.papel_alterado': MembershipPapelAlteradoEvent
   'membership.removido': MembershipRemovidoEvent
+  'convite.criado': ConviteCriadoEvent
+  'convite.revogado': ConviteRevogadoEvent
+  'convite.aceito': ConviteAceitoEvent
   'usuario.sincronizado': BaseEvent & {
     userId: string
     clerkUserId: string

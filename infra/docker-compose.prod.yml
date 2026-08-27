@@ -152,6 +152,12 @@ services:
       <<: *backend-env
       IDENTITY_SERVICE_PORT: 3001
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      # MOD-IDENT-06 — o link do convite aponta para o domínio público, e não para
+      # o nome de container: quem clica está num navegador, fora desta rede.
+      APP_URL: https://${APP_DOMAIN}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-PetShop AI <convites@${APP_DOMAIN}>}
+      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
 
   tutor-service:
     <<: *backend

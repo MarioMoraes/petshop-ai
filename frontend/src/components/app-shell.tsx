@@ -5,6 +5,7 @@ import type { MeResponse, PermissionKey } from '@petshop/shared-types'
 import { Atmosphere } from './atmosphere'
 import {
   CalendarIcon,
+  IdCardIcon,
   HomeIcon,
   PawPrintIcon,
   SettingsIcon,
@@ -30,11 +31,18 @@ import { Badge, Logo } from './ui'
  * útil e criava uma segunda borda concorrendo com a dos cartões.
  */
 
-type NavKey = 'inicio' | 'tutores' | 'pets' | 'agenda' | 'financeiro' | 'configuracoes'
+type NavKey = 'inicio' | 'tutores' | 'pets' | 'agenda' | 'financeiro' | 'equipe' | 'configuracoes'
 
 interface NavItem {
   key: NavKey
-  href: '/dashboard' | '/tutores' | '/pets' | '/agenda/dia' | '/financeiro/pacotes' | '/configuracoes'
+  href:
+    | '/dashboard'
+    | '/tutores'
+    | '/pets'
+    | '/agenda/dia'
+    | '/financeiro/pacotes'
+    | '/equipe'
+    | '/configuracoes'
   label: string
   icon: ReactNode
   /**
@@ -74,6 +82,16 @@ const NAV: NavItem[] = [
     icon: <WalletIcon />,
     tone: 'icon-money',
     requires: 'finance:read',
+  },
+  {
+    // Antes de Configurações porque é gente, não ajuste: quem abre este menu pensando
+    // em "adicionar a Ana" não procuraria dentro de um item chamado Configurações.
+    key: 'equipe',
+    href: '/equipe',
+    label: 'Equipe',
+    icon: <IdCardIcon />,
+    tone: 'icon-people',
+    requires: 'team:read',
   },
   {
     key: 'configuracoes',

@@ -43,7 +43,12 @@ compara esse claim; sem ele toda sessão cai no caminho degradado.
 
 **4. Bucket R2 de produção**, separado do de desenvolvimento.
 
-**5. Segredos.**
+**5. Resend (opcional no primeiro dia).** O convite de equipe (MOD-IDENT-06) sai
+por e-mail quando `RESEND_API_KEY` existe e o domínio de `MAIL_FROM` está
+verificado na conta (SPF + DKIM). Sem a chave nada quebra: o convite é criado
+igual e o link aparece na tela de Equipe, para o admin entregar por WhatsApp.
+
+**6. Segredos.**
 
 ```sh
 cp .env.production.example .env.production
@@ -120,6 +125,3 @@ Registrado para não parecer esquecimento:
   é tudo. Um job que parar de rodar não avisa ninguém.
 - **CI.** As imagens são construídas no servidor, à mão. Nada roda a suíte antes.
 - **Backup automático** e teste de restauração.
-- **Convite de equipe** (MOD-IDENT-06): a rota `/v1/invitations` existe no
-  gateway, mas não no identity-service. Na prática o tenant implantado tem um
-  único usuário — quem fez o onboarding.

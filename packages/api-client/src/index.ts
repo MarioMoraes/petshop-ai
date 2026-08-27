@@ -44,14 +44,21 @@ import {
   ProfessionalWithWarningsSchema,
   ResolvedPricingSchema,
   ServiceResponseSchema,
+  InvitationPreviewSchema,
+  InvitationResponseSchema,
+  RoleResponseSchema,
   SlugAvailabilitySchema,
   SpeciesSchema,
+  TeamMemberSchema,
   TagSchema,
   TenantResponseSchema,
   TenantSettingsSchema,
   TutorDetailSchema,
   TutorOverviewSchema,
   TutorSensitiveSchema,
+  type AcceptInvitationResult,
+  type AssignableRoleKey,
+  type CreateInvitationInput,
   type MeResponse,
   type OnboardingState,
   type OnboardingStepInput,
@@ -336,6 +343,61 @@ export function createApiClient(options: ApiClientOptions) {
         path: '/v1/tenants/me/settings',
         body: patch,
         schema: TenantSettingsSchema,
+      }),
+
+    // ─── MOD-IDENT-04/06 — equipe e convites ───────────────────────────────
+
+    listTeam: () =>
+      request({ method: 'GET', path: '/v1/memberships', schema: z.array(TeamMemberSchema) }),
+
+    listRoles: () =>
+      request({ method: 'GET', path: '/v1/roles', schema: z.array(RoleResponseSchema) }),
+
+    changeMemberRole: (membershipId: string, role: AssignableRoleKey) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/memberships/${membershipId}`,
+        body: { role },
+      }),
+
+    listInvitations: () =>
+      request({
+        method: 'GET',
+        path: '/v1/invitations',
+        schema: z.array(InvitationResponseSchema),
+      }),
+
+    createInvitation: (input: CreateInvitationInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/invitations',
+        body: input,
+        schema: InvitationResponseSchema,
+      }),
+
+    resendInvitation: (id: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/invitations/${id}/resend`,
+        schema: InvitationResponseSchema,
+      }),
+
+    revokeInvitation: (id: string) =>
+      request<void>({ method: 'DELETE', path: `/v1/invitations/${id}` }),
+
+    /** Rotas do convidado: exigem sessão, mas nenhum vínculo com o tenant ainda. */
+    previewInvitation: (token: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/invitations/preview?token=${encodeURIComponent(token)}`,
+        schema: InvitationPreviewSchema,
+      }),
+
+    acceptInvitation: (token: string) =>
+      request<AcceptInvitationResult>({
+        method: 'POST',
+        path: '/v1/invitations/accept',
+        body: { token },
       }),
 
     // ─── MOD-TUTOR ─────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ROLE_KEYS } from './permissions.js'
+import { ASSIGNABLE_ROLE_KEYS, ROLE_KEYS } from './permissions.js'
 
 /** PRD identidade_tenancy_01 §5 — contratos de entrada e saída do identity-service. */
 
@@ -345,3 +345,91 @@ export const RoleResponseSchema = z.object({
   permissions: z.array(z.string()),
 })
 export type RoleResponse = z.infer<typeof RoleResponseSchema>
+
+// ─── Equipe (MOD-IDENT-04/05) ────────────────────────────────────────────────
+
+/**
+ * Uma pessoa da equipe, como a tela de Configurações → Equipe a mostra. É diferente
+ * de `MembershipSummarySchema`, que responde a pergunta oposta: aquele lista os
+ * estabelecimentos de um usuário; este lista os usuários de um estabelecimento.
+ */
+export const TeamMemberSchema = z.object({
+  id: z.uuid(),
+  userId: z.uuid(),
+  fullName: z.string(),
+  avatarUrl: z.string().nullable(),
+  mfaEnabled: z.boolean(),
+  roleKey: RoleKeySchema,
+  roleLabel: z.string(),
+  status: z.enum(['ACTIVE', 'SUSPENDED', 'REMOVED']),
+  isProfessional: z.boolean(),
+  joinedAt: z.iso.datetime(),
+})
+export type TeamMember = z.infer<typeof TeamMemberSchema>
+
+// ─── Convites de equipe (MOD-IDENT-06) ───────────────────────────────────────
+
+export const InvitationStatusSchema = z.enum(['PENDING', 'ACCEPTED', 'EXPIRED', 'REVOKED'])
+export type InvitationStatus = z.infer<typeof InvitationStatusSchema>
+
+/**
+ * RN-05 de novo, por outro caminho: quem convida escolhe entre os papéis atribuíveis.
+ * TUTOR e SUPER_ADMIN ficam de fora do enum, então um convite para eles nem chega a
+ * ser um erro de negócio — é um 422 de validação.
+ */
+export const CreateInvitationSchema = z.object({
+  email: z.email('Informe um e-mail válido'),
+  role: z.enum(ASSIGNABLE_ROLE_KEYS),
+})
+export type CreateInvitationInput = z.output<typeof CreateInvitationSchema>
+
+export const InvitationResponseSchema = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  roleKey: RoleKeySchema,
+  roleLabel: z.string(),
+  status: InvitationStatusSchema,
+  expiresAt: z.iso.datetime(),
+  createdAt: z.iso.datetime(),
+  acceptedAt: z.iso.datetime().nullable(),
+  invitedByName: z.string().nullable(),
+  /**
+   * Só existe na resposta de criação e de reenvio: é o link com o token em claro,
+   * que o servidor não guarda e não consegue mostrar de novo. Quem cria copia agora
+   * ou pede um reenvio — a mesma regra de uma senha exibida uma vez.
+   */
+  inviteUrl: z.string().optional(),
+})
+export type InvitationResponse = z.infer<typeof InvitationResponseSchema>
+
+/**
+ * O que a tela pública de aceite mostra antes de alguém clicar em "aceitar".
+ *
+ * O e-mail vem mascarado: quem chega aqui provou apenas que tem o link, e o link
+ * pode ter sido encaminhado. Mascarado, ele confirma para o convidado legítimo que
+ * é a conta certa, sem entregar o endereço a quem só pegou a URL de passagem.
+ */
+export const InvitationPreviewSchema = z.object({
+  tenantName: z.string(),
+  roleKey: RoleKeySchema,
+  roleLabel: z.string(),
+  maskedEmail: z.string(),
+  expiresAt: z.iso.datetime(),
+  /** `PENDING` é o único estado que ainda aceita; os outros a tela explica. */
+  status: InvitationStatusSchema,
+})
+export type InvitationPreview = z.infer<typeof InvitationPreviewSchema>
+
+export const AcceptInvitationSchema = z.object({
+  token: z.string().min(20).max(200),
+})
+export type AcceptInvitationInput = z.output<typeof AcceptInvitationSchema>
+
+export const AcceptInvitationResultSchema = z.object({
+  tenantId: z.uuid(),
+  tenantName: z.string(),
+  tenantSlug: z.string(),
+  roleKey: RoleKeySchema,
+  roleLabel: z.string(),
+})
+export type AcceptInvitationResult = z.infer<typeof AcceptInvitationResultSchema>
