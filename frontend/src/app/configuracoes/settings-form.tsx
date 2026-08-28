@@ -75,6 +75,8 @@ export interface SettingsFormProps {
   /** Espécies do catálogo, para a aba de raças. Vazio quando ela não é exibida. */
   species: Species[]
   /** `tenant:configure`. Sem ela a tela é de leitura — o backend recusaria de todo jeito. */
+  /** `.meupetshop.com.br` — resolvido no servidor; ver `lib/domain.ts`. */
+  hostSuffix: string
   canEdit: boolean
   /** `pet:manage_catalog`: só o administrador mexe no catálogo de raças. */
   canManageCatalog: boolean
@@ -99,6 +101,7 @@ export function SettingsForm({
   tenant,
   settings,
   species,
+  hostSuffix,
   canEdit,
   canManageCatalog,
 }: SettingsFormProps) {
@@ -153,7 +156,7 @@ export function SettingsForm({
       <div className="mt-6">
         {active === 'dados' && (
           <div className="space-y-6">
-            <IdentityPanel {...shared} tenant={tenant} />
+            <IdentityPanel {...shared} tenant={tenant} hostSuffix={hostSuffix} />
             <ContactPanel {...shared} settings={settings} />
           </div>
         )}
@@ -207,7 +210,13 @@ function SaveButton({
 
 // ─── Dados do estabelecimento ────────────────────────────────────────────────
 
-function IdentityPanel({ state, canEdit, run, tenant }: PanelProps & { tenant: TenantResponse }) {
+function IdentityPanel({
+  state,
+  canEdit,
+  run,
+  tenant,
+  hostSuffix,
+}: PanelProps & { tenant: TenantResponse; hostSuffix: string }) {
   const [name, setName] = useState(tenant.name)
   const [legalName, setLegalName] = useState(tenant.legalName ?? '')
   const [cnpj, setCnpj] = useState(tenant.cnpj ?? '')
@@ -274,10 +283,14 @@ function IdentityPanel({ state, canEdit, run, tenant }: PanelProps & { tenant: T
           O endereço do portal é definitivo: vira subdomínio, entra em link que o tutor
           já salvou e em QR code impresso. Trocar quebraria tudo isso em silêncio.
         */}
-        <Field label="Endereço do portal" htmlFor="slug" hint="Definido no cadastro e permanente.">
+        <Field
+          label="Endereço na internet"
+          htmlFor="slug"
+          hint="Definido no cadastro e permanente. É o site do petshop; seus tutores entram na conta deles em /portal."
+        >
           <div className="flex items-center gap-2">
             <input id="slug" className="field" value={tenant.slug} readOnly disabled />
-            <span className="hint whitespace-nowrap">.petshopai.app</span>
+            <span className="hint whitespace-nowrap">{hostSuffix}</span>
           </div>
         </Field>
       </div>

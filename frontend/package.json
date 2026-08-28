@@ -8,6 +8,7 @@
     "build": "NEXT_DIST_DIR=.next-build dotenv -e ../.env -- next build",
     "start": "NEXT_DIST_DIR=.next-build next start --port 3002",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "lint": "eslint src"
   },
   "dependencies": {

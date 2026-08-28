@@ -300,6 +300,12 @@
 - **Dado** uma requisição a `petshopdojoao.{dominio}`
 - **Quando** chega ao Next
 - **Então** o subdomínio resolve o tenant e a rota pública é servida **sem** exigir autenticação
+>
+> **Decisão de 2026-08-28:** o site fica na **raiz** do host do tenant, o Portal do
+> Tutor em `/portal` na mesma origem, e o Admin da equipe muda para `app.{dominio}`.
+> A raiz é do site porque SEO local não compete bem em subpasta; o Admin sai porque o
+> cookie de sessão da equipe não deve dividir origem com a superfície mais exposta do
+> sistema. Ver o §5 de `portal_tutor_09.md`.
 
 **AC-02 (Validação / Erro — a mudança no middleware)**
 - **Dado** que o `middleware.ts` hoje redireciona ao login **tudo** que não seja `/sign-in`, `/sign-up` e `/api/health`

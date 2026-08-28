@@ -457,6 +457,28 @@ CREATE UNIQUE INDEX idx_tutors_portal_user
 
 ## 5. Contratos de API
 
+> **Endereço do Portal — decisão de 2026-08-28.**
+>
+> ```
+> petshopdojoao.{dominio}/          → site público do tenant (MOD-SITE)
+> petshopdojoao.{dominio}/portal    → Portal do Tutor
+> app.{dominio}                     → Admin da equipe
+> ```
+>
+> O tutor entra por **`/portal` no host do próprio petshop** — o mesmo endereço curto
+> que o petshop dita por telefone e imprime no QR code, e a mesma origem do site
+> público, de onde vem o botão "Agendar". Site e Portal são o mesmo público e a mesma
+> identidade visual; separá-los custaria um salto entre domínios que perde o contexto
+> do tenant.
+>
+> **O Admin sai para `app.{dominio}`**, e o motivo é de segurança, não de organização:
+> o site público é a superfície mais exposta do sistema — anônima, cacheada, com
+> formulário aberto ao mundo — e o cookie de sessão de quem opera o petshop não tem por
+> que dividir origem com ela. De quebra, é o que dá isolamento real ao caso do
+> funcionário que também é cliente (AC-04 de MOD-PORTAL-02). `app` e `portal` já são
+> slugs reservados em `RESERVED_SLUGS`. O que falta implementar é o 301 de
+> `{slug}.{dominio}/dashboard` para `app.{dominio}/dashboard`.
+
 Superfície separada sob o prefixo **`/portal/v1`**, roteada pelo gateway ao `portal-bff:3020`. O prefixo não é cosmético: é o que permite uma allowlist de rotas própria (SPEC §173), rate limit próprio e a garantia do AC-04 de MOD-PORTAL-11 — nenhum papel `TUTOR` alcança `/v1`. Autenticação por JWT do Clerk, como no Admin; o tenant vem do host (subdomínio do tenant), e o `tutorId` sai da resolução de sessão.
 
 ### Endpoints
@@ -745,7 +767,7 @@ Exchange `petshop.events` (topic), DLX com backoff 1s / 5s / 30s / 5min.
 
 | # | Questão | Impacto | Decisor | Prazo |
 |---|---|---|---|---|
-| 1 | **Onde o Portal mora.** `slug.dominio.com.br/portal` (o mesmo host do Admin, separado por rota) ou `portal.dominio.com.br/slug`? O wildcard TLS já cobre os dois; o que muda é a instância do Clerk e o isolamento de cookie entre a sessão de equipe e a de cliente | MOD-PORTAL, MOD-SITE, implantação em VPS | Tech Lead | Antes da fatia 1 |
+| 1 | ~~**Onde o Portal mora.**~~ **DECIDIDO em 2026-08-28** — ver §5 | — | — | ✅ |
 | 2 | **Instância do Clerk do tutor.** A mesma do Admin (um diretório de usuários, papéis distintos) ou uma separada? A mesma é mais barata e permite o caso do funcionário-cliente (AC-04 de MOD-PORTAL-02) sem segunda conta; separada dá isolamento real entre quem opera e quem consome | MOD-PORTAL, MOD-IDENT, custo Clerk | Tech Lead | Antes da fatia 1 |
 | 3 | **Co-tutor vê o extrato?** Dois tutores no mesmo pet (casal, pai e filho) enxergam o mesmo pet, e isso está decidido no MOD-PET. Mas o extrato é **por tutor**: cada um vê só o seu. Confirmar que é isso mesmo, ou se o co-tutor de um pet deve ver o que foi cobrado por aquele pet, ainda que na conta do outro | MOD-PORTAL, MOD-LEDGER, LGPD | Dono do produto | Antes da fatia 3 |
 | 4 | **Notificação de mudança feita pelo tutor.** Quando o tutor cancela às 23h de véspera, quem da equipe fica sabendo antes de chegar de manhã? Hoje o MOD-CRM avisa o tutor, não o petshop. Um canal de "avisos da operação" é MOD-ADMIN ou uma automação de CRM apontando para a equipe? | MOD-PORTAL, MOD-CRM, MOD-ADMIN | Dono do produto | Durante a fatia 2 |

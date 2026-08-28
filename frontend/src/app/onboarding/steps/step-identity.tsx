@@ -20,7 +20,8 @@ export function StepIdentity({
   fieldErrors,
   onSubmit,
   tenant,
-}: StepProps & { tenant: TenantResponse | null }) {
+  hostSuffix,
+}: StepProps & { tenant: TenantResponse | null; hostSuffix: string }) {
   const isNew = tenant === null
 
   const [name, setName] = useState(tenant?.name ?? '')
@@ -69,9 +70,7 @@ export function StepIdentity({
       return
     }
 
-    onSubmit(() =>
-      saveStep1Action({ name: name.trim(), legalName: legalName.trim() || undefined }),
-    )
+    onSubmit(() => saveStep1Action({ name: name.trim(), legalName: legalName.trim() || undefined }))
   }
 
   return (
@@ -101,7 +100,7 @@ export function StepIdentity({
             label="Endereço do seu portal"
             htmlFor="slug"
             error={fieldErrors.slug}
-            hint={slugHint(effectiveSlug, availability, checking)}
+            hint={slugHint(effectiveSlug, availability, checking, hostSuffix)}
           >
             <div className="flex items-center gap-2">
               <input
@@ -116,7 +115,7 @@ export function StepIdentity({
                 required
                 aria-invalid={Boolean(fieldErrors.slug) || availability?.available === false}
               />
-              <span className="hint whitespace-nowrap">.petshopai.app</span>
+              <span className="hint whitespace-nowrap">{hostSuffix}</span>
             </div>
 
             {availability && !availability.available && availability.suggestions.length > 0 && (
@@ -193,12 +192,13 @@ function slugHint(
   slug: string,
   availability: SlugAvailability | null,
   checking: boolean,
+  hostSuffix: string,
 ): string | undefined {
   if (slug.length < 3) return 'Pelo menos 3 caracteres, só letras minúsculas, números e hífen.'
   if (checking) return 'Verificando disponibilidade…'
   if (!availability) return undefined
 
-  if (availability.available) return `${slug}.petshopai.app está livre.`
+  if (availability.available) return `${slug}${hostSuffix} está livre.`
   if (availability.reason === 'RESERVED') return 'Este endereço é reservado pela plataforma.'
   if (availability.reason === 'INVALID') return 'Use apenas letras minúsculas, números e hífen.'
   return 'Este endereço já está em uso.'

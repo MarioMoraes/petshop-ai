@@ -32,9 +32,11 @@ import { StepPlan } from './steps/step-plan'
 export interface WizardProps {
   tenant: TenantResponse | null
   settings: TenantSettings | null
+  /** `.meupetshop.com.br` — resolvido no servidor; ver `lib/domain.ts`. */
+  hostSuffix: string
 }
 
-export function Wizard({ tenant, settings }: WizardProps) {
+export function Wizard({ tenant, settings, hostSuffix }: WizardProps) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -42,14 +44,11 @@ export function Wizard({ tenant, settings }: WizardProps) {
   const [currentTenant, setCurrentTenant] = useState(tenant)
   // Prende ao último passo vigente: o wizard já teve uma etapa de convite de equipe,
   // e tenant gravado naquele momento traz um número que não existe mais.
-  const [step, setStep] = useState(
-    Math.min(tenant?.onboardingStep ?? 1, ONBOARDING_LAST_STEP),
-  )
+  const [step, setStep] = useState(Math.min(tenant?.onboardingStep ?? 1, ONBOARDING_LAST_STEP))
   const [formError, setFormError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
-  const branding: Branding =
-    (settings?.branding as Branding | undefined) ?? DEFAULT_BRANDING
+  const branding: Branding = (settings?.branding as Branding | undefined) ?? DEFAULT_BRANDING
   const businessHours: BusinessHours =
     (settings?.businessHours as BusinessHours | undefined) ?? DEFAULT_BUSINESS_HOURS
 
@@ -92,7 +91,7 @@ export function Wizard({ tenant, settings }: WizardProps) {
       </div>
 
       <div className="mt-6">
-        {step === 1 && <StepIdentity {...shared} tenant={currentTenant} />}
+        {step === 1 && <StepIdentity {...shared} tenant={currentTenant} hostSuffix={hostSuffix} />}
         {step === 2 && <StepPlan {...shared} plan={(currentTenant?.plan ?? 'STARTER') as Plan} />}
         {step === 3 && (
           <StepBusinessHours

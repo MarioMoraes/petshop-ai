@@ -6,6 +6,7 @@ import { EnsureActiveOrganization } from '@/components/ensure-active-organizatio
 import { Logo, Shell } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { ProvisioningNotice } from './provisioning-notice'
+import { tenantHostSuffix } from '@/lib/domain'
 import { Wizard } from './wizard'
 
 /**
@@ -65,7 +66,7 @@ export default async function OnboardingPage() {
   return (
     <OnboardingLayout>
       {tenant === null && <EnsureActiveOrganization />}
-      <Wizard tenant={tenant} settings={settings} />
+      <Wizard tenant={tenant} settings={settings} hostSuffix={tenantHostSuffix()} />
     </OnboardingLayout>
   )
 }

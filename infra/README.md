@@ -23,6 +23,33 @@ impede migrar para orquestrador depois — as imagens são as mesmas.
 O gateway não é publicado de propósito: o cliente HTTP do frontend é `server-only`,
 então o browser nunca fala com a API. A superfície pública é uma porta HTTPS.
 
+## Os três hosts
+
+Um processo Next atende três públicos, separados por host — decisão de 2026-08-28,
+implementada em `frontend/src/lib/host.ts` e no `middleware.ts`:
+
+| Endereço | Quem | Autenticação |
+|---|---|---|
+| `{slug}.{APP_DOMAIN}/` | site público do petshop (MOD-SITE) | nenhuma |
+| `{slug}.{APP_DOMAIN}/portal` | Portal do Tutor (MOD-PORTAL) | sessão do tutor |
+| `app.{APP_DOMAIN}` | Admin da equipe | sessão de equipe (Clerk) |
+
+O Admin tem host próprio por segurança, não por organização: o site público é a
+superfície mais exposta do sistema — anônima, cacheada, com formulário aberto ao mundo —
+e o cookie de sessão de quem opera o petshop não tem por que dividir origem com ela.
+
+**Nada muda no Caddy:** `app.{APP_DOMAIN}` já está coberto pelo wildcard
+`*.{$APP_DOMAIN}`, e `CLERK_AUTHORIZED_PARTIES` já inclui os dois. O que o deploy
+precisa é da variável **`APP_DOMAIN` chegando ao container do frontend** — é dela que
+o middleware tira qual host é de tenant e qual é da plataforma. Sem ela o padrão é
+`localhost:3002`, e **todo** host cai no Admin: nada fica exposto, mas o site e o
+Portal não respondem.
+
+Rotas do Admin acessadas no host de um tenant respondem **301** para `app.` (o link
+salvo continua funcionando). A raiz `/` responde **307**, e a diferença é deliberada:
+ela vira o site do petshop quando o MOD-SITE entrar, e um 301 ficaria no cache dos
+navegadores apontando para o Admin sem como desfazer.
+
 Os sete serviços de backend saem da **mesma imagem** (`infra/Dockerfile`, alvo
 `backend`). Eles compartilham as mesmas dependências; sete imagens seriam o mesmo
 `node_modules` sete vezes. O `command` de cada container escolhe qual `server.js`

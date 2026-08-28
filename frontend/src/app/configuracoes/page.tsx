@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
+import { tenantHostSuffix } from '@/lib/domain'
 import { SettingsForm } from './settings-form'
 
 /**
@@ -50,6 +51,7 @@ export default async function ConfiguracoesPage() {
             tenant={tenant}
             settings={settings}
             species={species}
+            hostSuffix={tenantHostSuffix()}
             canEdit={me.permissions.includes('tenant:configure')}
             canManageCatalog={canManageCatalog}
           />
