@@ -50,10 +50,51 @@ salvo continua funcionando). A raiz `/` responde **307**, e a diferença é deli
 ela vira o site do petshop quando o MOD-SITE entrar, e um 301 ficaria no cache dos
 navegadores apontando para o Admin sem como desfazer.
 
-Os sete serviços de backend saem da **mesma imagem** (`infra/Dockerfile`, alvo
+### `APP_DOMAIN` sob um domínio já existente
+
+Nada obriga o `APP_DOMAIN` a ser um domínio de segundo nível. Instalar em
+`petshop.officestecnologia.com.br` funciona: o que separa o slug do domínio é a
+**primeira label**, não a contagem de pontos, e o corte é o mesmo sufixo de sempre.
+
+```
+petshopdojoao.petshop.officestecnologia.com.br/         site
+petshopdojoao.petshop.officestecnologia.com.br/portal   Portal
+app.petshop.officestecnologia.com.br                    Admin
+petshopdojoao.officestecnologia.com.br                  NÃO é a instalação → Admin
+```
+
+O que muda é a **borda**, e são dois pontos:
+
+- **O wildcard vira de dois níveis para a zona.** `*.petshop.officestecnologia.com.br`
+  é um nível abaixo do que o Universal SSL da Cloudflare cobre, então o registro tem de
+  ficar em **DNS-only (nuvem cinza)**. Não é perda: o Caddy já emite o próprio
+  certificado por DNS-01 e é ele quem termina o TLS. Passar pelo proxy laranja daria
+  erro de certificado em todo host de tenant.
+- **O token de DNS continua sendo o da zona `officestecnologia.com.br`.** O desafio
+  DNS-01 grava `_acme-challenge` dentro dela; `Zone:DNS:Edit` restrito a essa zona
+  basta, e o `APP_DOMAIN` não precisa ser uma zona própria.
+
+Um detalhe menor do `Caddyfile`: o `preload` do HSTS só vale para apex, então num
+domínio assim ele é ignorado pela lista — o `max-age` e o `includeSubDomains` seguem
+valendo.
+
+Os dez serviços de backend saem da **mesma imagem** (`infra/Dockerfile`, alvo
 `backend`). Eles compartilham as mesmas dependências; sete imagens seriam o mesmo
 `node_modules` sete vezes. O `command` de cada container escolhe qual `server.js`
 sobe.
+
+## Dois caminhos de deploy
+
+| | `docker-compose.prod.yml` | `docker-compose.swarm.yml` |
+|---|---|---|
+| Orquestrador | Docker Compose | Docker Swarm |
+| Imagens | construídas na própria VPS | ghcr.io, construídas no Mac |
+| Ordem da migração | `depends_on: service_completed_successfully` | `infra/swarm/aguardar-migracao.sh` |
+| Runbook | este arquivo | **[docs/deploy-swarm.md](../docs/deploy-swarm.md)** |
+
+**Se a sua VPS roda Swarm, vá para `docs/deploy-swarm.md`** — o resto desta seção
+descreve o caminho com Compose. As duas primeiras etapas (DNS e token da
+Cloudflare) valem para os dois; a partir de "Deploy" elas divergem.
 
 ## Antes do primeiro deploy
 

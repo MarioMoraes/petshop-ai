@@ -1,0 +1,466 @@
+# Stack de produção para Docker Swarm (VPS única, Hostinger).
+#
+#   set -a; . ./.env.production; set +a
+#   docker stack deploy -c infra/docker-compose.swarm.yml petshop
+#
+# Na prática use `bash scripts/atualizar-vps.sh <versao>`, que faz isso e mais o
+# que o `stack deploy` não faz sozinho. Ver docs/deploy-swarm.md.
+#
+# ═══ O que muda em relação ao docker-compose.prod.yml ═════════════════════════
+#
+# Não é o mesmo arquivo com `deploy:` acrescentado. Quatro coisas que o compose
+# resolve o Swarm simplesmente não tem, e cada uma virou uma decisão aqui:
+#
+# 1. `build:` é IGNORADO. As imagens vêm prontas do ghcr.io — publicadas do Mac
+#    por `scripts/publicar-imagens.sh`. A VPS não compila nada.
+#
+# 2. `depends_on:` é IGNORADO — inteiro, sem aviso. A ordenação por
+#    `service_completed_successfully` do migrator não existe aqui. Quem faz o
+#    papel dela é `infra/swarm/aguardar-migracao.sh`, no `command` de cada
+#    serviço de backend; leia o cabeçalho daquele arquivo, é o ponto mais fácil
+#    de quebrar desta stack.
+#
+# 3. `env_file:` é IGNORADO. Todo valor precisa estar interpolado abaixo, e o
+#    `.env.production` tem de estar EXPORTADO no shell que roda o deploy.
+#
+# 4. `restart: unless-stopped` é ignorado; quem manda é `deploy.restart_policy`.
+#
+# ═══ Nó único ════════════════════════════════════════════════════════════════
+# Os volumes são `local` — vivem no disco de UM nó. As restrições
+# `node.role == manager` existem para que, no dia em que um segundo nó entrar no
+# swarm, o Postgres não seja reagendado para uma máquina onde o volume está
+# vazio: o banco subiria limpo, sem erro nenhum, e o estrago só apareceria
+# quando alguém procurasse um cadastro. Para valer de verdade em vários nós,
+# banco e volumes precisam sair daqui.
+
+x-restart: &restart
+  condition: any
+  delay: 10s
+
+# `order: start-first` é o que faz o gate de migração valer a pena: o container
+# antigo continua atendendo enquanto o novo espera o schema. `stop-first`, o
+# padrão, derrubaria o antigo e deixaria o buraco aberto durante a espera.
+x-update: &update
+  order: start-first
+  failure_action: rollback
+  delay: 10s
+  parallelism: 1
+
+x-backend: &backend
+  image: ${BACKEND_IMAGE:?defina BACKEND_IMAGE, ex. ghcr.io/mariomoraes/petshop-backend:0.1.0}
+  networks: [interna]
+  # 30s: o `shutdown()` de cada serviço fecha o Fastify, os jobs em curso, o
+  # canal do RabbitMQ e o Prisma. O padrão do Swarm (10s) corta um job no meio.
+  stop_grace_period: 30s
+  environment: &backend-env
+    NODE_ENV: production
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    STACK_NAME: ${STACK_NAME:-petshop}
+    DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD:?}@postgres:5432/petshop?schema=public
+    DATABASE_MAINTENANCE_URL: postgresql://app_maintenance:${APP_MAINTENANCE_PASSWORD:?}@postgres:5432/petshop?schema=public
+    REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+    RABBITMQ_URL: amqp://petshop:${RABBITMQ_PASSWORD:?}@rabbitmq:5672
+    ENCRYPTION_KEK: ${ENCRYPTION_KEK:?}
+    EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:?}
+    INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?}
+    IDENTITY_SERVICE_URL: http://identity-service:3001
+    TUTOR_SERVICE_URL: http://tutor-service:3003
+    PET_SERVICE_URL: http://pet-service:3004
+    MEDICAL_RECORD_SERVICE_URL: http://medical-record-service:3005
+    SCHEDULING_SERVICE_URL: http://scheduling-service:3006
+    BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
+    TAXIDOG_SERVICE_URL: http://taxidog-service:3008
+    CRM_AUTOMATION_SERVICE_URL: http://crm-automation-service:3009
+    MESSAGING_SERVICE_URL: http://messaging-service:3010
+    GOTENBERG_URL: http://gotenberg:3000
+    RESEND_API_KEY: ${RESEND_API_KEY:-}
+    MAIL_FROM: ${MAIL_FROM:-}
+  deploy: &backend-deploy
+    replicas: 1
+    restart_policy: *restart
+    update_config: *update
+    placement:
+      constraints: [node.role == manager]
+    resources:
+      limits:
+        # Teto, não reserva. Cada serviço usa ~150 MB em repouso; 384 MB deixa
+        # espaço para um pico de importação sem permitir que um vazamento num
+        # serviço leve os outros nove junto por OOM da máquina.
+        memory: 384M
+
+services:
+  # ─── Dependências ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: petshop
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks: [interna]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d petshop']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Sem `ports`: o banco não é alcançável de fora. Para um psql, use
+    # `docker exec` no container ou um túnel SSH.
+    deploy:
+      replicas: 1
+      restart_policy: *restart
+      placement:
+        constraints: [node.role == manager]
+      update_config:
+        # `stop-first` aqui, ao contrário dos serviços: dois Postgres com o mesmo
+        # diretório de dados montado ao mesmo tempo corrompem o cluster.
+        order: stop-first
+      resources:
+        limits: { memory: 1G }
+        reservations: { memory: 256M }
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:?}']
+    volumes:
+      - redis-data:/data
+    networks: [interna]
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    deploy:
+      replicas: 1
+      restart_policy: *restart
+      placement:
+        constraints: [node.role == manager]
+      update_config: { order: stop-first }
+      resources:
+        limits: { memory: 256M }
+
+  rabbitmq:
+    # Imagem sem `-management`: o painel web é uma superfície a menos num
+    # servidor público. Para depurar, troque a tag e alcance-o por túnel SSH.
+    image: rabbitmq:3-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: petshop
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks: [interna]
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    deploy:
+      replicas: 1
+      restart_policy: *restart
+      placement:
+        constraints: [node.role == manager]
+      update_config: { order: stop-first }
+      resources:
+        limits: { memory: 512M }
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    networks: [interna]
+    healthcheck:
+      test: ['CMD', 'curl', '--silent', '--fail', 'http://localhost:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    deploy:
+      replicas: 1
+      restart_policy: *restart
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits: { memory: 512M }
+
+  # ─── Migração ───────────────────────────────────────────────────────────────
+  # Tarefa de uma passada só. `condition: on-failure` e não `any`: ao terminar
+  # com 0 a task fica `Complete` e o Swarm NÃO a reinicia — é assim que se faz um
+  # job aqui. `docker service ls` vai mostrar `0/1`, e isso é o esperado.
+  #
+  # Ela roda de novo a cada `stack deploy` que traga uma imagem nova, e os três
+  # passos são idempotentes de propósito. Para forçar sem trocar de versão:
+  #   docker service update --force petshop_migrator
+  migrator:
+    image: ${MIGRATOR_IMAGE:?defina MIGRATOR_IMAGE, ex. ghcr.io/mariomoraes/petshop-migrator:0.1.0}
+    networks: [interna]
+    environment:
+      NODE_ENV: production
+      # Como owner: só ele cria papéis, políticas de RLS e triggers.
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?}@postgres:5432/petshop?schema=public
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?}
+      APP_MAINTENANCE_PASSWORD: ${APP_MAINTENANCE_PASSWORD:?}
+      ENCRYPTION_KEK: ${ENCRYPTION_KEK:?}
+      EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:?}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+        # Um deploy novo espera o Postgres subir; o próprio CMD tem um
+        # `pg_isready` na frente, então chegar a 5 falhas é migração quebrada,
+        # não corrida de partida.
+        max_attempts: 5
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits: { memory: 768M }
+
+  # ─── Serviços ───────────────────────────────────────────────────────────────
+  # O `command` de todos começa pelo gate: sem ele, num banco novo, os dez sobem
+  # antes de a role `app_user` existir e respondem 500 parecendo saudáveis.
+  api-gateway:
+    <<: *backend
+    command:
+      ['/app/infra/swarm/aguardar-migracao.sh', 'node', 'backend/api-gateway/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      GATEWAY_PORT: 3000
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?}
+      CLERK_AUTHORIZED_PARTIES: https://${APP_DOMAIN:?},https://*.${APP_DOMAIN}
+    healthcheck: &hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3000/health || exit 1']
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      # Cobre a espera pela migração. Um `start_period` curto faria o Swarm
+      # declarar a task morta antes de o gate liberar, e num deploy novo isso
+      # vira laço: mata, sobe, espera, mata.
+      start_period: 180s
+
+  identity-service:
+    <<: *backend
+    command:
+      ['/app/infra/swarm/aguardar-migracao.sh', 'node', 'backend/identity-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      IDENTITY_SERVICE_PORT: 3001
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?}
+      # `app.` e não o ápice: com o roteamento por host (MOD-SITE-11) o Admin tem
+      # endereço próprio, e `/convite` é rota de Admin. O ápice também serve o
+      # Admin hoje, mas o link do convite dura dias — vale apontar para o
+      # endereço canônico, não para o que funciona por enquanto.
+      APP_URL: https://app.${APP_DOMAIN:?}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-PetShop AI <convites@${APP_DOMAIN}>}
+      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3001/health || exit 1']
+
+  tutor-service:
+    <<: *backend
+    command:
+      ['/app/infra/swarm/aguardar-migracao.sh', 'node', 'backend/tutor-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      TUTOR_SERVICE_PORT: 3003
+      VIACEP_BASE_URL: ${VIACEP_BASE_URL:-https://viacep.com.br/ws}
+      CEP_LOOKUP_TIMEOUT_MS: ${CEP_LOOKUP_TIMEOUT_MS:-3000}
+      INACTIVITY_THRESHOLD_DAYS: ${INACTIVITY_THRESHOLD_DAYS:-90}
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3003/health || exit 1']
+
+  pet-service:
+    <<: *backend
+    command:
+      ['/app/infra/swarm/aguardar-migracao.sh', 'node', 'backend/pet-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      PET_SERVICE_PORT: 3004
+      R2_ENDPOINT: ${R2_ENDPOINT:?}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?}
+      R2_BUCKET: ${R2_BUCKET:-petshop-media}
+      R2_REGION: ${R2_REGION:-auto}
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3004/health || exit 1']
+
+  medical-record-service:
+    <<: *backend
+    command:
+      [
+        '/app/infra/swarm/aguardar-migracao.sh',
+        'node',
+        'backend/medical-record-service/dist/src/server.js',
+      ]
+    environment:
+      <<: *backend-env
+      MEDICAL_RECORD_SERVICE_PORT: 3005
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3005/health || exit 1']
+
+  scheduling-service:
+    <<: *backend
+    command:
+      [
+        '/app/infra/swarm/aguardar-migracao.sh',
+        'node',
+        'backend/scheduling-service/dist/src/server.js',
+      ]
+    environment:
+      <<: *backend-env
+      SCHEDULING_SERVICE_PORT: 3006
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3006/health || exit 1']
+
+  billing-ledger-service:
+    <<: *backend
+    command:
+      [
+        '/app/infra/swarm/aguardar-migracao.sh',
+        'node',
+        'backend/billing-ledger-service/dist/src/server.js',
+      ]
+    environment:
+      <<: *backend-env
+      BILLING_LEDGER_SERVICE_PORT: 3007
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3007/health || exit 1']
+
+  taxidog-service:
+    <<: *backend
+    command:
+      ['/app/infra/swarm/aguardar-migracao.sh', 'node', 'backend/taxidog-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      TAXIDOG_SERVICE_PORT: 3008
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3008/health || exit 1']
+
+  crm-automation-service:
+    <<: *backend
+    command:
+      [
+        '/app/infra/swarm/aguardar-migracao.sh',
+        'node',
+        'backend/crm-automation-service/dist/src/server.js',
+      ]
+    environment:
+      <<: *backend-env
+      CRM_AUTOMATION_SERVICE_PORT: 3009
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3009/health || exit 1']
+
+  messaging-service:
+    <<: *backend
+    command:
+      [
+        '/app/infra/swarm/aguardar-migracao.sh',
+        'node',
+        'backend/messaging-service/dist/src/server.js',
+      ]
+    environment:
+      <<: *backend-env
+      MESSAGING_SERVICE_PORT: 3010
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3010/health || exit 1']
+
+  # ─── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    image: ${FRONTEND_IMAGE:?defina FRONTEND_IMAGE, ex. ghcr.io/mariomoraes/petshop-frontend:0.1.0}
+    networks: [interna]
+    stop_grace_period: 20s
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      # Nome de serviço, não domínio: o cliente HTTP é `server-only`, o browser
+      # nunca fala com o gateway, e a chamada não sai da rede overlay.
+      API_URL: http://api-gateway:3000
+      # É daqui que o middleware tira qual host é de tenant e qual é da
+      # plataforma. Em tempo de execução, e não `NEXT_PUBLIC_`: o prefixo público
+      # seria inlinado no build e amarraria a imagem a uma instalação. Sem esta
+      # variável o padrão é `localhost:3002` e TODO host cai no Admin — nada fica
+      # exposto, mas o site do petshop e o Portal do Tutor não respondem.
+      APP_DOMAIN: ${APP_DOMAIN:?}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?}
+      # Assada no bundle do browser em tempo de BUILD. O valor aqui só serve ao
+      # lado servidor; trocá-la de verdade exige republicar a imagem do frontend.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:?}
+      NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+      NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+    healthcheck:
+      # O Next responde 307 para o login em `/`; `-o /dev/null` sem `-f` aceita
+      # qualquer resposta HTTP. O que se quer saber é se o processo atende.
+      test: ['CMD-SHELL', 'curl -s -o /dev/null http://localhost:3002/ || exit 1']
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      replicas: 1
+      restart_policy: *restart
+      update_config: *update
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits: { memory: 768M }
+
+  # ─── Borda ──────────────────────────────────────────────────────────────────
+  caddy:
+    image: ${CADDY_IMAGE:?defina CADDY_IMAGE, ex. ghcr.io/mariomoraes/petshop-caddy:0.1.0}
+    networks: [interna]
+    ports:
+      # `mode: host` e não a malha de roteamento (`ingress`), que é o padrão.
+      # A malha faz SNAT: todo request chegaria ao Caddy com o IP do nó, e o log
+      # de acesso, o rate limit e qualquer investigação de abuso passariam a
+      # enxergar um cliente só. Com um nó, a malha também não traz benefício.
+      - { target: 80, published: 80, protocol: tcp, mode: host }
+      - { target: 443, published: 443, protocol: tcp, mode: host }
+      - { target: 443, published: 443, protocol: udp, mode: host }
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?}
+      ACME_EMAIL: ${ACME_EMAIL:?}
+      # Zone:DNS:Edit na zona de APP_DOMAIN. É o que assina o desafio DNS-01 —
+      # sem DNS-01 não há certificado wildcard, e sem wildcard nenhum subdomínio
+      # de tenant abre.
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?}
+    volumes:
+      # Os certificados vivem aqui. Perder este volume é pedir tudo de novo à
+      # Let's Encrypt, que limita emissões por domínio por semana — e com
+      # wildcard sobra pouca margem para tentativa e erro.
+      - caddy-data:/data
+      - caddy-config:/config
+    deploy:
+      replicas: 1
+      restart_policy: *restart
+      placement:
+        constraints: [node.role == manager]
+      update_config:
+        # `stop-first`: com `mode: host` as portas 80/443 do nó são exclusivas —
+        # um segundo Caddy subindo antes de o primeiro sair ficaria preso em
+        # "port is already allocated" e o `start-first` nunca convergiria.
+        order: stop-first
+      resources:
+        limits: { memory: 256M }
+
+networks:
+  interna:
+    driver: overlay
+    # `attachable` para que um `docker run --network petshop_interna` de
+    # manutenção (psql, um dump, uma inspeção) alcance o banco sem publicar
+    # porta nenhuma.
+    attachable: true
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  caddy-data:
+  caddy-config:

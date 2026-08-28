@@ -14,3 +14,16 @@ RUN xcaddy build --with github.com/caddy-dns/cloudflare
 
 FROM caddy:2
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+
+# O Caddyfile vai DENTRO da imagem, e não como bind mount.
+#
+# Em `docker stack deploy` um bind mount de arquivo com caminho relativo não é
+# resolvido, e o Docker responde criando um DIRETÓRIO vazio no lugar — o Caddy sobe
+# sem configuração nenhuma, sem erro visível, e a borda responde 404 para tudo. O
+# preço de assar o arquivo é ter de republicar a imagem para mudar a configuração
+# da borda, o que acontece raramente.
+#
+# O compose de produção continua sobrepondo este arquivo com o bind mount da pasta
+# `infra/`, que lá funciona: é o mesmo conteúdo, e editar sem rebuild ajuda em
+# desenvolvimento.
+COPY Caddyfile /etc/caddy/Caddyfile

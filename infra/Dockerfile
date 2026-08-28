@@ -2,14 +2,14 @@
 #
 # Imagens de produção do PetShop AI. Três alvos, um estágio de build compartilhado:
 #
-#   --target backend   sete serviços Fastify numa imagem só
+#   --target backend   dez serviços Fastify numa imagem só
 #   --target frontend  o Next em modo standalone
 #   --target migrator  roda `migrate deploy` + seed e morre
 #
-# Uma imagem para os sete serviços porque eles compartilham as MESMAS dependências
-# (fastify, prisma, ioredis, amqplib): sete imagens seriam o mesmo node_modules
-# multiplicado por sete. O `command` de cada container escolhe qual server.js sobe
-# — ver infra/docker-compose.prod.yml.
+# Uma imagem para os dez serviços porque eles compartilham as MESMAS dependências
+# (fastify, prisma, ioredis, amqplib): dez imagens seriam o mesmo node_modules
+# multiplicado por dez. O `command` de cada container escolhe qual server.js sobe
+# — ver infra/docker-compose.prod.yml e infra/docker-compose.swarm.yml.
 #
 # Build a partir da RAIZ do monorepo:
 #   docker build -f infra/Dockerfile --target backend -t petshop/backend .
@@ -22,9 +22,15 @@ ARG NODE_VERSION=22
 FROM node:${NODE_VERSION}-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME/bin:$PNPM_HOME:$PATH
+# `postgresql-client` existe por causa do Swarm: lá o `depends_on` é ignorado, e
+# `infra/swarm/aguardar-migracao.sh` — o gate que substitui o
+# `service_completed_successfully` do compose — pergunta ao banco quantas migrações
+# já entraram. Uma pergunta em SQL resolve as três coisas de uma vez (o Postgres
+# atende? a role app_user existe? o schema está no ponto?); reimplementá-la em Node
+# custaria mais do que os ~15 MB do cliente.
 RUN corepack enable \
   && apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates curl \
+  && apt-get install -y --no-install-recommends openssl ca-certificates curl postgresql-client \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
@@ -41,12 +47,14 @@ RUN pnpm build --filter="@petshop/api-gateway" \
       --filter="@petshop/medical-record-service" \
       --filter="@petshop/scheduling-service" \
       --filter="@petshop/billing-ledger-service" \
-      --filter="@petshop/taxidog-service"
+      --filter="@petshop/taxidog-service" \
+      --filter="@petshop/crm-automation-service" \
+      --filter="@petshop/messaging-service"
 
 # ─── frontend-build ───────────────────────────────────────────────────────────
 # Estágio à parte, e não uma linha a mais em `build`, por causa do cache: a chave
 # publicável do Clerk muda por instância, e se ela vivesse no estágio comum toda
-# troca de ambiente invalidaria também a compilação dos oito serviços.
+# troca de ambiente invalidaria também a compilação dos dez serviços.
 FROM build AS frontend-build
 
 # Esta chave PRECISA existir no build. É o SDK React do Clerk que a exige, e o
@@ -77,7 +85,11 @@ ENV NODE_ENV=production
 #   2. senhas das roles — a migration cria app_user com senha 'app_user'; produção
 #                         não pode ficar assim, e só o owner consegue trocar
 #   3. seed             — permissões e catálogo global (idempotente)
+# O `until pg_isready` existe para o Swarm, onde não há `depends_on`: sem ele o
+# migrator perde a corrida com o Postgres num deploy novo e o Swarm o reinicia às
+# cegas, misturando "o banco ainda não subiu" com "a migração falhou" no mesmo log.
 CMD ["sh", "-c", "set -e; \
+  until pg_isready -d \"$DATABASE_URL\" >/dev/null 2>&1; do echo 'migrator: esperando o Postgres…'; sleep 2; done; \
   pnpm --filter @petshop/db exec prisma migrate deploy; \
   pnpm --filter @petshop/db exec tsx prisma/set-role-passwords.ts; \
   pnpm --filter @petshop/db exec tsx prisma/seed.ts"]
@@ -101,6 +113,11 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # que viajar. O frontend tem imagem própria.
 RUN find /app/backend -type d -name tests -path '*/dist/*' -prune -exec rm -rf {} + \
   && rm -rf /app/frontend
+
+# O bit de execução não sobrevive a todo caminho de checkout (Windows, tarball,
+# `git config core.fileMode false`), e sem ele o container morre no arranque com
+# "permission denied" — depois de o Swarm já ter tirado a versão anterior do ar.
+RUN chmod +x /app/infra/swarm/*.sh
 
 # A condição que faz `@petshop/*` resolver para o JavaScript compilado em vez do
 # TypeScript de origem (campo `exports` de cada pacote). Sem ela o Node tenta

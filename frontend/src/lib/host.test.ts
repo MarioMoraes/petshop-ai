@@ -130,3 +130,45 @@ describe('routeFor — host do tenant', () => {
     expect(routeFor('app.meupetshop.com.br', '/api/health', DOMAIN)).toEqual({ action: 'public' })
   })
 })
+
+/**
+ * O `APP_DOMAIN` não precisa ser um domínio de segundo nível. Instalar sob
+ * `petshop.officestecnologia.com.br` — um domínio já usado para outra coisa — é
+ * legítimo, e o corte por sufixo funciona igual: o que separa o slug do domínio é a
+ * primeira label, não a contagem de pontos.
+ *
+ * O que muda fora daqui é a borda: o wildcard do Caddy vira
+ * `*.petshop.officestecnologia.com.br`, que é de **dois** níveis para a zona
+ * `officestecnologia.com.br` — o Universal SSL da Cloudflare não cobre isso, então o
+ * registro precisa ficar em DNS-only. Ver `infra/README.md`.
+ */
+describe('routeFor — APP_DOMAIN com mais de duas labels', () => {
+  const domain = 'petshop.officestecnologia.com.br'
+  const host = `petshopdojoao.${domain}`
+
+  it('a primeira label continua sendo o slug', () => {
+    expect(resolveHost(host, domain)).toEqual({ kind: 'tenant', slug: 'petshopdojoao' })
+  })
+
+  it('o ápice da instalação é da plataforma', () => {
+    expect(resolveHost(domain, domain).kind).toBe('admin')
+    expect(resolveHost(`app.${domain}`, domain).kind).toBe('admin')
+  })
+
+  /**
+   * O domínio guarda-chuva não é a instalação: `petshopdojoao.officestecnologia.com.br`
+   * é outro host, e cai fechado no Admin como qualquer desconhecido.
+   */
+  it('o domínio de cima não é a instalação', () => {
+    expect(resolveHost('petshopdojoao.officestecnologia.com.br', domain).kind).toBe('admin')
+    expect(resolveHost('officestecnologia.com.br', domain).kind).toBe('admin')
+  })
+
+  it('as rotas do Admin vão para app. do domínio inteiro', () => {
+    expect(routeFor(host, '/dashboard', domain)).toEqual({
+      action: 'redirect',
+      host: `app.${domain}`,
+      permanent: true,
+    })
+  })
+})
