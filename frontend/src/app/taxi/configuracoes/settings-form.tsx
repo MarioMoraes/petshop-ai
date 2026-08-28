@@ -2,9 +2,15 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import type { ServiceResponse, TaxiSettings, TaxiZoneResponse } from '@petshop/shared-types'
+import type {
+  ServiceResponse,
+  TaxiSettings,
+  TaxiVehicleResponse,
+  TaxiZoneResponse,
+} from '@petshop/shared-types'
 import { Card, Field, FormError } from '@/components/ui'
 import { updateTaxiSettingsAction } from '../actions'
+import { FleetEditor } from './fleet-editor'
 import { ZonesEditor } from './zones-editor'
 
 /**
@@ -22,6 +28,7 @@ import { ZonesEditor } from './zones-editor'
 interface Props {
   settings: TaxiSettings
   zones: TaxiZoneResponse[]
+  vehicles: TaxiVehicleResponse[]
   /** Serviços ativos de categoria `TAXI` — os únicos que podem ancorar a cobrança. */
   taxiServices: ServiceResponse[]
 }
@@ -30,7 +37,7 @@ function money(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-export function TaxiSettingsForm({ settings, zones, taxiServices }: Props) {
+export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -211,6 +218,8 @@ export function TaxiSettingsForm({ settings, zones, taxiServices }: Props) {
         defaultPriceCents={settings.defaultPriceCents}
         blockOutsideZones={settings.blockOutsideZones}
       />
+
+      <FleetEditor vehicles={vehicles} />
     </div>
   )
 }

@@ -8,13 +8,14 @@ import { TaxiSettingsForm } from './settings-form'
  *
  * A ordem da tela é a ordem em que se liga o módulo: primeiro o serviço que cobra a
  * corrida (sem ele o backend recusa ligar), depois o preço padrão, e as zonas por
- * último — elas refinam o preço, não o criam.
+ * último — elas refinam o preço, não o criam. A frota fecha a tela porque é o único
+ * bloco de que o módulo não precisa: sem van, vale a capacidade do motorista.
  */
 
 export const dynamic = 'force-dynamic'
 
 export default async function TaxiConfigPage() {
-  const [me, settings, zones, services] = await Promise.all([
+  const [me, settings, zones, vehicles, services] = await Promise.all([
     serverApi().me(),
     serverApi()
       .getTaxiSettings()
@@ -24,6 +25,10 @@ export default async function TaxiConfigPage() {
       }),
     serverApi()
       .listTaxiZones()
+      .then((response) => response.items)
+      .catch(() => []),
+    serverApi()
+      .listTaxiVehicles()
       .then((response) => response.items)
       .catch(() => []),
     serverApi()
@@ -64,7 +69,12 @@ export default async function TaxiConfigPage() {
         title="Configuração"
         subtitle={settings.enabled ? 'Leva-e-traz ligado' : 'Leva-e-traz desligado'}
       />
-      <TaxiSettingsForm settings={settings} zones={zones} taxiServices={taxiServices} />
+      <TaxiSettingsForm
+        settings={settings}
+        zones={zones}
+        vehicles={vehicles}
+        taxiServices={taxiServices}
+      />
     </div>
   )
 }

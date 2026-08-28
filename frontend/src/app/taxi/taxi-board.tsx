@@ -6,6 +6,7 @@ import type {
   AvailableTaxiDriver,
   TaxiBoard as TaxiBoardData,
   TaxiRideResponse,
+  TaxiVehicleResponse,
 } from '@petshop/shared-types'
 import { Badge, Card, EmptyState } from '@/components/ui'
 import { advanceRideAction, assignRideAction, cancelRideAction, failRideAction } from './actions'
@@ -25,6 +26,11 @@ import { advanceRideAction, assignRideAction, cancelRideAction, failRideAction }
 interface Props {
   board: TaxiBoardData
   drivers: { id: string; displayName: string }[]
+  /**
+   * Vans ativas. A capacidade da corrida é `min(motorista, veículo)`, e sem frota
+   * cadastrada o seletor não aparece — vale só o número do motorista.
+   */
+  vehicles: TaxiVehicleResponse[]
   /** `taxi:configure`: preço manual e configuração. Não gate de operação. */
   canConfigure: boolean
 }
@@ -75,7 +81,7 @@ function shiftDay(date: string, days: number): string {
   return next.toISOString().slice(0, 10)
 }
 
-export function TaxiBoard({ board, drivers, canConfigure }: Props) {
+export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -136,13 +142,23 @@ export function TaxiBoard({ board, drivers, canConfigure }: Props) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/*
+            `assignRide` grava `vehicleId: input.vehicleId ?? null` — trocar o motorista
+            sem reenviar a van a **apagaria**. Por isso os dois seletores mandam sempre
+            o par completo, e não só o campo que mudou.
+          */}
           {showDriver && (
             <select
               className="input h-9 text-sm"
               value={ride.driverId ?? ''}
               disabled={pending}
               onChange={(event) =>
-                act(() => assignRideAction(ride.id, { driverId: event.target.value }))
+                act(() =>
+                  assignRideAction(ride.id, {
+                    driverId: event.target.value,
+                    vehicleId: ride.vehicleId,
+                  }),
+                )
               }
               aria-label="Motorista"
             >
@@ -152,6 +168,34 @@ export function TaxiBoard({ board, drivers, canConfigure }: Props) {
               {drivers.map((driver) => (
                 <option key={driver.id} value={driver.id}>
                   {driver.displayName}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/*
+            A van só aparece depois que há motorista: `POST /assign` exige `driverId`, e
+            oferecer o carro antes seria um seletor que não tem como salvar.
+          */}
+          {showDriver && ride.driverId && vehicles.length > 0 && (
+            <select
+              className="input h-9 text-sm"
+              value={ride.vehicleId ?? ''}
+              disabled={pending}
+              onChange={(event) =>
+                act(() =>
+                  assignRideAction(ride.id, {
+                    driverId: ride.driverId,
+                    vehicleId: event.target.value || null,
+                  }),
+                )
+              }
+              aria-label="Veículo"
+            >
+              <option value="">Sem veículo definido</option>
+              {vehicles.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {vehicle.label} · {vehicle.petCapacity}
                 </option>
               ))}
             </select>

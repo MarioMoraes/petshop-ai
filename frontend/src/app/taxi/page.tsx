@@ -31,7 +31,7 @@ export default async function TaxiPage({ searchParams }: PageProps) {
   const params = await searchParams
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? '') ? params.date : undefined
 
-  const [me, settings, board, professionals] = await Promise.all([
+  const [me, settings, board, professionals, vehicles] = await Promise.all([
     serverApi().me(),
     serverApi()
       .getTaxiSettings()
@@ -49,6 +49,12 @@ export default async function TaxiPage({ searchParams }: PageProps) {
     // atribuir. Falha aqui não derruba a tela.
     serverApi()
       .listProfessionals()
+      .catch(() => []),
+    // Mesma lógica dos motoristas: sem frota o painel ainda atribui, só não escolhe
+    // o carro. Falha aqui não derruba a tela.
+    serverApi()
+      .listTaxiVehicles()
+      .then((response) => response.items.filter((vehicle) => vehicle.active))
       .catch(() => []),
   ])
 
@@ -103,7 +109,12 @@ export default async function TaxiPage({ searchParams }: PageProps) {
 
         />
       ) : (
-        <TaxiBoard board={board} drivers={drivers} canConfigure={canConfigure} />
+        <TaxiBoard
+          board={board}
+          drivers={drivers}
+          vehicles={vehicles}
+          canConfigure={canConfigure}
+        />
       )}
     </div>
   )

@@ -8,8 +8,10 @@ import {
   CreateTaxiRidesSchema,
   FailTaxiRideSchema,
   TaxiStatusTransitionSchema,
+  TaxiVehicleSchema,
   TaxiZoneSchema,
   UpdateTaxiSettingsSchema,
+  UpdateTaxiVehicleSchema,
   UpdateTaxiZoneSchema,
   type AddressResponse,
   type AvailableTaxiDriver,
@@ -17,6 +19,7 @@ import {
   type TaxiQuote,
   type TaxiRideResponse,
   type TaxiSettings,
+  type TaxiVehicleResponse,
   type TaxiZoneResponse,
 } from '@petshop/shared-types'
 import { serverApi } from '@/lib/api'
@@ -308,4 +311,63 @@ export async function deleteZoneAction(zoneId: string): Promise<ActionResult<nul
   } catch (error) {
     return toFailure(error)
   }
+}
+
+// ─── Frota (MOD-TAXI-03) ─────────────────────────────────────────────────────
+//
+// Não há exclusão: `/v1/taxi/vehicles` só tem POST e PATCH. É deliberado — a van
+// aparece em corridas passadas, e apagá-la faria o histórico perder a resposta para
+// "em que carro o Thor voltou?". Van vendida se **desativa**.
+
+export async function createVehicleAction(
+  input: unknown,
+): Promise<ActionResult<TaxiVehicleResponse>> {
+  const parsed = TaxiVehicleSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      fieldErrors: Object.fromEntries(
+        parsed.error.issues.map((issue) => [issue.path.join('.'), issue.message]),
+      ),
+    }
+  }
+
+  try {
+    const data = await serverApi().createTaxiVehicle(parsed.data)
+    revalidateFleet()
+    return { ok: true, data }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function updateVehicleAction(
+  vehicleId: string,
+  input: unknown,
+): Promise<ActionResult<TaxiVehicleResponse>> {
+  const parsed = UpdateTaxiVehicleSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      fieldErrors: Object.fromEntries(
+        parsed.error.issues.map((issue) => [issue.path.join('.'), issue.message]),
+      ),
+    }
+  }
+
+  try {
+    const data = await serverApi().updateTaxiVehicle(vehicleId, parsed.data)
+    revalidateFleet()
+    return { ok: true, data }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/** A frota muda a capacidade da corrida, então o painel do dia também desatualiza. */
+function revalidateFleet(): void {
+  revalidatePath('/taxi/configuracoes')
+  revalidatePath('/taxi')
 }
