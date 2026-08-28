@@ -800,3 +800,60 @@ export interface TaxiEventMap {
   'taxi.falhou': TaxiFalhouEvent
   'taxi.cancelado': TaxiCanceladoEvent
 }
+
+// ─── MOD-CRM ─────────────────────────────────────────────────────────────────
+
+/**
+ * Eventos do relacionamento (PRD relacionamento_crm_08 §8).
+ *
+ * O módulo consome muito e publica pouco: o que sai daqui é o que o painel, a
+ * auditoria e — depois — o MOD-ADMIN precisam para saber se o petshop está mesmo
+ * falando com os clientes. Nenhum deles carrega o corpo da mensagem: o texto tem
+ * nome, pet, horário e valor devido, e um evento é a coisa mais copiada do sistema.
+ */
+
+interface MessagingBaseEvent {
+  timestamp: string
+  tenantId: string
+  messageId: string
+  tutorId: string
+}
+
+export interface MensagemEnfileiradaEvent extends MessagingBaseEvent {
+  channel: 'WHATSAPP' | 'EMAIL'
+  category: 'TRANSACTIONAL' | 'OPERATIONAL' | 'MARKETING'
+  templateKey: string
+  scheduledFor: string | null
+}
+
+export interface MensagemEnviadaEvent extends MessagingBaseEvent {
+  channel: 'WHATSAPP' | 'EMAIL'
+  providerMessageId: string | null
+  sentAt: string
+}
+
+export interface MensagemEntregueEvent extends MessagingBaseEvent {
+  channel: 'WHATSAPP' | 'EMAIL'
+  deliveredAt: string
+  readAt: string | null
+}
+
+export interface MensagemFalhouEvent extends MessagingBaseEvent {
+  channel: 'WHATSAPP' | 'EMAIL'
+  errorCode: string | null
+  attempts: number
+}
+
+export interface MensagemBloqueadaEvent extends MessagingBaseEvent {
+  channel: 'WHATSAPP' | 'EMAIL'
+  category: 'TRANSACTIONAL' | 'OPERATIONAL' | 'MARKETING'
+  blockReason: string
+}
+
+export interface MessagingEventMap {
+  'mensagem.enfileirada': MensagemEnfileiradaEvent
+  'mensagem.enviada': MensagemEnviadaEvent
+  'mensagem.entregue': MensagemEntregueEvent
+  'mensagem.falhou': MensagemFalhouEvent
+  'mensagem.bloqueada': MensagemBloqueadaEvent
+}

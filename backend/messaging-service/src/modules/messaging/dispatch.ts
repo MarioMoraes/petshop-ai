@@ -1,0 +1,332 @@
+import { getMaintenancePrisma, withTenant } from '@petshop/db'
+import { publishEvent } from '../../lib/events.js'
+import { logger, recordMetric } from '../../lib/logger.js'
+import { consumeDailySlot, consumeRateSlot } from '../../lib/redis.js'
+import { loadEnv } from '../../env.js'
+import { openCipher } from './crypto.js'
+import { portFor } from './ports/registry.js'
+import { allows, loadConsents } from './consent.js'
+import { isSuppressed, suppress } from './suppressions.js'
+import { loadSettings } from './settings.js'
+import { tenantToday } from './window.js'
+
+/**
+ * O worker (MOD-CRM-03).
+ *
+ * Duas coisas que ele faz e que parecem redundantes até se olhar o intervalo entre
+ * enfileirar e enviar:
+ *
+ * - **Revalida consentimento e supressão** (RN-03). Uma mensagem pode esperar doze
+ *   horas na fila, e nesse tempo o tutor pode ter pedido para parar no balcão. Checar
+ *   só na entrada é checar no momento errado.
+ * - **Cobra o teto no despacho, não na criação.** Um teto cobrado ao enfileirar
+ *   recusaria a mensagem; cobrado aqui, ele apenas adia — que é o comportamento que a
+ *   RN-05 pede.
+ *
+ * O backoff é 1min/5min/30min/2h e a quinta falha mata a mensagem (AC-05).
+ */
+
+const BACKOFF_MINUTES = [1, 5, 30, 120]
+const MAX_ATTEMPTS = 5
+
+/** RN-05: intervalo com jitter entre disparos. Rajada uniforme é assinatura de robô. */
+const JITTER_MIN_MS = 2_000
+const JITTER_MAX_MS = 6_000
+
+export interface DispatchSummary {
+  picked: number
+  sent: number
+  failed: number
+  blocked: number
+  throttled: number
+}
+
+/**
+ * Um passo do worker, para **um** tenant.
+ *
+ * A varredura cross-tenant é do job, que abre o escopo de plataforma; aqui já se está
+ * dentro de um tenant, e é o que permite a transação com RLS ligada.
+ */
+export async function dispatchTenant(
+  tenantId: string,
+  options: { now?: Date; jitter?: boolean } = {},
+): Promise<DispatchSummary> {
+  const now = options.now ?? new Date()
+  const summary: DispatchSummary = { picked: 0, sent: 0, failed: 0, blocked: 0, throttled: 0 }
+
+  const settings = await withTenant(tenantId, (tx) => loadSettings(tx, tenantId))
+  if (!settings.enabled) return summary
+
+  const batch = await withTenant(tenantId, (tx) =>
+    tx.message.findMany({
+      where: {
+        direction: 'OUTBOUND',
+        status: { in: ['QUEUED', 'SCHEDULED'] },
+        OR: [{ scheduledFor: null }, { scheduledFor: { lte: now } }],
+      },
+      orderBy: [{ scheduledFor: 'asc' }, { createdAt: 'asc' }],
+      take: loadEnv().DISPATCH_BATCH_SIZE,
+      select: { id: true },
+    }),
+  )
+
+  summary.picked = batch.length
+  const today = tenantToday(settings.timezone, now)
+
+  for (const { id } of batch) {
+    if (!(await consumeRateSlot(tenantId, settings.perMinuteCap))) {
+      summary.throttled += 1
+      // Sem `break` disfarçado: o teto é por minuto, e as restantes do lote ficam
+      // para a passada seguinte — trinta segundos depois.
+      break
+    }
+
+    const outcome = await dispatchOne(tenantId, id, settings, today, now)
+    if (outcome === 'sent') summary.sent += 1
+    else if (outcome === 'blocked') summary.blocked += 1
+    else if (outcome === 'throttled') summary.throttled += 1
+    else summary.failed += 1
+
+    if (options.jitter !== false && outcome === 'sent') await sleep(jitterMs())
+  }
+
+  if (summary.sent > 0 || summary.failed > 0) {
+    recordMetric({ metric: 'messages_dispatched', tenantId, value: summary.sent, unit: 'count' })
+  }
+
+  return summary
+}
+
+type Outcome = 'sent' | 'failed' | 'blocked' | 'throttled'
+
+interface PreparedMessage {
+  tutorId: string
+  channel: 'WHATSAPP' | 'EMAIL'
+  category: 'TRANSACTIONAL' | 'OPERATIONAL' | 'MARKETING'
+  attempts: number
+}
+
+async function dispatchOne(
+  tenantId: string,
+  messageId: string,
+  settings: Awaited<ReturnType<typeof loadSettings>>,
+  today: string,
+  now: Date,
+): Promise<Outcome> {
+  // A "lease" do worker: só quem consegue mover a mensagem para SENDING a envia. Dois
+  // processos na mesma fila é o caso normal em produção, e sem isto os dois enviariam.
+  const claimed = await withTenant(tenantId, (tx) =>
+    tx.message.updateMany({
+      where: { id: messageId, status: { in: ['QUEUED', 'SCHEDULED'] } },
+      data: { status: 'SENDING' },
+    }),
+  )
+  if (claimed.count === 0) return 'failed'
+
+  // O tipo é explícito porque as duas saídas são genuinamente diferentes — bloquear ou
+  // enviar — e deixar a inferência unir os dois literais transforma cada campo em
+  // opcional, o que esconde justamente o caso que precisa ficar visível.
+  type Prepared =
+    | { block: 'NO_CONSENT' | 'SUPPRESSED' | 'NO_CHANNEL'; message: PreparedMessage }
+    | { block?: undefined; message: PreparedMessage; to: string; body: string; subject: string | null }
+
+  const prepared: Prepared = await withTenant(tenantId, async (tx) => {
+    const message = await tx.message.findUniqueOrThrow({ where: { id: messageId } })
+    const cipher = await openCipher(tx, tenantId)
+
+    const to = safeDecrypt(cipher.decrypt, message.toEncrypted)
+    const body = safeDecrypt(cipher.decrypt, message.bodyEncrypted)
+    const subject = message.subjectEncrypted
+      ? safeDecrypt(cipher.decrypt, message.subjectEncrypted)
+      : null
+
+    // RN-03: o mundo pode ter mudado desde o enfileiramento.
+    const consents = await loadConsents(tx, message.tutorId)
+    if (!allows(consents, message.channel, message.category)) {
+      return { block: 'NO_CONSENT' as const, message }
+    }
+    if (!to || (await isSuppressed(tx, message.channel, to))) {
+      return { block: to ? ('SUPPRESSED' as const) : ('NO_CHANNEL' as const), message }
+    }
+
+    return { message, to, body, subject }
+  })
+
+  if (prepared.block) {
+    await withTenant(tenantId, (tx) =>
+      tx.message.update({
+        where: { id: messageId },
+        data: { status: 'BLOCKED', blockReason: prepared.block },
+      }),
+    )
+    await publishEvent('mensagem.bloqueada', {
+      tenantId,
+      messageId,
+      tutorId: prepared.message.tutorId,
+      channel: prepared.message.channel,
+      category: prepared.message.category,
+      blockReason: prepared.block,
+    })
+    return 'blocked'
+  }
+
+  // O teto diário é só de MARKETING (RN-05): lembrete e aviso de taxi não podem ser
+  // represados por um limite pensado para campanha.
+  if (prepared.message.category === 'MARKETING') {
+    if (!(await consumeDailySlot(tenantId, today, settings.dailyCap))) {
+      await withTenant(tenantId, (tx) =>
+        tx.message.update({
+          where: { id: messageId },
+          data: { status: 'SCHEDULED', scheduledFor: startOfNextDay(now) },
+        }),
+      )
+      return 'throttled'
+    }
+  }
+
+  const port = portFor(prepared.message.channel)
+  const result = await port.send({
+    to: prepared.to,
+    subject: prepared.subject,
+    body: prepared.body,
+    senderName: settings.senderName,
+    replyTo: settings.replyToEmail,
+  })
+
+  if (result.ok) {
+    await withTenant(tenantId, async (tx) => {
+      await tx.message.update({
+        where: { id: messageId },
+        data: {
+          status: 'SENT',
+          sentAt: now,
+          provider: result.provider,
+          providerMessageId: result.providerMessageId,
+          errorCode: null,
+          errorDetail: null,
+        },
+      })
+      await tx.messageEvent.create({
+        data: { tenantId, messageId, event: 'SENT', occurredAt: now },
+      })
+    })
+
+    await publishEvent('mensagem.enviada', {
+      tenantId,
+      messageId,
+      tutorId: prepared.message.tutorId,
+      channel: prepared.message.channel,
+      providerMessageId: result.providerMessageId,
+      sentAt: now.toISOString(),
+    })
+    return 'sent'
+  }
+
+  const attempts = prepared.message.attempts + 1
+  // Erro permanente não ganha as cinco tentativas: endereço inválido continua inválido
+  // na quinta vez, e insistir só queima a reputação do domínio de envio.
+  const dead = result.permanent === true || attempts >= MAX_ATTEMPTS
+  const backoff = BACKOFF_MINUTES[Math.min(attempts - 1, BACKOFF_MINUTES.length - 1)]!
+
+  await withTenant(tenantId, async (tx) => {
+    await tx.message.update({
+      where: { id: messageId },
+      data: {
+        status: dead ? 'DEAD' : 'QUEUED',
+        attempts,
+        failedAt: now,
+        scheduledFor: dead ? null : new Date(now.getTime() + backoff * 60_000),
+        provider: result.provider,
+        errorCode: result.errorCode ?? null,
+        errorDetail: result.errorDetail ?? null,
+      },
+    })
+    await tx.messageEvent.create({
+      data: {
+        tenantId,
+        messageId,
+        event: result.permanent ? 'BOUNCED' : 'FAILED',
+        occurredAt: now,
+        raw: { errorCode: result.errorCode ?? null, provider: result.provider },
+      },
+    })
+
+    // Bounce permanente suprime o endereço: continuar tentando um e-mail que não
+    // existe é o caminho mais rápido para o domínio do petshop virar spam.
+    if (result.permanent && result.errorCode !== 'CHANNEL_UNAVAILABLE') {
+      await suppress(tx, tenantId, prepared.message.channel, prepared.to, 'HARD_BOUNCE')
+    }
+  })
+
+  if (dead) {
+    await publishEvent('mensagem.falhou', {
+      tenantId,
+      messageId,
+      tutorId: prepared.message.tutorId,
+      channel: prepared.message.channel,
+      errorCode: result.errorCode ?? null,
+      attempts,
+    })
+  }
+
+  return 'failed'
+}
+
+/**
+ * A varredura de todos os tenants com fila.
+ *
+ * Roda no escopo de plataforma para **descobrir quem tem fila** e volta para o
+ * contexto de cada tenant para despachar — a mesma forma dos jobs do MOD-LEDGER.
+ */
+export async function dispatchPending(now = new Date()): Promise<DispatchSummary> {
+  const total: DispatchSummary = { picked: 0, sent: 0, failed: 0, blocked: 0, throttled: 0 }
+
+  // Descobrir é cross-tenant (`app_maintenance`), agir nunca é (`withTenant`) — a
+  // mesma separação dos jobs da agenda e do ledger.
+  const rows = await getMaintenancePrisma().$queryRaw<{ tenant_id: string }[]>`
+    SELECT DISTINCT tenant_id FROM messages
+     WHERE direction = 'OUTBOUND'
+       AND status IN ('QUEUED', 'SCHEDULED')
+       AND (scheduled_for IS NULL OR scheduled_for <= ${now})
+     LIMIT 200
+  `
+  const tenantIds = rows.map((row) => row.tenant_id)
+
+  for (const tenantId of tenantIds) {
+    try {
+      const summary = await dispatchTenant(tenantId, { now })
+      total.picked += summary.picked
+      total.sent += summary.sent
+      total.failed += summary.failed
+      total.blocked += summary.blocked
+      total.throttled += summary.throttled
+    } catch (error) {
+      // Um tenant com problema não pode travar a fila dos outros.
+      logger.error({ err: error, tenantId }, 'falha ao despachar mensagens do tenant')
+    }
+  }
+
+  return total
+}
+
+function safeDecrypt(decrypt: (payload: string) => string, payload: string): string {
+  try {
+    return decrypt(payload)
+  } catch {
+    // Corpo já expurgado pela retenção ou pela anonimização: a mensagem não sai, e o
+    // caminho de bloqueio acima trata o endereço vazio.
+    return ''
+  }
+}
+
+function jitterMs(): number {
+  return JITTER_MIN_MS + Math.floor(Math.random() * (JITTER_MAX_MS - JITTER_MIN_MS))
+}
+
+function startOfNextDay(now: Date): Date {
+  return new Date(now.getTime() + 12 * 3_600_000)
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}

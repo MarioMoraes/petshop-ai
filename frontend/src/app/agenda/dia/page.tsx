@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
+import type { TaxiRideResponse } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { AgendaTabs } from '../agenda-tabs'
@@ -37,7 +38,13 @@ export default async function DiaPage({ searchParams }: PageProps) {
   // O catálogo alimenta o serviço acrescentado no check-out (RN-18). Falha dele não
   // derruba a agenda: sem a lista, a janela de conclusão simplesmente não oferece
   // extras — e continua pedindo peso e observação, que é o essencial.
-  const [view, services] = await Promise.all([
+  //
+  // O Taxi Dog entra aqui por duas chamadas que **nunca** derrubam a agenda: quem não
+  // tem `taxi:operate` (o banhista que abriu por link), o módulo desligado e o serviço
+  // fora do ar dão todos no mesmo resultado prático — a agenda do dia sem leva-e-traz,
+  // que é uma agenda perfeitamente utilizável.
+  //
+  const [view, services, settings, rides] = await Promise.all([
     serverApi()
       .getDayView(date)
       .catch((error: unknown) => {
@@ -47,7 +54,23 @@ export default async function DiaPage({ searchParams }: PageProps) {
     serverApi()
       .listServices()
       .catch(() => []),
+    serverApi()
+      .getTaxiSettings()
+      .catch(() => null),
+    serverApi()
+      .listTaxiRides({ date, limit: 100 })
+      .then((page) => page.items)
+      .catch((): TaxiRideResponse[] => []),
   ])
+
+  const taxi = settings?.enabled ? { windowMinutes: settings.defaultWindowMinutes } : null
+
+  // Agrupadas por agendamento: o cartão pergunta "este banho tem corrida?", e não
+  // "quais corridas existem hoje?".
+  const taxiRides: Record<string, TaxiRideResponse[]> = {}
+  for (const ride of rides) {
+    ;(taxiRides[ride.appointmentId] ??= []).push(ride)
+  }
 
   const failed = view instanceof ApiError
   const total = failed ? 0 : view.columns.reduce((sum, column) => sum + column.appointments.length, 0)
@@ -93,7 +116,13 @@ export default async function DiaPage({ searchParams }: PageProps) {
           }
         />
       ) : (
-        <DayBoard view={view} date={date} services={services} />
+        <DayBoard
+          view={view}
+          date={date}
+          services={services}
+          taxi={taxi}
+          taxiRides={taxiRides}
+        />
       )}
     </div>
   )

@@ -86,6 +86,15 @@ const RLS_MODELS = new Set([
   'TaxiVehicle',
   'TaxiZone',
   'TaxiSettings',
+  // MOD-CRM: a fila de saída e o histórico de conversa. `MessageEvent` entra junto
+  // porque carrega `tenant_id` próprio — o callback do provedor sobre uma mensagem é
+  // tão do tenant quanto a mensagem.
+  'Message',
+  'MessageEvent',
+  'MessageTemplate',
+  'MessagingSettings',
+  'MessagingSuppression',
+  'Automation',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
   // tenants por definição, e exigir contexto dele seria negar o que ele é.

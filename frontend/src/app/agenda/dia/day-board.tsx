@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import type { DayView, ServiceResponse } from '@petshop/shared-types'
+import type { DayView, ServiceResponse, TaxiRideResponse } from '@petshop/shared-types'
 import { Badge, Card } from '@/components/ui'
 import { checkInAction } from '../actions'
 import { CheckoutPanel } from './checkout-panel'
+import { TaxiPanel } from './taxi-panel'
 
 /**
  * O painel do dia, uma coluna por profissional.
@@ -23,6 +24,14 @@ interface Props {
   date: string
   /** Catálogo ativo, para o serviço acrescentado durante a execução (RN-18). */
   services: ServiceResponse[]
+  /**
+   * Taxi Dog ligado e configurado, com a janela padrão do módulo. `null` quando o
+   * módulo está desligado, quando o serviço não respondeu ou quando quem olha não
+   * tem `taxi:operate` — nos três casos o cartão simplesmente não oferece corrida.
+   */
+  taxi: { windowMinutes: number } | null
+  /** Corridas do dia, agrupadas por agendamento. */
+  taxiRides: Record<string, TaxiRideResponse[]>
 }
 
 const STATUS_TONE: Record<string, 'neutral' | 'accent' | 'success' | 'danger'> = {
@@ -35,6 +44,20 @@ const STATUS_TONE: Record<string, 'neutral' | 'accent' | 'success' | 'danger'> =
   CANCELLED: 'neutral',
   RESCHEDULED: 'neutral',
 }
+
+/** Corrida que ainda diz respeito ao pet: cancelada e frustrada não ocupam a perna. */
+function live(ride: TaxiRideResponse): boolean {
+  return ride.status !== 'CANCELLED' && ride.status !== 'FAILED'
+}
+
+/**
+ * Os status do agendamento que ainda aceitam pendurar uma corrida.
+ *
+ * Espelha `CHARGEABLE_APPOINTMENT_STATUSES` do taxidog-service: concluído e cancelado
+ * ficam de fora porque o débito já foi (ou não vai) para o ledger, e um item
+ * acrescentado depois nunca seria cobrado.
+ */
+const TAXI_ABLE = new Set(['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'])
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Aguardando aprovação',
@@ -65,11 +88,13 @@ function shiftDay(date: string, days: number): string {
   return next.toISOString().slice(0, 10)
 }
 
-export function DayBoard({ view, date, services }: Props) {
+export function DayBoard({ view, date, services, taxi, taxiRides }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   /** Qual cartão está com a janela de conclusão aberta. Um por vez. */
   const [concluindo, setConcluindo] = useState<string | null>(null)
+  /** Qual cartão está pedindo Taxi Dog. Também um por vez. */
+  const [pedindoTaxi, setPedindoTaxi] = useState<string | null>(null)
 
   function go(to: string) {
     router.push(`/agenda/dia?date=${to}`)
@@ -169,6 +194,11 @@ export function DayBoard({ view, date, services }: Props) {
                 ) : (
                   column.appointments.map((appointment) => {
                     const critical = appointment.alerts.some((a) => a.severity === 'CRITICAL')
+                    const rides = (taxiRides[appointment.id] ?? []).filter(live)
+                    // Duas pernas por agendamento e ponto: com ida e volta já pedidas
+                    // não há o que oferecer, e o botão vira ruído no cartão.
+                    const podePedirTaxi =
+                      taxi !== null && TAXI_ABLE.has(appointment.status) && rides.length < 2
 
                     return (
                       <div
@@ -200,6 +230,25 @@ export function DayBoard({ view, date, services }: Props) {
                           </ul>
                         )}
 
+                        {/*
+                          A corrida aparece no cartão do atendimento porque quem olha a
+                          agenda precisa saber que o pet **não** vem pela porta — e
+                          sobretudo que ninguém foi buscá-lo ainda.
+                        */}
+                        {rides.length > 0 && (
+                          <ul className="mt-2 flex flex-wrap gap-1.5">
+                            {rides.map((ride) => (
+                              <li key={ride.id}>
+                                <Badge tone={ride.status === 'REQUESTED' ? 'danger' : 'accent'}>
+                                  Taxi {ride.legLabel.toLowerCase()} ·{' '}
+                                  {hourOf(ride.windowStartsAt, view.timezone)} ·{' '}
+                                  {ride.status === 'REQUESTED' ? 'sem motorista' : ride.statusLabel}
+                                </Badge>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
                         <div className="mt-3 flex flex-wrap gap-2">
                           {appointment.status === 'CONFIRMED' && (
                             <button
@@ -223,6 +272,16 @@ export function DayBoard({ view, date, services }: Props) {
                                 Concluir
                               </button>
                             )}
+                          {podePedirTaxi && pedindoTaxi !== appointment.id && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              disabled={pending}
+                              onClick={() => setPedindoTaxi(appointment.id)}
+                            >
+                              {rides.length === 0 ? 'Taxi Dog' : 'Pedir a outra perna'}
+                            </button>
+                          )}
                         </div>
 
                         {concluindo === appointment.id && (
@@ -232,6 +291,20 @@ export function DayBoard({ view, date, services }: Props) {
                             onClose={() => setConcluindo(null)}
                             onDone={() => {
                               setConcluindo(null)
+                              router.refresh()
+                            }}
+                          />
+                        )}
+
+                        {taxi && pedindoTaxi === appointment.id && (
+                          <TaxiPanel
+                            appointment={appointment}
+                            timezone={view.timezone}
+                            windowMinutes={taxi.windowMinutes}
+                            existing={rides}
+                            onClose={() => setPedindoTaxi(null)}
+                            onDone={() => {
+                              setPedindoTaxi(null)
                               router.refresh()
                             }}
                           />

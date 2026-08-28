@@ -127,6 +127,14 @@ export function createRawAppClient(): PrismaClient {
 }
 
 const BUSINESS_TABLES = [
+  // MOD-CRM — na frente de tudo: `messages` referencia tutor e pet, e
+  // `message_events` referencia a mensagem.
+  'message_events',
+  'messages',
+  'message_templates',
+  'messaging_settings',
+  'messaging_suppressions',
+  'automations',
   // MOD-LEDGER-08 — o recibo aponta para o pagamento, então vem antes dele.
   'receipts',
   'receipt_counters',

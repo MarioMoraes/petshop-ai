@@ -106,13 +106,19 @@ model Tenant {
   updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  settings        TenantSettings?
-  billingSettings BillingSettings?
-  taxiSettings    TaxiSettings?
-  memberships     Membership[]
-  invitations     Invitation[]
-  roleOverrides   TenantRoleOverride[]
-  dataKey         DataKey?
+  settings          TenantSettings?
+  billingSettings   BillingSettings?
+  taxiSettings      TaxiSettings?
+  messagingSettings MessagingSettings?
+  memberships       Membership[]
+  invitations       Invitation[]
+  roleOverrides     TenantRoleOverride[]
+  dataKey           DataKey?
+
+  messages              Message[]
+  messageTemplates      MessageTemplate[]
+  messagingSuppressions MessagingSuppression[]
+  automations           Automation[]
 
   @@index([status])
   @@map("tenants")
@@ -472,6 +478,7 @@ model Tutor {
   taxiRides      TaxiRide[]
   attendances    Attendance[]
   ledgerAccounts LedgerAccount[]
+  messages       Message[]
 
   mergedInto Tutor?  @relation("TutorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom Tutor[] @relation("TutorMerge")
@@ -810,6 +817,7 @@ model Pet {
 
   appointments Appointment[]
   taxiRides    TaxiRide[]
+  messages     Message[]
 
   allergies     Allergy[]
   temperaments  Temperament[]
@@ -2393,4 +2401,279 @@ model TaxiSettings {
   service Service? @relation(fields: [taxiServiceId], references: [id], onDelete: SetNull)
 
   @@map("taxi_settings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOD-CRM — Relacionamento e automação (PRD relacionamento_crm_08)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum MessageChannel {
+  WHATSAPP
+  EMAIL
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+/// Decide base legal, janela de silêncio e teto diário de uma vez (RN-01).
+enum MessageCategory {
+  TRANSACTIONAL
+  OPERATIONAL
+  MARKETING
+}
+
+enum MessageStatus {
+  QUEUED
+  SCHEDULED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  DEAD
+  BLOCKED
+  CANCELLED
+}
+
+enum MessageBlockReason {
+  NO_CONSENT
+  SUPPRESSED
+  NO_CHANNEL
+  PET_DECEASED
+  QUIET_HOURS_EXPIRED
+}
+
+enum MessageOriginType {
+  APPOINTMENT
+  TAXI_RIDE
+  LEDGER_ENTRY
+  CAMPAIGN_RUN
+  PET
+  MANUAL
+}
+
+enum SuppressionReason {
+  HARD_BOUNCE
+  NOT_ON_WHATSAPP
+  ANONYMIZED
+  MANUAL
+}
+
+enum MessageEventKind {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  BOUNCED
+}
+
+/// A fila de saída e o histórico, na mesma tabela.
+///
+/// São a mesma coisa vista em dois momentos: enquanto `status` é `QUEUED` ou
+/// `SCHEDULED` a linha é fila; depois é histórico. Separar as duas obrigaria a copiar
+/// o corpo cifrado de uma tabela para outra no instante do envio — o momento em que
+/// menos se quer ter trabalho a fazer.
+model Message {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  tutorId String  @map("tutor_id") @db.Uuid
+  petId   String? @map("pet_id") @db.Uuid
+
+  channel   MessageChannel
+  direction MessageDirection @default(OUTBOUND)
+  category  MessageCategory
+
+  templateKey     String @map("template_key") @db.VarChar(60)
+  /// Qual versão do texto gerou este corpo. Zero = o padrão de `messaging-seed.ts`.
+  templateVersion Int    @default(0) @map("template_version")
+
+  /// Telefone E.164 ou e-mail, cifrado. O hash ao lado casa supressão e inbound sem
+  /// precisar decifrar linha por linha.
+  toEncrypted String @map("to_encrypted")
+  toHash      String @map("to_hash") @db.Char(64)
+
+  subjectEncrypted String? @map("subject_encrypted")
+  /// RN-14: renderizado **na entrada da fila**, com os dados daquele instante. Editar
+  /// o template depois não reescreve o que já está esperando para sair.
+  bodyEncrypted    String  @map("body_encrypted")
+
+  status      MessageStatus       @default(QUEUED)
+  blockReason MessageBlockReason? @map("block_reason")
+
+  /// Idempotência do motor (AC-04 de MOD-CRM-03): único por tenant.
+  dedupeKey String @map("dedupe_key") @db.VarChar(120)
+
+  /// O que invalida a mensagem enquanto ela espera (AC-06 de MOD-CRM-03).
+  originType MessageOriginType? @map("origin_type")
+  originId   String?            @map("origin_id") @db.Uuid
+
+  /// Quando pode sair. Nulo = assim que o worker pegar.
+  scheduledFor DateTime? @map("scheduled_for") @db.Timestamptz(6)
+
+  sentAt      DateTime? @map("sent_at") @db.Timestamptz(6)
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(6)
+  readAt      DateTime? @map("read_at") @db.Timestamptz(6)
+  failedAt    DateTime? @map("failed_at") @db.Timestamptz(6)
+
+  attempts Int @default(0) @db.SmallInt
+
+  provider          String? @db.VarChar(20)
+  providerMessageId String? @map("provider_message_id") @db.VarChar(120)
+
+  /// Em claro: é o que o painel de falhas mostra, e não carrega dado do tutor.
+  errorCode   String? @map("error_code") @db.VarChar(60)
+  errorDetail String? @map("error_detail") @db.VarChar(500)
+
+  /// Nulo quando o gatilho foi automação, e não gente.
+  requestedBy String?  @map("requested_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  events MessageEvent[]
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tutor  Tutor  @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  pet    Pet?   @relation(fields: [petId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, dedupeKey], map: "idx_messages_dedupe")
+  @@index([tenantId, tutorId, createdAt(sort: Desc)], map: "idx_messages_tutor")
+  @@map("messages")
+}
+
+/// Callback do provedor, append-only por trigger. É a prova de entrega — e a única
+/// coisa que explica, semanas depois, por que uma mensagem consta como falhada.
+model MessageEvent {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  messageId String @map("message_id") @db.Uuid
+
+  event      MessageEventKind
+  occurredAt DateTime         @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  /// Payload bruto do provedor, para quando a dúvida for "o que exatamente ele disse".
+  raw        Json?
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId, occurredAt], map: "idx_message_events_message")
+  @@map("message_events")
+}
+
+/// **Só o que o petshop mudou.** Os textos padrão vivem em
+/// `packages/shared-types/src/messaging-seed.ts` e a listagem é a união dos dois.
+model MessageTemplate {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  key     String         @db.VarChar(60)
+  channel MessageChannel
+
+  subject String? @db.VarChar(160)
+  body    String
+
+  active  Boolean @default(true)
+  /// Incrementa a cada gravação. Vai carimbada na mensagem para explicar, depois, com
+  /// que texto ela saiu.
+  version Int     @default(1)
+
+  updatedBy String?  @map("updated_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// O índice já é criado em SQL na migration; declará-lo aqui é o que dá ao cliente
+  /// o `upsert` por chave composta — e o que impede um diff futuro de recriá-lo.
+  @@unique([tenantId, key, channel], map: "idx_templates_key")
+  @@map("message_templates")
+}
+
+/// Um por tenant, como `taxi_settings` e `billing_settings`.
+///
+/// `enabled` nasce **false**: ligar o motor é decisão de quem responde pelo número e
+/// pelo domínio de e-mail do petshop, não um padrão que se descobre pelo cliente
+/// recebendo mensagem.
+model MessagingSettings {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  enabled Boolean @default(false)
+
+  /// Decisão 16, no fuso do tenant. Minutos desde a meia-noite, como
+  /// `professional_schedules` — a mesma unidade evita duas conversões diferentes de
+  /// horário local no mesmo produto.
+  quietStartMin Int @default(480) @map("quiet_start_min") @db.SmallInt
+  quietEndMin   Int @default(1200) @map("quiet_end_min") @db.SmallInt
+
+  marketingWeekdaysOnly Boolean @default(true) @map("marketing_weekdays_only")
+
+  /// RN-05/RN-06. `TRANSACTIONAL` e `OPERATIONAL` não contam para o teto diário.
+  dailyCap     Int @default(500) @map("daily_cap")
+  perMinuteCap Int @default(20) @map("per_minute_cap") @db.SmallInt
+
+  defaultChannel  String @default("AUTO") @map("default_channel") @db.VarChar(10)
+  retentionMonths Int    @default(24) @map("retention_months") @db.SmallInt
+
+  senderName   String? @map("sender_name") @db.VarChar(60)
+  replyToEmail String? @map("reply_to_email") @db.VarChar(160)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("messaging_settings")
+}
+
+/// Endereço que não se deve mais tentar — por hash, nunca em claro (AC-05 de
+/// MOD-CRM-04).
+///
+/// Sobrevive à exclusão do tutor de propósito: guardar o hash de quem pediu para parar
+/// é o que impede que o mesmo contato, recadastrado amanhã, volte a ser incomodado.
+model MessagingSuppression {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  channel     MessageChannel
+  addressHash String         @map("address_hash") @db.Char(64)
+
+  reason    SuppressionReason
+  /// Nulo = permanente.
+  expiresAt DateTime?         @map("expires_at") @db.Timestamptz(6)
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, channel, addressHash], map: "idx_suppressions_addr")
+  @@map("messaging_suppressions")
+}
+
+/// O que o petshop ligou e com que parâmetros.
+///
+/// A linha só existe quando o petshop mexe: sem linha, vale o padrão do código. É a
+/// mesma escolha de `message_templates`, pela mesma razão.
+model Automation {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  key     String  @db.VarChar(60)
+  enabled Boolean @default(true)
+
+  channel     String  @default("AUTO") @db.VarChar(10)
+  templateKey String? @map("template_key") @db.VarChar(60)
+
+  /// Validado por união discriminada em `AutomationConfigSchema`, por chave.
+  config Json @default("{}")
+
+  updatedBy String?  @map("updated_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key], map: "idx_automations_key")
+  @@map("automations")
 }

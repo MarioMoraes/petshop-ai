@@ -118,6 +118,35 @@ export const TAXI_ERRORS = {
 
 export type TaxiErrorCode = keyof typeof TAXI_ERRORS
 
+/**
+ * PRD relacionamento_crm_08 §5.
+ *
+ * Note o que **não** está aqui: falta de consentimento. O chamador pediu certo, e a
+ * resposta correta é uma mensagem `BLOCKED` com o motivo — um 4xx faria cada
+ * consumidor de evento distinguir "eu errei" de "o tutor não quer", e a tentação seria
+ * tratar as duas como falha e reprocessar para sempre.
+ */
+export const CRM_ERRORS = {
+  ERR_CRM_001: { status: 404, title: 'Mensagem não encontrada' },
+  ERR_CRM_002: { status: 422, title: 'Texto de mensagem desconhecido' },
+  ERR_CRM_003: { status: 422, title: 'Dados de entrada inválidos' },
+  ERR_CRM_004: { status: 409, title: 'Texto de sistema não pode ser excluído' },
+  ERR_CRM_005: { status: 409, title: 'WhatsApp não conectado' },
+  ERR_CRM_006: { status: 422, title: 'Automação ou campanha mal configurada' },
+  ERR_CRM_007: { status: 409, title: 'Transição inválida para esta mensagem' },
+  ERR_CRM_008: { status: 429, title: 'Limite de envio atingido' },
+  ERR_CRM_009: { status: 409, title: 'Campanha já em execução' },
+  ERR_CRM_010: { status: 409, title: 'Contagem de destinatários divergente' },
+  ERR_CRM_011: { status: 422, title: 'Segmento vazio' },
+  ERR_CRM_012: { status: 403, title: 'Permissão insuficiente' },
+  ERR_CRM_013: { status: 409, title: 'Mensagens desligadas neste estabelecimento' },
+  ERR_CRM_014: { status: 401, title: 'Webhook com assinatura inválida' },
+  ERR_CRM_015: { status: 502, title: 'Provedor de mensagens indisponível' },
+  ERR_CRM_016: { status: 422, title: 'Destinatário suprimido' },
+} as const
+
+export type CrmErrorCode = keyof typeof CRM_ERRORS
+
 export const ERROR_CATALOG = {
   ...IDENTITY_ERRORS,
   ...TUTOR_ERRORS,
@@ -125,6 +154,7 @@ export const ERROR_CATALOG = {
   ...AGENDA_ERRORS,
   ...LEDGER_ERRORS,
   ...TAXI_ERRORS,
+  ...CRM_ERRORS,
 } as const
 
 export type ErrorCode = keyof typeof ERROR_CATALOG

@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "concurrency": "20",
   "globalEnv": ["NODE_ENV", "DATABASE_URL", "REDIS_URL", "RABBITMQ_URL"],
   "tasks": {
     "build": {

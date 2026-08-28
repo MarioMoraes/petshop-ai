@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react'
 import type { ServiceResponse, TaxiSettings, TaxiZoneResponse } from '@petshop/shared-types'
 import { Card, Field, FormError } from '@/components/ui'
 import { updateTaxiSettingsAction } from '../actions'
+import { ZonesEditor } from './zones-editor'
 
 /**
  * Configuração do módulo.
@@ -131,8 +132,19 @@ export function TaxiSettingsForm({ settings, zones, taxiServices }: Props) {
           <span>
             <span className="text-fg">Recusar CEP fora das zonas</span>
             <span className="block text-subtle">
-              Para quem não atende a cidade inteira. Desligado, o CEP sem zona usa o preço padrão.
+              Para quem não atende a cidade inteira. Desligado, o CEP sem zona usa o preço padrão
+              de {money(settings.defaultPriceCents)}.
             </span>
+            {/*
+              Ligado sem nenhuma zona, este interruptor recusa **todo** CEP — e o
+              atendente descobre isso na frente do tutor, ao confirmar a corrida. O
+              aviso mora junto do interruptor porque é aqui que a decisão é tomada.
+            */}
+            {settings.blockOutsideZones && zones.length === 0 && (
+              <span className="mt-1 block text-danger">
+                Ligado e sem nenhuma zona cadastrada: toda corrida está sendo recusada.
+              </span>
+            )}
           </span>
         </label>
 
@@ -194,26 +206,11 @@ export function TaxiSettingsForm({ settings, zones, taxiServices }: Props) {
         </Field>
       </Card>
 
-      <Card className="space-y-3">
-        <h2 className="font-medium text-fg">Zonas de preço</h2>
-        {zones.length === 0 ? (
-          <p className="text-sm text-subtle">
-            Nenhuma zona. Todas as corridas usam o preço padrão de {money(settings.defaultPriceCents)}.
-          </p>
-        ) : (
-          <ul className="divide-y divide-line text-sm">
-            {zones.map((zone) => (
-              <li key={zone.id} className="flex items-center justify-between py-2">
-                <span className="text-fg">
-                  {zone.name}
-                  <span className="ml-2 text-subtle">{zone.zipPrefixes.join(', ')}</span>
-                </span>
-                <span className="text-subtle">{money(zone.priceCents)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <ZonesEditor
+        zones={zones}
+        defaultPriceCents={settings.defaultPriceCents}
+        blockOutsideZones={settings.blockOutsideZones}
+      />
     </div>
   )
 }

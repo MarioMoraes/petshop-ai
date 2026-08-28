@@ -24,6 +24,8 @@ export const { loadEnv, resetEnvCache } = defineEnv('api-gateway', {
   SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3006'),
   BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3007'),
   TAXIDOG_SERVICE_URL: z.string().url().default('http://localhost:3008'),
+  CRM_AUTOMATION_SERVICE_URL: z.string().url().default('http://localhost:3009'),
+  MESSAGING_SERVICE_URL: z.string().url().default('http://localhost:3010'),
 
   /** Origens aceitas pelo CORS (SPEC §7.4: CORS restritivo por domínio). */
   CORS_ORIGINS: z.string().default('http://localhost:3002'),

@@ -41,7 +41,13 @@ x-backend: &backend
     SCHEDULING_SERVICE_URL: http://scheduling-service:3006
     BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
     TAXIDOG_SERVICE_URL: http://taxidog-service:3008
+    CRM_AUTOMATION_SERVICE_URL: http://crm-automation-service:3009
+    MESSAGING_SERVICE_URL: http://messaging-service:3010
     GOTENBERG_URL: http://gotenberg:3000
+    # Sem elas o e-mail vira log e a mensagem consta como enviada com
+    # `provider = 'log'` — ver a nota em `ports/email.ts`.
+    RESEND_API_KEY: ${RESEND_API_KEY:-}
+    MAIL_FROM: ${MAIL_FROM:-}
   networks: [interna]
 
 services:
@@ -209,6 +215,20 @@ services:
     environment:
       <<: *backend-env
       TAXIDOG_SERVICE_PORT: 3008
+
+  crm-automation-service:
+    <<: *backend
+    command: ['node', 'backend/crm-automation-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      CRM_AUTOMATION_SERVICE_PORT: 3009
+
+  messaging-service:
+    <<: *backend
+    command: ['node', 'backend/messaging-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      MESSAGING_SERVICE_PORT: 3010
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:

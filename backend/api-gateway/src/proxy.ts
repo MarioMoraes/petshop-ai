@@ -188,6 +188,14 @@ function isRecordPath(path: string): boolean {
  */
 const TAXI_PREFIXES = ['/v1/taxi']
 
+/**
+ * MOD-CRM. O módulo é um só, partido em dois processos: **decidir** quem recebe o quê
+ * (`/v1/crm`) e **entregar** (`/v1/messages`, `/v1/messaging`). O corte de prefixo
+ * segue o corte de responsabilidade, e não a ordem em que os serviços nasceram.
+ */
+const CRM_PREFIXES = ['/v1/crm']
+const MESSAGING_PREFIXES = ['/v1/messages', '/v1/messaging']
+
 const LEDGER_PREFIXES = [
   '/v1/ledger',
   '/v1/payments',
@@ -205,6 +213,16 @@ function isLedgerTutorPath(path: string): boolean {
   return path.startsWith('/v1/tutors/') && path.endsWith('/packages')
 }
 
+/**
+ * O histórico de mensagens de um tutor mora em `/v1/tutors/:tutorId/messages`, porque é
+ * da conversa com ele que se fala. Mesmo caso dos pacotes acima: esta checagem precisa
+ * vir **antes** de `TUTOR_PREFIXES`, senão a rota cairia no tutor-service, que não
+ * conhece mensagem nenhuma.
+ */
+function isMessagingTutorPath(path: string): boolean {
+  return path.startsWith('/v1/tutors/') && path.endsWith('/messages')
+}
+
 function matches(path: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
@@ -213,6 +231,7 @@ export function resolveTarget(path: string): string | null {
   const env = loadEnv()
   if (matches(path, IDENTITY_PREFIXES)) return env.IDENTITY_SERVICE_URL
   if (isLedgerTutorPath(path)) return env.BILLING_LEDGER_SERVICE_URL
+  if (isMessagingTutorPath(path)) return env.MESSAGING_SERVICE_URL
   if (matches(path, TUTOR_PREFIXES)) return env.TUTOR_SERVICE_URL
   if (isRecordPath(path)) return env.MEDICAL_RECORD_SERVICE_URL
   if (matches(path, ATTENDANCE_PREFIXES)) return env.MEDICAL_RECORD_SERVICE_URL
@@ -220,5 +239,7 @@ export function resolveTarget(path: string): string | null {
   if (matches(path, SCHEDULING_PREFIXES)) return env.SCHEDULING_SERVICE_URL
   if (matches(path, LEDGER_PREFIXES)) return env.BILLING_LEDGER_SERVICE_URL
   if (matches(path, TAXI_PREFIXES)) return env.TAXIDOG_SERVICE_URL
+  if (matches(path, CRM_PREFIXES)) return env.CRM_AUTOMATION_SERVICE_URL
+  if (matches(path, MESSAGING_PREFIXES)) return env.MESSAGING_SERVICE_URL
   return null
 }

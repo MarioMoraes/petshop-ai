@@ -113,6 +113,24 @@ export const PERMISSIONS = {
   // `taxi:operate` porque quem dirige a van não redefine o preço da corrida.
   'taxi:configure': 'Configurar zonas, frota e preços do Taxi Dog',
   'crm:manage': 'Gerenciar campanhas e CRM',
+  /**
+   * MOD-CRM §9. O `crm:manage` acima é anterior e continua governando as **tags** do
+   * tutor; as quatro abaixo governam o que o petshop **manda para o cliente**, e o
+   * corte entre elas é o mesmo que separa operar de configurar no resto do sistema.
+   */
+  'crm:read': 'Ver o histórico de mensagens e o painel de entregas',
+  'crm:configure': 'Configurar templates, automações e janela de envio',
+  /**
+   * Disparo manual e reenvio. Separada de `crm:configure` porque configurar é decidir
+   * o texto uma vez; disparar é falar com a base inteira agora — e disparo em massa
+   * sempre tem autor na trilha (§9).
+   */
+  'crm:send': 'Disparar campanha manual e reenviar mensagem',
+  /**
+   * Parear o WhatsApp do petshop. Fica só com o TENANT_ADMIN: o número é o ativo mais
+   * caro do estabelecimento, e quem conecta assume o risco de banimento da decisão 13.
+   */
+  'crm:connect_channel': 'Conectar e desconectar o WhatsApp do estabelecimento',
   'site:manage': 'Gerenciar o site do estabelecimento',
   'audit:read': 'Ler a trilha de auditoria',
 } as const
@@ -216,6 +234,10 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'taxi:operate',
     'taxi:configure',
     'crm:manage',
+    'crm:read',
+    'crm:configure',
+    'crm:send',
+    'crm:connect_channel',
     'site:manage',
     'audit:read',
   ],
@@ -245,6 +267,9 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'checkin:manage',
     'taxi:operate',
     'crm:manage',
+    // A recepção **lê** o histórico — precisa saber se o lembrete chegou antes de
+    // ligar para o tutor — mas não configura texto nem dispara campanha.
+    'crm:read',
   ],
 
   GROOMER: [
