@@ -58,6 +58,14 @@ enum AuditOutcome {
   DENIED
 }
 
+/// MOD-SITE-12. Nenhum tenant sai de nulo na v1.
+enum CustomDomainStatus {
+  PENDING
+  VERIFYING
+  ACTIVE
+  FAILED
+}
+
 enum WhatsappProvisioning {
   OWN_NUMBER
 }
@@ -87,6 +95,20 @@ model Tenant {
 
   status TenantStatus @default(PROVISIONING)
   plan   Plan         @default(STARTER)
+
+  /// Domínio próprio do site do tenant (MOD-SITE-12) — **modelado, não implementado**.
+  ///
+  /// A v1 serve o site em `{slug}.{dominio}`, coberto pelo certificado wildcard que o
+  /// Caddy já emite por DNS-01. Domínio próprio exige `on_demand_tls` com endpoint de
+  /// autorização, verificação de posse por DNS e automação da Cloudflare — frente
+  /// própria, fora da v1. Os campos existem desde já para que a resolução por host
+  /// nasça consultando-os e não precise mudar de forma depois.
+  ///
+  /// `@unique` sem índice parcial é seguro aqui: o Postgres trata NULLs como
+  /// distintos, então N tenants sem domínio convivem.
+  customDomain           String?             @unique @map("custom_domain") @db.VarChar(253)
+  customDomainStatus     CustomDomainStatus? @map("custom_domain_status")
+  customDomainVerifiedAt DateTime?           @map("custom_domain_verified_at") @db.Timestamptz(6)
 
   trialEndsAt DateTime? @map("trial_ends_at") @db.Timestamptz(6)
 
@@ -149,6 +171,35 @@ model TenantSettings {
 
   /// Decisão de negócio: cada tenant conecta o próprio número via BSP oficial.
   whatsappProvisioning WhatsappProvisioning @default(OWN_NUMBER) @map("whatsapp_provisioning")
+
+  /// Endereço público do estabelecimento (MOD-SITE-02).
+  ///
+  /// **Não é cifrado, ao contrário de `tutor_addresses`.** O do tutor é residencial e
+  /// é dado pessoal; este é comercial e existe para ser publicado — no site, no mapa,
+  /// no cabeçalho do recibo e no JSON-LD que o buscador lê. Cifrar dado destinado à
+  /// página pública seria cerimônia sem proteção.
+  ///
+  /// Os seis campos obrigatórios do endereço andam juntos: ou todos preenchidos, ou
+  /// todos nulos. Quem garante isso é o CHECK `tenant_settings_address_complete`.
+  addressZip        String? @map("address_zip") @db.VarChar(8)
+  addressStreet     String? @map("address_street") @db.VarChar(120)
+  addressNumber     String? @map("address_number") @db.VarChar(10)
+  addressComplement String? @map("address_complement") @db.VarChar(60)
+  addressDistrict   String? @map("address_district") @db.VarChar(80)
+  addressCity       String? @map("address_city") @db.VarChar(80)
+  addressState      String? @map("address_state") @db.Char(2)
+
+  /// Reservados para o "como chegar" com mapa embutido. Ficam vazios na v1: não há
+  /// geocodificação nem chave de API de mapas, e o botão é montado do endereço
+  /// textual (AC-02 de MOD-SITE-02).
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  /// Telefone e WhatsApp **de exibição**, distintos do número que o MOD-CRM usa para
+  /// disparar (AC-04 de MOD-SITE-02). Amarrar os dois obrigaria a operação a escolher
+  /// entre disparar e atender pelo mesmo aparelho.
+  publicPhone    String? @map("public_phone") @db.VarChar(20)
+  publicWhatsapp String? @map("public_whatsapp") @db.VarChar(20)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

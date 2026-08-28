@@ -6,6 +6,7 @@ import {
   IDENTITY_ROUTING_KEYS,
   type Branding,
   type BusinessHours,
+  type TenantAddress,
   type TenantSettings,
   type UpdateTenantSettingsInput,
 } from '@petshop/shared-types'
@@ -93,6 +94,12 @@ export async function updateSettings(params: UpdateSettingsParams): Promise<Tena
           ...(patch.onlineBookingEnabled !== undefined
             ? { onlineBookingEnabled: patch.onlineBookingEnabled }
             : {}),
+          ...(patch.onlineBookingRequiresApproval !== undefined
+            ? { onlineBookingRequiresApproval: patch.onlineBookingRequiresApproval }
+            : {}),
+          ...addressColumns(patch),
+          ...(patch.publicPhone !== undefined ? { publicPhone: patch.publicPhone } : {}),
+          ...(patch.publicWhatsapp !== undefined ? { publicWhatsapp: patch.publicWhatsapp } : {}),
           ...(patch.branding !== undefined ? { branding: patch.branding } : {}),
           ...(patch.businessHours !== undefined ? { businessHours: patch.businessHours } : {}),
           ...(patch.whatsappProvisioning !== undefined
@@ -143,9 +150,64 @@ export function toSettings(row: TenantSettingsRow): TenantSettings {
     minBookingNoticeHours: row.minBookingNoticeHours,
     allowOverbooking: row.allowOverbooking,
     onlineBookingEnabled: row.onlineBookingEnabled,
+    onlineBookingRequiresApproval: row.onlineBookingRequiresApproval,
     branding: parseBranding(row.branding),
     businessHours: parseBusinessHours(row.businessHours),
     whatsappProvisioning: row.whatsappProvisioning,
+    address: toAddress(row),
+    publicPhone: row.publicPhone,
+    publicWhatsapp: row.publicWhatsapp,
+  }
+}
+
+/**
+ * As seis colunas obrigatórias do endereço viram um objeto, ou `null`.
+ *
+ * `address_zip` é o suficiente para decidir: o CHECK
+ * `tenant_settings_address_complete` garante no banco que as seis andam juntas, então
+ * não existe o estado de "tem CEP e não tem cidade" a tratar aqui.
+ */
+function toAddress(row: TenantSettingsRow): TenantAddress | null {
+  if (!row.addressZip) return null
+  return {
+    zipCode: row.addressZip,
+    street: row.addressStreet ?? '',
+    number: row.addressNumber ?? '',
+    complement: row.addressComplement,
+    district: row.addressDistrict ?? '',
+    city: row.addressCity ?? '',
+    state: row.addressState ?? '',
+  }
+}
+
+/**
+ * O caminho inverso. Três casos, e a diferença entre eles importa:
+ * `undefined` não mexe no endereço, `null` **apaga** as seis colunas, e um objeto
+ * grava as seis. Tratar `null` como "não mexer" deixaria o admin sem como remover um
+ * endereço errado depois de publicado.
+ */
+function addressColumns(patch: UpdateTenantSettingsInput): Record<string, string | null> {
+  if (patch.address === undefined) return {}
+  if (patch.address === null) {
+    return {
+      addressZip: null,
+      addressStreet: null,
+      addressNumber: null,
+      addressComplement: null,
+      addressDistrict: null,
+      addressCity: null,
+      addressState: null,
+    }
+  }
+  const address = patch.address
+  return {
+    addressZip: address.zipCode,
+    addressStreet: address.street,
+    addressNumber: address.number,
+    addressComplement: address.complement ?? null,
+    addressDistrict: address.district,
+    addressCity: address.city,
+    addressState: address.state,
   }
 }
 

@@ -9,6 +9,7 @@ import {
   UpdateTenantSchema,
   UpdateTenantSettingsSchema,
   type Breed,
+  type CepLookup,
   type ManagedBreed,
   type TenantResponse,
   type TenantSettings,
@@ -28,8 +29,7 @@ import { serverApi } from '@/lib/api'
  */
 
 export type ActionResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; message: string; fieldErrors: Record<string, string> }
+  { ok: true; data: T } | { ok: false; message: string; fieldErrors: Record<string, string> }
 
 function toFailure(error: unknown): ActionResult<never> {
   if (error instanceof ApiError) {
@@ -76,6 +76,53 @@ export async function saveIdentityAction(input: unknown): Promise<ActionResult<T
   }
 }
 
+// ─── Endereço e contato públicos (MOD-SITE-02) ───────────────────────────────
+
+const ContactPatchSchema = UpdateTenantSettingsSchema.pick({
+  address: true,
+  publicPhone: true,
+  publicWhatsapp: true,
+})
+
+/**
+ * Endereço e telefones que o site, o mapa e o recibo publicam.
+ *
+ * As três chaves vão sempre juntas, e `address: null` **apaga** o endereço — é como o
+ * admin remove um endereço errado depois de já ter publicado. Por isso o formulário
+ * envia o objeto inteiro a cada salvamento, e não um campo por vez.
+ */
+export async function saveContactAction(input: unknown): Promise<ActionResult<TenantSettings>> {
+  const parsed = ContactPatchSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const settings = await serverApi().updateSettings(parsed.data)
+    revalidateAll()
+    return { ok: true, data: settings }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Preenchimento por CEP, reaproveitando a mesma rota do MOD-TUTOR
+ * (`/v1/tutors/cep-lookup`, protegida por `tutor:read`, que o admin tem).
+ *
+ * Não vale a pena um segundo endpoint no identity-service: é a mesma consulta, com o
+ * mesmo cache de 24h e a mesma porta injetável. `null` quando o CEP não existe ou o
+ * ViaCEP está fora — os dois dão no mesmo para quem está preenchendo, que segue no
+ * braço.
+ */
+export async function lookupCepAction(cep: string): Promise<CepLookup | null> {
+  const digits = cep.replace(/\D/g, '')
+  if (digits.length !== 8) return null
+  try {
+    return await serverApi().lookupCep(digits)
+  } catch {
+    return null
+  }
+}
+
 // ─── Horário de funcionamento ────────────────────────────────────────────────
 
 const HoursPatchSchema = z.object({
@@ -104,6 +151,7 @@ const PoliciesPatchSchema = UpdateTenantSettingsSchema.pick({
   noShowFeePercent: true,
   allowOverbooking: true,
   onlineBookingEnabled: true,
+  onlineBookingRequiresApproval: true,
 })
 
 export async function savePoliciesAction(input: unknown): Promise<ActionResult<TenantSettings>> {

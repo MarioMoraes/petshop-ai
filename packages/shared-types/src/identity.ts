@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { InvalidPhoneError, isValidCEP, normalizePhoneBR, onlyDigits } from './br-documents.js'
 import { ASSIGNABLE_ROLE_KEYS, ROLE_KEYS } from './permissions.js'
 
 /** PRD identidade_tenancy_01 §5 — contratos de entrada e saída do identity-service. */
@@ -85,7 +86,10 @@ export const UpdateTenantSchema = z
   .object({
     name: z.string().min(2).max(120),
     legalName: z.string().max(160).nullable(),
-    cnpj: z.string().regex(/^\d{14}$/).nullable(),
+    cnpj: z
+      .string()
+      .regex(/^\d{14}$/)
+      .nullable(),
   })
   .partial()
 export type UpdateTenantInput = z.output<typeof UpdateTenantSchema>
@@ -195,21 +199,115 @@ export const DEFAULT_BRANDING: Branding = { primaryColor: '#E34A32' }
 
 export const WhatsappProvisioningSchema = z.enum(['OWN_NUMBER'])
 
-export const TenantSettingsSchema = z.object({
-  timezone: z.string().default('America/Sao_Paulo'),
+/**
+ * Endereço público do estabelecimento (MOD-SITE-02).
+ *
+ * Os nomes dos campos são os mesmos de `CepLookupSchema`, do MOD-TUTOR, mais número e
+ * complemento: a resposta do ViaCEP encaixa direto, sem tradutor no meio.
+ *
+ * **Não é cifrado**, ao contrário de `TutorAddress`. O do tutor é residencial e é dado
+ * pessoal; este é comercial e existe para ser publicado — no site, no mapa e no
+ * cabeçalho do recibo.
+ */
+export const TenantAddressSchema = z.object({
+  zipCode: z.string().transform(onlyDigits).refine(isValidCEP, 'CEP inválido'),
+  street: z.string().trim().min(3).max(120),
+  number: z.string().trim().min(1).max(10),
+  complement: z.string().trim().max(60).nullish(),
+  district: z.string().trim().min(2).max(80),
+  city: z.string().trim().min(2).max(80),
+  state: z
+    .string()
+    .trim()
+    .length(2)
+    .transform((value) => value.toUpperCase()),
+})
+export type TenantAddress = z.output<typeof TenantAddressSchema>
+
+/**
+ * Telefone de **exibição** do estabelecimento.
+ *
+ * Separado do `PhoneBRSchema` do MOD-TUTOR por duas razões: aqui é anulável (o petshop
+ * pode não ter fixo), e string vazia vinda de formulário significa "apagar", não
+ * "inválido" — a tela de configurações manda o campo inteiro a cada salvamento.
+ *
+ * Normaliza para E.164 como todo telefone do sistema, para que o `wa.me` do site e o
+ * `tel:` do celular sejam montados sem adivinhação.
+ */
+export const PublicPhoneSchema = z
+  .string()
+  .nullish()
+  .transform((value, ctx) => {
+    if (value === null || value === undefined || value.trim() === '') return null
+    try {
+      return normalizePhoneBR(value)
+    } catch (error) {
+      ctx.addIssue({
+        code: 'custom',
+        message: error instanceof InvalidPhoneError ? error.message : 'Telefone inválido',
+      })
+      return z.NEVER
+    }
+  })
+
+/**
+ * As regras de validação, **sem `.default()`**.
+ *
+ * A separação não é estilo: `.partial()` torna as chaves opcionais mas **não remove os
+ * defaults**, então `TenantSettingsSchema.partial().parse({ timezone })` devolvia
+ * também `cancellationWindowHours: 24` e companhia — e o PATCH gravava esses valores,
+ * desfazendo em silêncio o que o tenant tinha customizado. Com o endereço no contrato
+ * o mesmo bug passaria a **apagar o endereço** a cada mudança de fuso.
+ *
+ * Daí os dois schemas nascerem daqui: a leitura aplica default, a escrita não.
+ */
+const TenantSettingsFields = {
+  timezone: z.string(),
   // Decisão de negócio: janela padrão de cancelamento é de 24 horas.
-  cancellationWindowHours: z.number().int().min(0).max(72).default(24),
-  noShowFeePercent: z.number().int().min(0).max(100).default(0),
-  minBookingNoticeHours: z.number().int().min(0).max(168).default(2),
-  allowOverbooking: z.boolean().default(false),
-  onlineBookingEnabled: z.boolean().default(true),
+  cancellationWindowHours: z.number().int().min(0).max(72),
+  noShowFeePercent: z.number().int().min(0).max(100),
+  minBookingNoticeHours: z.number().int().min(0).max(168),
+  allowOverbooking: z.boolean(),
+  onlineBookingEnabled: z.boolean(),
+  /**
+   * Decisão de negócio 8: agendamento online entra CONFIRMED por padrão; ligando isto,
+   * a solicitação do Portal vira PENDING com reserva de 24h (AC-03 de MOD-AGENDA-06).
+   *
+   * A coluna existe desde a migration `20260824210000_online_booking_approval` e o
+   * scheduling-service já a consulta em `booking.ts` — mas até aqui **nada no sistema
+   * conseguia escrevê-la**, e ela ficava presa no `DEFAULT false`.
+   */
+  onlineBookingRequiresApproval: z.boolean(),
   branding: BrandingSchema,
   businessHours: BusinessHoursSchema,
-  whatsappProvisioning: WhatsappProvisioningSchema.default('OWN_NUMBER'),
+  whatsappProvisioning: WhatsappProvisioningSchema,
+
+  /**
+   * MOD-SITE-02. Nulo enquanto o admin não preencher — e o endereço é tudo ou nada:
+   * publicar "Rua sem número, sem bairro" é pior que não publicar. O banco garante o
+   * mesmo pelo CHECK `tenant_settings_address_complete`.
+   */
+  address: TenantAddressSchema.nullable(),
+  /** O que o cliente liga; distinto do número que o MOD-CRM usa para disparar. */
+  publicPhone: PublicPhoneSchema,
+  publicWhatsapp: PublicPhoneSchema,
+}
+
+export const TenantSettingsSchema = z.object({
+  ...TenantSettingsFields,
+  timezone: TenantSettingsFields.timezone.default('America/Sao_Paulo'),
+  cancellationWindowHours: TenantSettingsFields.cancellationWindowHours.default(24),
+  noShowFeePercent: TenantSettingsFields.noShowFeePercent.default(0),
+  minBookingNoticeHours: TenantSettingsFields.minBookingNoticeHours.default(2),
+  allowOverbooking: TenantSettingsFields.allowOverbooking.default(false),
+  onlineBookingEnabled: TenantSettingsFields.onlineBookingEnabled.default(true),
+  onlineBookingRequiresApproval: TenantSettingsFields.onlineBookingRequiresApproval.default(false),
+  whatsappProvisioning: TenantSettingsFields.whatsappProvisioning.default('OWN_NUMBER'),
+  address: TenantSettingsFields.address.default(null),
 })
 export type TenantSettings = z.output<typeof TenantSettingsSchema>
 
-export const UpdateTenantSettingsSchema = TenantSettingsSchema.partial()
+export const UpdateTenantSettingsSchema = z.object(TenantSettingsFields).partial()
 export type UpdateTenantSettingsInput = z.output<typeof UpdateTenantSettingsSchema>
 
 // ─── Onboarding Wizard (MOD-IDENT-02) ────────────────────────────────────────
@@ -238,7 +336,10 @@ const Step1Schema = z.object({
   data: z.object({
     name: z.string().min(2).max(120),
     legalName: z.string().max(160).nullish(),
-    cnpj: z.string().regex(/^\d{14}$/).nullish(),
+    cnpj: z
+      .string()
+      .regex(/^\d{14}$/)
+      .nullish(),
   }),
 })
 

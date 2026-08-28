@@ -4,16 +4,21 @@ import { useState, useTransition } from 'react'
 import {
   WEEKDAYS,
   WEEKDAY_LABELS,
+  formatCEP,
+  formatPhoneBR,
   type Branding,
   type BusinessHours,
   type Species,
+  type TenantAddress,
   type TenantResponse,
   type TenantSettings,
   type Weekday,
 } from '@petshop/shared-types'
 import { Badge, Card, Field, FormError, Tabs } from '@/components/ui'
 import {
+  lookupCepAction,
   saveBrandingAction,
+  saveContactAction,
   saveHoursAction,
   saveIdentityAction,
   savePoliciesAction,
@@ -146,7 +151,12 @@ export function SettingsForm({
       </div>
 
       <div className="mt-6">
-        {active === 'dados' && <IdentityPanel {...shared} tenant={tenant} />}
+        {active === 'dados' && (
+          <div className="space-y-6">
+            <IdentityPanel {...shared} tenant={tenant} />
+            <ContactPanel {...shared} settings={settings} />
+          </div>
+        )}
         {active === 'horario' && <HoursPanel {...shared} settings={settings} />}
         {active === 'politicas' && <PoliciesPanel {...shared} settings={settings} />}
         {active === 'visual' && <BrandingPanel {...shared} branding={settings.branding} />}
@@ -291,6 +301,277 @@ function IdentityPanel({ state, canEdit, run, tenant }: PanelProps & { tenant: T
   )
 }
 
+// ─── Endereço e contato públicos (MOD-SITE-02) ───────────────────────────────
+
+const EMPTY_ADDRESS = {
+  zipCode: '',
+  street: '',
+  number: '',
+  complement: '',
+  district: '',
+  city: '',
+  state: '',
+}
+
+/**
+ * O endereço físico do petshop, que até aqui não existia em lugar nenhum do sistema.
+ *
+ * Cartão próprio, e não mais campos no de cima, porque salva sozinho: os dois PATCHes
+ * são endpoints diferentes (`/v1/tenants/me` e `/v1/tenants/me/settings`), e uma falha
+ * ao gravar o CNPJ não deve descartar o endereço que o admin acabou de digitar.
+ *
+ * O endereço é **tudo ou nada**: os seis campos obrigatórios vão juntos, ou o conjunto
+ * vai como `null`. É a mesma regra do CHECK no banco, e existe porque um endereço pela
+ * metade publicado no site faz quem chega nele concluir que o negócio fechou.
+ */
+function ContactPanel({
+  state,
+  canEdit,
+  run,
+  settings,
+}: PanelProps & { settings: TenantSettings }) {
+  const [address, setAddress] = useState(
+    settings.address
+      ? {
+          zipCode: formatCEP(settings.address.zipCode),
+          street: settings.address.street,
+          number: settings.address.number,
+          complement: settings.address.complement ?? '',
+          district: settings.address.district,
+          city: settings.address.city,
+          state: settings.address.state,
+        }
+      : EMPTY_ADDRESS,
+  )
+  const [phone, setPhone] = useState(
+    settings.publicPhone ? formatPhoneBR(settings.publicPhone) : '',
+  )
+  const [whatsapp, setWhatsapp] = useState(
+    settings.publicWhatsapp ? formatPhoneBR(settings.publicWhatsapp) : '',
+  )
+  const [cepStatus, setCepStatus] = useState<'idle' | 'loading' | 'notfound'>('idle')
+
+  const filled = [
+    address.zipCode,
+    address.street,
+    address.number,
+    address.district,
+    address.city,
+    address.state,
+  ].filter((value) => value.trim() !== '')
+  const empty = filled.length === 0
+  const complete = filled.length === 6
+  // Estado intermediário: nem vazio nem completo. O botão espera.
+  const incomplete = !empty && !complete
+
+  function handleCepBlur() {
+    const digits = address.zipCode.replace(/\D/g, '')
+    if (digits.length !== 8) return
+
+    setCepStatus('loading')
+    void lookupCepAction(digits).then((found) => {
+      if (!found) {
+        // CEP inexistente e ViaCEP fora do ar dão no mesmo para quem preenche: segue
+        // no braço, como no cadastro de tutor.
+        setCepStatus('notfound')
+        return
+      }
+      setCepStatus('idle')
+      setAddress((current) => ({
+        ...current,
+        street: found.street || current.street,
+        district: found.district || current.district,
+        city: found.city,
+        state: found.state,
+      }))
+    })
+  }
+
+  function payload() {
+    const nextAddress: TenantAddress | null = complete
+      ? {
+          zipCode: address.zipCode.replace(/\D/g, ''),
+          street: address.street.trim(),
+          number: address.number.trim(),
+          complement: address.complement.trim() || null,
+          district: address.district.trim(),
+          city: address.city.trim(),
+          state: address.state.trim().toUpperCase(),
+        }
+      : null
+
+    return {
+      address: nextAddress,
+      publicPhone: phone.trim() || null,
+      publicWhatsapp: whatsapp.trim() || null,
+    }
+  }
+
+  return (
+    <Card>
+      <h2 className="text-xl font-semibold">Endereço e contato</h2>
+      <p className="hint mt-2">
+        É o que aparece para quem procura o petshop: no site, no “como chegar” e no cabeçalho dos
+        recibos.
+      </p>
+
+      <div className="mt-8 space-y-5">
+        <div className="grid gap-5 sm:grid-cols-[10rem_1fr]">
+          <Field
+            label="CEP"
+            htmlFor="addressZip"
+            error={state.fieldErrors['address.zipCode']}
+            hint={
+              cepStatus === 'loading'
+                ? 'Buscando…'
+                : cepStatus === 'notfound'
+                  ? 'Não encontrado — preencha à mão.'
+                  : undefined
+            }
+          >
+            <input
+              id="addressZip"
+              className="field"
+              value={address.zipCode}
+              onChange={(event) => setAddress({ ...address, zipCode: event.target.value })}
+              onBlur={handleCepBlur}
+              placeholder="00000-000"
+              inputMode="numeric"
+              maxLength={9}
+              disabled={!canEdit}
+            />
+          </Field>
+
+          <Field label="Rua" htmlFor="addressStreet" error={state.fieldErrors['address.street']}>
+            <input
+              id="addressStreet"
+              className="field"
+              value={address.street}
+              onChange={(event) => setAddress({ ...address, street: event.target.value })}
+              maxLength={120}
+              disabled={!canEdit}
+            />
+          </Field>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-[8rem_1fr]">
+          <Field label="Número" htmlFor="addressNumber" error={state.fieldErrors['address.number']}>
+            <input
+              id="addressNumber"
+              className="field"
+              value={address.number}
+              onChange={(event) => setAddress({ ...address, number: event.target.value })}
+              maxLength={10}
+              disabled={!canEdit}
+            />
+          </Field>
+
+          <Field label="Complemento" htmlFor="addressComplement" hint="Opcional.">
+            <input
+              id="addressComplement"
+              className="field"
+              value={address.complement}
+              onChange={(event) => setAddress({ ...address, complement: event.target.value })}
+              maxLength={60}
+              disabled={!canEdit}
+            />
+          </Field>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-[1fr_1fr_6rem]">
+          <Field
+            label="Bairro"
+            htmlFor="addressDistrict"
+            error={state.fieldErrors['address.district']}
+          >
+            <input
+              id="addressDistrict"
+              className="field"
+              value={address.district}
+              onChange={(event) => setAddress({ ...address, district: event.target.value })}
+              maxLength={80}
+              disabled={!canEdit}
+            />
+          </Field>
+
+          <Field label="Cidade" htmlFor="addressCity" error={state.fieldErrors['address.city']}>
+            <input
+              id="addressCity"
+              className="field"
+              value={address.city}
+              onChange={(event) => setAddress({ ...address, city: event.target.value })}
+              maxLength={80}
+              disabled={!canEdit}
+            />
+          </Field>
+
+          <Field label="UF" htmlFor="addressState" error={state.fieldErrors['address.state']}>
+            <input
+              id="addressState"
+              className="field uppercase"
+              value={address.state}
+              onChange={(event) => setAddress({ ...address, state: event.target.value })}
+              maxLength={2}
+              disabled={!canEdit}
+            />
+          </Field>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            label="Telefone"
+            htmlFor="publicPhone"
+            error={state.fieldErrors.publicPhone}
+            hint="O número que o cliente liga."
+          >
+            <input
+              id="publicPhone"
+              className="field"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="(11) 3000-0000"
+              inputMode="tel"
+              disabled={!canEdit}
+            />
+          </Field>
+
+          <Field
+            label="WhatsApp"
+            htmlFor="publicWhatsapp"
+            error={state.fieldErrors.publicWhatsapp}
+            hint="Pode ser diferente do número que envia as mensagens automáticas."
+          >
+            <input
+              id="publicWhatsapp"
+              className="field"
+              value={whatsapp}
+              onChange={(event) => setWhatsapp(event.target.value)}
+              placeholder="(11) 90000-0000"
+              inputMode="tel"
+              disabled={!canEdit}
+            />
+          </Field>
+        </div>
+
+        {incomplete && (
+          <p className="hint" role="status">
+            Preencha CEP, rua, número, bairro, cidade e UF — ou deixe todos em branco. Um endereço
+            pela metade não vai para o site.
+          </p>
+        )}
+      </div>
+
+      <SaveButton
+        state={state}
+        canEdit={canEdit}
+        run={run}
+        disabled={incomplete}
+        onClick={() => run(() => saveContactAction(payload()))}
+      />
+    </Card>
+  )
+}
+
 // ─── Horário de funcionamento ────────────────────────────────────────────────
 
 function HoursPanel({ state, canEdit, run, settings }: PanelProps & { settings: TenantSettings }) {
@@ -416,15 +697,15 @@ function PoliciesPanel({
   const [notice, setNotice] = useState(settings.minBookingNoticeHours)
   const [noShowFee, setNoShowFee] = useState(settings.noShowFeePercent)
   const [onlineBooking, setOnlineBooking] = useState(settings.onlineBookingEnabled)
+  const [requiresApproval, setRequiresApproval] = useState(settings.onlineBookingRequiresApproval)
   const [overbooking, setOverbooking] = useState(settings.allowOverbooking)
 
   return (
     <Card>
       <h2 className="text-xl font-semibold">Políticas de agendamento</h2>
       <p className="hint mt-2">
-        Valem para o portal do tutor e para o agente de IA no WhatsApp. Mudanças só
-        afetam agendamentos novos — o que já está marcado mantém a regra do momento em
-        que foi feito.
+        Valem para o portal do tutor e para o agente de IA no WhatsApp. Mudanças só afetam
+        agendamentos novos — o que já está marcado mantém a regra do momento em que foi feito.
       </p>
 
       <div className="mt-8 space-y-5">
@@ -510,6 +791,29 @@ function PoliciesPanel({
             </span>
           </label>
 
+          {/*
+            Só faz sentido triar o que chega; com o agendamento online desligado não
+            chega nada, e a opção viraria uma caixa que não muda coisa alguma.
+          */}
+          {onlineBooking && (
+            <label className="flex items-start gap-3 pl-7 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={requiresApproval}
+                onChange={(event) => setRequiresApproval(event.target.checked)}
+                disabled={!canEdit}
+              />
+              <span>
+                <span className="font-medium">Confirmar cada pedido antes de valer</span>
+                <span className="hint block">
+                  O horário fica reservado por 24 horas esperando sua confirmação. Sem isso, o
+                  agendamento do portal já entra confirmado.
+                </span>
+              </span>
+            </label>
+          )}
+
           <label className="flex items-start gap-3 text-sm">
             <input
               type="checkbox"
@@ -539,6 +843,7 @@ function PoliciesPanel({
               minBookingNoticeHours: notice,
               noShowFeePercent: noShowFee,
               onlineBookingEnabled: onlineBooking,
+              onlineBookingRequiresApproval: requiresApproval,
               allowOverbooking: overbooking,
             }),
           )
@@ -558,9 +863,7 @@ function BrandingPanel({ state, canEdit, run, branding }: PanelProps & { brandin
   return (
     <Card>
       <h2 className="text-xl font-semibold">Identidade visual</h2>
-      <p className="hint mt-2">
-        A cor aparece no portal do tutor e no site do seu petshop.
-      </p>
+      <p className="hint mt-2">A cor aparece no portal do tutor e no site do seu petshop.</p>
 
       <div className="mt-8 space-y-5">
         <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Cor principal">
