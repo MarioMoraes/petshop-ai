@@ -149,7 +149,7 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           */}
           {showDriver && (
             <select
-              className="input h-9 text-sm"
+              className="field h-9 text-sm"
               value={ride.driverId ?? ''}
               disabled={pending}
               onChange={(event) =>
@@ -179,7 +179,7 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           */}
           {showDriver && ride.driverId && vehicles.length > 0 && (
             <select
-              className="input h-9 text-sm"
+              className="field h-9 text-sm"
               value={ride.vehicleId ?? ''}
               disabled={pending}
               onChange={(event) =>

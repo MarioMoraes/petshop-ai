@@ -77,7 +77,7 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
         <Field label="Serviço de catálogo" htmlFor="taxiServiceId">
           <select
             id="taxiServiceId"
-            className="input"
+            className="field"
             defaultValue={settings.taxiServiceId ?? ''}
             disabled={pending || taxiServices.length === 0}
             onChange={(event) => save({ taxiServiceId: event.target.value }, 'Serviço')}
@@ -116,7 +116,7 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
             type="number"
             min={0}
             step={1}
-            className="input"
+            className="field"
             defaultValue={(settings.defaultPriceCents / 100).toFixed(2)}
             disabled={pending}
             onBlur={(event) =>
@@ -185,7 +185,7 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
             min={15}
             max={240}
             step={15}
-            className="input"
+            className="field"
             defaultValue={settings.defaultWindowMinutes}
             disabled={pending}
             onBlur={(event) =>
@@ -203,7 +203,7 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
             type="number"
             min={1}
             max={72}
-            className="input"
+            className="field"
             defaultValue={settings.unassignedAlertHours}
             disabled={pending}
             onBlur={(event) =>

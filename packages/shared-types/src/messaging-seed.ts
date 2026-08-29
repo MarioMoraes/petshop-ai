@@ -14,6 +14,11 @@ import type { MessageCategory, MessageChannel } from './messaging.js'
 
 export interface MessageTemplateDefinition {
   key: string
+  /**
+   * Nome de tela. O painel de entregas lista uma coluna de template, e `service_done`
+   * não diz nada a quem atende no balcão — "Serviço concluído", diz.
+   */
+  label: string
   category: MessageCategory
   /** Whitelist validada na gravação (AC-03 de MOD-CRM-02). */
   variables: readonly string[]
@@ -45,6 +50,7 @@ const APPOINTMENT_VARIABLES = [
 export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
   {
     key: 'appointment_confirmed',
+    label: 'Agendamento confirmado',
     category: 'TRANSACTIONAL',
     variables: APPOINTMENT_VARIABLES,
     subject: 'Agendamento confirmado no {{petshop.nome}}',
@@ -66,6 +72,7 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
   },
   {
     key: 'appointment_reminder',
+    label: 'Lembrete de agendamento',
     category: 'TRANSACTIONAL',
     variables: APPOINTMENT_VARIABLES,
     subject: 'Lembrete: {{pets.lista}} tem horário amanhã',
@@ -86,6 +93,7 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
   },
   {
     key: 'appointment_cancelled',
+    label: 'Agendamento cancelado',
     category: 'TRANSACTIONAL',
     variables: APPOINTMENT_VARIABLES,
     subject: 'Agendamento cancelado no {{petshop.nome}}',
@@ -103,6 +111,7 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
   },
   {
     key: 'service_done',
+    label: 'Serviço concluído',
     category: 'TRANSACTIONAL',
     variables: [...BASE_VARIABLES, 'pets.lista', 'agendamento.servico'],
     subject: '{{pets.lista}} está pronto(a)',
@@ -125,6 +134,17 @@ export function findTemplateDefinition(key: string): MessageTemplateDefinition |
 }
 
 export const MESSAGE_TEMPLATE_KEYS = MESSAGE_TEMPLATES.map((template) => template.key)
+
+/**
+ * Nome de tela do template, com o próprio `key` como último recurso.
+ *
+ * A mensagem guarda a chave que a originou, e uma chave pode sair do catálogo sem
+ * sair do histórico — o painel precisa continuar mostrando a linha antiga, e mostrar
+ * `dunning_step_2` é melhor do que mostrar um vazio.
+ */
+export function templateLabelOf(key: string): string {
+  return BY_KEY.get(key)?.label ?? key
+}
 
 /**
  * Todo par `{{ns.campo}}` de um corpo. Usado tanto para validar o que o petshop

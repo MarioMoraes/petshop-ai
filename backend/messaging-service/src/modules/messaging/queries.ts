@@ -1,4 +1,4 @@
-import { withTenant } from '@petshop/db'
+import { withTenant, type TenantTransaction } from '@petshop/db'
 import type { MessageListQuery, MessageStats, MessageSummary } from '@petshop/shared-types'
 import { decryptOrPlaceholder, openCipher, type MessageCipher } from './crypto.js'
 
@@ -8,9 +8,33 @@ import { decryptOrPlaceholder, openCipher, type MessageCipher } from './crypto.j
  * O corpo é decifrado na leitura, uma DEK por página — não por linha. Com 20 itens e
  * a chave em cache, a diferença não aparece; com o histórico de um tutor antigo, ela
  * é a diferença entre uma consulta e vinte.
+ *
+ * O nome do destinatário segue a mesma economia: uma consulta por página sobre os ids
+ * distintos, e não uma por linha. `full_name` está em claro em `tutors` — nome não é
+ * dado cifrado neste modelo —, então resolvê-lo aqui não abre chave nenhuma.
  */
 
 const PURGED = '(mensagem removida pela política de retenção)'
+
+/**
+ * O tutor foi apagado ou anonimizado depois da mensagem. A linha continua no
+ * histórico — é o que AC-04 de MOD-CRM-10 preserva — e precisa de um nome para
+ * ocupar a coluna.
+ */
+const UNKNOWN_TUTOR = 'Tutor'
+
+/** Nome de exibição por id, para os tutores citados nesta página. */
+async function tutorNames(
+  tx: TenantTransaction,
+  tutorIds: string[],
+): Promise<Map<string, string>> {
+  if (tutorIds.length === 0) return new Map()
+  const rows = await tx.tutor.findMany({
+    where: { id: { in: tutorIds } },
+    select: { id: true, fullName: true, socialName: true },
+  })
+  return new Map(rows.map((row) => [row.id, row.socialName ?? row.fullName]))
+}
 
 export interface MessagePage {
   data: MessageSummary[]
@@ -50,9 +74,12 @@ export async function listMessages(
       tx.message.count({ where }),
     ])
 
-    const cipher = await openCipher(tx, tenantId)
+    const [cipher, names] = await Promise.all([
+      openCipher(tx, tenantId),
+      tutorNames(tx, [...new Set(rows.map((row) => row.tutorId))]),
+    ])
     return {
-      data: rows.map((row) => toSummary(row, cipher)),
+      data: rows.map((row) => toSummary(row, cipher, names.get(row.tutorId) ?? UNKNOWN_TUTOR)),
       total,
       page: query.page,
       limit: query.limit,
@@ -64,8 +91,11 @@ export async function findMessage(tenantId: string, id: string): Promise<Message
   return withTenant(tenantId, async (tx) => {
     const row = await tx.message.findUnique({ where: { id } })
     if (!row) return null
-    const cipher = await openCipher(tx, tenantId)
-    return toSummary(row, cipher)
+    const [cipher, names] = await Promise.all([
+      openCipher(tx, tenantId),
+      tutorNames(tx, [row.tutorId]),
+    ])
+    return toSummary(row, cipher, names.get(row.tutorId) ?? UNKNOWN_TUTOR)
   })
 }
 
@@ -153,10 +183,12 @@ function toSummary(
     createdAt: Date
   },
   cipher: MessageCipher,
+  tutorName: string,
 ): MessageSummary {
   return {
     id: row.id,
     tutorId: row.tutorId,
+    tutorName,
     petId: row.petId,
     channel: row.channel,
     direction: row.direction,

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { Badge, PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
-import { TutorDetailView, type FinanceData } from './tutor-detail'
+import { TutorDetailView, type CommsData, type FinanceData } from './tutor-detail'
 
 /** Visão 360º do tutor (MOD-TUTOR-07). */
 
@@ -34,7 +34,10 @@ export default async function TutorPage({ params }: PageProps) {
       .catch(() => []),
   ])
 
-  const finance = await loadFinance(id, me.permissions)
+  const [finance, comms] = await Promise.all([
+    loadFinance(id, me.permissions),
+    loadComms(id, me.permissions),
+  ])
 
   const tutor = overview.tutor
 
@@ -66,9 +69,34 @@ export default async function TutorPage({ params }: PageProps) {
         tags={tags}
         pets={pets}
         finance={finance}
+        comms={comms}
       />
     </div>
   )
+}
+
+/**
+ * Carrega o histórico de comunicação para quem pode vê-lo (AC-02 de MOD-CRM-10).
+ *
+ * Mesma regra do financeiro: sem `crm:read` a aba não existe, em vez de existir e
+ * devolver 403. O banhista não precisa saber que o petshop conversa com o tutor.
+ *
+ * O `catch` cobre o messaging-service fora do ar: a ficha do tutor não pode deixar de
+ * abrir porque o motor de mensagens caiu. Sem ele, a aba some — que é o mesmo que
+ * dizer "não sei", e é honesto.
+ */
+async function loadComms(
+  tutorId: string,
+  permissions: string[],
+): Promise<CommsData | null> {
+  if (!permissions.includes('crm:read')) return null
+
+  const messages = await serverApi()
+    .listTutorMessages(tutorId, { page: 1, limit: 20 })
+    .catch(() => null)
+  if (!messages) return null
+
+  return { messages, canSend: permissions.includes('crm:send') }
 }
 
 /**

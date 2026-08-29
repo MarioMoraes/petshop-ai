@@ -247,6 +247,43 @@ describe('automações (§5)', () => {
     expect(response.json().code).toBe('ERR_CRM_006')
   })
 
+  it('recusa parâmetro que a automação não conhece', async () => {
+    // `service_done` não tem antecedência: ela dispara no check-out, não antes dele.
+    // O `z.object` do Zod **descartava** a chave em silêncio e respondia 200 —
+    // gravando na `config` uma antecedência que ninguém leria e marcando a automação
+    // como personalizada. É por isso que a união usa `strictObject`.
+    const response = await callApi({
+      ...asAdmin(fixture),
+      method: 'PATCH',
+      url: '/v1/crm/automations/service_done',
+      payload: { config: { leadHours: 12 } },
+    })
+
+    expect(response.statusCode).toBe(422)
+    expect(response.json().code).toBe('ERR_CRM_006')
+  })
+
+  it('não deixa parâmetro estranho marcar a automação como personalizada', async () => {
+    await callApi({
+      ...asAdmin(fixture),
+      method: 'PATCH',
+      url: '/v1/crm/automations/service_done',
+      payload: { config: { leadHours: 12 } },
+    })
+
+    const response = await callApi({
+      ...asAdmin(fixture),
+      method: 'GET',
+      url: '/v1/crm/automations',
+    })
+    const serviceDone = response
+      .json()
+      .data.find((automation: { key: string }) => automation.key === 'service_done')
+
+    expect(serviceDone.isDefault).toBe(true)
+    expect(serviceDone.config).toEqual({})
+  })
+
   it('recusa automação que não existe', async () => {
     const response = await callApi({
       ...asAdmin(fixture),

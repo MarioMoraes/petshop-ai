@@ -247,19 +247,25 @@ export const MESSAGING_SETTINGS_DEFAULTS = {
  * `config` por chave, validada por união discriminada — não um JSON solto. Uma
  * automação com `leadHours` num campo que ninguém lê é uma automação que o petshop
  * acha que configurou.
+ *
+ * **`strictObject`, e não `object`.** O `object` do Zod *descarta* chave desconhecida
+ * em silêncio em vez de recusá-la, e era exatamente isso que acontecia: mandar
+ * `leadHours` para `service_done` respondia 200, gravava o campo na `config` e marcava
+ * a automação como personalizada — o petshop configurava uma antecedência que ninguém
+ * jamais leria. É o defeito que este comentário dizia estar prevenindo.
  */
 export const AutomationConfigSchema = z.discriminatedUnion('key', [
-  z.object({
+  z.strictObject({
     key: z.literal('appointment_reminder'),
     leadHours: z.number().int().min(1).max(168).default(24),
   }),
-  z.object({
+  z.strictObject({
     key: z.literal('appointment_confirmed'),
   }),
-  z.object({
+  z.strictObject({
     key: z.literal('appointment_cancelled'),
   }),
-  z.object({
+  z.strictObject({
     key: z.literal('service_done'),
   }),
 ])
@@ -296,6 +302,16 @@ export type CreateSuppressionInput = z.output<typeof CreateSuppressionSchema>
 export const MessageSummarySchema = z.object({
   id: z.uuid(),
   tutorId: z.uuid(),
+  /**
+   * Nome de exibição do destinatário, resolvido na leitura.
+   *
+   * Vai no resumo, e não é composto pela tela, porque o painel lista vinte linhas de
+   * vinte tutores diferentes: buscar cada nome por HTTP seria vinte idas ao gateway
+   * para escrever vinte palavras. `messages` já tem a relação com `tutors` e
+   * `full_name` está em claro — é uma consulta a mais por página, não por linha.
+   * Mesmo caminho que o painel do Taxi Dog já usa.
+   */
+  tutorName: z.string(),
   petId: z.uuid().nullable(),
   channel: MessageChannelSchema,
   direction: MessageDirectionSchema,
@@ -317,6 +333,14 @@ export const MessageSummarySchema = z.object({
 })
 export type MessageSummary = z.infer<typeof MessageSummarySchema>
 
+export const PaginatedMessagesSchema = z.object({
+  data: z.array(MessageSummarySchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  limit: z.number().int(),
+})
+export type PaginatedMessages = z.infer<typeof PaginatedMessagesSchema>
+
 export const MessageStatsSchema = z.object({
   queued: z.number().int(),
   scheduled: z.number().int(),
@@ -332,3 +356,148 @@ export const MessageStatsSchema = z.object({
   oldestPendingSeconds: z.number().int().nullable(),
 })
 export type MessageStats = z.infer<typeof MessageStatsSchema>
+
+/**
+ * Um texto como a tela o recebe: o padrão do catálogo, ou o override do tenant por
+ * cima dele. `isDefault` é o que decide se cabe oferecer "voltar ao texto padrão" —
+ * o de fábrica não tem a que voltar.
+ */
+export const ResolvedTemplateSchema = z.object({
+  key: z.string(),
+  channel: MessageChannelSchema,
+  category: MessageCategorySchema,
+  subject: z.string().nullable(),
+  body: z.string(),
+  active: z.boolean(),
+  /** Zero é o texto de fábrica; cada gravação incrementa. */
+  version: z.number().int(),
+  isDefault: z.boolean(),
+  variables: z.array(z.string()),
+})
+export type ResolvedTemplate = z.infer<typeof ResolvedTemplateSchema>
+
+/** `missing` são as marcações que a prévia não soube preencher — buracos na frase. */
+export const TemplatePreviewSchema = z.object({
+  subject: z.string().nullable(),
+  body: z.string(),
+  missing: z.array(z.string()),
+})
+export type TemplatePreview = z.infer<typeof TemplatePreviewSchema>
+
+/** O que `GET /v1/messaging/settings` devolve: a configuração mais o fuso do petshop. */
+export const MessagingSettingsResponseSchema = z.object({
+  enabled: z.boolean(),
+  quietStart: z.string(),
+  quietEnd: z.string(),
+  marketingWeekdaysOnly: z.boolean(),
+  dailyCap: z.number().int(),
+  perMinuteCap: z.number().int(),
+  defaultChannel: MessageChannelPrefSchema,
+  retentionMonths: z.number().int(),
+  senderName: z.string().nullable(),
+  replyToEmail: z.string().nullable(),
+  /** De `tenant_settings`, não daqui: o fuso é do estabelecimento. */
+  timezone: z.string(),
+})
+export type MessagingSettingsResponse = z.infer<typeof MessagingSettingsResponseSchema>
+
+/**
+ * Uma supressão como a tela pode vê-la.
+ *
+ * **Sem o endereço**, e não por esquecimento: o banco guarda só o hash (AC-05 de
+ * MOD-CRM-04). A lista de quem pediu para parar não pode ser, ela mesma, uma lista de
+ * contatos exportável — então a tela mostra canal, motivo e data, e quem procura um
+ * endereço específico o digita para removê-lo.
+ */
+export const SuppressionResponseSchema = z.object({
+  id: z.uuid(),
+  channel: MessageChannelSchema,
+  reason: SuppressionReasonSchema,
+  expiresAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+})
+export type SuppressionResponse = z.infer<typeof SuppressionResponseSchema>
+
+/** Uma automação resolvida: o padrão do código, ou o que o petshop mudou por cima. */
+export const AutomationResponseSchema = z.object({
+  key: z.string(),
+  enabled: z.boolean(),
+  channel: MessageChannelPrefSchema,
+  templateKey: z.string(),
+  config: z.record(z.string(), z.unknown()),
+  isDefault: z.boolean(),
+  label: z.string(),
+  description: z.string(),
+})
+export type AutomationResponse = z.infer<typeof AutomationResponseSchema>
+
+// ─── Rótulos de tela ─────────────────────────────────────────────────────────
+
+/**
+ * Os nomes que o painel mostra.
+ *
+ * Ficam aqui, e não na tela, porque o histórico na ficha do tutor e o painel de
+ * entregas mostram os mesmos estados — e duas listas divergem no dia em que alguém
+ * traduzir `DEAD` como "morta" num lugar e "desistimos" no outro.
+ */
+export const MESSAGE_STATUS_LABELS: Record<MessageStatus, string> = {
+  QUEUED: 'Na fila',
+  SCHEDULED: 'Agendada',
+  SENDING: 'Enviando',
+  SENT: 'Enviada',
+  DELIVERED: 'Entregue',
+  READ: 'Lida',
+  FAILED: 'Falhou',
+  DEAD: 'Desistimos',
+  BLOCKED: 'Bloqueada',
+  CANCELLED: 'Cancelada',
+}
+
+export const MESSAGE_CHANNEL_LABELS: Record<MessageChannel, string> = {
+  WHATSAPP: 'WhatsApp',
+  EMAIL: 'E-mail',
+}
+
+export const MESSAGE_CATEGORY_LABELS: Record<MessageCategory, string> = {
+  TRANSACTIONAL: 'Transacional',
+  OPERATIONAL: 'Operacional',
+  MARKETING: 'Marketing',
+}
+
+/**
+ * O motivo do bloqueio, escrito como causa e não como código.
+ *
+ * É o texto que decide se o admin conserta a coisa certa: `NO_CONSENT` manda para o
+ * cadastro do tutor, `NO_CHANNEL` para o telefone, e confundi-los custa uma tarde.
+ */
+export const MESSAGE_BLOCK_REASON_LABELS: Record<MessageBlockReason, string> = {
+  NO_CONSENT: 'Sem consentimento do tutor',
+  SUPPRESSED: 'Endereço na lista de supressão',
+  NO_CHANNEL: 'Tutor sem telefone ou e-mail utilizável',
+  PET_DECEASED: 'Pet falecido',
+  QUIET_HOURS_EXPIRED: 'A janela de envio passou antes de a mensagem sair',
+}
+
+/**
+ * A fila represada (AC-03 de MOD-CRM-11).
+ *
+ * O mesmo par de números que `checkQueueHealth` usa para gritar no log. Ficam
+ * compartilhados de propósito: se o job alerta com 200 há 30 minutos e o painel
+ * avisasse com outro número, o admin veria a faixa sumir sem nada ter melhorado — ou
+ * pior, não a veria enquanto o alerta dispara.
+ */
+export const MESSAGE_QUEUE_STUCK_COUNT = 200
+export const MESSAGE_QUEUE_STUCK_SECONDS = 30 * 60
+
+export const SUPPRESSION_REASON_LABELS: Record<SuppressionReason, string> = {
+  HARD_BOUNCE: 'Endereço inexistente',
+  NOT_ON_WHATSAPP: 'Número não tem WhatsApp',
+  ANONYMIZED: 'Cadastro anonimizado',
+  MANUAL: 'Bloqueado à mão',
+}
+
+export const MESSAGE_CHANNEL_PREF_LABELS: Record<MessageChannelPref, string> = {
+  AUTO: 'Automático',
+  WHATSAPP: 'WhatsApp',
+  EMAIL: 'E-mail',
+}

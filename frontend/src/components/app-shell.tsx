@@ -4,6 +4,7 @@ import { UserButton } from '@clerk/nextjs'
 import type { MeResponse, PermissionKey } from '@petshop/shared-types'
 import { Atmosphere } from './atmosphere'
 import {
+  BellIcon,
   CalendarIcon,
   IdCardIcon,
   HomeIcon,
@@ -38,6 +39,7 @@ type NavKey =
   | 'pets'
   | 'agenda'
   | 'taxi'
+  | 'mensagens'
   | 'financeiro'
   | 'equipe'
   | 'configuracoes'
@@ -50,6 +52,7 @@ interface NavItem {
     | '/pets'
     | '/agenda/dia'
     | '/taxi'
+    | '/crm'
     | '/financeiro/pacotes'
     | '/equipe'
     | '/configuracoes'
@@ -97,6 +100,18 @@ const NAV: NavItem[] = [
     icon: <VanIcon />,
     tone: 'icon-time',
     requires: 'taxi:operate',
+  },
+  {
+    // Depois do Taxi Dog e antes do Financeiro porque é o outro lado do atendimento:
+    // o que foi combinado com o tutor e o que ele recebeu. O gate é `crm:read`, que a
+    // recepção também tem — ela precisa saber se o lembrete chegou antes de pegar o
+    // telefone, e é essa pergunta que traz alguém a esta tela.
+    key: 'mensagens',
+    href: '/crm',
+    label: 'Mensagens',
+    icon: <BellIcon />,
+    tone: 'icon-brand',
+    requires: 'crm:read',
   },
   {
     // Pacotes e políticas. O extrato de um tutor mora na ficha dele, que é onde o

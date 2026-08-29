@@ -52,9 +52,13 @@ async function baseVariables(
   tx: TenantTransaction,
   tutorId: string,
 ): Promise<Record<string, string>> {
-  const [tutor, tenant] = await Promise.all([
+  const [tutor, tenant, settings] = await Promise.all([
     tx.tutor.findUnique({ where: { id: tutorId }, select: { fullName: true } }),
     tx.tenant.findFirst({ select: { name: true } }),
+    // O telefone público entrou em `tenant_settings` com o perfil do tenant
+    // (2026-08-28). Antes dele esta variável renderizava vazio, e toda mensagem saía
+    // dizendo "avise pelo " — a frase ficava de pé, mas sem o número que a justifica.
+    tx.tenantSettings.findFirst({ select: { publicPhone: true, publicWhatsapp: true } }),
   ])
 
   const fullName = tutor?.fullName ?? ''
@@ -62,10 +66,9 @@ async function baseVariables(
     'tutor.nome': fullName,
     'tutor.primeiro_nome': fullName.split(/\s+/)[0] ?? '',
     'petshop.nome': tenant?.name ?? '',
-    // O telefone do petshop ainda não tem campo próprio em `tenant_settings`; o
-    // template que o usa renderiza vazio e a frase continua de pé. Entra junto com a
-    // tela de identidade visual, na fatia 2.
-    'petshop.telefone': '',
+    // O WhatsApp na frente do fixo: quem recebe a mensagem por WhatsApp responde por
+    // ele, e o template diz "fale com a gente" — não "ligue".
+    'petshop.telefone': settings?.publicWhatsapp ?? settings?.publicPhone ?? '',
   }
 }
 

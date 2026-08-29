@@ -45,6 +45,14 @@ import {
   DayViewSchema,
   AvailableTaxiDriverSchema,
   ClosedTaxiRideSchema,
+  AutomationResponseSchema,
+  MessageStatsSchema,
+  MessageSummarySchema,
+  MessagingSettingsResponseSchema,
+  PaginatedMessagesSchema,
+  ResolvedTemplateSchema,
+  SuppressionResponseSchema,
+  TemplatePreviewSchema,
   PaginatedTaxiRidesSchema,
   TaxiBoardSchema,
   TaxiQuoteSchema,
@@ -74,6 +82,14 @@ import {
   type AssignableRoleKey,
   type CreateInvitationInput,
   type MeResponse,
+  type CreateSuppressionInput,
+  type MessageCategory,
+  type MessageChannel,
+  type MessageStatus,
+  type PreviewTemplateInput,
+  type UpdateAutomationInput,
+  type UpdateMessagingSettingsInput,
+  type UpsertMessageTemplateInput,
   type OnboardingState,
   type OnboardingStepInput,
   type ProblemDetails,
@@ -1336,7 +1352,149 @@ export function createApiClient(options: ApiClientOptions) {
         path: `/v1/ledger/reports/cashflow${toQueryString(query)}`,
         schema: CashflowSchema,
       }),
+
+    // ─── MOD-CRM (PRD relacionamento_crm_08 §5) ───────────────────────────────
+
+    listMessages: (query: MessageFilters = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/messages${toQueryString(query)}`,
+        schema: PaginatedMessagesSchema,
+      }),
+
+    /**
+     * O histórico de um tutor mora sob a ficha dele, não em `/v1/messages?tutorId=`.
+     * As duas rotas devolvem o mesmo, mas o gateway roteia por prefixo e este é o
+     * endereço que o Portal vai herdar quando puder filtrar por dono.
+     */
+    listTutorMessages: (tutorId: string, query: MessageFilters = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/tutors/${tutorId}/messages${toQueryString(query)}`,
+        schema: PaginatedMessagesSchema,
+      }),
+
+    getMessage: (id: string) =>
+      request({ method: 'GET', path: `/v1/messages/${id}`, schema: MessageSummarySchema }),
+
+    /** Sem `from`/`to`, o total de todos os tempos — o painel sempre manda a janela. */
+    getMessageStats: (query: { from?: string; to?: string } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/messages/stats${toQueryString(query)}`,
+        schema: MessageStatsSchema,
+      }),
+
+    /** Volta a `QUEUED` com o contador zerado, revalidando consentimento (AC-02). */
+    retryMessage: (id: string) =>
+      request({ method: 'POST', path: `/v1/messages/${id}/retry`, schema: z.unknown() }),
+
+    cancelMessage: (id: string) =>
+      request({ method: 'POST', path: `/v1/messages/${id}/cancel`, schema: z.unknown() }),
+
+    listMessageTemplates: () =>
+      request({
+        method: 'GET',
+        path: '/v1/messaging/templates',
+        schema: z.object({ data: z.array(ResolvedTemplateSchema) }),
+      }),
+
+    /** PUT, não PATCH: o texto é substituído inteiro, nunca remendado. */
+    saveMessageTemplate: (
+      key: string,
+      channel: MessageChannel,
+      input: UpsertMessageTemplateInput,
+    ) =>
+      request({
+        method: 'PUT',
+        path: `/v1/messaging/templates/${key}/${channel}`,
+        body: input,
+        schema: ResolvedTemplateSchema,
+      }),
+
+    /** Apaga o override e devolve o texto de fábrica. 409 se nunca houve override. */
+    resetMessageTemplate: (key: string, channel: MessageChannel) =>
+      request({
+        method: 'DELETE',
+        path: `/v1/messaging/templates/${key}/${channel}`,
+        schema: ResolvedTemplateSchema,
+      }),
+
+    previewMessageTemplate: (input: PreviewTemplateInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/messaging/templates/preview',
+        body: input,
+        schema: TemplatePreviewSchema,
+      }),
+
+    getMessagingSettings: () =>
+      request({
+        method: 'GET',
+        path: '/v1/messaging/settings',
+        schema: MessagingSettingsResponseSchema,
+      }),
+
+    updateMessagingSettings: (input: UpdateMessagingSettingsInput) =>
+      request({
+        method: 'PATCH',
+        path: '/v1/messaging/settings',
+        body: input,
+        schema: MessagingSettingsResponseSchema,
+      }),
+
+    listMessagingSuppressions: () =>
+      request({
+        method: 'GET',
+        path: '/v1/messaging/suppressions',
+        schema: z.object({ data: z.array(SuppressionResponseSchema) }),
+      }),
+
+    createMessagingSuppression: (input: CreateSuppressionInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/messaging/suppressions',
+        body: input,
+        schema: z.unknown(),
+      }),
+
+    deleteMessagingSuppression: (id: string) =>
+      request({
+        method: 'DELETE',
+        path: `/v1/messaging/suppressions/${id}`,
+        schema: z.unknown(),
+      }),
+
+    listAutomations: () =>
+      request({
+        method: 'GET',
+        path: '/v1/crm/automations',
+        schema: z.object({ data: z.array(AutomationResponseSchema) }),
+      }),
+
+    updateAutomation: (key: string, input: UpdateAutomationInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/crm/automations/${key}`,
+        body: input,
+        schema: AutomationResponseSchema,
+      }),
   }
+}
+
+/**
+ * Filtros do histórico. Datas em ISO porque vêm da URL do painel, não de um `Date` —
+ * quem monta o link é o navegador do atendente, e o Zod da rota faz a coerção.
+ */
+export type MessageFilters = {
+  page?: number
+  limit?: number
+  status?: MessageStatus
+  channel?: MessageChannel
+  category?: MessageCategory
+  templateKey?: string
+  from?: string
+  to?: string
 }
 
 /** Monta a query string ignorando o que não foi preenchido. */

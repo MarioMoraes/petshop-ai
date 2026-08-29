@@ -1,4 +1,5 @@
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
+import { MESSAGE_QUEUE_STUCK_COUNT, MESSAGE_QUEUE_STUCK_SECONDS } from '@petshop/shared-types'
 import { logger, recordMetric } from '../../lib/logger.js'
 import { dispatchPending } from './dispatch.js'
 import { loadSettings } from './settings.js'
@@ -25,7 +26,7 @@ export async function runDispatch(now: Date = new Date()): Promise<{ sent: numbe
  * param de chegar. Quem descobre, hoje, é o cliente que não recebeu.
  */
 export async function checkQueueHealth(now: Date = new Date()): Promise<{ stuck: number }> {
-  const threshold = new Date(now.getTime() - 30 * 60_000)
+  const threshold = new Date(now.getTime() - MESSAGE_QUEUE_STUCK_SECONDS * 1000)
 
   const rows = await getMaintenancePrisma().$queryRaw<{ tenant_id: string; total: bigint }[]>`
     SELECT tenant_id, COUNT(*) AS total
@@ -34,7 +35,7 @@ export async function checkQueueHealth(now: Date = new Date()): Promise<{ stuck:
        AND status = 'QUEUED'
        AND created_at <= ${threshold}
      GROUP BY tenant_id
-    HAVING COUNT(*) >= 200
+    HAVING COUNT(*) >= ${MESSAGE_QUEUE_STUCK_COUNT}
   `
 
   for (const row of rows) {

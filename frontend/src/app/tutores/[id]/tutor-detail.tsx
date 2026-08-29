@@ -11,9 +11,16 @@ import {
   type Tag,
   type TutorOverview,
 } from '@petshop/shared-types'
-import type { LedgerAccount, PackagePurchase, ServicePackage, Statement } from '@petshop/shared-types'
+import type {
+  LedgerAccount,
+  PackagePurchase,
+  PaginatedMessages,
+  ServicePackage,
+  Statement,
+} from '@petshop/shared-types'
 import { PetAvatar } from '@/components/pet-avatar'
 import { Badge, Card, DataRow, FormError, Tabs } from '@/components/ui'
+import { ComunicacaoTab } from './comunicacao-tab'
 import { FinanceiroTab } from './financeiro-tab'
 import {
   anonymizeTutorAction,
@@ -44,15 +51,23 @@ export interface FinanceData {
   can: { read: boolean; create: boolean; refund: boolean; credit: boolean }
 }
 
+/** O que a página carregou do messaging-service para a aba Mensagens. */
+export interface CommsData {
+  messages: PaginatedMessages
+  /** `crm:send` — quem pode reenviar uma mensagem morta. */
+  canSend: boolean
+}
+
 interface Props {
   overview: TutorOverview
   consents: ConsentsResponse
   tags: Tag[]
   pets: PetResponse[]
   finance: FinanceData | null
+  comms: CommsData | null
 }
 
-export function TutorDetailView({ overview, consents, tags, pets, finance }: Props) {
+export function TutorDetailView({ overview, consents, tags, pets, finance, comms }: Props) {
   const tutor = overview.tutor
   const [tab, setTab] = useState('dados')
 
@@ -68,6 +83,9 @@ export function TutorDetailView({ overview, consents, tags, pets, finance }: Pro
           // A aba só existe para quem pode ver o financeiro (§9). Escondê-la é mais
           // honesto que abri-la para um 403.
           ...(finance ? [{ id: 'financeiro', label: 'Financeiro' }] : []),
+          // Última porque é consulta, não operação: o balcão vem aqui responder "o
+          // lembrete chegou?", e não é por onde a ficha começa a ser lida.
+          ...(comms ? [{ id: 'mensagens', label: 'Mensagens' }] : []),
         ]}
         active={tab}
         onSelect={setTab}
@@ -78,6 +96,13 @@ export function TutorDetailView({ overview, consents, tags, pets, finance }: Pro
       {tab === 'consentimentos' && <ConsentimentosTab tutorId={tutor.id} consents={consents} />}
       {tab === 'tags' && <TagsTab tutorId={tutor.id} tutorTags={tutor.tags} allTags={tags} />}
       {tab === 'pets' && <PetsTab tutorId={tutor.id} pets={pets} />}
+      {tab === 'mensagens' && comms && (
+        <ComunicacaoTab
+          tutorId={tutor.id}
+          initial={comms.messages}
+          canSend={comms.canSend}
+        />
+      )}
       {tab === 'financeiro' && finance && (
         <FinanceiroTab
           tutorId={tutor.id}

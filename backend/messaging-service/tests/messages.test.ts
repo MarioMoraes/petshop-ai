@@ -44,6 +44,13 @@ function enqueue(tutorId: string, overrides: Record<string, unknown> = {}) {
   })
 }
 
+/** O corpo decifrado, pela mesma rota que a tela usa. */
+async function readBody(id: string): Promise<string> {
+  const response = await callApi({ ...asAdmin(fixture), method: 'GET', url: `/v1/messages/${id}` })
+  expect(response.statusCode).toBe(200)
+  return response.json().body as string
+}
+
 describe('enfileiramento', () => {
   it('aceita a mensagem e renderiza o corpo com as variáveis (AC-01)', async () => {
     await enableMessaging(fixture)
@@ -182,6 +189,89 @@ describe('supressão (AC-05 de MOD-CRM-04)', () => {
     )
     expect(message.status).toBe('BLOCKED')
     expect(message.blockReason).toBe('SUPPRESSED')
+  })
+})
+
+describe('variáveis que o motor resolve sozinho', () => {
+  it('preenche {{petshop.telefone}} com o contato público do estabelecimento', async () => {
+    await enableMessaging(fixture)
+    // O campo entrou em `tenant_settings` com o perfil público do tenant. Antes dele
+    // toda mensagem saía dizendo "avise pelo " e parava ali.
+    await withTenant(fixture.tenantId, (tx) =>
+      tx.tenantSettings.update({
+        where: { tenantId: fixture.tenantId },
+        data: { publicWhatsapp: '(11) 4002-8922' },
+      }),
+    )
+    const tutorId = await givenTutor(fixture)
+
+    const id = (await enqueue(tutorId)).json().id
+    const body = await readBody(id)
+
+    expect(body).toContain('(11) 4002-8922')
+    expect(body).not.toContain('{{petshop.telefone}}')
+  })
+
+  it('cai no telefone fixo quando não há WhatsApp público', async () => {
+    await enableMessaging(fixture)
+    await withTenant(fixture.tenantId, (tx) =>
+      tx.tenantSettings.update({
+        where: { tenantId: fixture.tenantId },
+        data: { publicPhone: '(11) 3333-4444' },
+      }),
+    )
+    const tutorId = await givenTutor(fixture)
+
+    const body = await readBody((await enqueue(tutorId)).json().id)
+
+    expect(body).toContain('(11) 3333-4444')
+  })
+})
+
+describe('o que a leitura devolve (MOD-CRM-10 e MOD-CRM-11)', () => {
+  it('traz o nome do destinatário junto da linha', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture)
+    await enqueue(tutorId)
+
+    const response = await callApi({ ...asAdmin(fixture), method: 'GET', url: '/v1/messages' })
+
+    expect(response.statusCode).toBe(200)
+    // Sem isto o painel listaria vinte UUIDs — e a tela teria de buscar cada nome
+    // por HTTP, uma ida ao gateway por linha.
+    expect(response.json().data[0].tutorName).toBe('Ana Souza')
+  })
+
+  it('traz o nome também na leitura de uma mensagem só', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture)
+    const id = (await enqueue(tutorId)).json().id
+
+    const response = await callApi({
+      ...asAdmin(fixture),
+      method: 'GET',
+      url: `/v1/messages/${id}`,
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().tutorName).toBe('Ana Souza')
+  })
+
+  it('lista o histórico pela rota da ficha do tutor', async () => {
+    await enableMessaging(fixture)
+    const [tutorId, outroId] = [await givenTutor(fixture), await givenTutor(fixture)]
+    await enqueue(tutorId)
+    await enqueue(outroId)
+
+    const response = await callApi({
+      ...asReceptionist(fixture),
+      method: 'GET',
+      url: `/v1/tutors/${tutorId}/messages`,
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().total).toBe(1)
+    expect(response.json().data[0].tutorId).toBe(tutorId)
   })
 })
 
