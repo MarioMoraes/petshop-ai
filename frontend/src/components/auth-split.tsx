@@ -2,9 +2,11 @@ import type { ReactNode } from 'react'
 import { Atmosphere } from '@/components/atmosphere'
 import { Logo } from '@/components/ui'
 import {
+  BellIcon,
   CalendarIcon,
   HeartPulseIcon,
   UsersIcon,
+  VanIcon,
   WalletIcon,
 } from '@/components/icons'
 
@@ -36,12 +38,25 @@ interface Recurso {
   descricao: string
 }
 
+/**
+ * O que o sistema faz hoje, na ordem em que o dia do petshop acontece: o cliente e o
+ * pet, o horário marcado, a busca em casa, o serviço, a conta e o aviso que sai depois.
+ *
+ * **A lista cresce quando o código cresce, e só então.** Táxi Dog e mensagens entraram
+ * quando os serviços passaram a responder; o Portal do Tutor e o site público do
+ * petshop **não estão aqui** — o roteamento por host já existe, as telas não. É a mesma
+ * regra do `roadmap.tsx` do painel, invertida: lá um item sai da lista quando ganha
+ * endpoint, aqui ele só entra depois disso.
+ *
+ * Seis itens e não mais: a coluna divide a tela com o formulário, e uma lista que
+ * precisa de rolagem para terminar deixa de ser um resumo do produto e vira catálogo.
+ */
 const RECURSOS: Recurso[] = [
   {
     icone: <UsersIcon />,
     tom: 'icon-people',
     titulo: 'Tutores e pets',
-    descricao: 'Ficha completa, álbum de fotos e o histórico de cada animal num lugar só.',
+    descricao: 'Ficha, álbum de fotos e o histórico de cada animal num lugar só.',
   },
   {
     icone: <CalendarIcon />,
@@ -50,16 +65,28 @@ const RECURSOS: Recurso[] = [
     descricao: 'Por profissional, com recorrência, check-in e check-out no balcão.',
   },
   {
+    icone: <VanIcon />,
+    tom: 'icon-time',
+    titulo: 'Táxi Dog',
+    descricao: 'Busca e entrega com motorista e veículo, e a rota do dia no celular.',
+  },
+  {
     icone: <HeartPulseIcon />,
     tom: 'icon-health',
-    titulo: 'Prontuário',
-    descricao: 'Alergia, temperamento e alerta médico aparecem antes do serviço começar.',
+    titulo: 'Prontuário e atendimento',
+    descricao: 'Alergia e alerta médico antes de começar; o serviço vira histórico.',
   },
   {
     icone: <WalletIcon />,
     tom: 'icon-money',
     titulo: 'Conta corrente',
     descricao: 'Débito no check-out, pacotes, pagamentos e recibo em PDF.',
+  },
+  {
+    icone: <BellIcon />,
+    tom: 'icon-metric',
+    titulo: 'Avisos automáticos',
+    descricao: 'Confirmação e lembrete do horário saem por e-mail sozinhos.',
   },
 ]
 
@@ -163,9 +190,16 @@ function ProdutoLado() {
         cerca de 460px: partida ao meio, cada descrição cai para cinco ou seis linhas e
         o navegador começa a hifenizar no meio de "check-out". Uma lista alta e legível
         é melhor do que uma grade que cabe.
+
+        E, onde há duas colunas, o `max-w-lg` sai. Ele foi medido para quatro itens em
+        duas linhas; com seis, prender a grade em 512px deixa 230px por coluna — menos
+        de 180px de texto ao lado do chip — e cada descrição vira quatro linhas soltas.
+        Sem o limite, a lista ocupa os ~650px que a coluna já tem e as descrições cabem
+        em duas. Abaixo de `xl` o `max-w-lg` continua valendo: lá a lista é uma coluna
+        só, e linha larga demais cansa mais que linha estreita.
       */}
       <ul
-        className="rise mt-11 grid max-w-lg gap-6 xl:grid-cols-2"
+        className="rise mt-10 grid max-w-lg gap-5 xl:max-w-none xl:grid-cols-2 xl:gap-x-9 xl:gap-y-6"
         style={{ animationDelay: ATRASO.recursos }}
       >
         {RECURSOS.map((recurso) => (

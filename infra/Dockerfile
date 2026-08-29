@@ -40,7 +40,12 @@ COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile --store-dir /pnpm/store
 RUN pnpm --filter "@petshop/db" generate
-RUN pnpm build --filter="@petshop/api-gateway" \
+# `--concurrency=2` sobrescreve o `concurrency: 20` do turbo.json. Aquele número
+# serve à máquina de desenvolvimento; aqui dentro são 4 CPUs e 4 GB, e vinte `tsc`
+# em paralelo saturam a VM do Docker a ponto de nem `docker version` responder —
+# o build não falha, trava. Dois por vez é mais lento e termina.
+RUN pnpm build --concurrency=2 \
+      --filter="@petshop/api-gateway" \
       --filter="@petshop/identity-service" \
       --filter="@petshop/tutor-service" \
       --filter="@petshop/pet-service" \
@@ -50,6 +55,13 @@ RUN pnpm build --filter="@petshop/api-gateway" \
       --filter="@petshop/taxidog-service" \
       --filter="@petshop/crm-automation-service" \
       --filter="@petshop/messaging-service"
+
+# A condição `petshop-dist` do campo `exports` só é exercitada aqui dentro — em
+# desenvolvimento vale sempre a `default`, que aponta para o .ts de origem. Um
+# caminho errado ali passa pela suíte, pelo `tsc` e pelo `pnpm dev`, e só aparece
+# no container, como ERR_MODULE_NOT_FOUND no primeiro import. Com `start-first`,
+# aparece depois de o deploy já ter começado a substituir o que funcionava.
+RUN node scripts/verificar-exports.mjs
 
 # ─── frontend-build ───────────────────────────────────────────────────────────
 # Estágio à parte, e não uma linha a mais em `build`, por causa do cache: a chave

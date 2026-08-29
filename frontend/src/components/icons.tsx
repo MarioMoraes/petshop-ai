@@ -225,6 +225,12 @@ export function ReptileIcon() {
  * A van do leva-e-traz. Divide o tom com o calendário de propósito: o Taxi Dog é
  * agenda que anda, e no menu ele fica ao lado dela.
  */
+/**
+ * Van — o Táxi Dog. Tom: `icon-time`.
+ *
+ * O mesmo azul da Agenda, e não um tom próprio, porque é o que o menu já faz: a corrida
+ * é um item do agendamento, não um assunto à parte.
+ */
 export function VanIcon() {
   return (
     <svg {...BASE}>
@@ -254,6 +260,22 @@ export function HeartPulseIcon() {
     <svg {...BASE}>
       <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
       <path d="M3.5 13H9l.5-1 2 4.5 2-7 1.5 3.5h5.2" />
+    </svg>
+  )
+}
+
+/**
+ * Sino — a mensagem que sai sozinha. Tom: `icon-metric`.
+ *
+ * Não é o teal por ser métrica: é o único tom que ainda não tinha dono, e mensagem
+ * automática não pertence a nenhum dos módulos que ela atravessa — nasce da agenda,
+ * fala do pet e é lida pelo tutor.
+ */
+export function BellIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </svg>
   )
 }
