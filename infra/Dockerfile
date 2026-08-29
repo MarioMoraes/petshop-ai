@@ -44,6 +44,10 @@ RUN pnpm --filter "@petshop/db" generate
 # serve à máquina de desenvolvimento; aqui dentro são 4 CPUs e 4 GB, e vinte `tsc`
 # em paralelo saturam a VM do Docker a ponto de nem `docker version` responder —
 # o build não falha, trava. Dois por vez é mais lento e termina.
+# O `api-client` fecha a lista sem ser um serviço: ele é dependência apenas do
+# frontend, que resolve tudo pela condição `default` ao empacotar. Sem ele aqui
+# o `dist` prometido no `exports` nunca é emitido, e o verificar-exports abaixo
+# — que confere os doze pacotes, não só os dez serviços — reprova o build.
 RUN pnpm build --concurrency=2 \
       --filter="@petshop/api-gateway" \
       --filter="@petshop/identity-service" \
@@ -54,7 +58,8 @@ RUN pnpm build --concurrency=2 \
       --filter="@petshop/billing-ledger-service" \
       --filter="@petshop/taxidog-service" \
       --filter="@petshop/crm-automation-service" \
-      --filter="@petshop/messaging-service"
+      --filter="@petshop/messaging-service" \
+      --filter="@petshop/api-client"
 
 # A condição `petshop-dist` do campo `exports` só é exercitada aqui dentro — em
 # desenvolvimento vale sempre a `default`, que aponta para o .ts de origem. Um
