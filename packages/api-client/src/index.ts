@@ -43,6 +43,7 @@ import {
   CalendarBlockCreatedSchema,
   CalendarBlockResponseSchema,
   DayViewSchema,
+  MovementResponseSchema,
   AvailableTaxiDriverSchema,
   ClosedTaxiRideSchema,
   AutomationResponseSchema,
@@ -946,6 +947,14 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'GET',
         path: `/v1/agenda/day?date=${date}`,
         schema: DayViewSchema,
+      }),
+
+    /** A série do painel: `date` é o ÚLTIMO dia da janela, não o primeiro. */
+    getMovement: (query: { date?: string; days?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/agenda/movement${toQueryString(query)}`,
+        schema: MovementResponseSchema,
       }),
 
     // ─── MOD-TAXI (PRD taxi_dog_07 §5) ────────────────────────────────────────

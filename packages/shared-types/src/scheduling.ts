@@ -470,3 +470,34 @@ export const DayViewSchema = z.object({
 export type DayView = z.infer<typeof DayViewSchema>
 export type DayColumn = z.infer<typeof DayColumnSchema>
 export type DayAppointment = z.infer<typeof DayAppointmentSchema>
+
+/**
+ * Movimento por dia (o gráfico do painel).
+ *
+ * `date` é o **último** dia da janela, não o primeiro: quem pede quer "os 7 dias que
+ * terminam hoje", e mandar o começo obrigaria a tela a fazer a subtração — que é
+ * justamente a conta que erra quando o fuso do estabelecimento não é o do navegador.
+ */
+export const MovementQuerySchema = z.object({
+  date: z.iso.date().optional(),
+  days: z.coerce.number().int().min(1).max(31).default(7),
+})
+
+export const MovementDaySchema = z.object({
+  /** `YYYY-MM-DD` no fuso do estabelecimento. */
+  date: z.string(),
+  /** Atendimentos reais do dia — cancelado e remarcado não entram. */
+  total: z.number().int(),
+  completed: z.number().int(),
+  noShow: z.number().int(),
+  /** O que os atendimentos do dia somam, em centavos. Vai na dica do gráfico. */
+  totalCents: z.number().int(),
+})
+
+export const MovementResponseSchema = z.object({
+  timezone: z.string(),
+  /** Sempre `days` posições, em ordem cronológica — dia sem movimento vem com zero. */
+  days: z.array(MovementDaySchema),
+})
+export type MovementDay = z.infer<typeof MovementDaySchema>
+export type MovementResponse = z.infer<typeof MovementResponseSchema>

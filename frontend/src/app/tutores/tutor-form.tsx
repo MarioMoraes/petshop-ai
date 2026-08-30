@@ -10,7 +10,29 @@ import {
   type DuplicateCandidate,
   type TutorDetail,
 } from '@petshop/shared-types'
-import { Card, Field, FormError } from '@/components/ui'
+import {
+  Alert,
+  Card,
+  Choice,
+  Field,
+  FormActions,
+  FormError,
+  SectionHead,
+  Segmented,
+} from '@/components/ui'
+import {
+  AlertTriangleIcon,
+  CakeIcon,
+  CopyIcon,
+  DocumentIcon,
+  MailIcon,
+  MapPinIcon,
+  NoteIcon,
+  PhoneIcon,
+  ShieldCheckIcon,
+  SpinnerIcon,
+  UsersIcon,
+} from '@/components/icons'
 import {
   checkDuplicatesAction,
   createTutorAction,
@@ -28,6 +50,13 @@ import {
  *   · o CEP preenche o endereço sozinho (MOD-TUTOR-03);
  *   · sair do campo nome dispara a busca por duplicata (AC-02 de MOD-TUTOR-02);
  *   · o 409 do servidor volta como alerta com ação, e não como erro genérico.
+ *
+ * Sobre a forma: as quatro seções usam o mesmo tom de ícone (`icon-people`) de
+ * propósito. Tom diz o TIPO do dado, e as quatro são o mesmo tipo — ficha do
+ * tutor. Uma cor por seção transformaria a leitura vertical num confete e
+ * sugeriria quatro domínios onde há um; com o violeta repetido, os chips viram
+ * uma coluna que dá espinha ao formulário e a diferença fica por conta do
+ * desenho, que é o que de fato muda de uma seção para a outra.
  */
 
 interface Props {
@@ -43,6 +72,11 @@ const EMPTY_ADDRESS = {
   city: '',
   state: '',
 }
+
+const PERSON_TYPES = [
+  { value: 'PF', label: 'Pessoa física' },
+  { value: 'PJ', label: 'Pessoa jurídica' },
+] as const
 
 export function TutorForm({ tutor }: Props) {
   const router = useRouter()
@@ -178,9 +212,12 @@ export function TutorForm({ tutor }: Props) {
       )}
 
       {blockingConflict && (
-        <div className="rounded-2xl bg-danger-soft px-5 py-4 text-sm" role="alert">
-          <p className="font-medium text-danger">{result?.ok === false ? result.message : ''}</p>
-          <p className="mt-1 text-muted">
+        <Alert
+          tone="danger"
+          icon={<AlertTriangleIcon />}
+          title={result?.ok === false ? result.message : ''}
+        >
+          <p>
             {blockingConflict.fullName} · {blockingConflict.phoneMasked}
           </p>
           <Link href={`/tutores/${blockingConflict.id}`} className="btn btn-primary mt-3">
@@ -188,55 +225,51 @@ export function TutorForm({ tutor }: Props) {
               ? 'Abrir e reativar cadastro'
               : 'Abrir cadastro existente'}
           </Link>
-        </div>
+        </Alert>
       )}
 
       {visibleDuplicates && visibleDuplicates.length > 0 && !blockingConflict && (
-        <div className="rounded-2xl bg-accent-soft px-5 py-4 text-sm" role="alert">
-          <p className="font-medium text-accent-ink">Encontramos cadastros parecidos</p>
-          <ul className="mt-2 space-y-1">
+        <Alert tone="accent" icon={<CopyIcon />} title="Encontramos cadastros parecidos">
+          <ul className="space-y-1">
             {visibleDuplicates.map((candidate) => (
               <li key={candidate.id}>
-                <Link href={`/tutores/${candidate.id}`} className="underline">
+                <Link
+                  href={`/tutores/${candidate.id}`}
+                  className="font-medium text-ink underline decoration-line underline-offset-4 transition-colors hover:decoration-ink"
+                >
                   {candidate.fullName}
                 </Link>{' '}
-                <span className="text-muted">
+                <span>
                   · {candidate.phoneMasked} · {describeMatch(candidate)}
                 </span>
               </li>
             ))}
           </ul>
-          <label className="mt-3 flex items-start gap-2">
-            <input
-              type="checkbox"
-              className="mt-1"
+          <div className="mt-2 -ml-3.5">
+            <Choice
+              label="Confirmo que é outra pessoa — pode ser outro responsável pelo mesmo pet."
               checked={acknowledged}
-              onChange={(event) => setAcknowledged(event.target.checked)}
+              onChange={setAcknowledged}
             />
-            <span className="text-muted">
-              Confirmo que é outra pessoa — pode ser outro responsável pelo mesmo pet.
-            </span>
-          </label>
-        </div>
+          </div>
+        </Alert>
       )}
 
-      <Card className="space-y-4">
-        <div className="flex gap-2">
-          {(['PF', 'PJ'] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setPersonType(type)}
-              aria-pressed={personType === type}
-              disabled={isEditing}
-              className={`pill px-4 py-1.5 text-sm font-medium ${
-                personType === type ? 'bg-shell text-white' : 'bg-black/5 text-muted'
-              }`}
-            >
-              {type === 'PF' ? 'Pessoa física' : 'Pessoa jurídica'}
-            </button>
-          ))}
-        </div>
+      <Card tone="soft" className="space-y-5">
+        <SectionHead
+          icon={<UsersIcon />}
+          tone="icon-people"
+          eyebrow="01 · Identificação"
+          title="Quem é o tutor"
+        />
+
+        <Segmented
+          ariaLabel="Tipo de pessoa"
+          options={PERSON_TYPES}
+          value={personType}
+          onChange={setPersonType}
+          disabled={isEditing}
+        />
 
         <Field
           label={personType === 'PF' ? 'Nome completo' : 'Nome fantasia'}
@@ -291,14 +324,19 @@ export function TutorForm({ tutor }: Props) {
                 : undefined
             }
           >
-            <input
-              id="document"
-              className="field"
-              inputMode="numeric"
-              value={personType === 'PF' ? formatCPF(document) : document}
-              onChange={(event) => setDocument(event.target.value.replace(/\D/g, ''))}
-              aria-invalid={Boolean(fieldErrors.cpf ?? fieldErrors.cnpj)}
-            />
+            <span className="field-wrap">
+              <span className="field-lead">
+                <DocumentIcon />
+              </span>
+              <input
+                id="document"
+                className="field"
+                inputMode="numeric"
+                value={personType === 'PF' ? formatCPF(document) : document}
+                onChange={(event) => setDocument(event.target.value.replace(/\D/g, ''))}
+                aria-invalid={Boolean(fieldErrors.cpf ?? fieldErrors.cnpj)}
+              />
+            </span>
           </Field>
 
           <Field
@@ -307,69 +345,99 @@ export function TutorForm({ tutor }: Props) {
             error={fieldErrors.phone}
             hint="É por aqui que saem os lembretes e o atendimento automático."
           >
-            <input
-              id="phone"
-              className="field"
-              inputMode="tel"
-              value={formatPhoneBR(phone)}
-              onChange={(event) => setPhone(event.target.value.replace(/\D/g, ''))}
-              onBlur={handleNameBlur}
-              aria-invalid={Boolean(fieldErrors.phone)}
-              required
-            />
+            <span className="field-wrap">
+              <span className="field-lead">
+                <PhoneIcon />
+              </span>
+              <input
+                id="phone"
+                className="field"
+                inputMode="tel"
+                value={formatPhoneBR(phone)}
+                onChange={(event) => setPhone(event.target.value.replace(/\D/g, ''))}
+                onBlur={handleNameBlur}
+                aria-invalid={Boolean(fieldErrors.phone)}
+                required
+              />
+            </span>
           </Field>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="E-mail" htmlFor="email" error={fieldErrors.email}>
-            <input
-              id="email"
-              type="email"
-              className="field"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              aria-invalid={Boolean(fieldErrors.email)}
-            />
+            <span className="field-wrap">
+              <span className="field-lead">
+                <MailIcon />
+              </span>
+              <input
+                id="email"
+                type="email"
+                className="field"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                aria-invalid={Boolean(fieldErrors.email)}
+              />
+            </span>
           </Field>
 
           <Field label="Data de nascimento" htmlFor="birthDate" error={fieldErrors.birthDate}>
-            <input
-              id="birthDate"
-              type="date"
-              className="field"
-              value={birthDate}
-              onChange={(event) => setBirthDate(event.target.value)}
-            />
+            <span className="field-wrap">
+              <span className="field-lead">
+                <CakeIcon />
+              </span>
+              <input
+                id="birthDate"
+                type="date"
+                className="field"
+                value={birthDate}
+                onChange={(event) => setBirthDate(event.target.value)}
+              />
+            </span>
           </Field>
         </div>
       </Card>
 
       {!isEditing && (
-        <Card className="space-y-4">
-          <h2 className="font-semibold">Endereço</h2>
+        <Card tone="soft" className="space-y-5">
+          <SectionHead
+            icon={<MapPinIcon />}
+            tone="icon-people"
+            eyebrow="02 · Endereço"
+            title="Onde ele está"
+            description="Opcional para cadastrar, obrigatório para o Taxi Dog buscar."
+          />
 
-          <div className="grid gap-4 sm:grid-cols-[160px_1fr]">
+          <div className="grid gap-4 sm:grid-cols-[170px_1fr_120px]">
             <Field
               label="CEP"
               htmlFor="zipCode"
-              hint={
-                cepStatus === 'loading'
-                  ? 'buscando…'
-                  : cepStatus === 'notfound'
-                    ? 'Não encontrado — preencha à mão.'
-                    : undefined
-              }
+              hint={cepStatus === 'notfound' ? 'Não encontrado — preencha à mão.' : undefined}
             >
-              <input
-                id="zipCode"
-                className="field"
-                inputMode="numeric"
-                value={formatCEP(address.zipCode)}
-                onChange={(event) =>
-                  setAddress({ ...address, zipCode: event.target.value.replace(/\D/g, '') })
-                }
-                onBlur={handleCepBlur}
-              />
+              {/*
+                O "buscando…" mora no slot da direita do campo, e não na dica: como
+                dica ele empurrava a linha inteira do endereço para cima e para baixo
+                a cada consulta, e o salto chamava mais atenção que o próprio status.
+              */}
+              <span className="field-wrap">
+                <span className="field-lead">
+                  <MapPinIcon />
+                </span>
+                <input
+                  id="zipCode"
+                  className="field pr-10"
+                  inputMode="numeric"
+                  value={formatCEP(address.zipCode)}
+                  onChange={(event) =>
+                    setAddress({ ...address, zipCode: event.target.value.replace(/\D/g, '') })
+                  }
+                  onBlur={handleCepBlur}
+                />
+                {cepStatus === 'loading' && (
+                  <span className="field-tail text-subtle" aria-label="Buscando endereço">
+                    <SpinnerIcon />
+                  </span>
+                )}
+              </span>
             </Field>
 
             <Field label="Logradouro" htmlFor="street">
@@ -380,9 +448,7 @@ export function TutorForm({ tutor }: Props) {
                 onChange={(event) => setAddress({ ...address, street: event.target.value })}
               />
             </Field>
-          </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Número" htmlFor="number">
               <input
                 id="number"
@@ -391,6 +457,9 @@ export function TutorForm({ tutor }: Props) {
                 onChange={(event) => setAddress({ ...address, number: event.target.value })}
               />
             </Field>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Complemento" htmlFor="complement">
               <input
                 id="complement"
@@ -434,37 +503,53 @@ export function TutorForm({ tutor }: Props) {
       )}
 
       {!isEditing && (
-        <Card className="space-y-3">
-          <h2 className="font-semibold">Consentimento</h2>
-          <p className="hint">
-            Sem o aceite registrado não há lembrete, campanha nem atendimento automático.
-          </p>
+        <Card tone="soft" className="space-y-5">
+          <SectionHead
+            icon={<ShieldCheckIcon />}
+            tone="icon-people"
+            eyebrow="03 · Consentimento"
+            title="O que ele autoriza"
+            description="Sem o aceite registrado não há lembrete, campanha nem atendimento automático."
+          />
 
-          <Consent
-            label="Receber mensagens no WhatsApp"
-            checked={consents.whatsapp}
-            onChange={(value) => setConsents({ ...consents, whatsapp: value })}
-          />
-          <Consent
-            label="Receber e-mails"
-            checked={consents.email}
-            onChange={(value) => setConsents({ ...consents, email: value })}
-          />
-          <Consent
-            label="Autorizar uso de imagem do pet"
-            checked={consents.imageUse}
-            onChange={(value) => setConsents({ ...consents, imageUse: value })}
-          />
-          <Consent
-            label="Aceitou os termos de uso e a política de privacidade"
-            checked={consents.terms}
-            onChange={(value) => setConsents({ ...consents, terms: value })}
-            error={fieldErrors['consents.terms']}
-          />
+          {/* `-mx-3.5` recupera o recuo interno das linhas: com ele os rótulos das
+              escolhas alinham com os rótulos dos campos das outras seções, e o fundo
+              da linha marcada continua respirando para fora desse alinhamento. */}
+          <div className="-mx-3.5 space-y-2">
+            <Choice
+              label="Receber mensagens no WhatsApp"
+              checked={consents.whatsapp}
+              onChange={(value) => setConsents({ ...consents, whatsapp: value })}
+            />
+            <Choice
+              label="Receber e-mails"
+              checked={consents.email}
+              onChange={(value) => setConsents({ ...consents, email: value })}
+            />
+            <Choice
+              label="Autorizar uso de imagem do pet"
+              description="Fotos do banho e da tosa em redes sociais e no portal."
+              checked={consents.imageUse}
+              onChange={(value) => setConsents({ ...consents, imageUse: value })}
+            />
+            <Choice
+              label="Aceitou os termos de uso e a política de privacidade"
+              checked={consents.terms}
+              onChange={(value) => setConsents({ ...consents, terms: value })}
+              error={fieldErrors['consents.terms']}
+            />
+          </div>
         </Card>
       )}
 
-      <Card className="space-y-3">
+      <Card tone="soft" className="space-y-5">
+        <SectionHead
+          icon={<NoteIcon />}
+          tone="icon-people"
+          eyebrow={isEditing ? '02 · Observações' : '04 · Observações'}
+          title="O que mais importa saber"
+        />
+
         <Field
           label="Observações"
           htmlFor="notes"
@@ -473,53 +558,22 @@ export function TutorForm({ tutor }: Props) {
         >
           <textarea
             id="notes"
-            className="field min-h-24"
+            className="field min-h-28 resize-y"
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
           />
         </Field>
       </Card>
 
-      <div className="flex items-center justify-end gap-3">
+      <FormActions>
         <Link href={isEditing ? `/tutores/${tutor.id}` : '/tutores'} className="btn btn-ghost">
           Cancelar
         </Link>
         <button type="submit" className="btn btn-primary" disabled={pending}>
           {pending ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Cadastrar tutor'}
         </button>
-      </div>
+      </FormActions>
     </form>
-  )
-}
-
-function Consent({
-  label,
-  checked,
-  onChange,
-  error,
-}: {
-  label: string
-  checked: boolean
-  onChange: (value: boolean) => void
-  error?: string
-}) {
-  return (
-    <div>
-      <label className="flex items-start gap-3 text-sm">
-        <input
-          type="checkbox"
-          className="mt-0.5"
-          checked={checked}
-          onChange={(event) => onChange(event.target.checked)}
-        />
-        <span className="text-muted">{label}</span>
-      </label>
-      {error && (
-        <p className="error-text mt-1" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
   )
 }
 

@@ -8,8 +8,10 @@ import {
   CreateWalkInSchema,
   DayViewQuerySchema,
   ListAppointmentsQuerySchema,
+  MovementQuerySchema,
   RecurrenceScopeSchema,
   RescheduleSchema,
+  todayIn,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
@@ -21,6 +23,7 @@ import { findAvailability } from './availability.js'
 import { createBooking } from './booking.js'
 import { resolveItemDuration } from './duration.js'
 import { getDayView } from './day-view.js'
+import { getMovement } from './movement.js'
 import { getAppointment, listAppointments } from './queries.js'
 import { createRecurrence, endRecurrence } from './recurrence.js'
 import { loadTimezone } from './timezone.js'
@@ -236,6 +239,21 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
     const timezone = await withTenant(actor.tenantId, loadTimezone)
 
     return getDayView(actor, query.date, timezone)
+  })
+
+  /**
+   * A série do painel: quantos atendimentos por dia nos últimos `days` dias.
+   *
+   * Sem `date`, o último dia da janela é **hoje no fuso do tenant** — a mesma conta
+   * que a visão do dia faz, e não a data do relógio do servidor.
+   */
+  app.get('/v1/agenda/movement', READ, async (request) => {
+    const query = parseInput(MovementQuerySchema, request.query)
+    const actor = actorFrom(request)
+
+    const timezone = await withTenant(actor.tenantId, loadTimezone)
+
+    return getMovement(actor, query.date ?? todayIn(timezone), query.days, timezone)
   })
 
   // ─── Recorrência (MOD-AGENDA-05) ─────────────────────────────────────────

@@ -16,7 +16,8 @@ import {
   type TemperamentClassification,
   type TemperamentContext,
 } from '@petshop/shared-types'
-import { Card, Field, FormError } from '@/components/ui'
+import { Card, Field, FormError, SectionHead } from '@/components/ui'
+import { AlertTriangleIcon, HeartPulseIcon, PawPrintIcon } from '@/components/icons'
 import {
   createAllergyAction,
   createMedicalAlertAction,
@@ -166,9 +167,15 @@ function AllergySection({
   const inactive = allergies.filter((allergy) => !allergy.active)
 
   return (
-    <Card className="space-y-4">
+    <Card tone="soft" className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="font-semibold">Alergias e restrições ({active.length})</h3>
+        <SectionHead
+          icon={<AlertTriangleIcon />}
+          tone="icon-pet"
+          eyebrow="Prontuário"
+          title="Alergias e restrições"
+        />
+        <span className="meta-pill">{active.length} ativas</span>
         {canCreate && (
           <button
             type="button"
@@ -376,9 +383,14 @@ function TemperamentSection({
   const needsNotes = classification === 'AGGRESSIVE' || classification === 'REACTIVE'
 
   return (
-    <Card className="space-y-4">
+    <Card tone="soft" className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="font-semibold">Temperamento</h3>
+        <SectionHead
+          icon={<PawPrintIcon />}
+          tone="icon-pet"
+          eyebrow="Prontuário"
+          title="Temperamento"
+        />
         {canWrite && (
           <button
             type="button"
@@ -454,6 +466,12 @@ function TemperamentSection({
                     contexts.includes(context) ? 'bg-shell text-white' : 'bg-black/5 text-muted'
                   }`}
                 >
+                  {/*
+                    Sem `.check`: esta caixa é invisível de propósito, e quem mostra o
+                    estado é a pílula que a embrulha. Estilizar o átomo aqui seria pintar
+                    algo que `sr-only` recorta — o padrão de `docs/design-formularios.md`
+                    vale para a caixa que aparece, não para a que serve só de semântica.
+                  */}
                   <input
                     type="checkbox"
                     className="sr-only"
@@ -493,6 +511,7 @@ function TemperamentSection({
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-sm">
               <input
+                className="check"
                 type="checkbox"
                 checked={requiresMuzzle}
                 onChange={(event) => setRequiresMuzzle(event.target.checked)}
@@ -501,6 +520,7 @@ function TemperamentSection({
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
+                className="check"
                 type="checkbox"
                 checked={requiresTwoHandlers}
                 onChange={(event) => setRequiresTwoHandlers(event.target.checked)}
@@ -581,9 +601,15 @@ function MedicalAlertSection({
   const active = alerts.filter((alert) => alert.active)
 
   return (
-    <Card className="space-y-4">
+    <Card tone="soft" className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="font-semibold">Condições médicas ({active.length})</h3>
+        <SectionHead
+          icon={<HeartPulseIcon />}
+          tone="icon-pet"
+          eyebrow="Prontuário"
+          title="Condições médicas"
+        />
+        <span className="meta-pill">{active.length} ativas</span>
         {canCreate && (
           <button
             type="button"

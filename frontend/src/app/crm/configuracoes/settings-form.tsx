@@ -14,7 +14,8 @@ import {
   type MessagingSettingsResponse,
   type SuppressionResponse,
 } from '@petshop/shared-types'
-import { Badge, Card, Field, FormError } from '@/components/ui'
+import { Badge, Card, Field, FormError, SectionHead } from '@/components/ui'
+import { BellIcon, CalendarIcon, ShieldCheckIcon } from '@/components/icons'
 import {
   createSuppressionAction,
   deleteSuppressionAction,
@@ -88,15 +89,20 @@ function MasterSwitch({
   }
 
   return (
-    <Card className={settings.enabled ? '' : 'border-accent/40'}>
+    <Card tone="soft" className={settings.enabled ? '' : 'border-accent/40'}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="font-medium">Envio automático</h2>
-          <p className="hint mt-1">
-            {settings.enabled
-              ? 'As automações ligadas abaixo mandam mensagem sozinhas.'
-              : 'Nada sai enquanto isto estiver desligado, nem o que estiver ligado abaixo.'}
-          </p>
+          <SectionHead
+            icon={<BellIcon />}
+            tone="icon-brand"
+            eyebrow="Relacionamento"
+            title="Envio automático"
+            description={
+              settings.enabled
+                ? 'As automações ligadas abaixo mandam mensagem sozinhas.'
+                : 'Nada sai enquanto isto estiver desligado, nem o que estiver ligado abaixo.'
+            }
+          />
         </div>
         <button
           type="button"
@@ -122,12 +128,14 @@ function Automations({
 
   if (automations.length === 0) {
     return (
-      <Card>
-        <h2 className="font-medium">Automações</h2>
-        <p className="hint mt-1">
-          O serviço de automações não respondeu. As mensagens já enfileiradas continuam
-          saindo; só a configuração está indisponível.
-        </p>
+      <Card tone="soft">
+        <SectionHead
+          icon={<BellIcon />}
+          tone="icon-brand"
+          eyebrow="Relacionamento"
+          title="Automações"
+          description="O serviço de automações não respondeu. As mensagens já enfileiradas continuam saindo; só a configuração está indisponível."
+        />
       </Card>
     )
   }
@@ -147,8 +155,13 @@ function Automations({
   }
 
   return (
-    <Card className="space-y-4">
-      <h2 className="font-medium">Automações</h2>
+    <Card tone="soft" className="space-y-5">
+      <SectionHead
+        icon={<BellIcon />}
+        tone="icon-brand"
+        eyebrow="Relacionamento"
+        title="Automações"
+      />
 
       <div className="space-y-3">
         {automations.map((automation) => (
@@ -167,6 +180,7 @@ function Automations({
               </div>
               <label className="flex shrink-0 items-center gap-2 text-sm">
                 <input
+                  className="check"
                   type="checkbox"
                   checked={automation.enabled}
                   disabled={pending}
@@ -270,14 +284,14 @@ function EngineSettings({
   }
 
   return (
-    <Card className="space-y-4">
-      <div>
-        <h2 className="font-medium">Quando e quanto</h2>
-        <p className="hint mt-1">
-          Horários no fuso do estabelecimento ({settings.timezone}). Mensagem sobre o pet
-          em atendimento — o leva-e-traz — atravessa a janela fechada: ela é sobre agora.
-        </p>
-      </div>
+    <Card tone="soft" className="space-y-5">
+      <SectionHead
+        icon={<CalendarIcon />}
+        tone="icon-brand"
+        eyebrow="Relacionamento"
+        title="Quando e quanto"
+        description={`Horários no fuso do estabelecimento (${settings.timezone}). Mensagem sobre o pet em atendimento — o leva-e-traz — atravessa a janela fechada: ela é sobre agora.`}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Não enviar antes de" htmlFor="quietStart" error={fieldErrors.quietStart}>
@@ -392,6 +406,7 @@ function EngineSettings({
 
       <label className="flex items-center gap-2 text-sm">
         <input
+          className="check"
           type="checkbox"
           checked={settings.marketingWeekdaysOnly}
           disabled={pending}
@@ -496,14 +511,15 @@ function Suppressions({
   }
 
   return (
-    <Card className="space-y-4">
+    <Card tone="soft" className="space-y-5">
       <div>
-        <h2 className="font-medium">Bloqueios</h2>
-        <p className="hint mt-1">
-          Endereços que o sistema não tenta mais. Entram sozinhos quando o e-mail volta
-          como inexistente, e à mão quando o cliente pede. O endereço não é exibido: fica
-          guardado só como impressão digital.
-        </p>
+        <SectionHead
+          icon={<ShieldCheckIcon />}
+          tone="icon-brand"
+          eyebrow="Relacionamento"
+          title="Bloqueios"
+          description="Endereços que o sistema não tenta mais. Entram sozinhos quando o e-mail volta como inexistente, e à mão quando o cliente pede. O endereço não é exibido: fica guardado só como impressão digital."
+        />
       </div>
 
       <div className="grid items-end gap-3 sm:grid-cols-[10rem_1fr_auto]">

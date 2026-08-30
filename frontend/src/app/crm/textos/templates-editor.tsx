@@ -230,6 +230,7 @@ function TemplateForm({ template }: { template: ResolvedTemplate }) {
 
       <label className="flex items-center gap-2 text-sm">
         <input
+          className="check"
           type="checkbox"
           checked={active}
           disabled={pending}

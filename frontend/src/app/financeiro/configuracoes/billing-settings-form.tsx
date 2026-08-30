@@ -10,7 +10,8 @@ import {
   type BillingSettings,
   type PaymentMethod,
 } from '@petshop/shared-types'
-import { Card, Field, FormError } from '@/components/ui'
+import { Card, Field, FormError, SectionHead } from '@/components/ui'
+import { CalendarIcon, WalletIcon } from '@/components/icons'
 import { updateBillingSettingsAction } from '../actions'
 
 /**
@@ -145,12 +146,14 @@ function CreditLimitCard({ settings, canEdit }: { settings: BillingSettings; can
   const { save, error, saved, pending } = useSave()
 
   return (
-    <Card>
-      <h3 className="font-semibold">Limite de crédito</h3>
-      <p className="hint mt-1">
-        Acima deste valor em aberto, o agendamento só passa com liberação de um administrador,
-        registrada com justificativa. Em branco, nada é bloqueado — só o alerta aparece.
-      </p>
+    <Card tone="soft">
+      <SectionHead
+        icon={<WalletIcon />}
+        tone="icon-money"
+        eyebrow="Financeiro"
+        title="Limite de crédito"
+        description="Acima deste valor em aberto, o agendamento só passa com liberação de um administrador, registrada com justificativa. Em branco, nada é bloqueado — só o alerta aparece."
+      />
 
       <FormError message={error} />
 
@@ -223,12 +226,14 @@ function PaymentMethodsCard({
   }
 
   return (
-    <Card>
-      <h3 className="font-semibold">Formas de pagamento aceitas</h3>
-      <p className="hint mt-1">
-        O balcão só oferece o que estiver ligado aqui. Desligar evita que &ldquo;recebi no
-        cartão&rdquo; seja registrado onde cartão nunca entrou.
-      </p>
+    <Card tone="soft">
+      <SectionHead
+        icon={<WalletIcon />}
+        tone="icon-money"
+        eyebrow="Financeiro"
+        title="Formas de pagamento aceitas"
+        description="O balcão só oferece o que estiver ligado aqui. Desligar evita que “recebi no cartão” seja registrado onde cartão nunca entrou."
+      />
 
       <FormError message={error} />
 
@@ -282,12 +287,14 @@ function PackagePolicyCard({
   const { save, error, saved, pending } = useSave()
 
   return (
-    <Card>
-      <h3 className="font-semibold">Pacotes pré-pagos</h3>
-      <p className="hint mt-1">
-        Validade sugerida ao criar um pacote novo, e quando avisar o tutor antes de o crédito
-        expirar. Expiração sem aviso prévio é falha de produto, não regra de negócio.
-      </p>
+    <Card tone="soft">
+      <SectionHead
+        icon={<CalendarIcon />}
+        tone="icon-money"
+        eyebrow="Financeiro"
+        title="Pacotes pré-pagos"
+        description="Validade sugerida ao criar um pacote novo, e quando avisar o tutor antes de o crédito expirar. Expiração sem aviso prévio é falha de produto, não regra de negócio."
+      />
 
       <FormError message={error} />
 

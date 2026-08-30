@@ -279,3 +279,150 @@ export function BellIcon() {
     </svg>
   )
 }
+
+/* ── Glifos de formulário ──────────────────────────────────────────────────
+ *
+ * Menores em intenção que os de cima: não representam um módulo, e sim o tipo de
+ * dado que o campo espera. Entram no adorno de `.field-wrap`, em 18px, herdando a
+ * cor do campo — daí não terem tom próprio.
+ */
+
+/** Adorno do campo de telefone. */
+export function PhoneIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.8.6a2 2 0 0 1 1.7 2Z" />
+    </svg>
+  )
+}
+
+/** Adorno do campo de e-mail. */
+export function MailIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m2 7 8.9 5.9a2 2 0 0 0 2.2 0L22 7" />
+    </svg>
+  )
+}
+
+/** Adorno do campo de CEP. */
+export function MapPinIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  )
+}
+
+/** Adorno do campo de CPF/CNPJ. */
+export function DocumentIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v5h6" />
+      <path d="M9 13h6M9 17h4" />
+    </svg>
+  )
+}
+
+/** Adorno do campo de data. */
+export function CakeIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <path d="M4 14a2 2 0 0 1 2 2 2 2 0 0 0 4 0 2 2 0 0 1 4 0 2 2 0 0 0 4 0 2 2 0 0 1 2-2" />
+      <path d="M4 12a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9H4Z" />
+      <path d="M12 7V5M8 7V6M16 7V6" />
+    </svg>
+  )
+}
+
+/**
+ * Bloco de anotação — o campo livre. Sem tom próprio.
+ *
+ * Observação não é um domínio: é onde cai o que não coube nos campos, e o que ela
+ * significa depende de qual ficha a contém. Assume o tom de quem a embrulha.
+ */
+export function NoteIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9Z" />
+      <path d="M15 3v6h6" />
+      <path d="M8 13h7M8 17h5" />
+    </svg>
+  )
+}
+
+/**
+ * Escudo com tique — o aceite registrado. Sem tom próprio.
+ *
+ * Consentimento é uma seção de ficha, não um módulo: aparece no cadastro do tutor
+ * e no portal dele, e nos dois herda o tom de quem o embrulha.
+ */
+export function ShieldCheckIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M20 12c0 5-3.5 7.7-7.4 9.1a1.7 1.7 0 0 1-1.2 0C7.5 19.7 4 17 4 12V6.4a1.7 1.7 0 0 1 1.1-1.6l6.3-2.3a1.7 1.7 0 0 1 1.2 0l6.3 2.3A1.7 1.7 0 0 1 20 6.4Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  )
+}
+
+/** Triângulo de atenção — o aviso que interrompe. Sem tom: herda a cor do alerta. */
+export function AlertTriangleIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+      <path d="M12 9v4M12 17h.01" />
+    </svg>
+  )
+}
+
+/**
+ * Duas fichas sobrepostas — o cadastro que pode já existir. Sem tom.
+ *
+ * Duplicata precisa de um desenho que diga "isto e aquilo são a mesma coisa", e
+ * sobreposição é a única metáfora que faz isso sem texto.
+ */
+export function CopyIcon() {
+  return (
+    <svg {...BASE}>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  )
+}
+
+/**
+ * Anel de carregamento do adorno de campo.
+ *
+ * Gira com `animate-spin` do Tailwind e some sob `prefers-reduced-motion` porque o
+ * texto ao lado já diz o que está acontecendo — rotação contínua é exatamente o
+ * tipo de movimento que quem pediu menos movimento não quer.
+ */
+export function SpinnerIcon() {
+  return (
+    <svg
+      {...BASE}
+      width={16}
+      height={16}
+      className="motion-safe:animate-spin motion-reduce:hidden"
+      strokeWidth={2}
+    >
+      <path d="M12 3a9 9 0 1 0 9 9" />
+    </svg>
+  )
+}
+
+/** Paleta — identidade visual. Sem tom próprio: assume o da tela que a embrulha. */
+export function PaletteIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M12 21a9 9 0 1 1 9-9c0 1.7-1.3 3-3 3h-1.5a2 2 0 0 0-1.4 3.4A2 2 0 0 1 13.7 21Z" />
+      <circle cx="7.5" cy="12" r="1" />
+      <circle cx="9.5" cy="8" r="1" />
+      <circle cx="14" cy="7.5" r="1" />
+    </svg>
+  )
+}

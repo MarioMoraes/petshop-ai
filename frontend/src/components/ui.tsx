@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { IconTone } from './icons'
 
 /**
  * Peças de interface do sistema visual (`design/design-modelo.html`).
@@ -19,8 +20,27 @@ export function Shell({ children }: { children: ReactNode }) {
   )
 }
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`card p-6 sm:p-8 ${className}`}>{children}</div>
+/**
+ * `tone="soft"` troca o branco chapado pelo gradiente cinza de `.card-soft`.
+ *
+ * É a ficha de formulário: onde o card não é fundo de leitura e sim a mesa em que
+ * os campos estão apoiados, ele precisa ser de outra cor que os campos. Em card de
+ * conteúdo — lista, detalhe, painel — o branco continua sendo o certo.
+ */
+export function Card({
+  children,
+  className = '',
+  tone = 'default',
+}: {
+  children: ReactNode
+  className?: string
+  tone?: 'default' | 'soft'
+}) {
+  return (
+    <div className={`card p-6 sm:p-8 ${tone === 'soft' ? 'card-soft' : ''} ${className}`}>
+      {children}
+    </div>
+  )
 }
 
 export function Logo() {
@@ -211,6 +231,185 @@ export function DataRow({ label, children }: { label: string; children: ReactNod
     <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line py-3 last:border-b-0">
       <dt className="hint">{label}</dt>
       <dd className="text-sm font-medium">{children}</dd>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Formulário
+ *
+ * As peças que faltavam ao kit. Ver `globals.css` §Formulário para o porquê de
+ * cada uma; aqui fica só a marcação e o contrato.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Cabeçalho de seção de formulário: chip do tipo, olho-de-boi e título em serifa.
+ *
+ * O `tone` é o do ícone (`icon-people`, `icon-metric`, …) e vem documentado no
+ * próprio ícone — é de lá que deve ser copiado, para chip e glifo não divergirem.
+ */
+export function SectionHead({
+  icon,
+  tone,
+  eyebrow,
+  title,
+  description,
+}: {
+  icon: ReactNode
+  tone: IconTone
+  eyebrow?: string
+  title: string
+  description?: string
+}) {
+  return (
+    <div>
+      <div className="section-head">
+        <span className={`icon-chip icon-chip-sm ${tone}`}>{icon}</span>
+        <div className="min-w-0">
+          {eyebrow && <p className="section-eyebrow">{eyebrow}</p>}
+          <h2 className="section-title">{title}</h2>
+        </div>
+      </div>
+      {description && <p className="hint mt-2">{description}</p>}
+    </div>
+  )
+}
+
+/**
+ * Controle segmentado com pastilha deslizante.
+ *
+ * A pastilha é um irmão absoluto das opções, e não um fundo aplicado à opção
+ * ativa: é o que permite ela viajar entre as duas em vez de piscar de um lado
+ * para o outro. Largura em `calc` sobre o número de opções porque o trilho tem
+ * `0.25rem` de folga de cada lado e a conta precisa descontá-la uma vez só.
+ */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  disabled = false,
+  ariaLabel,
+}: {
+  options: readonly { value: T; label: string }[]
+  value: T
+  onChange: (value: T) => void
+  disabled?: boolean
+  ariaLabel: string
+}) {
+  const index = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  )
+
+  return (
+    <div className="segment" role="group" aria-label={ariaLabel}>
+      <span
+        aria-hidden="true"
+        className="segment-thumb"
+        style={{
+          width: `calc((100% - 0.5rem) / ${options.length})`,
+          transform: `translateX(${index * 100}%)`,
+        }}
+      />
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className="segment-option"
+          aria-pressed={option.value === value}
+          disabled={disabled}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Escolha de linha inteira: caixa de seleção com o rótulo dentro do alvo.
+ *
+ * `<label>` envolvendo o `<input>` dispensa o par `id`/`htmlFor` e faz a linha toda
+ * ser clicável de graça — o que importa num balcão, onde ninguém mira 20px.
+ */
+export function Choice({
+  label,
+  description,
+  checked,
+  onChange,
+  error,
+  disabled = false,
+}: {
+  label: ReactNode
+  description?: string
+  checked: boolean
+  onChange: (value: boolean) => void
+  error?: string | undefined
+  disabled?: boolean
+}) {
+  return (
+    <div>
+      <label className={`option${disabled ? ' option-disabled' : ''}`}>
+        <input
+          type="checkbox"
+          className="check mt-px"
+          checked={checked}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        <span className="min-w-0">
+          <span className="option-text block">{label}</span>
+          {description && <span className="hint mt-0.5 block">{description}</span>}
+        </span>
+      </label>
+      {error && (
+        <p className="error-text mt-1 px-3.5" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Barra de ação que acompanha o rodapé da viewport num formulário longo. */
+export function FormActions({ children }: { children: ReactNode }) {
+  return <div className="form-actions">{children}</div>
+}
+
+/**
+ * Aviso com âncora visual.
+ *
+ * `title` em peso 500 na cor do tom, corpo em `--color-muted`: o alerta grita uma
+ * vez no título e volta ao tom de voz do resto da tela no detalhe. Aviso inteiro
+ * na cor de perigo cansa antes de ser lido.
+ */
+export function Alert({
+  tone,
+  icon,
+  title,
+  children,
+  role = 'alert',
+}: {
+  tone: 'danger' | 'accent'
+  icon: ReactNode
+  title: ReactNode
+  children?: ReactNode
+  /**
+   * `alert` interrompe o leitor de tela na hora; `status` espera ele terminar a
+   * frase. Aviso que não bloqueia salvar — peso fora da faixa do porte, por
+   * exemplo — é `status`: interromper alguém para dizer "pode seguir assim" é
+   * exatamente o uso que treina o usuário a ignorar avisos.
+   */
+  role?: 'alert' | 'status'
+}) {
+  return (
+    <div className={`alert alert-${tone} rise`} role={role}>
+      <span className="alert-icon">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">{title}</p>
+        {children && <div className="mt-1.5 text-muted">{children}</div>}
+      </div>
     </div>
   )
 }

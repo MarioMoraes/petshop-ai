@@ -290,6 +290,7 @@ export function TaxiPanel({
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-sm">
             <input
+              className="check"
               type="checkbox"
               checked={pickup}
               disabled={liveLegs.has('PICKUP')}
@@ -326,6 +327,7 @@ export function TaxiPanel({
 
           <label className="flex items-center gap-2 text-sm">
             <input
+              className="check"
               type="checkbox"
               checked={dropoff}
               disabled={liveLegs.has('DROPOFF')}

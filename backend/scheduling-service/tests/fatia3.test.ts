@@ -624,6 +624,72 @@ describe('rotas novas', () => {
     expect(body.columns[0].appointments).toHaveLength(1)
   })
 
+  it('GET /v1/agenda/movement devolve a janela fechada, com o dia vazio zerado', async () => {
+    const { serviceId, professionalId, petId } = await cenario({ jornadaIntegral: true })
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { timezone: 'UTC' },
+    })
+
+    await createBooking(actor(), {
+      petId,
+      professionalId,
+      startsAt: QUINTA_09H,
+      items: [{ serviceId }],
+    })
+    await createBooking(actor(), {
+      petId,
+      professionalId,
+      startsAt: new Date('2026-09-03T11:00:00.000Z'),
+      items: [{ serviceId }],
+    })
+
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: '/v1/agenda/movement?date=2026-09-03&days=7',
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    // A janela termina em `date` e o dia sem movimento continua na série: uma barra
+    // que some deslocaria o eixo do gráfico.
+    expect(body.days).toHaveLength(7)
+    expect(body.days[0].date).toBe('2026-08-28')
+    expect(body.days[6]).toMatchObject({ date: '2026-09-03', total: 2, totalCents: 14000 })
+    expect(body.days[5]).toMatchObject({ date: '2026-09-02', total: 0, totalCents: 0 })
+  })
+
+  it('GET /v1/agenda/movement não conta o cancelado', async () => {
+    const { serviceId, professionalId, petId } = await cenario({ jornadaIntegral: true })
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { timezone: 'UTC' },
+    })
+
+    const booking = await createBooking(actor(), {
+      petId,
+      professionalId,
+      startsAt: QUINTA_09H,
+      items: [{ serviceId }],
+    })
+    await ownerPrisma.appointment.update({
+      where: { id: booking.id },
+      data: { status: 'CANCELLED', cancelledAt: new Date() },
+    })
+
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: '/v1/agenda/movement?date=2026-09-03',
+    })
+
+    expect(response.statusCode).toBe(200)
+    // `days` cai no padrão de 7 quando não vem na query.
+    expect(response.json().days).toHaveLength(7)
+    expect(response.json().days[6]).toMatchObject({ date: '2026-09-03', total: 0 })
+  })
+
   it('POST /v1/recurrences cria a série e relata o que pulou', async () => {
     const { serviceId, professionalId, petId } = await cenario({ maxConcurrentPets: 5 })
 

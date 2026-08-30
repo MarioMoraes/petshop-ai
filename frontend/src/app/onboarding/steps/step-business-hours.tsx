@@ -141,6 +141,7 @@ export function StepBusinessHours(props: Props) {
                 >
                   <label className="flex w-32 items-center gap-2 text-sm">
                     <input
+                      className="check"
                       type="checkbox"
                       checked={!value.closed}
                       onChange={(event) => updateDay(day, { closed: !event.target.checked })}

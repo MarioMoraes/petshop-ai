@@ -1,18 +1,17 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { formatBRL, todayIn, type DayView } from '@petshop/shared-types'
+import { formatBRL, todayIn } from '@petshop/shared-types'
 import { AppShell } from '@/components/app-shell'
 import { CardBloom } from '@/components/atmosphere'
 import {
-  CalendarIcon,
   PawPrintIcon,
-  TrendingUpIcon,
   UsersIcon,
   WalletIcon,
   type IconTone,
 } from '@/components/icons'
 import { serverApi } from '@/lib/api'
+import { MovementChart } from './movement-chart'
 import { Roadmap } from './roadmap'
 
 /**
@@ -22,10 +21,13 @@ import { Roadmap } from './roadmap'
  * equipe"). Não é mais: terminar a configuração e continuar sendo cobrado por tarefas
  * faz o produto parecer que nunca começou. O que fica é o estado do negócio.
  *
- * Os números estão em faixas, e a divisão não é decorativa: **Hoje** muda ao longo do
- * dia e é o que a recepção olha de manhã; **Sua base** só muda quando alguém cadastra
- * ou cobra alguém. Misturar as duas faria o dono não saber quais números vale atualizar
- * a página para reler.
+ * Os números estão em faixas, e a divisão não é decorativa: **Movimento** é o que se
+ * acompanha — muda ao longo do dia e é onde há o que fazer hoje; **Sua base** é o
+ * cadastro, e só muda quando alguém entra ou sai da carteira. Misturar as duas faria o
+ * dono não saber quais números vale atualizar a página para reler.
+ *
+ * O Movimento abre com o gráfico dos últimos sete dias, e não com o número de hoje: o
+ * dia isolado não diz se está bom ou ruim, só a série diz. Ver `movement-chart.tsx`.
  *
  * Nenhum número é calculado a partir de listagem — `total` é o que o serviço já sabe
  * responder, e um contador próprio divergiria na primeira exclusão. Cada bloco cai para
@@ -81,22 +83,17 @@ export default async function DashboardPage() {
    * A agenda e o financeiro só são consultados por quem pode vê-los — pedir e receber
    * 403 funcionaria, mas gastaria a viagem e sujaria o log de segurança todo dia.
    */
-  const [
-    activeTutors,
-    inactiveTutors,
-    activePets,
-    inactivePets,
-    dayView,
-    receivables,
-    cashflow,
-  ] = await Promise.all([
+  const [activeTutors, inactiveTutors, activePets, inactivePets, movement, receivables, cashflow] =
+    await Promise.all([
     countOf(() => serverApi().listTutors({ status: 'ACTIVE', limit: 1 })),
     countOf(() => serverApi().listTutors({ status: 'INACTIVE', limit: 1 })),
     countOf(() => serverApi().listPets({ status: 'ACTIVE', limit: 1 })),
     countOf(() => serverApi().listPets({ status: 'INACTIVE', limit: 1 })),
+    // A série é contada pelo serviço, não somada a partir de uma listagem: a listagem
+    // de agendamentos corta em 200 linhas e a semana de um petshop cheio passaria.
     can('schedule:read_all')
       ? serverApi()
-          .getDayView(hoje)
+          .getMovement({ date: hoje, days: 7 })
           .catch(() => null)
       : Promise.resolve(null),
     can('finance:read')
@@ -113,41 +110,16 @@ export default async function DashboardPage() {
       : Promise.resolve(null),
   ])
 
-  const day = dayView ? summarizeDay(dayView) : null
-
-  const hoje_: Stat[] = []
-  if (can('schedule:read_all')) {
-    hoje_.push(
-      {
-        label: 'Atendimentos hoje',
-        value: day === null ? null : String(day.total),
-        hint:
-          day === null
-            ? 'A agenda não respondeu agora.'
-            : day.total === 0
-              ? 'Nenhum agendamento para hoje.'
-              : `${day.done} concluído${day.done === 1 ? '' : 's'}, ${day.pending} pela frente.`,
-        icon: <CalendarIcon />,
-        iconTone: 'icon-time',
-        href: '/agenda/dia',
-      },
-      {
-        label: 'Ocupação de hoje',
-        value: day === null ? null : `${day.occupancy}%`,
-        hint:
-          day === null
-            ? 'A agenda não respondeu agora.'
-            : day.workingColumns === 0
-              ? 'Ninguém com jornada hoje.'
-              : `Das horas de jornada de ${day.workingColumns} profissiona${day.workingColumns === 1 ? 'l' : 'is'}. Diz se falta cliente ou falta gente.`,
-        icon: <TrendingUpIcon />,
-        iconTone: 'icon-metric',
-        href: '/agenda/dia',
-      },
-    )
-  }
+  /*
+   * A faixa era três cartões: atendimentos de hoje, ocupação de hoje e caixa. Os dois
+   * primeiros saíram — o gráfico dos sete dias responde melhor à mesma pergunta, e o
+   * número do dia sozinho só dizia alguma coisa depois de o dono lembrar como foi a
+   * semana. Quem quer o dia inteiro clica no cartão e cai na agenda, que é onde ele
+   * está de verdade.
+   */
+  const fluxo: Stat[] = []
   if (cashflow) {
-    hoje_.push({
+    fluxo.push({
       label: 'Recebido hoje',
       value: formatBRL(cashflow.totalCents),
       hint:
@@ -157,6 +129,30 @@ export default async function DashboardPage() {
       icon: <WalletIcon />,
       iconTone: 'icon-money',
       href: '/financeiro/configuracoes',
+    })
+  }
+
+  if (receivables) {
+    const overdue = receivables.buckets['30_60d'] + receivables.buckets['60d_plus']
+    /*
+     * A dívida em aberto está nesta faixa, e não em "Sua base", apesar de ser saldo
+     * acumulado e não fluxo do dia. É o número da tela em que mais se pode agir hoje:
+     * ao lado de tutores e pets ele lia como cadastro, e ninguém cobra ninguém depois
+     * de olhar um cadastro.
+     */
+    fluxo.push({
+      label: 'Em aberto',
+      value: formatBRL(receivables.totalCents),
+      hint:
+        receivables.totalCents === 0
+          ? 'Nenhum débito em aberto na carteira.'
+          : overdue > 0
+            ? `${formatBRL(overdue)} vencidos há mais de 30 dias.`
+            : 'Tudo dentro do prazo de 30 dias.',
+      icon: <WalletIcon />,
+      iconTone: 'icon-money',
+      href: '/financeiro/configuracoes',
+      ...(overdue > 0 ? { tone: 'danger' as const } : {}),
     })
   }
 
@@ -186,24 +182,6 @@ export default async function DashboardPage() {
       href: '/pets',
     },
   ]
-  if (receivables) {
-    const overdue = receivables.buckets['30_60d'] + receivables.buckets['60d_plus']
-    base.push({
-      label: 'Em aberto',
-      value: formatBRL(receivables.totalCents),
-      hint:
-        receivables.totalCents === 0
-          ? 'Nenhum débito em aberto na carteira.'
-          : overdue > 0
-            ? `${formatBRL(overdue)} vencidos há mais de 30 dias.`
-            : 'Tudo dentro do prazo de 30 dias.',
-      icon: <WalletIcon />,
-      iconTone: 'icon-money',
-      href: '/financeiro/configuracoes',
-      ...(overdue > 0 ? { tone: 'danger' as const } : {}),
-    })
-  }
-
   return (
     <AppShell active="inicio" me={me} atmosphere>
       <div className="mx-auto max-w-5xl">
@@ -221,7 +199,23 @@ export default async function DashboardPage() {
           {greetingFor(timezone)}, {firstNameOf(me.user.fullName)}.
         </p>
 
-        {hoje_.length > 0 && <StatSection title="Hoje" stats={hoje_} />}
+        {(movement !== null || fluxo.length > 0) && (
+          <StatSection
+            title="Movimento"
+            stats={fluxo}
+            lead={
+              movement && (
+                <Link
+                  href="/agenda/dia"
+                  className="card card-interactive relative block overflow-hidden p-7"
+                >
+                  <CardBloom />
+                  <MovementChart days={movement.days} today={hoje} />
+                </Link>
+              )
+            }
+          />
+        )}
         <StatSection title="Sua base" stats={base} />
 
         <Roadmap permissions={me.permissions} />
@@ -235,13 +229,27 @@ export default async function DashboardPage() {
  *
  * O título saiu do `sr-only` quando passou a haver duas faixas: com uma só, ele era
  * ruído; com duas, é ele que diz por que os números estão separados.
+ *
+ * `lead` é o primeiro cartão da grade — hoje, o gráfico dos sete dias. Entra como
+ * `ReactNode` e não como `Stat` porque o corpo dele não é "número, rótulo, dica": é o
+ * molde de métrica do design, com as barras no meio. Mesma casca, conteúdo próprio.
  */
-function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
+function StatSection({
+  title,
+  stats,
+  lead,
+}: {
+  title: string
+  stats: Stat[]
+  lead?: ReactNode
+}) {
   return (
     <section className="mt-10">
       <h2 className="text-sm font-medium uppercase tracking-[0.06em] text-subtle">{title}</h2>
 
       <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {lead}
+
         {stats.map((stat) => {
           const body = (
             <>
@@ -282,52 +290,6 @@ function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
       </div>
     </section>
   )
-}
-
-interface DaySummary {
-  total: number
-  done: number
-  pending: number
-  occupancy: number
-  workingColumns: number
-}
-
-/**
- * O dia em quatro números.
- *
- * A ocupação é a **média das colunas de quem trabalha hoje** — quem está de folga ou
- * sem jornada fica de fora. Incluir os ausentes com 0% faria o dia parecer vazio toda
- * vez que alguém tirasse férias, que é o oposto do que o número existe para dizer.
- *
- * Cancelados e faltas não contam como atendimento: o cartão responde "quanto trabalho
- * há hoje", não "quantas linhas existem no banco".
- */
-function summarizeDay(dayView: DayView): DaySummary {
-  const working = dayView.columns.filter((column) => !column.absent && column.shifts.length > 0)
-
-  const appointments = dayView.columns.flatMap((column) => column.appointments)
-  const real = appointments.filter(
-    (appointment) => appointment.status !== 'CANCELLED' && appointment.status !== 'RESCHEDULED',
-  )
-  const done = real.filter((appointment) => appointment.status === 'COMPLETED').length
-  const noShow = real.filter((appointment) => appointment.status === 'NO_SHOW').length
-
-  const occupancy =
-    working.length === 0
-      ? 0
-      : Math.round(
-          working.reduce((sum, column) => sum + column.occupancyPercent, 0) / working.length,
-        )
-
-  return {
-    total: real.length,
-    done,
-    // A falta já não vai acontecer: contá-la como "pela frente" mandaria a recepção
-    // esperar por alguém que não vem.
-    pending: real.length - done - noShow,
-    occupancy,
-    workingColumns: working.length,
-  }
 }
 
 /** A forma de pagamento que mais entrou hoje — a "realidade do balcão" do §10. */

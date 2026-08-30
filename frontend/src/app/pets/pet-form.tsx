@@ -12,7 +12,23 @@ import type {
   Size,
   Species,
 } from '@petshop/shared-types'
-import { Card, Field, FormError } from '@/components/ui'
+import {
+  Alert,
+  Card,
+  Field,
+  FormActions,
+  FormError,
+  SectionHead,
+  Segmented,
+} from '@/components/ui'
+import {
+  AlertTriangleIcon,
+  CakeIcon,
+  HeartPulseIcon,
+  NoteIcon,
+  PawPrintIcon,
+  UsersIcon,
+} from '@/components/icons'
 import {
   createPetAction,
   listBreedsAction,
@@ -55,6 +71,16 @@ interface TutorDraft {
 }
 
 type AgeMode = 'exact' | 'estimated' | 'unknown'
+
+/**
+ * `unknown` fica de fora do controle: é o estado de um pet já salvo sem idade
+ * nenhuma, não uma escolha que alguém faça na tela. Oferecê-lo como terceiro botão
+ * convidaria a recepção a não perguntar.
+ */
+const AGE_MODES = [
+  { value: 'exact', label: 'Sei a data de nascimento' },
+  { value: 'estimated', label: 'Sei a idade aproximada' },
+] as const satisfies readonly { value: AgeMode; label: string }[]
 
 export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Props) {
   const router = useRouter()
@@ -239,19 +265,27 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
       {result?.ok === false && !conflict && <FormError message={result.message} />}
 
       {conflict && (
-        <div className="rounded-2xl bg-danger-soft px-5 py-4 text-sm" role="alert">
-          <p className="font-medium text-danger">{result?.ok === false ? result.message : ''}</p>
-          <p className="mt-1 text-muted">
+        <Alert
+          tone="danger"
+          icon={<AlertTriangleIcon />}
+          title={result?.ok === false ? result.message : ''}
+        >
+          <p>
             Microchip já usado por <span className="font-medium">{conflict.name}</span>.
           </p>
           <Link href={`/pets/${conflict.id}`} className="btn btn-primary mt-3">
             Abrir cadastro existente
           </Link>
-        </div>
+        </Alert>
       )}
 
-      <Card className="space-y-4">
-        <h2 className="font-semibold">Identificação</h2>
+      <Card tone="soft" className="space-y-5">
+        <SectionHead
+          icon={<PawPrintIcon />}
+          tone="icon-pet"
+          eyebrow="01 · Identificação"
+          title="Quem é o pet"
+        />
 
         <Field label="Nome" htmlFor="name" error={fieldErrors.name}>
           <input
@@ -376,33 +410,21 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
         </div>
       </Card>
 
-      <Card className="space-y-4">
-        <h2 className="font-semibold">Idade</h2>
-        <p className="hint">
-          Pet resgatado costuma não ter data de nascimento. A idade aproximada serve, e as
-          telas passam a exibir “≈” para o veterinário saber que é estimativa.
-        </p>
+      <Card tone="soft" className="space-y-5">
+        <SectionHead
+          icon={<CakeIcon />}
+          tone="icon-pet"
+          eyebrow="02 · Idade"
+          title="Quantos anos ele tem"
+          description="Pet resgatado costuma não ter data de nascimento. A idade aproximada serve, e as telas passam a exibir “≈” para o veterinário saber que é estimativa."
+        />
 
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['exact', 'Sei a data de nascimento'],
-              ['estimated', 'Sei a idade aproximada'],
-            ] as const
-          ).map(([mode, label]) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setAgeMode(mode)}
-              aria-pressed={ageMode === mode}
-              className={`pill px-4 py-1.5 text-sm font-medium ${
-                ageMode === mode ? 'bg-shell text-white' : 'bg-black/5 text-muted'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          ariaLabel="Como informar a idade"
+          options={AGE_MODES}
+          value={ageMode === 'unknown' ? 'exact' : ageMode}
+          onChange={setAgeMode}
+        />
 
         {ageMode === 'exact' ? (
           <Field label="Data de nascimento" htmlFor="birthDate" error={fieldErrors.birthDate}>
@@ -439,8 +461,13 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
         )}
       </Card>
 
-      <Card className="space-y-4">
-        <h2 className="font-semibold">Saúde e identificação</h2>
+      <Card tone="soft" className="space-y-5">
+        <SectionHead
+          icon={<HeartPulseIcon />}
+          tone="icon-pet"
+          eyebrow="03 · Saúde"
+          title="Como ele está"
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
@@ -485,11 +512,17 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
         </div>
 
         {weightMismatch && selectedSize && (
-          <p className="rounded-2xl bg-accent-soft px-4 py-3 text-sm text-accent-ink" role="status">
-            {weightKg} kg está fora da faixa de {selectedSize.label} (
-            {selectedSize.weightMinKg}–{selectedSize.weightMaxKg} kg). É só um aviso — dá para
-            salvar assim.
-          </p>
+          <Alert
+            tone="accent"
+            role="status"
+            icon={<AlertTriangleIcon />}
+            title={`${weightKg} kg está fora da faixa de ${selectedSize.label}`}
+          >
+            <p>
+              O porte prevê {selectedSize.weightMinKg}–{selectedSize.weightMaxKg} kg. É só um
+              aviso — dá para salvar assim (AC-04).
+            </p>
+          </Alert>
         )}
 
         <Field
@@ -515,14 +548,14 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
       </Card>
 
       {!isEditing && (
-        <Card className="space-y-4">
-          <div>
-            <h2 className="font-semibold">Responsáveis</h2>
-            <p className="hint mt-1">
-              Todo pet precisa de um responsável principal — é para a conta dele que os
-              serviços são lançados. Um casal pode ter os dois vinculados.
-            </p>
-          </div>
+        <Card tone="soft" className="space-y-5">
+          <SectionHead
+            icon={<UsersIcon />}
+            tone="icon-pet"
+            eyebrow="04 · Responsáveis"
+            title="De quem ele é"
+            description="Todo pet precisa de um responsável principal — é para a conta dele que os serviços são lançados. Um casal pode ter os dois vinculados."
+          />
 
           {tutors.length > 0 && (
             <ul className="space-y-2">
@@ -585,7 +618,14 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
         </Card>
       )}
 
-      <Card>
+      <Card tone="soft" className="space-y-5">
+        <SectionHead
+          icon={<NoteIcon />}
+          tone="icon-pet"
+          eyebrow="05 · Observações"
+          title="O que mais importa saber"
+        />
+
         <Field
           label="Observações"
           htmlFor="notes"
@@ -602,14 +642,14 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
         </Field>
       </Card>
 
-      <div className="flex items-center justify-end gap-3">
+      <FormActions>
         <Link href={isEditing ? `/pets/${pet.id}` : '/pets'} className="btn btn-ghost">
           Cancelar
         </Link>
         <button type="submit" className="btn btn-primary" disabled={pending || !canSubmit}>
           {pending ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Cadastrar pet'}
         </button>
-      </div>
+      </FormActions>
     </form>
   )
 }

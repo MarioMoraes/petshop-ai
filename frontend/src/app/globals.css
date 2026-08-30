@@ -21,6 +21,32 @@
   --color-shell: #171719;
   /* Off-white morno dos chips de ícone e das pílulas de meta-informação. */
   --color-chip: #f7f7f5;
+  /*
+   * Ficha de formulário: cinza frio em gradiente vertical.
+   *
+   * Duas paradas, e não uma cor chapada, porque um plano grande sem variação lê
+   * como preenchimento; com a luz caindo de cima ele lê como superfície. É a
+   * mesma física de `.btn-primary`, que usa `linear-gradient(180deg, …)` pelo
+   * mesmo motivo — só que aqui, num plano de 700px em vez de 40, o degradê pode
+   * ser muito mais sutil e ainda assim ser percebido.
+   *
+   * Frio de propósito: R < G ≤ B, a assinatura de toda a escala neutra do sistema
+   * (#f4f5f5, #ecedee, #dfe0e2). Duas tentativas mornas foram descartadas antes
+   * desta — o creme dava ao formulário um material próprio, que é justamente o
+   * que não se quer numa tela que convive com listas e painéis frios.
+   *
+   * O gradiente atravessa o valor do shell: o topo (#fafbfc) é mais claro que
+   * `--color-surface`, o pé (#eef0f4) é mais escuro. Isso dá à ficha um eixo — ela
+   * emerge em cima e assenta embaixo — e faz a borda branca de 1px de `.card`
+   * trabalhar de verdade: quase invisível no topo, onde não é necessária, e
+   * nítida no pé, onde o cartão escurece e precisa de aresta.
+   *
+   * O pé é o limite de contraste, não de gosto: um degrau abaixo dele o texto de
+   * `.hint` reprova o AA da WCAG mesmo com a correção de `--color-subtle` que
+   * `.card-soft` aplica (ver abaixo).
+   */
+  --color-card-soft-top: #fafbfc;
+  --color-card-soft-bottom: #eef0f4;
 
   /* Acento quente, único */
   --color-accent: #e34a32;
@@ -67,6 +93,20 @@
   --color-icon-money: #22864a;
   --color-icon-money-soft: #edf8ef;
   --color-icon-money-ring: #c8ead0;
+
+  /*
+   * Barras do gráfico do painel.
+   *
+   * São dois degraus do azul da Agenda, não duas cores: a série é uma só — sete
+   * medidas da mesma coisa — e matiz diferente faria o olho ler duas categorias.
+   * O degrau forte marca o dia de hoje, que ainda está correndo e por isso não se
+   * compara aos outros seis em pé de igualdade.
+   *
+   * O degrau claro parou em #6b93cf porque abaixo disso a barra reprova o mínimo de
+   * 3:1 contra o branco do cartão — e barra que não se enxerga não é dado.
+   */
+  --color-chart-bar: #6b93cf;
+  --color-chart-bar-strong: #466fbd;
 
   --color-icon-metric: #00818c;
   --color-icon-metric-soft: #e8f8fa;
@@ -141,6 +181,77 @@
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
       0 14px 30px -18px rgb(35 36 39 / 0.25);
+  }
+
+  /*
+   * Ficha de formulário: o mesmo card em papel morno.
+   *
+   * Variante e não substituição de `--color-card`. O branco puro continua certo
+   * onde o card carrega conteúdo — lista, painel, detalhe —, porque ali ele é o
+   * fundo de leitura. Num formulário o card não é fundo de leitura: é a mesa em
+   * que os campos estão apoiados, e mesa e papel não podem ser da mesma cor.
+   *
+   * A borda branca de `.card` deixa de ser decorativa e passa a variar de função ao
+   * longo da peça: some no topo, onde o cartão já é quase branco, e vira aresta
+   * nítida no pé, onde ele escurece abaixo do shell. Uma borda só, fazendo dois
+   * trabalhos, porque é o fundo que se move por baixo dela.
+   */
+  .card-soft {
+    background-image: linear-gradient(
+      180deg,
+      var(--color-card-soft-top) 0%,
+      var(--color-card-soft-bottom) 100%
+    );
+    /*
+     * Elevação em três camadas.
+     *
+     * A sombra de `.card` é uma única camada com blur curto e spread negativo
+     * grande — some quase colada na peça, e o que ela produz é uma mancha, não uma
+     * altura. Serve para um cartão de lista, que precisa de recorte e não de
+     * distância; a ficha de formulário é a peça principal da tela e pode estar
+     * mais alta.
+     *
+     * Um objeto real projeta duas sombras ao mesmo tempo, e é a soma delas que o
+     * olho lê como altura:
+     *
+     *   · **contato** — 2px de blur, quase preta, no lugar onde a peça encosta no
+     *     chão. É o que dá aresta e impede a peça de parecer flutuando sem apoio;
+     *   · **média** — 16px, o corpo da sombra, que faz a transição;
+     *   · **ambiente** — 48px de blur bem aberto e diluído, a luz do ambiente
+     *     contornando a peça. É esta que informa a distância até o chão.
+     *
+     * Uma camada só nunca consegue as duas coisas: com blur curto a peça fica
+     * baixa, com blur longo ela perde a aresta e vira um borrão pairando. As
+     * opacidades caem à medida que o blur cresce (0.11 → 0.16 → 0.30 com spreads
+     * negativos progressivos) porque é assim que a penumbra se comporta — a sombra
+     * fica maior e mais fraca ao mesmo tempo, nunca maior e mais forte.
+     *
+     * O brilho especular de 1px no topo continua sendo a primeira camada: é o par
+     * da sombra, e sem ele a peça teria altura sem ter superfície.
+     */
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 1px 2px -1px rgb(35 36 39 / 0.11),
+      0 8px 16px -8px rgb(35 36 39 / 0.16),
+      0 26px 48px -22px rgb(35 36 39 / 0.3);
+    /*
+     * Fundo mais escuro exige texto secundário mais escuro.
+     *
+     * `--color-subtle` (#86888d) já rendia só 3,55:1 sobre branco — abaixo dos
+     * 4,5:1 que a WCAG AA pede para texto normal — e no pé do gradiente cairia
+     * para 3,11:1. Como `.hint` carrega instrução de verdade neste formulário
+     * ("não registre dados de saúde do tutor aqui"), deixar ilegível não é opção.
+     *
+     * A conta é feita contra o PÉ do gradiente, que é o pior caso: no topo sobra
+     * folga.
+     *
+     * A variável é redefinida no escopo da ficha em vez de no `:root`: assim
+     * `.hint`, `.section-eyebrow`, o placeholder e qualquer `text-subtle` dentro
+     * dela sobem juntos para 4,54:1, e as ~40 telas que não são formulário
+     * seguem exatamente como estão. **O débito global continua de pé** — o
+     * `--color-subtle` do `:root` reprova AA em todo o resto do app.
+     */
+    --color-subtle: #6b6d72;
   }
 
   /*
@@ -491,7 +602,24 @@
   .field {
     width: 100%;
     border-radius: 14px;
-    border: 1px solid #ffffff;
+    /*
+     * A aresta.
+     *
+     * Era `1px solid #ffffff`, herdada do card, e sobre o cinza do shell isso
+     * bastava: o branco recortava a peça do fundo. Dentro de um cartão branco,
+     * porém, branco sobre branco é nada, e o campo virava um fantasma que só a
+     * sombra de baixo denunciava — o formulário de tutor, que é quase todo campo
+     * dentro de cartão, foi onde ficou impossível de ignorar.
+     *
+     * O topo é mais escuro que os outros três lados de propósito. Um campo é um
+     * rebaixo, não um relevo; com luz vindo de cima, a aresta superior é a que
+     * fica na sombra e as laterais apenas insinuam a espessura. São 6% de
+     * diferença que ninguém identifica olhando e que fazem a diferença entre um
+     * retângulo desenhado e uma cavidade — o mesmo truque que dá corpo ao botão,
+     * de cabeça para baixo.
+     */
+    border: 1px solid rgb(35 36 39 / 0.09);
+    border-top-color: rgb(35 36 39 / 0.15);
     background-color: var(--color-card);
     padding: 0.75rem 1rem;
     font-size: 0.9375rem;
@@ -510,6 +638,7 @@
 
   .field:focus {
     border-color: var(--color-focus);
+    border-top-color: var(--color-focus);
     outline: none;
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
@@ -524,6 +653,7 @@
 
   .field[aria-invalid='true'] {
     border-color: var(--color-danger);
+    border-top-color: var(--color-danger);
   }
 
   .field[aria-invalid='true']:focus {
@@ -590,6 +720,480 @@
   @media (prefers-reduced-motion: reduce) {
     .rise {
       animation: none;
+    }
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+   * Formulário — as peças que faltavam
+   *
+   * O sistema tinha `.field`, `.label` e `.hint` e parava aí. Tudo o mais que um
+   * formulário precisa — caixa de seleção, controle segmentado, cabeçalho de
+   * seção, barra de ação — caía no padrão do navegador ou num retângulo pintado
+   * à mão na tela. O resultado era uma peça de duas gerações: botões modelados
+   * com três camadas de 1px convivendo com um checkbox azul do sistema
+   * operacional. O que segue não inventa uma estética nova; leva a que já existe
+   * para os cantos onde ela não tinha chegado.
+   * ═══════════════════════════════════════════════════════════════════════ */
+
+  /*
+   * Cabeçalho de seção.
+   *
+   * O título é o **Título 4 · Card padrão** do `design/design-modelo.html`:
+   * 1.125rem / 1.75rem, peso 600, Inter. A primeira versão desta classe tentava
+   * Instrument Serif em 24px — a serifa está no sistema, mas como acento de
+   * display (§Título 1 · Acento serif), e um formulário não é uma peça de
+   * display. Em quatro cabeçalhos empilhados numa tela de trabalho ela puxa
+   * atenção que os campos precisam.
+   *
+   * Sem a serifa a hierarquia passa a vir de três coisas menores e mais
+   * duráveis: o chip colorido à esquerda, o olho-de-boi em caixa alta e o salto
+   * de 12px para 18px em peso 600. É menos espetáculo por linha e mais legível
+   * repetido — que é a condição real de um formulário.
+   *
+   * O olho-de-boi é o **Eyebrow · Neutro** do mesmo catálogo: 0.75rem / 1rem,
+   * peso 600, tracking 0.1em, `--color-subtle`. Estava em 0.6875rem com 0.12em
+   * quando o título era grande e precisava de contraste; com o título em 18px o
+   * valor documentado volta a ser o certo.
+   */
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+
+  .section-eyebrow {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-subtle);
+  }
+
+  .section-title {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+
+  /*
+   * Chip de 36px para o cabeçalho de seção. Os 48px do `.icon-chip` foram medidos
+   * para o topo de um card de conteúdo, onde o ícone é a coisa principal; ao lado
+   * de um título de 18px ele passaria a mandar na linha em vez de abri-la.
+   */
+  .icon-chip-sm {
+    height: 2.25rem;
+    width: 2.25rem;
+    border-radius: 0.75rem;
+  }
+
+  .icon-chip-sm svg {
+    height: 1.125rem;
+    width: 1.125rem;
+  }
+
+  /*
+   * Caixa de seleção.
+   *
+   * O checkbox nativo é o detalhe que mais denuncia um formulário inacabado: ele
+   * chega no azul do sistema operacional, com o raio do sistema operacional, e não
+   * tem relação nenhuma com o resto da tela. Esta reconstrói a face em cima da
+   * mesma física dos cartões — branca, com o brilho de 1px no topo e a sombra
+   * curta embaixo —, de modo que marcar um consentimento é apertar uma peça do
+   * mesmo material de que o formulário é feito.
+   *
+   * O tique entra com `cubic-bezier(0.34, 1.56, 0.64, 1)`, que ultrapassa o alvo e
+   * volta. É a única curva com overshoot do sistema inteiro, e está aqui de
+   * propósito: marcar é um gesto de confirmação, e uma resposta que dá um
+   * pulinho lê como "recebi" de um jeito que a desaceleração limpa não consegue.
+   * Em qualquer outro lugar isso seria fofo demais; num alvo de 20px dura 220ms e
+   * some antes de virar personalidade.
+   */
+  .check {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    flex: none;
+    height: 1.25rem;
+    width: 1.25rem;
+    border-radius: 0.4375rem;
+    border: 1px solid var(--color-line);
+    background-color: var(--color-card);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 4px 10px -8px rgb(35 36 39 / 0.5);
+    cursor: pointer;
+    transition:
+      background-color 0.18s,
+      border-color 0.18s,
+      box-shadow 0.18s;
+  }
+
+  /* Tique desenhado em CSS, e não em SVG: dois lados de uma borda girados 45° são
+   * mais nítidos em 20px do que qualquer path rasterizado, e são animáveis. */
+  .check::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 47%;
+    height: 0.5625rem;
+    width: 0.3125rem;
+    border: 2px solid #ffffff;
+    border-top: 0;
+    border-left: 0;
+    transform: translate(-50%, -58%) rotate(45deg) scale(0.4);
+    opacity: 0;
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 0.12s;
+  }
+
+  .check:checked {
+    background-color: var(--color-focus);
+    border-color: var(--color-focus);
+  }
+
+  .check:checked::after {
+    opacity: 1;
+    transform: translate(-50%, -58%) rotate(45deg) scale(1);
+  }
+
+  .check:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /*
+   * A linha inteira é o alvo.
+   *
+   * Um checkbox de 20px ao lado de uma frase de duas linhas é um alvo mesquinho —
+   * e num cadastro que roda no balcão, com o atendente de pé e o tutor esperando,
+   * mesquinhez de alvo custa tempo. Envolver o par num rótulo com fundo próprio
+   * resolve o alcance e, de quebra, dá ao consentimento o que ele não tinha:
+   * estado. Marcado, a linha ganha um véu da cor de foco e um anel de 1px, e a
+   * lista para de ser quatro quadradinhos soltos para virar uma lista de escolhas
+   * em que dá para ver, de longe, o que ficou ligado.
+   */
+  .option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    border-radius: 14px;
+    /*
+     * Em repouso a linha já tem contorno, e não fundo transparente.
+     *
+     * Com as marcadas preenchidas e as desmarcadas sem nada, a lista lia como duas
+     * barras cinzas mais duas frases soltas — três coisas diferentes no lugar de
+     * quatro iguais em estados diferentes. Com a moldura sempre presente, marcar
+     * passa a mudar o preenchimento de um objeto que já estava lá, que é o que de
+     * fato acontece.
+     */
+    border: 1px solid rgb(35 36 39 / 0.07);
+    padding: 0.75rem 0.875rem;
+    cursor: pointer;
+    transition:
+      background-color 0.2s,
+      border-color 0.2s,
+      box-shadow 0.2s;
+  }
+
+  /*
+   * Interagir levanta a linha em direção à luz, em vez de afundá-la.
+   *
+   * Sobre papel morno, um véu de tinta produzia três barras cinzas que viraram a
+   * coisa mais pesada do formulário — mais pesada que qualquer campo, para dizer
+   * algo menos importante que qualquer campo. E contrariava o próprio sistema: em
+   * `.nav-item-active` e no polegar do `.segment`, "ativo" já é uma pastilha
+   * branca com a sombra dos cartões. Marcada, a linha vira essa pastilha.
+   *
+   * Isto amarra `.option` à ficha morna: sobre um card branco o levante some, e
+   * só a borda sobra como sinal. É a troca aceita — `.option` é peça de
+   * formulário, e formulário usa `Card tone="soft"`.
+   */
+  .option:hover {
+    background-color: rgb(255 255 255 / 0.55);
+    border-color: rgb(35 36 39 / 0.12);
+  }
+
+  /*
+   * Marcada, a linha esfria em vez de acender.
+   *
+   * A primeira versão tingia o fundo com a cor de foco, e duas linhas de coral
+   * empilhadas liam como erro — o acento é quente e vizinho do vermelho de
+   * perigo, e em área grande ele alarma. Agora a cor aparece uma vez só, nos
+   * 20px da caixa, e a linha fica no off-white morno dos chips. É a regra que o
+   * resto do sistema já segue: o acento é a coisa mais alta da tela justamente
+   * porque é a menor.
+   */
+  .option:has(.check:checked) {
+    background-color: var(--color-card);
+    border-color: rgb(35 36 39 / 0.09);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 6px 14px -10px rgb(35 36 39 / 0.35);
+  }
+
+  /* O foco do teclado precisa aparecer na linha, não só nos 20px da caixa. */
+  .option:has(.check:focus-visible) {
+    border-color: var(--color-focus);
+  }
+
+  /*
+   * Sem permissão de edição a linha continua legível, só para de responder. Some
+   * o cursor de mão e o hover; o texto fica em 60% em vez de cinza-claro, porque
+   * consentimento e política são informação que quem não pode editar ainda precisa
+   * conseguir ler.
+   */
+  .option-disabled,
+  .option-disabled:hover {
+    cursor: not-allowed;
+    background-color: transparent;
+    border-color: rgb(35 36 39 / 0.07);
+    opacity: 0.6;
+  }
+
+  .option-text {
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--color-muted);
+  }
+
+  .option:has(.check:checked) .option-text {
+    color: var(--color-ink-soft);
+  }
+
+  /*
+   * Controle segmentado.
+   *
+   * Duas pílulas trocando de cor no clique é a versão de planilha desta escolha:
+   * o estado salta de um lado para o outro sem passar pelo meio, e o usuário
+   * precisa reler para saber o que mudou. Com uma pastilha branca que desliza —
+   * a mesma pastilha do `.nav-item-active`, com a mesma sombra — o movimento
+   * carrega a informação: o olho segue a peça e chega no destino sabendo de onde
+   * ela veio.
+   *
+   * Colunas de grade em vez de flex justamente para as duas ficarem do mesmo
+   * tamanho apesar de "Pessoa física" e "Pessoa jurídica" terem larguras
+   * diferentes — com larguras desiguais a pastilha teria de mudar de tamanho no
+   * meio do caminho, e aí o deslize vira deformação.
+   */
+  /*
+   * O trilho, o hover e a linha marcada são véus de tinta, e não `--color-chip`.
+   *
+   * Todos os três querem dizer a mesma coisa — "isto está um degrau abaixo da
+   * superfície que o contém" — e um hex fixo só sabe dizer isso sobre um fundo.
+   * Sobre a ficha morna do formulário, `#f7f7f5` chegava a quatro unidades do
+   * fundo e o estado sumia. Com opacidade, o rebaixo é sempre proporcional ao que
+   * está embaixo, e a cor de quem hospeda atravessa em vez de ser tapada.
+   */
+  .segment {
+    position: relative;
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    padding: 0.25rem;
+    border-radius: 9999px;
+    background-color: rgb(35 36 39 / 0.05);
+    box-shadow: 0 0 0 1px rgb(35 36 39 / 0.05) inset;
+  }
+
+  .segment-thumb {
+    position: absolute;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    left: 0.25rem;
+    border-radius: 9999px;
+    background-color: var(--color-card);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 6px 14px -8px rgb(35 36 39 / 0.45);
+    transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+
+  .segment-option {
+    position: relative;
+    z-index: 1;
+    border-radius: 9999px;
+    padding: 0.5rem 1.125rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--color-muted);
+    transition: color 0.25s;
+  }
+
+  .segment-option[aria-pressed='true'] {
+    color: var(--color-ink);
+  }
+
+  .segment-option:disabled {
+    cursor: not-allowed;
+  }
+
+  .segment:has(.segment-option:disabled) {
+    opacity: 0.65;
+  }
+
+  /*
+   * Adorno dentro do campo.
+   *
+   * Um glifo à esquerda do CEP, do telefone e do documento faz o formulário ser
+   * varrido pelo desenho antes de ser lido pelo rótulo — em quatro campos de
+   * mesma altura empilhados, é a diferença entre procurar e achar. Ele acende na
+   * cor de foco junto com a borda: dois sinais do mesmo evento, dentro da mesma
+   * peça, é reforço e não ruído.
+   *
+   * O slot da direita existe para status efêmero — o "buscando…" do CEP mora ali
+   * em vez de aparecer e sumir na dica embaixo, que empurrava a linha inteira do
+   * endereço para cima e para baixo a cada consulta.
+   */
+  .field-wrap {
+    position: relative;
+    display: block;
+  }
+
+  .field-wrap > .field {
+    padding-left: 2.625rem;
+  }
+
+  .field-lead {
+    position: absolute;
+    left: 0.9375rem;
+    top: 50%;
+    display: flex;
+    transform: translateY(-50%);
+    color: var(--color-subtle);
+    pointer-events: none;
+    transition: color 0.2s;
+  }
+
+  .field-wrap:focus-within .field-lead {
+    color: var(--color-focus);
+  }
+
+  .field-tail {
+    position: absolute;
+    right: 0.875rem;
+    top: 50%;
+    display: flex;
+    align-items: center;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  /*
+   * Hover do campo: a sombra abre um pouco antes de o cursor chegar ao clique.
+   * No sistema o contorno percebido vem da sombra, então é ela — e não uma borda
+   * que muda de cor — que responde ao ponteiro.
+   */
+  .field:hover:not(:disabled):not(:focus) {
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 10px 24px -14px rgb(35 36 39 / 0.35);
+  }
+
+  /* O ícone do seletor de data nativo chega no azul do sistema; em escala de
+   * cinza ele volta a ser um detalhe do campo em vez de um corpo estranho. */
+  .field::-webkit-calendar-picker-indicator {
+    opacity: 0.4;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    filter: grayscale(1);
+  }
+
+  .field:hover::-webkit-calendar-picker-indicator {
+    opacity: 0.75;
+  }
+
+  /*
+   * Barra de ação.
+   *
+   * Num cadastro de quatro cartões o botão de salvar ficava no fim de um scroll
+   * longo — o atendente terminava o último campo e ainda tinha de procurar onde
+   * confirmar. Grudada no rodapé com desfoque atrás, ela acompanha a leitura sem
+   * tapar nada: a translucidez deixa o conteúdo passar por baixo, o que mantém a
+   * sensação de que ela flutua sobre o formulário em vez de encerrá-lo.
+   *
+   * `saturate` junto do `blur` porque desfoque puro lava a cor do que está
+   * embaixo e a barra fica com cara de vidro sujo; saturando de volta ela vira
+   * vidro limpo.
+   */
+  .form-actions {
+    position: sticky;
+    bottom: 0.75rem;
+    z-index: 20;
+    /*
+     * Encolhe até os dois botões e encosta à direita. Ocupando a largura toda ela
+     * virava uma faixa quase vazia atravessando a tela — peso de rodapé de página
+     * para carregar dois controles. Uma pílula do tamanho do que contém flutua; um
+     * retângulo de ponta a ponta encerra.
+     */
+    width: fit-content;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    border-radius: 9999px;
+    padding: 0.625rem 0.75rem;
+    background-color: color-mix(in srgb, var(--color-surface) 80%, transparent);
+    backdrop-filter: blur(14px) saturate(1.5);
+    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.75) inset,
+      0 12px 30px -18px rgb(35 36 39 / 0.4);
+  }
+
+  /*
+   * Aviso.
+   *
+   * Um retângulo colorido com texto dentro é o mínimo que informa e o máximo que
+   * irrita: sem ícone, o aviso compete com o formulário pela mesma leitura
+   * linear. Com o chip à esquerda ele passa a ter uma âncora — o olho reconhece a
+   * forma antes de decodificar a frase — e o anel de 1px o recorta do cartão do
+   * mesmo jeito que a borda branca recorta o cartão do shell.
+   */
+  .alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    border: 1px solid transparent;
+    border-radius: 18px;
+    padding: 1rem 1.125rem;
+    font-size: 0.875rem;
+  }
+
+  .alert-icon {
+    display: inline-flex;
+    height: 2rem;
+    width: 2rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.625rem;
+    background-color: rgb(255 255 255 / 0.7);
+  }
+
+  .alert-danger {
+    background-color: var(--color-danger-soft);
+    border-color: color-mix(in srgb, var(--color-danger) 18%, transparent);
+    color: var(--color-danger);
+  }
+
+  .alert-accent {
+    background-color: var(--color-accent-soft);
+    border-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
+    color: var(--color-accent-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .check::after,
+    .segment-thumb,
+    .option,
+    .field-lead {
+      transition: none;
     }
   }
 }

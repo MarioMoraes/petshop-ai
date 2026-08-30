@@ -14,7 +14,14 @@ import {
   type TenantSettings,
   type Weekday,
 } from '@petshop/shared-types'
-import { Badge, Card, Field, FormError, Tabs } from '@/components/ui'
+import { Badge, Card, Choice, Field, FormError, SectionHead, Tabs } from '@/components/ui'
+import {
+  CalendarIcon,
+  IdCardIcon,
+  MapPinIcon,
+  PaletteIcon,
+  ShieldCheckIcon,
+} from '@/components/icons'
 import {
   lookupCepAction,
   saveBrandingAction,
@@ -225,8 +232,13 @@ function IdentityPanel({
   const cnpjInvalid = digits.length > 0 && digits.length !== 14
 
   return (
-    <Card>
-      <h2 className="text-xl font-semibold">Dados do estabelecimento</h2>
+    <Card tone="soft">
+      <SectionHead
+        icon={<IdCardIcon />}
+        tone="icon-system"
+        eyebrow="Configurações"
+        title="Dados do estabelecimento"
+      />
       <p className="hint mt-2">
         Aparecem para seus tutores no portal e nos documentos que o sistema emite.
       </p>
@@ -421,8 +433,13 @@ function ContactPanel({
   }
 
   return (
-    <Card>
-      <h2 className="text-xl font-semibold">Endereço e contato</h2>
+    <Card tone="soft">
+      <SectionHead
+        icon={<MapPinIcon />}
+        tone="icon-system"
+        eyebrow="Configurações"
+        title="Onde vocês ficam"
+      />
       <p className="hint mt-2">
         É o que aparece para quem procura o petshop: no site, no “como chegar” e no cabeçalho dos
         recibos.
@@ -601,8 +618,13 @@ function HoursPanel({ state, canEdit, run, settings }: PanelProps & { settings: 
   }
 
   return (
-    <Card>
-      <h2 className="text-xl font-semibold">Horário de funcionamento</h2>
+    <Card tone="soft">
+      <SectionHead
+        icon={<CalendarIcon />}
+        tone="icon-system"
+        eyebrow="Configurações"
+        title="Quando vocês abrem"
+      />
       <p className="hint mt-2">
         A agenda usa esses horários para oferecer os encaixes disponíveis aos tutores.
       </p>
@@ -637,8 +659,14 @@ function HoursPanel({ state, canEdit, run, settings }: PanelProps & { settings: 
                   className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3"
                 >
                   <label className="flex w-32 items-center gap-2 text-sm">
+                    {/*
+                      Aqui entra só o átomo `.check`, não o `Choice`: a linha já é
+                      uma peça própria, com os horários dentro, e embrulhar a caixa
+                      numa segunda linha clicável criaria alvo dentro de alvo.
+                    */}
                     <input
                       type="checkbox"
+                      className="check"
                       checked={!value.closed}
                       onChange={(event) => updateDay(day, { closed: !event.target.checked })}
                       aria-label={`Abrir ${WEEKDAY_LABELS[day]}`}
@@ -714,8 +742,13 @@ function PoliciesPanel({
   const [overbooking, setOverbooking] = useState(settings.allowOverbooking)
 
   return (
-    <Card>
-      <h2 className="text-xl font-semibold">Políticas de agendamento</h2>
+    <Card tone="soft">
+      <SectionHead
+        icon={<ShieldCheckIcon />}
+        tone="icon-system"
+        eyebrow="Configurações"
+        title="Como a agenda se comporta"
+      />
       <p className="hint mt-2">
         Valem para o portal do tutor e para o agente de IA no WhatsApp. Mudanças só afetam
         agendamentos novos — o que já está marcado mantém a regra do momento em que foi feito.
@@ -787,61 +820,38 @@ function PoliciesPanel({
           </div>
         </Field>
 
-        <div className="space-y-3 rounded-2xl border border-line bg-card px-5 py-4">
-          <label className="flex items-start gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={onlineBooking}
-              onChange={(event) => setOnlineBooking(event.target.checked)}
-              disabled={!canEdit}
-            />
-            <span>
-              <span className="font-medium">Agendamento online</span>
-              <span className="hint block">
-                O tutor marca sozinho pelo portal. Desligado, só a recepção agenda.
-              </span>
-            </span>
-          </label>
+        <div className="-mx-3.5 space-y-2">
+          <Choice
+            label={<span className="font-medium">Agendamento online</span>}
+            description="O tutor marca sozinho pelo portal. Desligado, só a recepção agenda."
+            checked={onlineBooking}
+            onChange={setOnlineBooking}
+            disabled={!canEdit}
+          />
 
           {/*
             Só faz sentido triar o que chega; com o agendamento online desligado não
             chega nada, e a opção viraria uma caixa que não muda coisa alguma.
           */}
           {onlineBooking && (
-            <label className="flex items-start gap-3 pl-7 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1"
+            <div className="pl-7">
+              <Choice
+                label={<span className="font-medium">Confirmar cada pedido antes de valer</span>}
+                description="O horário fica reservado por 24 horas esperando sua confirmação. Sem isso, o agendamento do portal já entra confirmado."
                 checked={requiresApproval}
-                onChange={(event) => setRequiresApproval(event.target.checked)}
+                onChange={setRequiresApproval}
                 disabled={!canEdit}
               />
-              <span>
-                <span className="font-medium">Confirmar cada pedido antes de valer</span>
-                <span className="hint block">
-                  O horário fica reservado por 24 horas esperando sua confirmação. Sem isso, o
-                  agendamento do portal já entra confirmado.
-                </span>
-              </span>
-            </label>
+            </div>
           )}
 
-          <label className="flex items-start gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={overbooking}
-              onChange={(event) => setOverbooking(event.target.checked)}
-              disabled={!canEdit}
-            />
-            <span>
-              <span className="font-medium">Permitir encaixe acima da capacidade</span>
-              <span className="hint block">
-                A agenda aceita marcar além dos profissionais disponíveis no horário.
-              </span>
-            </span>
-          </label>
+          <Choice
+            label={<span className="font-medium">Permitir encaixe acima da capacidade</span>}
+            description="A agenda aceita marcar além dos profissionais disponíveis no horário."
+            checked={overbooking}
+            onChange={setOverbooking}
+            disabled={!canEdit}
+          />
         </div>
       </div>
 
@@ -874,8 +884,13 @@ function BrandingPanel({ state, canEdit, run, branding }: PanelProps & { brandin
   const validColor = /^#[0-9a-fA-F]{6}$/.test(primaryColor)
 
   return (
-    <Card>
-      <h2 className="text-xl font-semibold">Identidade visual</h2>
+    <Card tone="soft">
+      <SectionHead
+        icon={<PaletteIcon />}
+        tone="icon-system"
+        eyebrow="Configurações"
+        title="A cara do estabelecimento"
+      />
       <p className="hint mt-2">A cor aparece no portal do tutor e no site do seu petshop.</p>
 
       <div className="mt-8 space-y-5">

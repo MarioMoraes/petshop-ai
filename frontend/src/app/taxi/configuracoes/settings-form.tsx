@@ -8,7 +8,8 @@ import type {
   TaxiVehicleResponse,
   TaxiZoneResponse,
 } from '@petshop/shared-types'
-import { Card, Field, FormError } from '@/components/ui'
+import { Card, Field, FormError, SectionHead } from '@/components/ui'
+import { CalendarIcon, VanIcon, WalletIcon } from '@/components/icons'
 import { updateTaxiSettingsAction } from '../actions'
 import { FleetEditor } from './fleet-editor'
 import { ZonesEditor } from './zones-editor'
@@ -72,8 +73,13 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
         </Card>
       )}
 
-      <Card className="space-y-4">
-        <h2 className="font-medium text-fg">Como a corrida é cobrada</h2>
+      <Card tone="soft" className="space-y-5">
+        <SectionHead
+          icon={<VanIcon />}
+          tone="icon-time"
+          eyebrow="Taxi Dog"
+          title="Como a corrida é cobrada"
+        />
         <Field label="Serviço de catálogo" htmlFor="taxiServiceId">
           <select
             id="taxiServiceId"
@@ -95,6 +101,7 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
 
         <label className="flex items-center gap-2 text-sm">
           <input
+            className="check"
             type="checkbox"
             defaultChecked={settings.enabled}
             disabled={pending || (!settings.taxiServiceId && taxiServices.length === 0)}
@@ -104,8 +111,13 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
         </label>
       </Card>
 
-      <Card className="space-y-4">
-        <h2 className="font-medium text-fg">Preço</h2>
+      <Card tone="soft" className="space-y-5">
+        <SectionHead
+          icon={<WalletIcon />}
+          tone="icon-time"
+          eyebrow="Taxi Dog"
+          title="Preço"
+        />
         <Field
           label="Preço padrão por perna"
           htmlFor="defaultPriceCents"
@@ -131,7 +143,7 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
         <label className="flex items-start gap-2 text-sm">
           <input
             type="checkbox"
-            className="mt-1"
+            className="check mt-1"
             defaultChecked={settings.blockOutsideZones}
             disabled={pending}
             onChange={(event) => save({ blockOutsideZones: event.target.checked }, 'Área atendida')}
@@ -158,7 +170,7 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
         <label className="flex items-start gap-2 text-sm">
           <input
             type="checkbox"
-            className="mt-1"
+            className="check mt-1"
             defaultChecked={settings.chargeFailedPickup}
             disabled={pending}
             onChange={(event) => save({ chargeFailedPickup: event.target.checked }, 'Cobrança')}
@@ -172,8 +184,13 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
         </label>
       </Card>
 
-      <Card className="space-y-4">
-        <h2 className="font-medium text-fg">Janela e alertas</h2>
+      <Card tone="soft" className="space-y-5">
+        <SectionHead
+          icon={<CalendarIcon />}
+          tone="icon-time"
+          eyebrow="Taxi Dog"
+          title="Janela e alertas"
+        />
         <Field
           label="Largura padrão da janela (minutos)"
           htmlFor="defaultWindowMinutes"
