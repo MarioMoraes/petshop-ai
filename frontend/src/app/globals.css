@@ -1084,6 +1084,27 @@
   }
 
   /*
+   * Campo numa fila de ações.
+   *
+   * `.field` nasce bloco: 100% de largura e 0.75rem de respiro em cima e embaixo,
+   * que é o certo para um campo empilhado dentro de uma ficha. Numa linha `flex`
+   * ao lado de botões — o quadro do Taxi Dog é o caso — os dois viram defeito: o
+   * seletor estica pela largura inteira do cartão e o texto ainda sai cortado,
+   * porque nos 36px que casam com `.btn h-9` não cabem 24px de padding mais a
+   * linha. Esta variante entrega o que a fila pede — largura do conteúdo e a
+   * altura do botão vizinho — sem abrir mão da aresta, da sombra e do foco do
+   * campo, que continuam vindo de `.field`.
+   */
+  .field-inline {
+    width: auto;
+    max-width: 100%;
+    height: 2.25rem;
+    border-radius: 12px;
+    padding: 0 0.75rem 0 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  /*
    * Hover do campo: a sombra abre um pouco antes de o cursor chegar ao clique.
    * No sistema o contorno percebido vem da sombra, então é ela — e não uma borda
    * que muda de cor — que responde ao ponteiro.

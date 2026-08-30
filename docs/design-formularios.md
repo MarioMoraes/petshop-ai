@@ -104,6 +104,12 @@ configuração em abas não tem ordem — o olho-de-boi vira o nome do domínio
 | Duas ou três opções exclusivas | `<Segmented>` |
 | Campo | `className="field"` |
 | Campo com glifo | `.field-wrap` + `.field-lead` |
+| Campo numa fila de ações, ao lado de botões | `.field` + `.field-inline` |
+
+`.field-inline` é a mesma peça em outra proporção: largura do conteúdo e a altura de
+`.btn h-9`, para o seletor que mora numa linha `flex` com botões. Não é um campo
+menor — é o mesmo campo com a caixa que a fila comporta. Fora de uma fila, use
+`.field` puro e deixe ele ocupar a largura.
 
 `Choice` embrulha a caixa numa linha inteira clicável — num balcão ninguém mira 20px.
 Use o átomo `.check` sozinho quando a linha **já** é um alvo com outra coisa dentro
