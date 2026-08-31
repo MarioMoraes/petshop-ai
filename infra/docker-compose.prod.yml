@@ -43,6 +43,12 @@ x-backend: &backend
     TAXIDOG_SERVICE_URL: http://taxidog-service:3008
     CRM_AUTOMATION_SERVICE_URL: http://crm-automation-service:3009
     MESSAGING_SERVICE_URL: http://messaging-service:3010
+    SITE_SERVICE_URL: http://tenant-site-service:3013
+    # O site é rota do Next: o serviço precisa alcançá-lo para invalidar a página de
+    # um tenant quando o horário ou o catálogo mudam (AC-03 de MOD-SITE-11).
+    FRONTEND_INTERNAL_URL: http://frontend:3002
+    SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET}
+    APP_DOMAIN: ${APP_DOMAIN}
     GOTENBERG_URL: http://gotenberg:3000
     # Sem elas o e-mail vira log e a mensagem consta como enviada com
     # `provider = 'log'` — ver a nota em `ports/email.ts`.
@@ -229,6 +235,17 @@ services:
     environment:
       <<: *backend-env
       MESSAGING_SERVICE_PORT: 3010
+
+  tenant-site-service:
+    <<: *backend
+    command: ['node', 'backend/tenant-site-service/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      SITE_SERVICE_PORT: 3013
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-petshop-media}
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:

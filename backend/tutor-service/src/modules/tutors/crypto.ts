@@ -6,7 +6,7 @@ import {
   normalizeEmail,
   type TenantTransaction,
 } from '@petshop/db'
-import { onlyDigits } from '@petshop/shared-types'
+import { onlyDigits, TUTOR_PHONE_HASH_NAMESPACE } from '@petshop/shared-types'
 
 /**
  * PII do tutor: cifragem com a DEK do tenant e hash de busca com pepper.
@@ -22,7 +22,7 @@ import { onlyDigits } from '@petshop/shared-types'
 export const HASH_NAMESPACES = {
   cpf: 'tutor:cpf',
   cnpj: 'tutor:cnpj',
-  phone: 'tutor:phone',
+  phone: TUTOR_PHONE_HASH_NAMESPACE,
   email: 'tutor:email',
 } as const
 

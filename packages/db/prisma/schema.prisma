@@ -132,6 +132,7 @@ model Tenant {
   billingSettings   BillingSettings?
   taxiSettings      TaxiSettings?
   messagingSettings MessagingSettings?
+  siteSettings      SiteSettings?
   memberships       Membership[]
   invitations       Invitation[]
   roleOverrides     TenantRoleOverride[]
@@ -141,6 +142,9 @@ model Tenant {
   messageTemplates      MessageTemplate[]
   messagingSuppressions MessagingSuppression[]
   automations           Automation[]
+
+  sitePhotos SitePhoto[]
+  siteLeads  SiteLead[]
 
   @@index([status])
   @@map("tenants")
@@ -1364,6 +1368,11 @@ model Service {
   /// AC-03: serviço com agendamento futuro não é excluído, só desativado — some do
   /// seletor sem tocar no que já está marcado.
   active Boolean @default(true)
+
+  /// AC-04 de MOD-SITE-05: a vitrine é subconjunto do catálogo, não espelho dele. O
+  /// serviço que o petshop presta mas não quer anunciar sai da página e continua
+  /// agendável no balcão. Padrão `true` — quem cadastrou um serviço quer vendê-lo.
+  showOnSite Boolean @default(true) @map("show_on_site")
 
   createdBy String?   @map("created_by") @db.Uuid
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -2727,4 +2736,136 @@ model Automation {
 
   @@unique([tenantId, key], map: "idx_automations_key")
   @@map("automations")
+}
+
+// ---------------------------------------------------------------------------
+// MOD-SITE — o site do estabelecimento
+// ---------------------------------------------------------------------------
+
+enum SitePhotoKind {
+  HERO
+  GALLERY
+}
+
+enum SiteLeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  DISCARDED
+}
+
+/// Conteúdo e estado de publicação do site (MOD-SITE-01 e 03).
+///
+/// Uma linha por tenant, e quase tudo opcional: a página nasce montada do que o
+/// petshop já cadastrou em `tenants` e `tenant_settings` — nome, logo, cores,
+/// endereço, telefone, horário. O que mora aqui são os **quatro textos livres** e as
+/// chaves que ligam ou desligam partes da página. Não há editor de blocos: cada campo
+/// a mais é um campo que fica desatualizado (decisão de produto de 2026-08-28).
+model SiteSettings {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  published   Boolean   @default(false)
+  /// Primeira publicação. Nunca é limpo ao despublicar — é a data em que o site
+  /// passou a existir, e serve de métrica.
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
+
+  /// Os quatro textos livres. Vazios, a página usa padrões derivados do cadastro.
+  headline   String? @db.VarChar(120)
+  about      String? @db.VarChar(800)
+  /// Faixa temporária: "fechados dia 25". Some sozinha quando o admin a apaga.
+  notice     String? @db.VarChar(200)
+  footerNote String? @map("footer_note") @db.VarChar(200)
+
+  /// A faixa "a partir de R$ X" da vitrine (MOD-SITE-05).
+  showPrices      Boolean @default(true) @map("show_prices")
+  leadFormEnabled Boolean @default(true) @map("lead_form_enabled")
+
+  /// Sobrescrevem os metadados derivados (AC-05 de MOD-SITE-10). Vazios, voltam ao
+  /// derivado — nunca ficam em branco na página.
+  seoTitle       String? @map("seo_title") @db.VarChar(60)
+  seoDescription String? @map("seo_description") @db.VarChar(160)
+  ogImageUrl     String? @map("og_image_url")
+
+  updatedBy String?  @map("updated_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("site_settings")
+}
+
+/// Fotos do estabelecimento e da equipe (MOD-SITE-04).
+///
+/// **Não é `pet_photos`.** A origem é upload novo e deliberado: reaproveitar o álbum
+/// do pet na página pública transformaria consentimento de guarda em consentimento de
+/// publicação, que são coisas diferentes (AC-03).
+model SitePhoto {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Chave no R2, segregada por tenant (SPEC §214). A URL pública é montada pelo
+  /// frontend a partir do id — o bucket continua privado.
+  storageKey String @map("storage_key")
+  /// Acessibilidade e SEO de imagem.
+  alt        String?       @db.VarChar(120)
+  kind       SitePhotoKind @default(GALLERY)
+  position   Int           @default(0) @db.SmallInt
+
+  widthPx     Int?   @map("width_px")
+  heightPx    Int?   @map("height_px")
+  contentType String @map("content_type") @db.VarChar(60)
+  sizeBytes   Int    @map("size_bytes")
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, kind, position], map: "idx_site_photos_tenant_kind")
+  @@map("site_photos")
+}
+
+/// Quem preencheu o formulário do site (MOD-SITE-08 e 09).
+///
+/// A primeira categoria de **pessoa sem vínculo nenhum** do sistema: não é cliente,
+/// não é funcionário, e talvez nunca mais apareça. Daí a cifra no telefone e no
+/// e-mail — mais justificada aqui que em `tutors`, porque não há relação contratual
+/// que justifique guardar em claro — e daí a retenção do RN-11.
+model SiteLead {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  name String @db.VarChar(120)
+  /// AES-256-GCM, formato `v1:<iv>:<tag>:<ct>`, como todo telefone do sistema.
+  phoneEncrypted String  @map("phone_encrypted")
+  /// `hashSearchable('lead_phone', …)` — casa com `tutors.phone_hash` (AC-04).
+  phoneHash      String  @map("phone_hash")
+  emailEncrypted String? @map("email_encrypted")
+  message        String? @db.VarChar(1000)
+
+  status SiteLeadStatus @default(NEW)
+
+  /// Preenchido quando o telefone já é de um cliente: a equipe precisa saber que não
+  /// é aquisição, é um cliente que não achou o WhatsApp.
+  existingTutorId  String? @map("existing_tutor_id") @db.Uuid
+  convertedTutorId String? @map("converted_tutor_id") @db.Uuid
+  /// Anotação da equipe ao mudar o status.
+  note             String? @db.VarChar(500)
+
+  /// Antiabuso, retenção curta (90 dias).
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent") @db.VarChar(300)
+
+  /// Quando o PII foi apagado pela retenção. A linha fica, para estatística.
+  purgedAt  DateTime? @map("purged_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt(sort: Desc)], map: "idx_site_leads_tenant_status")
+  @@index([tenantId, phoneHash], map: "idx_site_leads_phone_hash")
+  @@map("site_leads")
 }

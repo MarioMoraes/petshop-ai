@@ -470,3 +470,15 @@ export const TutorExportSchema = z.object({
   tags: z.array(TutorTagSummarySchema),
 })
 export type TutorExport = z.infer<typeof TutorExportSchema>
+
+/**
+ * O namespace do HMAC de `tutors.phone_hash`.
+ *
+ * Mora aqui, e não só no tutor-service, desde que o MOD-SITE passou a precisar dele:
+ * o lead do site é marcado como "já é cliente" comparando o hash do telefone digitado
+ * pelo visitante com o do tutor (AC-04 de MOD-SITE-08). Dois serviços calculando o
+ * mesmo hash **precisam** partir da mesma string — um literal repetido que alguém
+ * "melhorasse" de um lado faria a checagem parar de casar, em silêncio, e o petshop
+ * trataria cliente antigo como aquisição nova para sempre.
+ */
+export const TUTOR_PHONE_HASH_NAMESPACE = 'tutor:phone'

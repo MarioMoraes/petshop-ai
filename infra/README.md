@@ -46,9 +46,15 @@ o middleware tira qual host é de tenant e qual é da plataforma. Sem ela o padr
 Portal não respondem.
 
 Rotas do Admin acessadas no host de um tenant respondem **301** para `app.` (o link
-salvo continua funcionando). A raiz `/` responde **307**, e a diferença é deliberada:
-ela vira o site do petshop quando o MOD-SITE entrar, e um 301 ficaria no cache dos
-navegadores apontando para o Admin sem como desfazer.
+salvo continua funcionando). A raiz `/` e tudo o mais no host do tenant são o **site do
+petshop**, servido por reescrita interna para `/s/{slug}` — o visitante nunca vê esse
+caminho, e pedi-lo diretamente é 404 em qualquer host.
+
+O site precisa de mais três variáveis no container do `tenant-site-service` e do
+frontend: `SITE_SERVICE_URL`, `FRONTEND_INTERNAL_URL` e `SITE_REVALIDATE_SECRET` — a
+última é o que impede qualquer um na rede interna de forçar re-render de todos os sites
+em laço. Sem `FRONTEND_INTERNAL_URL` a página continua servindo, só que atualizada pelo
+TTL de dez minutos em vez de na hora.
 
 ### `APP_DOMAIN` sob um domínio já existente
 
@@ -78,9 +84,9 @@ Um detalhe menor do `Caddyfile`: o `preload` do HSTS só vale para apex, então 
 domínio assim ele é ignorado pela lista — o `max-age` e o `includeSubDomains` seguem
 valendo.
 
-Os dez serviços de backend saem da **mesma imagem** (`infra/Dockerfile`, alvo
-`backend`). Eles compartilham as mesmas dependências; sete imagens seriam o mesmo
-`node_modules` sete vezes. O `command` de cada container escolhe qual `server.js`
+Os onze serviços de backend saem da **mesma imagem** (`infra/Dockerfile`, alvo
+`backend`). Eles compartilham as mesmas dependências; onze imagens seriam o mesmo
+`node_modules` onze vezes. O `command` de cada container escolhe qual `server.js`
 sobe.
 
 ## Dois caminhos de deploy

@@ -5,6 +5,7 @@ import type { MeResponse, PermissionKey } from '@petshop/shared-types'
 import { Atmosphere } from './atmosphere'
 import {
   BellIcon,
+  GlobeIcon,
   CalendarIcon,
   IdCardIcon,
   HomeIcon,
@@ -40,6 +41,7 @@ type NavKey =
   | 'agenda'
   | 'taxi'
   | 'mensagens'
+  | 'site'
   | 'financeiro'
   | 'equipe'
   | 'configuracoes'
@@ -53,6 +55,7 @@ interface NavItem {
     | '/agenda/dia'
     | '/taxi'
     | '/crm'
+    | '/site'
     | '/financeiro/pacotes'
     | '/equipe'
     | '/configuracoes'
@@ -112,6 +115,20 @@ const NAV: NavItem[] = [
     icon: <BellIcon />,
     tone: 'icon-brand',
     requires: 'crm:read',
+  },
+  {
+    // Ao lado de Mensagens porque é a outra ponta do relacionamento: o site é como
+    // quem ainda não é cliente chega, e o contato que ele deixa cai na fila daqui.
+    //
+    // O gate é `site:read_leads`, e não `site:manage`: a recepção trabalha o contato
+    // que chegou pelo formulário sem poder publicar ou tirar a página do ar. A tela
+    // se abre no que cada papel pode fazer.
+    key: 'site',
+    href: '/site',
+    label: 'Site',
+    icon: <GlobeIcon />,
+    tone: 'icon-metric',
+    requires: 'site:read_leads',
   },
   {
     // Pacotes e políticas. O extrato de um tutor mora na ficha dele, que é onde o

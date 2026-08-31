@@ -72,6 +72,10 @@ x-backend: &backend
     TAXIDOG_SERVICE_URL: http://taxidog-service:3008
     CRM_AUTOMATION_SERVICE_URL: http://crm-automation-service:3009
     MESSAGING_SERVICE_URL: http://messaging-service:3010
+    SITE_SERVICE_URL: http://tenant-site-service:3013
+    FRONTEND_INTERNAL_URL: http://frontend:3002
+    SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET}
+    APP_DOMAIN: ${APP_DOMAIN}
     GOTENBERG_URL: http://gotenberg:3000
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     MAIL_FROM: ${MAIL_FROM:-}
@@ -371,6 +375,25 @@ services:
     healthcheck:
       <<: *hc-gateway
       test: ['CMD-SHELL', 'curl -sf http://localhost:3010/health || exit 1']
+
+  tenant-site-service:
+    <<: *backend
+    command:
+      [
+        '/app/infra/swarm/aguardar-migracao.sh',
+        'node',
+        'backend/tenant-site-service/dist/src/server.js',
+      ]
+    environment:
+      <<: *backend-env
+      SITE_SERVICE_PORT: 3013
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-petshop-media}
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3013/health || exit 1']
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:

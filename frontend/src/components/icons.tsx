@@ -426,3 +426,35 @@ export function PaletteIcon() {
     </svg>
   )
 }
+
+/** O site do estabelecimento: a superfície que o mundo alcança. */
+export function GlobeIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
+    </svg>
+  )
+}
+
+/** A vitrine de serviços e a galeria: o que o site mostra. */
+export function ImageIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="1.6" />
+      <path d="m21 15-4.5-4.5L7 20" />
+    </svg>
+  )
+}
+
+/** O contato que chegou pelo formulário e ainda não é cliente. */
+export function InboxIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+      <path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1Z" />
+    </svg>
+  )
+}

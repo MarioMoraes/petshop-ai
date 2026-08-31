@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server'
-import { routeFor } from '@/lib/host'
+import { routeFor, SITE_PREFIX } from '@/lib/host'
 
 /**
  * Roteamento por host, e depois por estado da conta.
@@ -15,6 +15,11 @@ import { routeFor } from '@/lib/host'
  * petshopdojoao.{dominio}/portal    Portal do Tutor → gate próprio (MOD-PORTAL)
  * app.{dominio}                     Admin da equipe → como sempre foi
  * ```
+ *
+ * O site é servido por **reescrita**, não por redirecionamento: o visitante continua
+ * vendo `petshopdojoao.{dominio}/` na barra, e o Next renderiza `/s/petshopdojoao`.
+ * Um redirecionamento poria o caminho interno no endereço, no histórico e no que o
+ * cliente manda pelo WhatsApp.
  *
  * Inverter essa ordem por engano ou expõe o Admin no host de todo tenant, ou tranca o
  * site atrás de um login — e nenhum dos dois aparece em produção até ser tarde. A
@@ -71,9 +76,26 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
     return NextResponse.redirect(target, decision.permanent ? 301 : 307)
   }
 
-  // Site público e Portal seguem sem o gate da equipe. O Portal ganha o próprio
-  // quando o MOD-PORTAL existir; hoje as rotas não existem e o Next responde 404,
-  // que é a resposta honesta para uma área que ainda não foi construída.
+  // O caminho interno do site não é endereço de ninguém — nem no host do tenant, nem
+  // no do Admin. Reescrever para uma rota inexistente é o 404 do Next sem inventar
+  // uma página de erro própria.
+  if (decision.action === 'notFound') {
+    return NextResponse.rewrite(new URL('/404-nao-encontrado', request.url))
+  }
+
+  // O site do petshop: sem sessão, sem Clerk, sem cookie. O `clerkMiddleware` **não
+  // roda** aqui — a página anônima não tem por que pagar o handshake.
+  if (decision.action === 'site') {
+    const { pathname, search } = request.nextUrl
+    const suffix = pathname === '/' ? '' : pathname
+    return NextResponse.rewrite(
+      new URL(`${SITE_PREFIX}/${decision.slug}${suffix}${search}`, request.url),
+    )
+  }
+
+  // Portal segue sem o gate da equipe: ele ganha o próprio quando o MOD-PORTAL
+  // existir; hoje as rotas não existem e o Next responde 404, que é a resposta
+  // honesta para uma área que ainda não foi construída.
   if (decision.action !== 'admin') return NextResponse.next()
 
   return withClerk(request, event)

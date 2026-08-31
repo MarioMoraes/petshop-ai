@@ -86,17 +86,9 @@ describe('routeFor — host do Admin', () => {
 describe('routeFor — host do tenant', () => {
   const host = 'petshopdojoao.meupetshop.com.br'
 
-  /**
-   * A raiz troca de dono quando o MOD-SITE existir. Até lá vai ao Admin, e o **307**
-   * é a parte que importa: um 301 ficaria no cache do browser e mandaria o visitante
-   * ao Admin mesmo depois de o site nascer.
-   */
-  it('a raiz vai ao Admin com 307, não 301 — ela ainda vai virar o site', () => {
-    expect(routeFor(host, '/', DOMAIN)).toEqual({
-      action: 'redirect',
-      host: 'app.meupetshop.com.br',
-      permanent: false,
-    })
+  /** A raiz é do site do petshop, servida por reescrita para `/s/{slug}`. */
+  it('a raiz é o site do petshop', () => {
+    expect(routeFor(host, '/', DOMAIN)).toEqual({ action: 'site', slug: 'petshopdojoao' })
   })
 
   it('/portal passa; o gate é do MOD-PORTAL', () => {
@@ -118,16 +110,45 @@ describe('routeFor — host do tenant', () => {
   /**
    * 301 fica no cache do browser. Amarrar uma futura página do site a um destino
    * errado seria irreversível para quem já o guardou — por isso o desconhecido segue
-   * como público e o Next responde 404.
+   * para o site e o Next responde 404 lá dentro.
    */
-  it('caminho desconhecido não vira 301 — segue público e o Next 404', () => {
-    expect(routeFor(host, '/sobre', DOMAIN)).toEqual({ action: 'public' })
-    expect(routeFor(host, '/servicos/banho', DOMAIN)).toEqual({ action: 'public' })
+  it('caminho desconhecido não vira 301 — vai ao site e o Next 404', () => {
+    expect(routeFor(host, '/sobre', DOMAIN)).toEqual({ action: 'site', slug: 'petshopdojoao' })
+    expect(routeFor(host, '/servicos/banho', DOMAIN)).toEqual({
+      action: 'site',
+      slug: 'petshopdojoao',
+    })
+  })
+
+  /**
+   * O caminho interno da página não é endereço de ninguém. Sem esta guarda,
+   * `tenantA.{dominio}/s/tenantB` serviria o site do vizinho sob a URL errada — e
+   * `app.{dominio}/s/qualquer` publicaria o site de quem tivesse o slug.
+   */
+  it.each([
+    ['petshopdojoao.meupetshop.com.br', '/s/outro'],
+    ['petshopdojoao.meupetshop.com.br', '/s/petshopdojoao'],
+    ['app.meupetshop.com.br', '/s/petshopdojoao'],
+    ['localhost:3002', '/s/qualquer'],
+  ])('%s%s é 404: o caminho interno não é endereço', (h, path) => {
+    expect(routeFor(h, path, DOMAIN)).toEqual({ action: 'notFound' })
   })
 
   it('o health check é público em qualquer host', () => {
     expect(routeFor(host, '/api/health', DOMAIN)).toEqual({ action: 'public' })
     expect(routeFor('app.meupetshop.com.br', '/api/health', DOMAIN)).toEqual({ action: 'public' })
+  })
+
+  /**
+   * A revalidação chega pela rede interna, com `Host: frontend:3002` — que
+   * `resolveHost` classifica como Admin. Sem a lista de sempre-públicos, o serviço
+   * receberia um redirecionamento para a tela de login em vez de refazer a página.
+   */
+  it('a revalidação do site passa em qualquer host', () => {
+    expect(routeFor('frontend:3002', '/api/site/revalidate', DOMAIN)).toEqual({
+      action: 'public',
+    })
+    expect(routeFor(host, '/api/site/revalidate', DOMAIN)).toEqual({ action: 'public' })
   })
 })
 

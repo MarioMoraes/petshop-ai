@@ -86,6 +86,35 @@ export async function resolveTenantById(tenantId: string): Promise<TenantIdentit
   })
 }
 
+/**
+ * Resolução host → tenant, para o site público (MOD-SITE-11 AC-01).
+ *
+ * É a consulta que **precede** o contexto de tenant por definição: o visitante é
+ * anônimo e a única pista de qual petshop ele quer é o subdomínio. Devolve o mínimo
+ * para decidir se a página existe — id, slug, nome e `status` — e nada mais; o resto
+ * da montagem roda em `withTenant()` como qualquer outra leitura.
+ *
+ * O `status` sai daqui porque RN-06 manda o site acompanhar o estado da conta: tenant
+ * fora de `ACTIVE` responde 404, publicado ou não. Uma página no ar de um cliente que
+ * parou de pagar é a pior propaganda possível do produto.
+ */
+export async function resolveTenantBySlug(slug: string): Promise<TenantIdentity | null> {
+  return runInPlatformScope(async () => {
+    return getMaintenancePrisma().tenant.findFirst({
+      where: { slug, deletedAt: null },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        status: true,
+        plan: true,
+        onboardingStep: true,
+        onboardingCompletedAt: true,
+      },
+    })
+  })
+}
+
 export interface UserMembershipRef {
   tenantId: string
   tenantName: string

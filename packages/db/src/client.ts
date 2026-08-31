@@ -95,6 +95,13 @@ const RLS_MODELS = new Set([
   'MessagingSettings',
   'MessagingSuppression',
   'Automation',
+  // MOD-SITE: o site do estabelecimento. `SiteLead` entra apesar de a escrita nascer
+  // de visitante anônimo — o tenant vem do host, é resolvido antes por
+  // `platform.resolveTenantBySlug` e a gravação roda em `withTenant()` como qualquer
+  // outra. Anônimo é o autor, não o dado: o lead é do petshop que o recebeu.
+  'SiteSettings',
+  'SitePhoto',
+  'SiteLead',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
   // tenants por definição, e exigir contexto dele seria negar o que ele é.

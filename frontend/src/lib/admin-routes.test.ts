@@ -1,8 +1,8 @@
 import { readdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { ADMIN_ROUTE_PREFIXES, PORTAL_PREFIX } from './host.js'
+import { ADMIN_ROUTE_PREFIXES, PORTAL_PREFIX, SITE_PREFIX } from './host.js'
 
 /**
  * A guarda do roteamento por host.
@@ -16,20 +16,35 @@ import { ADMIN_ROUTE_PREFIXES, PORTAL_PREFIX } from './host.js'
  * do público (entra em `TENANT_SURFACE`)?
  */
 
+/**
+ * O `app/` tem dois raízes, cada um com o próprio `<html>`: `(admin)`, onde vive o
+ * `ClerkProvider`, e `(site)`, que serve a página pública sem carregar identidade
+ * nenhuma. O grupo não vira segmento de URL — `(admin)/dashboard` continua sendo
+ * `/dashboard` —, então a varredura precisa olhar dentro dos dois.
+ */
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '../app')
+const ROOT_GROUPS = ['(admin)', '(site)']
 
-/** Rotas que **devem** responder no host do tenant, e por isso não são do Admin. */
-const TENANT_SURFACE = new Set([PORTAL_PREFIX.slice(1)])
+/**
+ * Rotas que **devem** responder no host do tenant, e por isso não são do Admin.
+ *
+ * `s` é onde o site do petshop mora de verdade: o visitante nunca digita esse
+ * caminho — o middleware reescreve `{slug}.{dominio}/` para `/s/{slug}` —, e pedi-lo
+ * direto é 404 por decisão de `routeFor`.
+ */
+const TENANT_SURFACE = new Set([PORTAL_PREFIX.slice(1), SITE_PREFIX.slice(1)])
 
 function routeDirectories(): string[] {
-  return (
-    readdirSync(appDir, { withFileTypes: true })
+  const dirs = [appDir, ...ROOT_GROUPS.map((group) => join(appDir, group))]
+
+  return dirs.flatMap((dir) =>
+    readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       // `_pasta` e `(grupo)` não viram segmento de URL.
       .filter((entry) => !entry.name.startsWith('_') && !entry.name.startsWith('('))
       // `@slot` é rota paralela, não caminho próprio.
       .filter((entry) => !entry.name.startsWith('@'))
-      .map((entry) => entry.name)
+      .map((entry) => entry.name),
   )
 }
 

@@ -93,6 +93,12 @@ export const UpdateServiceSchema = CreateServiceSchema.omit({
   .extend({
     /** AC-03: desativar some do seletor sem tocar nos agendamentos existentes. */
     active: z.boolean().optional(),
+    /**
+     * AC-04 de MOD-SITE-05: a vitrine do site é subconjunto do catálogo, não espelho
+     * dele. Desmarcado, o serviço sai da página pública e continua agendável no
+     * balcão — que é diferente de `active: false`, o qual o tira dos dois.
+     */
+    showOnSite: z.boolean().optional(),
     professionalIds: z.array(z.uuid()).optional(),
   })
 export type UpdateServiceInput = z.output<typeof UpdateServiceSchema>
@@ -205,6 +211,8 @@ export const ServiceResponseSchema = z.object({
   baseDurationMin: z.number().int(),
   requiresVet: z.boolean(),
   active: z.boolean(),
+  /** MOD-SITE-05: se aparece na vitrine do site público. */
+  showOnSite: z.boolean(),
   pricing: z.array(ServicePricingResponseSchema),
   professionalIds: z.array(z.uuid()),
   createdAt: z.iso.datetime(),

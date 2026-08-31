@@ -147,6 +147,24 @@ export const CRM_ERRORS = {
 
 export type CrmErrorCode = keyof typeof CRM_ERRORS
 
+/** PRD site_tenant_10 §5. */
+export const SITE_ERRORS = {
+  ERR_SITE_001: { status: 422, title: 'Faltam dados para publicar o site' },
+  ERR_SITE_002: { status: 422, title: 'Endereço inválido' },
+  ERR_SITE_003: { status: 422, title: 'Limite da galeria atingido' },
+  ERR_SITE_004: { status: 429, title: 'Muitos envios deste endereço' },
+  ERR_SITE_005: { status: 422, title: 'Dados de contato inválidos' },
+  ERR_SITE_006: { status: 404, title: 'Site não encontrado' },
+  ERR_SITE_007: { status: 409, title: 'Domínio já reivindicado por outro estabelecimento' },
+  ERR_SITE_008: { status: 403, title: 'Permissão insuficiente' },
+  ERR_SITE_009: { status: 404, title: 'Foto não encontrada' },
+  ERR_SITE_010: { status: 404, title: 'Contato não encontrado' },
+  ERR_SITE_011: { status: 409, title: 'Transição inválida para este contato' },
+  ERR_SITE_012: { status: 502, title: 'Armazenamento de mídia indisponível' },
+} as const
+
+export type SiteErrorCode = keyof typeof SITE_ERRORS
+
 export const ERROR_CATALOG = {
   ...IDENTITY_ERRORS,
   ...TUTOR_ERRORS,
@@ -155,6 +173,7 @@ export const ERROR_CATALOG = {
   ...LEDGER_ERRORS,
   ...TAXI_ERRORS,
   ...CRM_ERRORS,
+  ...SITE_ERRORS,
 } as const
 
 export type ErrorCode = keyof typeof ERROR_CATALOG

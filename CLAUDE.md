@@ -19,4 +19,8 @@ O resumo que mais importa:
 O documento traz também a tabela do **que já foi tentado e recusado** — vale conferir
 antes de propor uma alternativa visual.
 
-A referência viva é `frontend/src/app/tutores/tutor-form.tsx`.
+A referência viva é `frontend/src/app/(admin)/tutores/tutor-form.tsx`.
+
+`src/app` tem dois raízes: `(admin)`, com o `ClerkProvider` e as telas de equipe, e
+`(site)`, que serve a página pública do petshop sem carregar identidade nenhuma. O grupo
+entre parênteses não vira segmento de URL.

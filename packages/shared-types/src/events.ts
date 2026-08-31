@@ -857,3 +857,50 @@ export interface MessagingEventMap {
   'mensagem.falhou': MensagemFalhouEvent
   'mensagem.bloqueada': MensagemBloqueadaEvent
 }
+
+// ─── MOD-SITE ────────────────────────────────────────────────────────────────
+// PRD site_tenant_10 §8.
+
+export const SITE_ROUTING_KEYS = {
+  sitePublicado: 'site.publicado',
+  siteDespublicado: 'site.despublicado',
+  leadRecebido: 'lead.recebido',
+  leadConvertido: 'lead.convertido',
+} as const
+
+export type SiteRoutingKey = (typeof SITE_ROUTING_KEYS)[keyof typeof SITE_ROUTING_KEYS]
+
+interface SiteBaseEvent extends BaseEvent {
+  tenantId: string
+  slug: string
+}
+
+export interface SitePublicacaoEvent extends SiteBaseEvent {
+  actorId: string | null
+}
+
+/**
+ * O aviso ao petshop **não** nasce daqui na v1.
+ *
+ * O evento é publicado desde já — audit e MOD-ADMIN o consomem —, mas nenhum
+ * consumidor o transforma em mensagem: o messaging-service só sabe resolver
+ * destinatário tutor, e destinatário interno (a equipe) é frente própria. Até lá, o
+ * aviso é a fila em `/site/leads` e o contador de `NEW` no menu.
+ */
+export interface LeadRecebidoEvent extends SiteBaseEvent {
+  leadId: string
+  isExistingCustomer: boolean
+}
+
+export interface LeadConvertidoEvent extends SiteBaseEvent {
+  leadId: string
+  tutorId: string
+  actorId: string | null
+}
+
+export interface SiteEventMap {
+  'site.publicado': SitePublicacaoEvent
+  'site.despublicado': SitePublicacaoEvent
+  'lead.recebido': LeadRecebidoEvent
+  'lead.convertido': LeadConvertidoEvent
+}

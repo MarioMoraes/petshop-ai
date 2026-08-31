@@ -196,6 +196,15 @@ const TAXI_PREFIXES = ['/v1/taxi']
 const CRM_PREFIXES = ['/v1/crm']
 const MESSAGING_PREFIXES = ['/v1/messages', '/v1/messaging']
 
+/**
+ * MOD-SITE. Só a superfície **administrativa** passa por aqui: o `/public/v1/site` do
+ * visitante anônimo não é roteado pelo gateway, e isso é decisão de segurança — o
+ * gateway existe para validar sessão do Clerk, e abrir nele um ramo sem autenticação
+ * seria publicar a API interna para o mundo. Quem chama a superfície pública é o Next,
+ * pela rede interna, no SSR da página do tenant.
+ */
+const SITE_PREFIXES = ['/v1/site']
+
 const LEDGER_PREFIXES = [
   '/v1/ledger',
   '/v1/payments',
@@ -241,5 +250,6 @@ export function resolveTarget(path: string): string | null {
   if (matches(path, TAXI_PREFIXES)) return env.TAXIDOG_SERVICE_URL
   if (matches(path, CRM_PREFIXES)) return env.CRM_AUTOMATION_SERVICE_URL
   if (matches(path, MESSAGING_PREFIXES)) return env.MESSAGING_SERVICE_URL
+  if (matches(path, SITE_PREFIXES)) return env.SITE_SERVICE_URL
   return null
 }

@@ -171,6 +171,7 @@ export async function updateService(
             : { baseDurationMin: input.baseDurationMin }),
           ...(input.requiresVet === undefined ? {} : { requiresVet: input.requiresVet }),
           ...(input.active === undefined ? {} : { active: input.active }),
+          ...(input.showOnSite === undefined ? {} : { showOnSite: input.showOnSite }),
         },
         include: SERVICE_INCLUDE,
       })

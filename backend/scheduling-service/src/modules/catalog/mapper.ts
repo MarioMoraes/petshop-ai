@@ -38,6 +38,7 @@ export interface ServiceResponse {
   baseDurationMin: number
   requiresVet: boolean
   active: boolean
+  showOnSite: boolean
   pricing: ServicePricingResponse[]
   professionalIds: string[]
   createdAt: string
@@ -83,6 +84,7 @@ export function toServiceResponse(row: ServiceRow): ServiceResponse {
     baseDurationMin: row.baseDurationMin,
     requiresVet: row.requiresVet,
     active: row.active,
+    showOnSite: row.showOnSite,
     // `price_cents` é BIGINT no banco (convenção de dinheiro do PRD 05) e chega como
     // `bigint`. O JSON não sabe serializá-lo, e os valores aqui — centavos de um
     // banho — cabem folgadamente em Number.

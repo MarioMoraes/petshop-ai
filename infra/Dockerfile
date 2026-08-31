@@ -2,13 +2,13 @@
 #
 # Imagens de produção do PetShop AI. Três alvos, um estágio de build compartilhado:
 #
-#   --target backend   dez serviços Fastify numa imagem só
+#   --target backend   onze serviços Fastify numa imagem só
 #   --target frontend  o Next em modo standalone
 #   --target migrator  roda `migrate deploy` + seed e morre
 #
-# Uma imagem para os dez serviços porque eles compartilham as MESMAS dependências
-# (fastify, prisma, ioredis, amqplib): dez imagens seriam o mesmo node_modules
-# multiplicado por dez. O `command` de cada container escolhe qual server.js sobe
+# Uma imagem para os onze serviços porque eles compartilham as MESMAS dependências
+# (fastify, prisma, ioredis, amqplib): onze imagens seriam o mesmo node_modules
+# multiplicado por onze. O `command` de cada container escolhe qual server.js sobe
 # — ver infra/docker-compose.prod.yml e infra/docker-compose.swarm.yml.
 #
 # Build a partir da RAIZ do monorepo:
@@ -47,7 +47,7 @@ RUN pnpm --filter "@petshop/db" generate
 # O `api-client` fecha a lista sem ser um serviço: ele é dependência apenas do
 # frontend, que resolve tudo pela condição `default` ao empacotar. Sem ele aqui
 # o `dist` prometido no `exports` nunca é emitido, e o verificar-exports abaixo
-# — que confere os doze pacotes, não só os dez serviços — reprova o build.
+# — que confere os pacotes, não só os serviços — reprova o build.
 RUN pnpm build --concurrency=2 \
       --filter="@petshop/api-gateway" \
       --filter="@petshop/identity-service" \
@@ -59,6 +59,7 @@ RUN pnpm build --concurrency=2 \
       --filter="@petshop/taxidog-service" \
       --filter="@petshop/crm-automation-service" \
       --filter="@petshop/messaging-service" \
+      --filter="@petshop/tenant-site-service" \
       --filter="@petshop/api-client"
 
 # A condição `petshop-dist` do campo `exports` só é exercitada aqui dentro — em

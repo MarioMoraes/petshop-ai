@@ -3,8 +3,13 @@
 Como toda tela de entrada de dados do PetShop AI é montada. Vale para cadastro, ficha e
 painel de configuração — qualquer lugar onde alguém digita.
 
-A referência viva é `frontend/src/app/tutores/tutor-form.tsx`. Quando este documento e o
+A referência viva é `frontend/src/app/(admin)/tutores/tutor-form.tsx`. Quando este documento e o
 código divergirem, o código do formulário de tutor é quem está certo.
+
+> **Onde as telas moram.** Desde o MOD-SITE, `src/app` tem **dois raízes**: `(admin)`,
+> com o `ClerkProvider` e todas as telas de equipe, e `(site)`, que serve a página
+> pública do petshop sem carregar identidade nenhuma. O grupo entre parênteses não vira
+> segmento de URL — `(admin)/dashboard` continua sendo `/dashboard`.
 
 As peças estão em `frontend/src/app/globals.css` (§Formulário) e
 `frontend/src/components/ui.tsx`. Cada uma carrega no próprio comentário o porquê de ter
@@ -171,13 +176,14 @@ Está aqui para não voltar:
 
 | Tela | Arquivo |
 |---|---|
-| Cadastro/edição de tutor | `app/tutores/tutor-form.tsx` |
-| Cadastro/edição de pet | `app/pets/pet-form.tsx` |
-| Prontuário de segurança | `app/pets/[id]/safety-record.tsx` |
-| Configurações do estabelecimento | `app/configuracoes/settings-form.tsx` |
-| Configurações de relacionamento | `app/crm/configuracoes/settings-form.tsx` |
-| Configurações do Taxi Dog | `app/taxi/configuracoes/settings-form.tsx` |
-| Configurações de cobrança | `app/financeiro/configuracoes/billing-settings-form.tsx` |
+| Cadastro/edição de tutor | `app/(admin)/tutores/tutor-form.tsx` |
+| Cadastro/edição de pet | `app/(admin)/pets/pet-form.tsx` |
+| Prontuário de segurança | `app/(admin)/pets/[id]/safety-record.tsx` |
+| Configurações do estabelecimento | `app/(admin)/configuracoes/settings-form.tsx` |
+| Configurações de relacionamento | `app/(admin)/crm/configuracoes/settings-form.tsx` |
+| Configurações do Taxi Dog | `app/(admin)/taxi/configuracoes/settings-form.tsx` |
+| Configurações de cobrança | `app/(admin)/financeiro/configuracoes/billing-settings-form.tsx` |
+| Site do estabelecimento | `app/(admin)/site/site-form.tsx` |
 
 Ainda **não** aplicado, por serem telas de lista com formulário embutido — o cartão
 branco de conteúdo continua correto nelas, e forçar seção numerada seria errado:
@@ -185,5 +191,5 @@ branco de conteúdo continua correto nelas, e forçar seção numerada seria err
 `taxi/configuracoes` (frota e zonas), `configuracoes/breed-catalog`. As caixas de seleção
 delas **já** receberam o átomo `.check`.
 
-O onboarding (`app/onboarding/steps/*`) roda fora do `AppShell`, com moldura própria, e
+O onboarding (`app/(admin)/onboarding/steps/*`) roda fora do `AppShell`, com moldura própria, e
 foi deixado de lado de propósito.

@@ -1,0 +1,78 @@
+import Link from 'next/link'
+import { ApiError } from '@petshop/api-client'
+import { EmptyState, PageHeader } from '@/components/ui'
+import { serverApi } from '@/lib/api'
+import { SiteForm } from './site-form'
+
+/**
+ * A tela do site (MOD-SITE-01 e 03).
+ *
+ * A ordem é a das perguntas de quem chega aqui: **o site está no ar?**, depois *o que
+ * ele diz*, depois *o que ele mostra*. Começar pelos textos ofereceria o ajuste fino de
+ * uma página que talvez nem esteja publicada — e ela nasce despublicada de propósito:
+ * publicar é decisão, não padrão que o cliente descobre quando alguém acha a página.
+ *
+ * Quem tem só `site:read_leads` — a recepção — não configura nada aqui e é mandado aos
+ * contatos, que é o trabalho dela.
+ */
+
+export const dynamic = 'force-dynamic'
+
+export default async function SitePage() {
+  const me = await serverApi().me()
+
+  if (!me.permissions.includes('site:manage')) {
+    return (
+      <>
+        <PageHeader title="Site" />
+        <EmptyState
+          title="Os contatos ficam na outra tela"
+          description="Configurar e publicar a página é do administrador. O que chega pelo formulário do site está em Contatos."
+          action={
+            <Link href="/site/contatos" className="btn btn-primary">
+              Ver contatos
+            </Link>
+          }
+        />
+      </>
+    )
+  }
+
+  const preview = await serverApi()
+    .getSitePreview()
+    .catch((error: unknown) => {
+      if (error instanceof ApiError) return error
+      throw error
+    })
+
+  return (
+    <>
+      <PageHeader
+        title="Site"
+        subtitle={
+          preview instanceof ApiError
+            ? 'O serviço não respondeu'
+            : preview.published
+              ? 'A página está no ar'
+              : 'A página ainda não foi publicada'
+        }
+        actions={
+          <>
+            <Link href="/site/galeria" className="btn btn-ghost">
+              Fotos
+            </Link>
+            <Link href="/site/contatos" className="btn btn-ghost">
+              Contatos
+            </Link>
+          </>
+        }
+      />
+
+      {preview instanceof ApiError ? (
+        <EmptyState title="Não foi possível carregar o site" description={preview.message} />
+      ) : (
+        <SiteForm preview={preview} />
+      )}
+    </>
+  )
+}

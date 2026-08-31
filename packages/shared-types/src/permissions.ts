@@ -132,6 +132,16 @@ export const PERMISSIONS = {
    */
   'crm:connect_channel': 'Conectar e desconectar o WhatsApp do estabelecimento',
   'site:manage': 'Gerenciar o site do estabelecimento',
+  /**
+   * Ver e trabalhar a fila de contatos que chegam pelo formulário do site.
+   *
+   * Separada de `site:manage` porque o §9 do PRD dá a fila à recepção com a mesma
+   * permissão que publica e despublica a página — e isso não se sustenta: quem atende
+   * o telefone trabalha o lead; mexer no site é do administrador. Uma permissão só
+   * obrigaria a escolher entre a recepção não ver o contato que ela vai retornar ou a
+   * recepção poder tirar o site do ar.
+   */
+  'site:read_leads': 'Ver e tratar os contatos recebidos pelo site',
   'audit:read': 'Ler a trilha de auditoria',
 } as const
 
@@ -239,6 +249,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'crm:send',
     'crm:connect_channel',
     'site:manage',
+    'site:read_leads',
     'audit:read',
   ],
 
@@ -270,6 +281,9 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     // A recepção **lê** o histórico — precisa saber se o lembrete chegou antes de
     // ligar para o tutor — mas não configura texto nem dispara campanha.
     'crm:read',
+    // Quem retorna o contato que chegou pelo site é a recepção. Publicar a página
+    // não é dela: `site:manage` fica com o administrador.
+    'site:read_leads',
   ],
 
   GROOMER: [
