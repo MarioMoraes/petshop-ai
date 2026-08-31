@@ -165,9 +165,32 @@ function Hero({ site, palette }: { site: PublicSiteResponse; palette: SitePalett
   return (
     <section className={`${SECTION} grid gap-10 py-14 md:grid-cols-[1.1fr_1fr] md:items-center`}>
       <div>
-        <h1 className="font-serif text-4xl leading-[1.1] text-ink md:text-5xl">
-          {site.content.headline ??
-            `Cuidado de verdade para o seu pet${city ? `, em ${city}` : ''}.`}
+        {/*
+          Título 1 · Display do modelo de design: Inter peso 600, `leading 1.02`,
+          `tracking −0.035em`, na cor #2e3034 (`ink-soft`). A serifa saiu — ela é
+          acento de uma expressão por página, não a voz da manchete.
+
+          Da rampa 3 → 4.5 → 6rem só os dois primeiros degraus cabem: a manchete
+          divide a linha com a foto (`1.1fr_1fr`), então o degrau base abre e o
+          3.75rem fecha no desktop. Os 6rem são de herói de largura inteira.
+
+          Os dois pontos a menos em cada degrau (46px / 58px, contra 48 e 60) são
+          ajuste fino da quebra de linha nessa coluna — o tracking negativo é que
+          segura a leitura de display, não o corpo.
+        */}
+        <h1 className="text-[46px] font-semibold leading-[1.02] tracking-[-0.035em] text-ink-soft md:text-[58px]">
+          {site.content.headline ?? (
+            <>
+              {/*
+                O destaque em Pet só existe na manchete padrão, que é texto nosso.
+                A manchete escrita pelo petshop sai como ele digitou — procurar
+                "pet" no texto dele para pintar seria reescrever a voz do cliente.
+              */}
+              Cuidado de verdade para o seu{' '}
+              <span style={{ color: '#c93a24' }}>Pet</span>
+              {city ? `, em ${city}` : ''}.
+            </>
+          )}
         </h1>
 
         {site.content.about ? (
