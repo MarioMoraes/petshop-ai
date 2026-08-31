@@ -144,7 +144,7 @@ export function GalleryManager({ photos }: { photos: SitePhoto[] }) {
                 <img
                   src={photo.url}
                   alt={photo.alt ?? ''}
-                  className="aspect-video w-full rounded-xl object-cover"
+                  className="aspect-video w-full rounded-xl bg-shell object-contain"
                 />
 
                 <label className="mt-3 block">

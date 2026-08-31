@@ -85,7 +85,7 @@ export default async function TenantSitePage({ params }: PageProps) {
         <Services site={site} palette={palette} />
         {site.cta.taxiHighlighted ? <TaxiHighlight site={site} palette={palette} /> : null}
         <HoursAndPlace site={site} palette={palette} />
-        {site.photos.length > 0 ? <Gallery site={site} /> : null}
+        {site.photos.length > 0 ? <Gallery site={site} palette={palette} /> : null}
         {site.cta.leadFormEnabled ? <Contact site={site} palette={palette} /> : null}
         <SiteFooter site={site} />
       </div>
@@ -236,11 +236,14 @@ function Hero({ site, palette }: { site: PublicSiteResponse; palette: SitePalett
       </div>
 
       {hero ? (
+        // `object-contain` sobre o tom da marca: a foto que o petshop subiu cabe
+        // inteira no quadro — melhor uma faixa de fundo do que cortar a fachada.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={hero.url}
           alt={hero.alt ?? `Fachada do ${site.tenant.name}`}
-          className="aspect-[4/3] w-full rounded-3xl object-cover"
+          className="aspect-[4/3] w-full rounded-3xl object-contain"
+          style={{ backgroundColor: palette.tint }}
         />
       ) : (
         <div
@@ -405,7 +408,7 @@ function HoursAndPlace({ site, palette }: { site: PublicSiteResponse; palette: S
   )
 }
 
-function Gallery({ site }: { site: PublicSiteResponse }) {
+function Gallery({ site, palette }: { site: PublicSiteResponse; palette: SitePalette }) {
   const photos = site.photos.filter((photo) => photo.kind === 'GALLERY')
   if (photos.length === 0) return null
 
@@ -420,7 +423,8 @@ function Gallery({ site }: { site: PublicSiteResponse }) {
               src={photo.url}
               alt={photo.alt ?? ''}
               loading="lazy"
-              className="aspect-square w-full rounded-2xl object-cover"
+              className="aspect-square w-full rounded-2xl object-contain"
+              style={{ backgroundColor: palette.tint }}
             />
           </li>
         ))}
