@@ -21,3 +21,6 @@ npm-debug.log*
 pnpm-debug.log*
 
 packages/db/generated/
+
+# Grafo de conhecimento do graphify: gerado, e o graph.json passa de 15 MB.
+graphify-out/

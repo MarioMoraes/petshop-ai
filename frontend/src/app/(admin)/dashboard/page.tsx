@@ -258,26 +258,26 @@ function StatSection({
               {/* O conteúdo sobe acima do bloom pelo mesmo motivo do shell. */}
               <div className="relative z-10">
                 {/*
-                  O chip ao lado do número, e não empilhado sobre ele.
-                  
-                  Empilhado, ele custava 68px de altura (os 48 do chip mais o respiro)
-                  para dizer de que assunto o cartão trata — e com seis cartões na tela
-                  isso empurrava metade do painel para baixo da dobra. Na mesma linha
-                  ele passa a etiquetar o número em vez de anunciá-lo, que é o trabalho
-                  que ele de fato faz.
+                  Molde vertical da Composição 2 do `design/design-modelo.html` — chip,
+                  figura, rótulo, dica —, em escala menor. O que encolheu foi o tamanho
+                  de cada peça, não a ordem delas: o chip cai de 48 para 36px, a figura
+                  de 36 para 30, o rótulo de 18 para 16, e o rótulo volta a ficar colado
+                  na figura, como no modelo.
+
+                  O cartão do gráfico, ao lado, usa o cabeçalho em linha: ele é o mais
+                  alto da fileira e todos os outros esticam até ele, então é dele que sai
+                  a altura da faixa.
                 */}
-                <div className="flex items-center gap-3">
-                  <span className={`icon-chip icon-chip-sm ${stat.iconTone}`}>{stat.icon}</span>
-                  <p
-                    className={`text-3xl font-semibold tabular-nums ${
-                      stat.tone === 'danger' ? 'text-danger' : ''
-                    }`}
-                  >
-                    {stat.value ?? <span className="text-subtle">—</span>}
-                  </p>
-                </div>
-                <p className="mt-2.5 text-base font-semibold">{stat.label}</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">{stat.hint}</p>
+                <span className={`icon-chip icon-chip-sm ${stat.iconTone}`}>{stat.icon}</span>
+                <p
+                  className={`mt-4 text-3xl font-semibold tabular-nums ${
+                    stat.tone === 'danger' ? 'text-danger' : ''
+                  }`}
+                >
+                  {stat.value ?? <span className="text-subtle">—</span>}
+                </p>
+                <p className="text-base font-semibold">{stat.label}</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{stat.hint}</p>
               </div>
             </>
           )

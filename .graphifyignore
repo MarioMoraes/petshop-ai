@@ -1,0 +1,4 @@
+# Pasta de referência de design: bundles JS minificados de terceiros
+# (three.min.js, Prism, Sandpack, index-*.js) poluíam o grafo com
+# milhares de símbolos de uma letra e ~100 comunidades de ruído.
+design/

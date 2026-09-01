@@ -1,1 +1,0 @@
-const e={desktop:{width:1440,height:1024},tablet:{width:1024,height:768},mobile:{width:393,height:852}};function r(h){return{...e[h]}}function i(h,t){return!(t!=null&&t.width)||!(t!=null&&t.height)?r(h):{width:t.width,height:t.height}}export{r as g,i as r};

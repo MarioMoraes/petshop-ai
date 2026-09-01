@@ -19,8 +19,15 @@ import {
  *                       jobs cross-tenant (AC-03 de MOD-IDENT-07).
  */
 
-/** Modelos com política RLS — a lista espelha a migration `*_rls_policies`. */
-const RLS_MODELS = new Set([
+/**
+ * Modelos com política RLS — a lista espelha as migrations que fazem
+ * `ENABLE ROW LEVEL SECURITY`.
+ *
+ * Exportada para que `tests/rls-models-sync.test.ts` compare esta lista com o SQL
+ * das migrations e com o `schema.prisma`. A sincronia era mantida só por disciplina;
+ * o teste transforma o esquecimento em falha de build, e não em vazamento silencioso.
+ */
+export const RLS_MODELS: ReadonlySet<string> = new Set([
   'Tenant',
   'TenantSettings',
   'Membership',

@@ -408,4 +408,76 @@ describe('retenção (RN-11)', () => {
     // O contato em si continua lá: só o metadado de antiabuso venceu.
     expect(lead.name).toBe('Recente o bastante')
   })
+
+  /**
+   * A varredura é cross-tenant; a escrita não. O job encontra os vencidos de toda a
+   * base com o cliente de manutenção, mas apaga PII dentro de `withTenant()` — uma
+   * transação por petshop, com a RLS ativa limitando o alcance de cada uma.
+   *
+   * Este teste existe porque a versão anterior fazia um `updateMany` único no cliente
+   * com BYPASSRLS: funcionava para um tenant, e por isso passava despercebido. Com
+   * dois, um agrupamento errado aparece na hora.
+   */
+  it('trata os vencidos de cada tenant na transação do próprio tenant', async () => {
+    const casa = await givenPublishedSite()
+    const outro = await givenPublishedSite()
+
+    const ancient = new Date(Date.now() - 800 * 24 * 60 * 60 * 1000)
+    const recente = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+
+    await ownerPrisma.siteLead.createMany({
+      data: [
+        {
+          tenantId: casa.tenantId,
+          name: 'Vencido da casa',
+          phoneEncrypted: 'v1:a:b:c',
+          phoneHash: 'casa-velho',
+          message: 'quero preço',
+          status: 'DISCARDED',
+          createdAt: ancient,
+        },
+        {
+          tenantId: outro.tenantId,
+          name: 'Vencido do outro',
+          phoneEncrypted: 'v1:a:b:c',
+          phoneHash: 'outro-velho',
+          message: 'quero preço',
+          status: 'DISCARDED',
+          createdAt: ancient,
+        },
+        {
+          tenantId: outro.tenantId,
+          name: 'No prazo',
+          phoneEncrypted: 'v1:a:b:c',
+          phoneHash: 'outro-novo',
+          status: 'NEW',
+          createdAt: recente,
+        },
+      ],
+    })
+
+    const { runLeadRetention } = await import('../src/modules/site/jobs.js')
+    const result = await runLeadRetention()
+
+    // Os dois tenants foram atendidos na mesma execução.
+    expect(result.purged).toBe(2)
+
+    // Busca por tenant, não por `phoneHash`: o purge zera o hash junto com o resto do
+    // PII, então ele não serve mais de identificador depois da retenção.
+    for (const tenantId of [casa.tenantId, outro.tenantId]) {
+      const purgado = await ownerPrisma.siteLead.findFirstOrThrow({
+        where: { tenantId, purgedAt: { not: null } },
+      })
+      expect(purgado.name).toBe('(removido)')
+      expect(purgado.message).toBeNull()
+      expect(purgado.phoneHash).toBe('')
+    }
+
+    // Quem está no prazo não é tocado — nem por engano do tenant vizinho.
+    const intacto = await ownerPrisma.siteLead.findFirstOrThrow({
+      where: { phoneHash: 'outro-novo' },
+    })
+    expect(intacto.name).toBe('No prazo')
+    expect(intacto.purgedAt).toBeNull()
+  })
 })
