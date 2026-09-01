@@ -168,6 +168,17 @@ export interface LeadListResult {
   newCount: number
 }
 
+/**
+ * Quantos contatos esperam retorno — e nada mais.
+ *
+ * O sino da topbar chama isto em toda tela do Admin, então a consulta é um `COUNT` e
+ * **não abre a cifra de ninguém**: nenhum telefone ou e-mail sai do banco para
+ * alimentar um número. `listLeads` continua sendo o caminho de quem vai *ver* a fila.
+ */
+export async function countNewLeads(actor: ActorContext): Promise<number> {
+  return withTenant(actor.tenantId, (tx) => tx.siteLead.count({ where: { status: 'NEW' } }))
+}
+
 export async function listLeads(
   actor: ActorContext,
   filter: { status?: SiteLeadStatus },

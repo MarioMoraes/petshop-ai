@@ -74,6 +74,7 @@ import {
   SpeciesSchema,
   TeamMemberSchema,
   TagSchema,
+  SiteLeadCountSchema,
   SiteLeadListSchema,
   SiteLeadSchema,
   SitePhotoSchema,
@@ -1540,6 +1541,17 @@ export function createApiClient(options: ApiClientOptions) {
 
     deleteSitePhoto: (id: string) =>
       request<void>({ method: 'DELETE', path: `/v1/site/photos/${id}` }),
+
+    /**
+     * Só o contador da fila, para o sino de pendências. Não decifra nada — ver
+     * `SiteLeadCountSchema`.
+     */
+    countSiteLeads: () =>
+      request({
+        method: 'GET',
+        path: '/v1/site/leads/count',
+        schema: SiteLeadCountSchema,
+      }),
 
     listSiteLeads: (status?: SiteLeadStatus) =>
       request({

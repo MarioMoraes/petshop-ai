@@ -13,7 +13,7 @@ import { invalid } from '../../lib/errors.js'
 import { parseInput } from '../../lib/validate.js'
 import type { ActorContext } from './actor.js'
 import { getSettings, updateSettings } from './content.js'
-import { convertLead, listLeads, submitLead, updateLead } from './leads.js'
+import { convertLead, countNewLeads, listLeads, submitLead, updateLead } from './leads.js'
 import {
   deletePhoto,
   listPhotos,
@@ -205,6 +205,20 @@ export async function registerSiteRoutes(app: FastifyInstance): Promise<void> {
       )
       return listLeads(actorOf(request), query)
     },
+  )
+
+  /**
+   * Só o número, para o sino de pendências da topbar.
+   *
+   * Declarada **antes** de `/v1/site/leads/:id` de propósito. O roteador do Fastify
+   * prefere o segmento estático ao parâmetro, então a ordem não decide nada hoje —
+   * mas ela documenta a intenção para quem for mexer aqui, e o teste de contrato
+   * cobre o caso.
+   */
+  app.get(
+    '/v1/site/leads/count',
+    { preHandler: requirePermission('site:read_leads') },
+    async (request) => ({ newCount: await countNewLeads(actorOf(request)) }),
   )
 
   app.patch<{ Params: IdParams }>(

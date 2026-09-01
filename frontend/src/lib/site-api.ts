@@ -61,6 +61,16 @@ export interface LeadResult {
 }
 
 /**
+ * Quanto tempo o envio espera pelo serviço antes de desistir.
+ *
+ * `fetch` **não tem timeout padrão**: sem isto, um serviço que aceita a conexão e não
+ * responde — reiniciando, preso num lock, esperando o banco — deixa a Server Action
+ * pendurada para sempre, e o botão do visitante fica em "Enviando…" até ele fechar a
+ * aba. Falhar em 10 s com uma frase é muito melhor do que não falhar nunca.
+ */
+const TIMEOUT_MS = 10_000
+
+/**
  * Manda o formulário ao serviço.
  *
  * O IP do visitante viaja em `x-forwarded-for` porque o rate limit é por IP e, daqui
@@ -83,6 +93,7 @@ export async function submitLead(
         },
         body: JSON.stringify(input),
         cache: 'no-store',
+        signal: AbortSignal.timeout(TIMEOUT_MS),
       },
     )
 
@@ -101,6 +112,9 @@ export async function submitLead(
 
     return { ok: true }
   } catch {
+    // Cai aqui tanto a recusa de conexão quanto o estouro do `TIMEOUT_MS`. A frase é a
+    // mesma nos dois casos: para quem está do outro lado, "o serviço não respondeu" e
+    // "o serviço demorou demais" são a mesma notícia e pedem a mesma coisa.
     return { ok: false, message: 'Não foi possível enviar agora. Tente de novo em instantes.' }
   }
 }

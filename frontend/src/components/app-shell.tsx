@@ -2,7 +2,10 @@ import Link from 'next/link'
 import type { CSSProperties, ReactNode } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import type { MeResponse, PermissionKey } from '@petshop/shared-types'
+import { montarPendencias } from '@/lib/pendencias'
+import { carregarPendencias } from '@/lib/pendencias.server'
 import { Atmosphere } from './atmosphere'
+import { NotificationsBell } from './notifications-bell'
 import {
   BellIcon,
   GlobeIcon,
@@ -172,12 +175,17 @@ export interface AppShellProps {
   children: ReactNode
 }
 
-export function AppShell({ active, me, atmosphere = false, children }: AppShellProps) {
+export async function AppShell({ active, me, atmosphere = false, children }: AppShellProps) {
   // O menu não oferece o que a página recusaria: um link que sempre devolve o usuário
   // ao início é pior do que link nenhum.
   const items = NAV.filter(
     (item) => !item.requires || me.permissions.includes(item.requires),
   )
+
+  // A moldura é servidor: as pendências chegam ao sino como props já resolvidas, e o
+  // browser nunca fala com o gateway. Cada fonte falha para `null` por conta própria
+  // (ver `lib/pendencias.ts`), então isto não tem como derrubar a tela.
+  const pendencias = montarPendencias(await carregarPendencias(me))
 
   const trialDaysLeft = trialDaysLeftOf(me.currentTenant?.trialEndsAt)
   const roleLabel = roleLabelOf(me)
@@ -215,6 +223,11 @@ export function AppShell({ active, me, atmosphere = false, children }: AppShellP
            * nome curto e papel longo deixariam um vão entre o bloco e o avatar.
            */}
           <div className="flex min-w-0 items-center gap-3">
+            {/*
+             * O sino antes do nome, e não depois do avatar: o avatar é o fim da linha
+             * — dali sai o menu da conta, e nada deve aparecer à direita dele.
+             */}
+            <NotificationsBell pendencias={pendencias} />
             <div className="min-w-0 text-right leading-tight">
               <p className="truncate text-sm font-medium">{me.user.fullName}</p>
               {roleLabel && <p className="hint truncate">{roleLabel}</p>}

@@ -168,6 +168,71 @@ describe('fila (MOD-SITE-09)', () => {
     expect(items[0].phone).toBe('+5511987654321')
   })
 
+  /*
+   * O contador do sino de pendências da topbar. Vive separado da fila porque o Admin
+   * inteiro o chama: montar a lista para ler um número decifraria até 200 telefones
+   * por navegação.
+   */
+  describe('contador da fila', () => {
+    it('conta só os que aguardam retorno', async () => {
+      const fixture = await givenPublishedSite()
+      await sendLead(fixture.slug)
+      await sendLead(fixture.slug, { ...LEAD, name: 'Outro Contato', phone: '11912345678' })
+
+      const lead = await withTenant(fixture.tenantId, (tx) => tx.siteLead.findFirstOrThrow())
+      await callApi({
+        ...asReceptionist(fixture),
+        method: 'PATCH',
+        url: `/v1/site/leads/${lead.id}`,
+        payload: { status: 'CONTACTED' },
+      })
+
+      const response = await callApi({
+        ...asReceptionist(fixture),
+        method: 'GET',
+        url: '/v1/site/leads/count',
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual({ newCount: 1 })
+    })
+
+    /**
+     * `count` é segmento estático e `:id` é parâmetro na mesma altura da rota. Se o
+     * roteador preferisse o parâmetro, a chamada viraria "leia o lead de id `count`"
+     * e responderia 404 — falha silenciosa que sumiria o badge sem explicar por quê.
+     */
+    it('não é confundida com a rota de um lead pelo id', async () => {
+      const fixture = await givenPublishedSite()
+      await sendLead(fixture.slug)
+
+      const response = await callApi({
+        ...asReceptionist(fixture),
+        method: 'GET',
+        url: '/v1/site/leads/count',
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toHaveProperty('newCount')
+    })
+
+    it('exige a mesma permissão da fila', async () => {
+      const fixture = await givenPublishedSite()
+
+      const response = await callApi({
+        clerkUserId: fixture.clerkUserId,
+        userId: fixture.userId,
+        tenantId: fixture.tenantId,
+        role: 'GROOMER',
+        permissions: ['pet:read'],
+        method: 'GET',
+        url: '/v1/site/leads/count',
+      })
+
+      expect(response.statusCode).toBe(403)
+    })
+  })
+
   it('quem não tem permissão de contatos não vê a fila', async () => {
     const fixture = await givenPublishedSite()
 

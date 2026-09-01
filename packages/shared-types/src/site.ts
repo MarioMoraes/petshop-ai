@@ -168,6 +168,19 @@ export const SiteLeadPatchSchema = z.strictObject({
 })
 export type SiteLeadPatch = z.input<typeof SiteLeadPatchSchema>
 
+/**
+ * Só o contador da fila, para o sino de pendências da topbar.
+ *
+ * Existe separado de `SiteLeadListSchema` porque o sino aparece em **toda** tela do
+ * Admin: montar a lista inteira para ler um número faria cada navegação carregar até
+ * 200 leads e decifrar telefone e e-mail de todos eles — trabalho de criptografia
+ * jogado fora num badge.
+ */
+export const SiteLeadCountSchema = z.object({
+  newCount: z.number().int(),
+})
+export type SiteLeadCount = z.infer<typeof SiteLeadCountSchema>
+
 export const SiteLeadListSchema = z.object({
   items: z.array(SiteLeadSchema),
   total: z.number().int(),

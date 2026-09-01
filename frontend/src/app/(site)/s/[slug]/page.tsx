@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { formatBRL, formatPhoneBR, type PublicSiteResponse } from '@petshop/shared-types'
 import { fetchPublicSite, SiteNotFoundError } from '@/lib/site-api'
-import { paletteOf, type SitePalette } from './branding'
+import { paletteOf, rgba, type SitePalette } from './branding'
 import { groupBusinessHours } from './hours'
 import { LeadForm } from './lead-form'
 import { OpenNow } from './open-now'
@@ -163,95 +163,132 @@ function Hero({ site, palette }: { site: PublicSiteResponse; palette: SitePalett
   const city = site.address?.city
 
   return (
-    <section className={`${SECTION} grid gap-10 py-14 md:grid-cols-[1.1fr_1fr] md:items-center`}>
-      <div>
-        {/*
-          Título 1 · Display do modelo de design: Inter peso 600, `leading 1.02`,
-          `tracking −0.035em`, na cor #2e3034 (`ink-soft`). A serifa saiu — ela é
-          acento de uma expressão por página, não a voz da manchete.
+    // A atmosfera do modelo de design: três `radial-gradient` em `blur-3xl`, o
+    // quente e o frio em cantos opostos. Cada um termina em branco com alfa zero —
+    // a cor do próprio fundo, e não `transparent`, que o navegador interpolaria em
+    // direção ao preto e deixaria uma franja acinzentada na borda do bloom.
+    //
+    // O quente sai da cor da marca do petshop, não do laranja fixo do modelo: é a
+    // mesma identidade que pinta o botão e o tint das seções.
+    <section className="relative overflow-hidden bg-white">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-40 -top-40 h-[560px] w-[560px] rounded-full opacity-70 blur-3xl"
+        style={{
+          background: `radial-gradient(circle at 55% 45%, ${rgba(palette.brand, 0.55)}, ${rgba(palette.accent, 0.28)} 40%, rgba(255,255,255,0) 70%)`,
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-72 -top-24 h-[520px] w-[520px] rounded-full opacity-30 blur-3xl"
+        style={{
+          // O frio vem bem mais fraco que no modelo. Lá o shell já é `#f4f5f5`, e o
+          // cinza pousa sobre cinza; aqui o fundo é branco, e na intensidade original
+          // ele deixava de ser atmosfera para virar sujeira por cima da manchete.
+          background:
+            'radial-gradient(circle at 50% 50%, rgba(46,48,52,0.22), rgba(255,255,255,0) 70%)',
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute right-1 -bottom-48 h-[380px] w-[520px] rounded-full opacity-40 blur-3xl"
+        style={{
+          background: `radial-gradient(circle at 50% 50%, ${rgba(palette.brand, 0.25)}, rgba(255,255,255,0) 70%)`,
+        }}
+      />
 
-          Da rampa 3 → 4.5 → 6rem só os dois primeiros degraus cabem: a manchete
-          divide a linha com a foto (`1.1fr_1fr`), então o degrau base abre e o
-          3.75rem fecha no desktop. Os 6rem são de herói de largura inteira.
-
-          Os dois pontos a menos em cada degrau (46px / 58px, contra 48 e 60) são
-          ajuste fino da quebra de linha nessa coluna — o tracking negativo é que
-          segura a leitura de display, não o corpo.
-        */}
-        <h1 className="text-[46px] font-semibold leading-[1.02] tracking-[-0.035em] text-ink-soft md:text-[58px]">
-          {site.content.headline ?? (
-            <>
-              {/*
-                O destaque em Pet só existe na manchete padrão, que é texto nosso.
-                A manchete escrita pelo petshop sai como ele digitou — procurar
-                "pet" no texto dele para pintar seria reescrever a voz do cliente.
-              */}
-              Cuidado de verdade para o seu{' '}
-              <span style={{ color: '#c93a24' }}>Pet</span>
-              {city ? `, em ${city}` : ''}.
-            </>
-          )}
-        </h1>
-
-        {site.content.about ? (
-          <p className="mt-5 max-w-prose text-base leading-relaxed text-muted">
-            {site.content.about}
-          </p>
-        ) : null}
-
-        <div className="mt-8 flex flex-wrap items-center gap-3">
+      <div
+        className={`${SECTION} relative z-10 grid gap-10 py-14 md:grid-cols-[1.1fr_1fr] md:items-center`}
+      >
+        <div>
           {/*
-            O botão principal só é "Agendar" quando há Portal a alcançar. Com o
-            agendamento online desligado ele vira WhatsApp — e não um "Agendar" que
-            leva a uma porta fechada (AC-02 de MOD-SITE-07).
+            Título 1 · Display do modelo de design: Inter peso 600, `leading 1.02`,
+            `tracking −0.035em`, na cor #2e3034 (`ink-soft`). A serifa saiu — ela é
+            acento de uma expressão por página, não a voz da manchete.
+
+            Da rampa 3 → 4.5 → 6rem só os dois primeiros degraus cabem: a manchete
+            divide a linha com a foto (`1.1fr_1fr`), então o degrau base abre e o
+            3.75rem fecha no desktop. Os 6rem são de herói de largura inteira.
+
+            Os dois pontos a menos em cada degrau (46px / 58px, contra 48 e 60) são
+            ajuste fino da quebra de linha nessa coluna — o tracking negativo é que
+            segura a leitura de display, não o corpo.
           */}
-          {site.cta.bookingUrl ? (
-            <a
-              href={site.cta.bookingUrl}
-              className="rounded-full px-6 py-3 text-sm font-semibold"
-              style={{ backgroundColor: palette.brand, color: palette.onBrand }}
-            >
-              Agendar horário
-            </a>
-          ) : whatsapp ? (
-            <a
-              href={whatsapp}
-              className="rounded-full px-6 py-3 text-sm font-semibold"
-              style={{ backgroundColor: palette.brand, color: palette.onBrand }}
-            >
-              Falar no WhatsApp
-            </a>
+          <h1 className="text-[46px] font-semibold leading-[1.02] tracking-[-0.035em] text-ink-soft md:text-[58px]">
+            {site.content.headline ?? (
+              <>
+                {/*
+                  O destaque em Pet só existe na manchete padrão, que é texto nosso.
+                  A manchete escrita pelo petshop sai como ele digitou — procurar
+                  "pet" no texto dele para pintar seria reescrever a voz do cliente.
+                */}
+                Cuidado de verdade para o seu{' '}
+                <span style={{ color: '#c93a24' }}>Pet</span>
+                {city ? `, em ${city}` : ''}.
+              </>
+            )}
+          </h1>
+
+          {site.content.about ? (
+            <p className="mt-5 max-w-prose text-base leading-relaxed text-muted">
+              {site.content.about}
+            </p>
           ) : null}
 
-          {site.contact.phone ? (
-            <a
-              href={`tel:${site.contact.phone}`}
-              className="rounded-full border px-6 py-3 text-sm font-semibold text-ink"
-              style={{ borderColor: palette.line }}
-            >
-              {formatPhoneBR(site.contact.phone)}
-            </a>
-          ) : null}
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            {/*
+              O botão principal só é "Agendar" quando há Portal a alcançar. Com o
+              agendamento online desligado ele vira WhatsApp — e não um "Agendar" que
+              leva a uma porta fechada (AC-02 de MOD-SITE-07).
+            */}
+            {site.cta.bookingUrl ? (
+              <a
+                href={site.cta.bookingUrl}
+                className="rounded-full px-6 py-3 text-sm font-semibold"
+                style={{ backgroundColor: palette.brand, color: palette.onBrand }}
+              >
+                Agendar horário
+              </a>
+            ) : whatsapp ? (
+              <a
+                href={whatsapp}
+                className="rounded-full px-6 py-3 text-sm font-semibold"
+                style={{ backgroundColor: palette.brand, color: palette.onBrand }}
+              >
+                Falar no WhatsApp
+              </a>
+            ) : null}
+
+            {site.contact.phone ? (
+              <a
+                href={`tel:${site.contact.phone}`}
+                className="rounded-full border px-6 py-3 text-sm font-semibold text-ink"
+                style={{ borderColor: palette.line }}
+              >
+                {formatPhoneBR(site.contact.phone)}
+              </a>
+            ) : null}
+          </div>
         </div>
-      </div>
 
-      {hero ? (
-        // `object-contain` sobre o tom da marca: a foto que o petshop subiu cabe
-        // inteira no quadro — melhor uma faixa de fundo do que cortar a fachada.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={hero.url}
-          alt={hero.alt ?? `Fachada do ${site.tenant.name}`}
-          className="aspect-[4/3] w-full rounded-3xl object-contain"
-          style={{ backgroundColor: palette.tint }}
-        />
-      ) : (
-        <div
-          className="aspect-[4/3] w-full rounded-3xl"
-          style={{ backgroundColor: palette.tint }}
-          aria-hidden
-        />
-      )}
+        {hero ? (
+          // `object-contain` sobre o tom da marca: a foto que o petshop subiu cabe
+          // inteira no quadro — melhor uma faixa de fundo do que cortar a fachada.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={hero.url}
+            alt={hero.alt ?? `Fachada do ${site.tenant.name}`}
+            className="aspect-[4/3] w-full rounded-3xl object-contain"
+            style={{ backgroundColor: palette.tint }}
+          />
+        ) : (
+          <div
+            className="aspect-[4/3] w-full rounded-3xl"
+            style={{ backgroundColor: palette.tint }}
+            aria-hidden
+          />
+        )}
+      </div>
     </section>
   )
 }

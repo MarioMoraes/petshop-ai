@@ -17,11 +17,40 @@ export interface LeadFormState extends LeadResult {
   fieldErrors?: FieldError[]
 }
 
+/** Os campos que o visitante pode legitimamente deixar em branco. */
+const OPCIONAIS = ['email', 'message', 'website'] as const
+
+/**
+ * Campo opcional em branco é **ausente**, não string vazia.
+ *
+ * O `FormData` do browser não distingue as duas coisas: ele devolve `''` para todo
+ * campo que existe no formulário, tocado ou não. O schema distingue — `optional()`
+ * cobre a chave ausente, e `''` cai direto na validação de formato. Sem esta
+ * normalização, quem não preenchia o e-mail recebia "endereço inválido" no campo que
+ * a própria etiqueta chama de opcional, e o envio inteiro era recusado.
+ *
+ * A conversão mora aqui, e não no schema, porque o problema é da **fronteira**: é o
+ * `FormData` que inventa a string vazia. O endpoint público continua recusando um
+ * `email: ''` mandado à mão, que é um cliente dizendo algo diferente de "não tenho".
+ *
+ * `name` e `phone` ficam de fora de propósito: em branco eles são erro de verdade, e
+ * "informe pelo menos 2 caracteres" lê melhor do que a queixa de campo ausente.
+ */
+function semCamposVazios(input: unknown): unknown {
+  if (typeof input !== 'object' || input === null) return input
+
+  const copia: Record<string, unknown> = { ...(input as Record<string, unknown>) }
+  for (const campo of OPCIONAIS) {
+    if (typeof copia[campo] === 'string' && copia[campo].trim() === '') delete copia[campo]
+  }
+  return copia
+}
+
 export async function submitLeadAction(
   slug: string,
   input: unknown,
 ): Promise<LeadFormState> {
-  const parsed = SiteLeadInputSchema.safeParse(input)
+  const parsed = SiteLeadInputSchema.safeParse(semCamposVazios(input))
   if (!parsed.success) {
     return {
       ok: false,

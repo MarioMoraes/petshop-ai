@@ -45,7 +45,26 @@ export function LeadForm({ slug, palette }: { slug: string; palette: SitePalette
         event.preventDefault()
         const data = Object.fromEntries(new FormData(event.currentTarget))
         startTransition(async () => {
-          setState(await submitLeadAction(slug, data))
+          try {
+            setState(await submitLeadAction(slug, data))
+          } catch {
+            /*
+             * A Server Action pode falhar **antes** de rodar: rede do visitante caindo,
+             * servidor reiniciando no meio de um deploy, resposta que nunca volta.
+             * Nada disso passa pelo `try` de dentro da action, então sem este `catch`
+             * a promessa rejeita, o `setState` nunca acontece e o `pending` **fica
+             * ligado para sempre** — o botão trava em "Enviando…" sem uma palavra de
+             * explicação, e o visitante conclui que mandou.
+             *
+             * O texto não promete que a mensagem chegou nem afirma que não chegou: daqui
+             * não dá para saber se o envio vingou antes de a resposta se perder. O que
+             * ele faz é devolver o formulário preenchido e o controle a quem escreveu.
+             */
+            setState({
+              ok: false,
+              message: 'Não conseguimos confirmar o envio. Tente de novo em instantes.',
+            })
+          }
         })
       }}
     >

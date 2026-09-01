@@ -63,3 +63,20 @@ export function paletteOf(branding: Branding): SitePalette {
     accent: branding.secondaryColor ?? brand,
   }
 }
+
+/**
+ * A cor da marca como `rgba()`, para os blooms atmosféricos do hero.
+ *
+ * O bloom precisa da marca em alfa variável dentro de um `radial-gradient`, e a
+ * paleta guarda tudo em hex. Converter na hora evita uma segunda representação
+ * da mesma cor no estado da página.
+ */
+export function rgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '')
+  if (clean.length !== 6) return `rgba(0, 0, 0, ${alpha})`
+
+  const [r, g, b] = [0, 2, 4].map((start) =>
+    Number.parseInt(clean.slice(start, start + 2), 16),
+  )
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
