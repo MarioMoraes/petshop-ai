@@ -42,6 +42,10 @@ import { StoreIcon } from './icons'
  *    ativa virava laço: ativa, `router.refresh()`, a página volta sem tenant, ativa de
  *    novo — recarregando para sempre, sem erro em lugar nenhum.
  */
+/** Quantas vezes reperguntar ao Clerk pela lista de vínculos, e de quanto em quanto. */
+const MAX_BUSCAS = 6
+const INTERVALO_BUSCA_MS = 1200
+
 export function EnsureActiveOrganization({
   slug,
   redirectTo,
@@ -71,6 +75,7 @@ export function EnsureActiveOrganization({
 } = {}) {
   const router = useRouter()
   const [escolhido, setEscolhido] = useState<string | null>(null)
+  const [buscas, setBuscas] = useState(0)
   const { organization: ativa } = useOrganization()
   const { isLoaded, setActive, userMemberships } = useOrganizationList({
     userMemberships: { infinite: true },
@@ -119,6 +124,35 @@ export function EnsureActiveOrganization({
     knownSlugs,
   ])
 
+  /*
+   * O vínculo existe do nosso lado e o Clerk ainda não o conhece: pede a lista de novo.
+   *
+   * **É a peça que faltava para o wizard terminar.** `POST /v1/tenants` cria a
+   * Organization **pelo backend**, e o cliente do Clerk no navegador não é avisado — ele
+   * carregou os vínculos quando a página montou, num momento em que o usuário não tinha
+   * organização nenhuma. O `router.refresh()` do wizard atualiza o **servidor**, não o
+   * estado do Clerk, então `userMemberships.data` continua vazio: não há o que ativar, o
+   * token nunca ganha `org_id`, e "Preparando seu estabelecimento…" fica na tela para
+   * sempre. Só um F5 resolvia, e ninguém adivinha isso.
+   *
+   * Poucas tentativas, espaçadas: a Organization já existe quando chegamos aqui, então é
+   * questão de o cliente reler. Insistir sem teto transformaria uma falha real numa
+   * consulta por segundo, para sempre — daí o limite e a mensagem honesta depois dele.
+   */
+  const esperandoOClerk =
+    isLoaded && knownSlugs !== undefined && knownSlugs.length > 0 && organizacoes.length === 0
+  const desistiu = esperandoOClerk && buscas >= MAX_BUSCAS
+
+  useEffect(() => {
+    if (!esperandoOClerk || buscas >= MAX_BUSCAS) return
+
+    const alarme = setTimeout(() => {
+      setBuscas((feitas) => feitas + 1)
+      void userMemberships.revalidate?.()
+    }, INTERVALO_BUSCA_MS)
+    return () => clearTimeout(alarme)
+  }, [esperandoOClerk, buscas, userMemberships])
+
   // Com `slug` quem chamou já tem a própria mensagem na tela (o aceite de convite diz
   // "Entrando…"); duplicar aqui seria falar duas vezes.
   if (slug) return null
@@ -156,9 +190,33 @@ export function EnsureActiveOrganization({
     )
   }
 
-  // Um vínculo só (ou ainda carregando, ou já escolhido): o efeito acima resolve, e o
-  // que a pessoa vê enquanto isso é esta linha. Vale também para o vínculo que existe
-  // no nosso banco e ainda não no Clerk — o tenant preso em `PROVISIONING`, que o job
-  // de retry vai destravar (AC-03 de MOD-IDENT-01).
+  /*
+   * As buscas acabaram e o Clerk continua sem o vínculo. Sobram dois casos reais: o
+   * tenant preso em `PROVISIONING`, que ainda não tem Organization e depende do job de
+   * retry (AC-03 de MOD-IDENT-01), e uma sessão que ficou velha demais para se corrigir
+   * sozinha. Nos dois, recarregar é o que resolve — e dizer isso é melhor que deixar
+   * "Preparando…" girando para sempre, que foi como este bug apareceu.
+   */
+  if (desistiu && waiting) {
+    return (
+      <div className="card w-full max-w-md px-6 py-8 text-center">
+        <h1 className="text-xl font-semibold">Quase lá</h1>
+        <p className="hint mt-3">
+          Seu estabelecimento já foi criado, mas esta aba ainda está com a sessão antiga.
+          Recarregue a página para entrar.
+        </p>
+        <button
+          type="button"
+          className="btn btn-accent mt-6"
+          onClick={() => window.location.reload()}
+        >
+          Recarregar
+        </button>
+      </div>
+    )
+  }
+
+  // Um vínculo só (ou ainda carregando, ou já escolhido): os efeitos acima resolvem, e o
+  // que a pessoa vê enquanto isso é esta linha.
   return waiting ? <p className="hint">Preparando seu estabelecimento…</p> : null
 }
