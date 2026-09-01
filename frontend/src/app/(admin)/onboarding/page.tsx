@@ -31,6 +31,18 @@ export default async function OnboardingPage() {
   const tenant: TenantResponse | null = me.currentTenant
   let settings: TenantSettings | null = null
 
+  /*
+   * Os estabelecimentos que são nossos de verdade.
+   *
+   * A sessão pode estar numa Organization do Clerk que não corresponde a tenant
+   * nenhum — o `force_organization_selection` da instância faz o próprio Clerk criar
+   * uma no cadastro (`docs/setup-clerk.md` §2). Passar esta lista é o que impede o
+   * `EnsureActiveOrganization` de tentar ativar essa órfã e ficar recarregando.
+   */
+  const knownSlugs = me.memberships
+    .filter((membership) => membership.status === 'ACTIVE')
+    .map((membership) => membership.tenantSlug)
+
   // Sessão sem Organization ativa, mas com vínculo: o `EnsureActiveOrganization`
   // ativa a organização no cliente e recarrega. Com mais de um vínculo ele pergunta em
   // qual entrar, em vez de escolher sozinho — e é ele que exibe a espera, porque só
@@ -38,7 +50,7 @@ export default async function OnboardingPage() {
   if (!tenant && me.memberships.length > 0) {
     return (
       <OnboardingLayout>
-        <EnsureActiveOrganization waiting />
+        <EnsureActiveOrganization waiting knownSlugs={knownSlugs} />
       </OnboardingLayout>
     )
   }
@@ -66,7 +78,7 @@ export default async function OnboardingPage() {
 
   return (
     <OnboardingLayout>
-      {tenant === null && <EnsureActiveOrganization />}
+      {tenant === null && <EnsureActiveOrganization knownSlugs={knownSlugs} />}
       <Wizard tenant={tenant} settings={settings} hostSuffix={tenantHostSuffix()} />
     </OnboardingLayout>
   )

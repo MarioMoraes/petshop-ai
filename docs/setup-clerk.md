@@ -46,6 +46,17 @@ Ainda em **Organizations**, dois ajustes que não são opcionais:
   não corresponde a tenant nenhum, e o frontend fica preso em "Preparando seu
   estabelecimento…".
 
+  > **Confira este depois de mexer em qualquer coisa em Organizations.** Em
+  > 2026-09-01 ele voltou a `true` sozinho, no meio de um ajuste no limite de
+  > membros, e o efeito foi exatamente o descrito: quem se cadastrou recebeu do
+  > *Clerk* — não do nosso wizard — um formulário de nome e slug, e a Organization
+  > resultante (`public_metadata` vazio) não tinha tenant do outro lado. **Como
+  > reconhecer:** a Organization existe no dashboard do Clerk, o `SELECT ... FROM
+  > tenants` não a encontra, e o gateway registra `Organization sem tenant local`.
+  > O frontend hoje ignora Organization sem vínculo local em vez de travar
+  > (`components/ensure-active-organization.tsx`), mas a configuração continua
+  > tendo de ser desligada — senão cada novo cadastro cria uma órfã.
+
 Um terceiro ponto vale conferir antes de convidar equipe (MOD-IDENT-06): o
 **limite de membros por Organization** (*Organization membership limit*). O aceite
 de convite chama `createOrganizationMembership`, e com o limite abaixo do número de

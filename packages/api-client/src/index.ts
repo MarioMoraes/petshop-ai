@@ -246,7 +246,23 @@ export interface ApiClientOptions {
   /** Token de sessão do Clerk. Resolvido por requisição, nunca guardado. */
   getToken: () => Promise<string | null>
   fetchImpl?: typeof fetch
+  /** Teto por requisição. Ver `REQUEST_TIMEOUT_MS`. */
+  timeoutMs?: number
 }
+
+/**
+ * Teto de uma chamada ao gateway, incluindo o tempo de emitir o token no Clerk.
+ *
+ * **Existe por causa do modo de falha, não da lentidão.** Este cliente roda dentro de
+ * Server Components: um `await` que nunca volta deixa o RSC pendurado, e o que o
+ * usuário vê é uma **página em branco, sem erro nenhum** — nem overlay do Next, nem
+ * linha no terminal. Fica assim para sempre, e não há o que investigar depois.
+ *
+ * Trinta segundos é folgado de propósito: o SLO mais frouxo do PRD §10 é de 2s no p95,
+ * então nada saudável chega perto. O número não é para cortar requisição lenta — é
+ * para garantir que toda espera termine em erro visível.
+ */
+export const REQUEST_TIMEOUT_MS = 30_000
 
 interface RequestOptions<T> {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -257,46 +273,72 @@ interface RequestOptions<T> {
 
 export function createApiClient(options: ApiClientOptions) {
   const doFetch = options.fetchImpl ?? fetch
+  const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS
 
   async function request<T>({ method, path, body, schema }: RequestOptions<T>): Promise<T> {
-    const token = await options.getToken()
+    // O relógio começa antes do `getToken` porque ele também é rede: emitir o token do
+    // template no Clerk é uma ida à internet, e pendurar ali é tão invisível quanto
+    // pendurar no gateway.
+    const controller = new AbortController()
+    const alarme = setTimeout(() => controller.abort(), timeoutMs)
 
-    const response = await doFetch(`${options.baseUrl}${path}`, {
-      method,
-      headers: {
-        // Sem corpo, sem `content-type`. O Fastify 5 do gateway rejeita
-        // `application/json` com corpo vazio (`FST_ERR_CTP_EMPTY_JSON_BODY`) — e todo
-        // DELETE sem payload (excluir foto, excluir pet, desvincular tutor…) mandava
-        // esse header à toa e caía no 500 genérico antes de chegar na rota.
-        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      cache: 'no-store',
-    })
-
-    if (!response.ok) {
-      const problem = await readProblem(response)
-      throw new ApiError(
-        response.status,
-        problem,
-        problem?.detail ?? `Falha na requisição (${response.status})`,
-      )
+    try {
+      return await send()
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ApiError(
+          504,
+          null,
+          'O servidor demorou demais para responder. Tente novamente em instantes.',
+        )
+      }
+      throw error
+    } finally {
+      clearTimeout(alarme)
     }
 
-    if (response.status === 204) return undefined as T
-    const payload = (await response.json()) as unknown
-    if (!schema) return payload as T
+    async function send(): Promise<T> {
+      const token = await options.getToken()
+      if (controller.signal.aborted) throw new Error('abortado')
 
-    const parsed = schema.safeParse(payload)
-    if (!parsed.success) {
-      throw new ApiError(
-        response.status,
-        null,
-        `Resposta fora do contrato em ${path}: ${parsed.error.issues[0]?.message ?? 'formato inesperado'}`,
-      )
+      const response = await doFetch(`${options.baseUrl}${path}`, {
+        method,
+        signal: controller.signal,
+        headers: {
+          // Sem corpo, sem `content-type`. O Fastify 5 do gateway rejeita
+          // `application/json` com corpo vazio (`FST_ERR_CTP_EMPTY_JSON_BODY`) — e todo
+          // DELETE sem payload (excluir foto, excluir pet, desvincular tutor…) mandava
+          // esse header à toa e caía no 500 genérico antes de chegar na rota.
+          ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        const problem = await readProblem(response)
+        throw new ApiError(
+          response.status,
+          problem,
+          problem?.detail ?? `Falha na requisição (${response.status})`,
+        )
+      }
+
+      if (response.status === 204) return undefined as T
+      const payload = (await response.json()) as unknown
+      if (!schema) return payload as T
+
+      const parsed = schema.safeParse(payload)
+      if (!parsed.success) {
+        throw new ApiError(
+          response.status,
+          null,
+          `Resposta fora do contrato em ${path}: ${parsed.error.issues[0]?.message ?? 'formato inesperado'}`,
+        )
+      }
+      return parsed.data
     }
-    return parsed.data
   }
 
   /**

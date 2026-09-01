@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Route } from 'next'
-import { useOrganizationList } from '@clerk/nextjs'
+import { useOrganization, useOrganizationList } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { StoreIcon } from './icons'
 
@@ -19,16 +19,34 @@ import { StoreIcon } from './icons'
  * próprio petshop. Com `slug`, ativa aquele especificamente: quem aceita um convite
  * pode já trabalhar em outro estabelecimento, e aí "o único" não existe.
  *
- * **Com dois ou mais vínculos e nenhum `slug`, pergunta.** Antes desta versão o
- * componente simplesmente não fazia nada nesse caso — e como quem chama exibia
- * "Preparando seu estabelecimento…" ao lado, a pessoa com dois petshops ficava nessa
- * frase para sempre, sem erro em lugar nenhum e sem nada para clicar. Escolher por ela
- * seria pior: entraria no estabelecimento errado sem ter dito nada.
+ * **Com dois ou mais vínculos e nenhum `slug`, pergunta.** Antes disso o componente
+ * simplesmente não fazia nada nesse caso — e como quem chama exibia "Preparando seu
+ * estabelecimento…" ao lado, a pessoa com dois petshops ficava nessa frase para
+ * sempre, sem erro em lugar nenhum e sem nada para clicar. Escolher por ela seria
+ * pior: entraria no estabelecimento errado sem ter dito nada.
+ *
+ * ## Organization que não é estabelecimento nosso
+ *
+ * Nem toda Organization do Clerk corresponde a um tenant. Basta o
+ * `force_organization_selection` estar ligado na instância (ver
+ * `docs/setup-clerk.md` §2) para o **próprio Clerk** pedir nome e slug a quem acaba
+ * de se cadastrar e criar uma Organization sozinho — sem `publicMetadata`, sem tenant
+ * do outro lado. Aconteceu de verdade em 2026-09-01.
+ *
+ * Duas defesas nasceram daí, e valem além daquela configuração:
+ *
+ * 1. `knownSlugs` — só se ativa (e só se oferece na escolha) Organization que tenha
+ *    vínculo no **nosso** banco. Uma órfã é ignorada, e o wizard segue: ao criar o
+ *    estabelecimento de verdade nasce a Organization certa, que aí é ativada.
+ * 2. Nunca chamar `setActive` na Organization **já ativa**. Sem essa guarda, uma órfã
+ *    ativa virava laço: ativa, `router.refresh()`, a página volta sem tenant, ativa de
+ *    novo — recarregando para sempre, sem erro em lugar nenhum.
  */
 export function EnsureActiveOrganization({
   slug,
   redirectTo,
   waiting = false,
+  knownSlugs,
 }: {
   /** Slug do estabelecimento a ativar. O slug do tenant é o mesmo da Organization. */
   slug?: string
@@ -43,14 +61,25 @@ export function EnsureActiveOrganization({
    * petshop que a pessoa vai criar.
    */
   waiting?: boolean
+  /**
+   * Slugs dos vínculos ativos do nosso banco, de `/v1/me`. Quem não estiver aqui não
+   * é estabelecimento nosso e não entra na conta. Ausente, aceita qualquer uma — é o
+   * que o aceite de convite precisa, porque lá o vínculo acabou de ser criado e a
+   * resposta do `/v1/me` desta página ainda é a de antes.
+   */
+  knownSlugs?: readonly string[]
 } = {}) {
   const router = useRouter()
   const [escolhido, setEscolhido] = useState<string | null>(null)
+  const { organization: ativa } = useOrganization()
   const { isLoaded, setActive, userMemberships } = useOrganizationList({
     userMemberships: { infinite: true },
   })
 
-  const organizacoes = (userMemberships.data ?? []).map((m) => m.organization)
+  const organizacoes = (userMemberships.data ?? [])
+    .map((m) => m.organization)
+    .filter((org) => !knownSlugs || (org.slug !== null && knownSlugs.includes(org.slug)))
+
   // Escolher é sempre do usuário; daqui em diante só se ativa o que é inequívoco.
   const ambiguo = !slug && escolhido === null && organizacoes.length > 1
 
@@ -65,13 +94,30 @@ export function EnsureActiveOrganization({
         : undefined
     if (!organization) return
 
+    // Já é a ativa: reativar não muda o token e o `refresh` seguinte traria a mesma
+    // página, de novo e de novo.
+    if (organization.id === ativa?.id) {
+      if (redirectTo) router.replace(redirectTo)
+      return
+    }
+
     void setActive({ organization: organization.id }).then(() => {
       if (redirectTo) router.replace(redirectTo)
       else router.refresh()
     })
     // `organizacoes` é derivado de `userMemberships.data` e ganha identidade nova a
     // cada render; a dependência é o dado, não o array recriado.
-  }, [isLoaded, setActive, userMemberships.data, router, slug, redirectTo, escolhido])
+  }, [
+    isLoaded,
+    setActive,
+    userMemberships.data,
+    router,
+    slug,
+    redirectTo,
+    escolhido,
+    ativa?.id,
+    knownSlugs,
+  ])
 
   // Com `slug` quem chamou já tem a própria mensagem na tela (o aceite de convite diz
   // "Entrando…"); duplicar aqui seria falar duas vezes.
