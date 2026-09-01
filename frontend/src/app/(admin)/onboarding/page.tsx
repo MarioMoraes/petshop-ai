@@ -32,12 +32,13 @@ export default async function OnboardingPage() {
   let settings: TenantSettings | null = null
 
   // Sessão sem Organization ativa, mas com vínculo: o `EnsureActiveOrganization`
-  // ativa a organização no cliente e recarrega.
+  // ativa a organização no cliente e recarrega. Com mais de um vínculo ele pergunta em
+  // qual entrar, em vez de escolher sozinho — e é ele que exibe a espera, porque só
+  // ele sabe qual dos dois estados está em curso.
   if (!tenant && me.memberships.length > 0) {
     return (
       <OnboardingLayout>
-        <EnsureActiveOrganization />
-        <p className="hint">Preparando seu estabelecimento…</p>
+        <EnsureActiveOrganization waiting />
       </OnboardingLayout>
     )
   }

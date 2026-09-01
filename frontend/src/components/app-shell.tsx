@@ -19,6 +19,7 @@ import {
   WalletIcon,
   type IconTone,
 } from './icons'
+import { TenantSwitcher } from './tenant-switcher'
 import { Badge, Logo } from './ui'
 
 /**
@@ -203,7 +204,16 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-line bg-surface/85 px-4 py-3 backdrop-blur sm:px-8">
+          {/*
+           * À esquerda, onde se está: o estabelecimento aberto e, se for o caso, o
+           * prazo do teste. O seletor vem primeiro porque é o contexto de tudo o que
+           * a tela mostra — o aviso de teste é sobre a conta, não sobre onde ela está.
+           */}
           <div className="flex min-w-0 items-center gap-3">
+            <TenantSwitcher
+              memberships={me.memberships}
+              currentSlug={me.currentTenant?.slug ?? null}
+            />
             {trialDaysLeft !== null && (
               <Badge tone="accent">
                 {trialDaysLeft === 0

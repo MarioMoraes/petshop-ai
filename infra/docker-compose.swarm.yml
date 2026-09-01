@@ -229,7 +229,17 @@ services:
       <<: *backend-env
       GATEWAY_PORT: 3000
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?}
-      CLERK_AUTHORIZED_PARTIES: https://${APP_DOMAIN:?},https://*.${APP_DOMAIN}
+      # Lista de origens exatas, e nunca um curinga: o `@clerk/backend` decide com
+      # `authorizedParties.includes(azp)` — comparação de string, sem glob. Um
+      # `https://*.${APP_DOMAIN}` não casa com nada e o host que de fato emite token,
+      # `app.${APP_DOMAIN}`, ficava de fora: todo request do Admin viraria 401, e só
+      # depois do deploy. O ápice segue na lista porque também serve o Admin
+      # (`resolveHost` classifica o domínio nu como `admin`).
+      #
+      # Quando o MOD-PORTAL chegar, o token passará a ser emitido também em
+      # `{slug}.${APP_DOMAIN}` — um por tenant, que esta lista não tem como enumerar.
+      # A saída de lá é o Portal falar com um host fixo, não crescer isto aqui.
+      CLERK_AUTHORIZED_PARTIES: https://app.${APP_DOMAIN:?},https://${APP_DOMAIN}
     healthcheck: &hc-gateway
       test: ['CMD-SHELL', 'curl -sf http://localhost:3000/health || exit 1']
       interval: 20s

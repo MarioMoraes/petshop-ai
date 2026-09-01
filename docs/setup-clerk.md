@@ -102,6 +102,13 @@ CLERK_AUTHORIZED_PARTIES="http://localhost:3002"
 Em produção, liste os domínios reais do Admin e do Portal. O gateway rejeita token
 apresentado por origem fora desta lista.
 
+> **A lista é de origens exatas — curinga não funciona.** O `@clerk/backend` decide com
+> `authorizedParties.includes(azp)`, comparação de string pura. Um
+> `https://*.{APP_DOMAIN}` não casa com nada, e o Admin vive em `app.{APP_DOMAIN}`: sem
+> essa entrada explícita, **todo request do Admin responde 401** — e só depois do
+> deploy, porque em desenvolvimento a origem é `http://localhost:3002` e casa. Os
+> compose de produção já trazem `https://app.${APP_DOMAIN},https://${APP_DOMAIN}`.
+
 ## 5. MFA para papéis administrativos
 
 SPEC §7.1 exige MFA para `TENANT_ADMIN` e para o Super Admin. Habilite em

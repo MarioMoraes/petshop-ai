@@ -458,3 +458,38 @@ export function InboxIcon() {
     </svg>
   )
 }
+
+/**
+ * A loja — o estabelecimento em si, no seletor da topbar. Tom: `icon-brand`.
+ *
+ * Não é o `HomeIcon`: no menu ele já é o Início, e o mesmo desenho em dois lugares
+ * faria o seletor parecer um atalho para o painel.
+ */
+export function StoreIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <path d="m3.5 8 1.9-3.4A2 2 0 0 1 7.2 3.6h9.6a2 2 0 0 1 1.8 1L20.5 8" />
+      <path d="M5 11v7.4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V11" />
+      <path d="M10 20.4V16h4v4.4" />
+      <path d="M3.5 8h17v1.2a2.4 2.4 0 0 1-4.25 1.5 2.4 2.4 0 0 1-4.25 0 2.4 2.4 0 0 1-4.25 0A2.4 2.4 0 0 1 3.5 9.2Z" />
+    </svg>
+  )
+}
+
+/** Abre e fecha um menu. Sem tom: acompanha a cor do texto que o rotula. */
+export function ChevronDownIcon() {
+  return (
+    <svg {...BASE} width={16} height={16}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
+
+/** O item já escolhido de uma lista. Sem tom, pelo mesmo motivo do chevron. */
+export function CheckIcon() {
+  return (
+    <svg {...BASE} width={16} height={16}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  )
+}

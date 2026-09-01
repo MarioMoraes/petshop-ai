@@ -340,7 +340,12 @@ export async function acceptInvitation(params: AcceptParams) {
     // apenas o passo do Clerk, que é o que faltou.
     const existing = await findMembershipOf(invitation.tenantId, user.id)
     if (existing) {
-      await joinClerkOrganization(invitation.clerkOrgId, params.clerkUserId, invitation.tenantId)
+      await joinClerkOrganization(
+        invitation.clerkOrgId,
+        params.clerkUserId,
+        invitation.tenantId,
+        user.id,
+      )
       return presentAccept(invitation, existing.roleKey as RoleKey)
     }
     throw gone('Este convite já foi utilizado. Peça um novo ao administrador.')
@@ -411,7 +416,12 @@ export async function acceptInvitation(params: AcceptParams) {
   )
 
   await invalidatePermissions(invitation.tenantId, user.id)
-  await joinClerkOrganization(invitation.clerkOrgId, params.clerkUserId, invitation.tenantId)
+  await joinClerkOrganization(
+    invitation.clerkOrgId,
+    params.clerkUserId,
+    invitation.tenantId,
+    user.id,
+  )
 
   await publishEvent(IDENTITY_ROUTING_KEYS.conviteAceito, {
     tenantId: invitation.tenantId,
@@ -535,6 +545,7 @@ async function joinClerkOrganization(
   clerkOrgId: string | null,
   clerkUserId: string,
   tenantId: string,
+  userId: string,
 ): Promise<void> {
   if (!clerkOrgId) {
     logger.error({ tenantId }, 'tenant sem Organization no Clerk — aceite sem vínculo de sessão')
@@ -544,6 +555,46 @@ async function joinClerkOrganization(
   }
 
   await getClerk().addOrganizationMembership({ organizationId: clerkOrgId, clerkUserId })
+  await publishPermVersion(clerkOrgId, clerkUserId, tenantId, userId)
+}
+
+/**
+ * Semeia o `permVersion` no metadata do membership recém-criado.
+ *
+ * Sem isto o convidado entrava na equipe com o metadata vazio, e o JWT template
+ * publicava o claim como `null` — a segunda garantia do RN-03 (token divergente força
+ * releitura do papel) só passava a valer depois da **primeira troca de papel**, que é
+ * quando `syncPermVersionToClerk` do MOD-IDENT-04 escrevia o valor pela primeira vez.
+ * Quem foi convidado e nunca mudou de papel — a maioria da equipe — ficava só com a
+ * invalidação de cache. O provisionamento (MOD-IDENT-01) já semeava o valor para o
+ * admin; era assimetria, não decisão.
+ *
+ * Best-effort pelo mesmo motivo de lá: falhar aqui não pode desfazer um aceite que já
+ * está comitado, e o que se perde é o atalho, não a correção.
+ */
+async function publishPermVersion(
+  clerkOrgId: string,
+  clerkUserId: string,
+  tenantId: string,
+  userId: string,
+): Promise<void> {
+  try {
+    const membership = await withTenant(tenantId, (tx) =>
+      tx.membership.findFirst({
+        where: { tenantId, userId, status: 'ACTIVE' },
+        select: { permVersion: true },
+      }),
+    )
+    if (!membership) return
+
+    await getClerk().setMembershipPermVersion({
+      organizationId: clerkOrgId,
+      clerkUserId,
+      permVersion: membership.permVersion,
+    })
+  } catch (error) {
+    logger.warn({ err: error, tenantId, userId }, 'falha ao semear permVersion no Clerk')
+  }
 }
 
 interface DeliverParams {

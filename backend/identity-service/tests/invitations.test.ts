@@ -256,6 +256,30 @@ describe('Aceite', () => {
     expect(row.acceptedAt).not.toBeNull()
   })
 
+  it('semeia o permVersion do convidado no metadata do membership (RN-03)', async () => {
+    const admin = await givenTenant('acme')
+    const body = (await invite(admin, 'tosador@exemplo.com')).json()
+    const convidado = givenClerkUser('tosador@exemplo.com', 'Ana Tosadora')
+
+    await callApi({
+      method: 'POST',
+      url: '/v1/invitations/accept',
+      payload: { token: tokenOf(body.inviteUrl) },
+      clerkUserId: convidado,
+    })
+
+    // Sem o valor semeado aqui, o JWT template publica o claim como `null` e a
+    // detecção de token com papel velho só passaria a valer depois da primeira troca
+    // de papel — que é quando o MOD-IDENT-04 escreveria o metadata pela primeira vez.
+    const user = await ownerPrisma.user.findFirstOrThrow({ where: { clerkUserId: convidado } })
+    const membership = await ownerPrisma.membership.findFirstOrThrow({
+      where: { tenantId: admin.tenantId, userId: user.id },
+    })
+    expect(fakeClerk.permVersions.get(`${admin.clerkOrgId}:${convidado}`)).toBe(
+      membership.permVersion,
+    )
+  })
+
   it('recusa quem entrou com outro e-mail', async () => {
     const admin = await givenTenant('acme')
     const body = (await invite(admin, 'tosador@exemplo.com')).json()
