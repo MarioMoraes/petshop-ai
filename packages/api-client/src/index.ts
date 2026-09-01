@@ -248,6 +248,8 @@ export interface ApiClientOptions {
   fetchImpl?: typeof fetch
   /** Teto por requisição. Ver `REQUEST_TIMEOUT_MS`. */
   timeoutMs?: number
+  /** Teto do envio de arquivo. Ver `UPLOAD_TIMEOUT_MS`. */
+  uploadTimeoutMs?: number
 }
 
 /**
@@ -264,6 +266,16 @@ export interface ApiClientOptions {
  */
 export const REQUEST_TIMEOUT_MS = 30_000
 
+/**
+ * Teto do envio de arquivo — quatro vezes o das demais chamadas.
+ *
+ * Aqui o que atravessa a rede são bytes de imagem, não um JSON de resposta: numa
+ * conexão de celular ruim, um envio que vai dar certo passa dos 30s sem nenhum
+ * problema, e cortá-lo seria recusar trabalho válido. Dois minutos é largo o bastante
+ * para isso e curto o bastante para não ser "nunca".
+ */
+export const UPLOAD_TIMEOUT_MS = 120_000
+
 interface RequestOptions<T> {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   path: string
@@ -274,6 +286,7 @@ interface RequestOptions<T> {
 export function createApiClient(options: ApiClientOptions) {
   const doFetch = options.fetchImpl ?? fetch
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS
+  const uploadTimeoutMs = options.uploadTimeoutMs ?? UPLOAD_TIMEOUT_MS
 
   async function request<T>({ method, path, body, schema }: RequestOptions<T>): Promise<T> {
     // O relógio começa antes do `getToken` porque ele também é rede: emitir o token do
@@ -345,38 +358,66 @@ export function createApiClient(options: ApiClientOptions) {
    * Envio de arquivo. Não passa pelo `request` porque o `content-type` aqui é do
    * `FormData` — com o `boundary` que só ele conhece. Fixar `application/json`, como
    * o `request` faz, quebraria o multipart no primeiro byte.
+   *
+   * Teto próprio, e mais largo, pela mesma razão: o que sobe aqui é foto de pet, e
+   * subir bytes por uma conexão ruim leva legitimamente muito mais tempo que responder
+   * um JSON. Cortar em 30s recusaria envio que ia dar certo. Mas ficar **sem** teto
+   * repete o modo de falha que `REQUEST_TIMEOUT_MS` existe para tirar do sistema — um
+   * envio pendurado nunca volta, e a tela fica girando sem erro nenhum.
    */
   async function upload<T>(path: string, form: FormData, schema?: ZodType<T>): Promise<T> {
-    const token = await options.getToken()
+    const controller = new AbortController()
+    const alarme = setTimeout(() => controller.abort(), uploadTimeoutMs)
 
-    const response = await doFetch(`${options.baseUrl}${path}`, {
-      method: 'POST',
-      headers: { ...(token ? { authorization: `Bearer ${token}` } : {}) },
-      body: form,
-      cache: 'no-store',
-    })
-
-    if (!response.ok) {
-      const problem = await readProblem(response)
-      throw new ApiError(
-        response.status,
-        problem,
-        problem?.detail ?? `Falha no envio (${response.status})`,
-      )
+    try {
+      return await enviar()
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ApiError(
+          504,
+          null,
+          'O envio demorou demais. Verifique sua conexão e tente de novo.',
+        )
+      }
+      throw error
+    } finally {
+      clearTimeout(alarme)
     }
 
-    const payload = (await response.json()) as unknown
-    if (!schema) return payload as T
+    async function enviar(): Promise<T> {
+      const token = await options.getToken()
+      if (controller.signal.aborted) throw new Error('abortado')
 
-    const parsed = schema.safeParse(payload)
-    if (!parsed.success) {
-      throw new ApiError(
-        response.status,
-        null,
-        `Resposta fora do contrato em ${path}: ${parsed.error.issues[0]?.message ?? 'formato inesperado'}`,
-      )
+      const response = await doFetch(`${options.baseUrl}${path}`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: form,
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        const problem = await readProblem(response)
+        throw new ApiError(
+          response.status,
+          problem,
+          problem?.detail ?? `Falha no envio (${response.status})`,
+        )
+      }
+
+      const payload = (await response.json()) as unknown
+      if (!schema) return payload as T
+
+      const parsed = schema.safeParse(payload)
+      if (!parsed.success) {
+        throw new ApiError(
+          response.status,
+          null,
+          `Resposta fora do contrato em ${path}: ${parsed.error.issues[0]?.message ?? 'formato inesperado'}`,
+        )
+      }
+      return parsed.data
     }
-    return parsed.data
   }
 
   return {
