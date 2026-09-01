@@ -9,7 +9,8 @@ import type {
   TaxiQuote,
   TaxiRideResponse,
 } from '@petshop/shared-types'
-import { Badge, Field, FormError } from '@/components/ui'
+import { VanIcon } from '@/components/icons'
+import { Field, FormError } from '@/components/ui'
 import { lookupCepAction } from '@/app/(admin)/tutores/actions'
 import {
   createRidesAction,
@@ -271,32 +272,37 @@ export function TaxiPanel({
   // ─── Tela ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="mt-3 space-y-3 rounded-xl border border-line bg-surface px-3 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-medium">Taxi Dog</h3>
-        {quote && (
-          <Badge tone="neutral">
+    /*
+     * Sem moldura própria: desde que este painel virou uma vista da ficha do
+     * atendimento, a caixa e o cabeçalho com o nome do pet são do `<Modal>`. Um
+     * quadro dentro do quadro dava dois títulos para a mesma coisa.
+     */
+    <div className="space-y-5">
+      {quote && (
+        <p className="meta-pill">
+          <VanIcon />
+          <span>
             {money(quote.priceCents)} por perna
             {quote.zone?.name ? ` · ${quote.zone.name}` : ''}
-          </Badge>
-        )}
-      </div>
+          </span>
+        </p>
+      )}
 
       {/* ─── Pernas ─────────────────────────────────────────────────────── */}
 
       <fieldset className="space-y-3">
-        <legend className="hint mb-1.5">O que o motorista faz</legend>
+        <legend className="section-eyebrow mb-2">O que o motorista faz</legend>
 
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm">
+          <label className={`option${liveLegs.has('PICKUP') ? ' option-disabled' : ''}`}>
             <input
-              className="check"
+              className="check mt-px"
               type="checkbox"
               checked={pickup}
               disabled={liveLegs.has('PICKUP')}
               onChange={(event) => setPickup(event.target.checked)}
             />
-            <span>
+            <span className="option-text">
               Buscar o pet (ida)
               {liveLegs.has('PICKUP') && <span className="hint"> — já pedida</span>}
             </span>
@@ -325,15 +331,15 @@ export function TaxiPanel({
             </div>
           )}
 
-          <label className="flex items-center gap-2 text-sm">
+          <label className={`option${liveLegs.has('DROPOFF') ? ' option-disabled' : ''}`}>
             <input
-              className="check"
+              className="check mt-px"
               type="checkbox"
               checked={dropoff}
               disabled={liveLegs.has('DROPOFF')}
               onChange={(event) => setDropoff(event.target.checked)}
             />
-            <span>
+            <span className="option-text">
               Levar de volta (volta)
               {liveLegs.has('DROPOFF') && <span className="hint"> — já pedida</span>}
             </span>
@@ -373,24 +379,25 @@ export function TaxiPanel({
       {/* ─── Endereço ───────────────────────────────────────────────────── */}
 
       <div className="space-y-2">
-        <p className="hint">Onde o motorista vai</p>
+        <p className="section-eyebrow">Onde o motorista vai</p>
 
         {loadingAddress ? (
           <p className="hint">Carregando o endereço do tutor…</p>
         ) : (
           <>
             {primary ? (
-              <label className="flex items-start gap-2 text-sm">
+              <label className="option">
                 <input
                   type="radio"
-                  className="mt-1"
+                  name={`endereco-${appointment.id}`}
+                  className="check check-radio mt-px"
                   checked={mode === 'inherit'}
                   onChange={() => {
                     setMode('inherit')
                     void taxiQuoteAction(primary.zipCode).then(setQuote)
                   }}
                 />
-                <span>
+                <span className="option-text">
                   {primary.street}, {primary.number}
                   {primary.complement ? ` — ${primary.complement}` : ''}
                   <span className="hint">
@@ -407,13 +414,15 @@ export function TaxiPanel({
             )}
 
             {primary && (
-              <label className="flex items-center gap-2 text-sm">
+              <label className="option">
                 <input
                   type="radio"
+                  name={`endereco-${appointment.id}`}
+                  className="check check-radio mt-px"
                   checked={mode === 'custom'}
                   onChange={() => setMode('custom')}
                 />
-                <span>Buscar em outro endereço</span>
+                <span className="option-text">Buscar em outro endereço</span>
               </label>
             )}
 
@@ -581,12 +590,18 @@ export function TaxiPanel({
 
       <FormError message={erro} />
 
-      <div className="flex flex-wrap gap-2">
+      {/*
+        A fila de ações fica no corpo, e não no rodapé do `<Modal>`: este painel tem
+        estado próprio (a cotação, o endereço herdado, as duas pernas) e passá-lo para
+        o rodapé exigiria expor o `confirmar` para fora do componente — muito
+        encanamento para ganhar 12px de alinhamento.
+      */}
+      <div className="flex flex-wrap justify-end gap-2">
+        <button type="button" className="btn btn-ghost" disabled={enviando} onClick={onClose}>
+          Voltar
+        </button>
         <button type="button" className="btn btn-primary" disabled={enviando} onClick={confirmar}>
           {enviando ? 'Pedindo…' : 'Pedir corrida'}
-        </button>
-        <button type="button" className="btn btn-ghost" disabled={enviando} onClick={onClose}>
-          Cancelar
         </button>
       </div>
     </div>

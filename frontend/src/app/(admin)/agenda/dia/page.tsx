@@ -1,7 +1,13 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
-import type { TaxiRideResponse } from '@petshop/shared-types'
+import {
+  todayIn,
+  zonedDayRange,
+  type CalendarBlockResponse,
+  type TaxiRideResponse,
+} from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
+import { rotuloDoDia } from '@/lib/agenda-dia'
 import { serverApi } from '@/lib/api'
 import { AgendaTabs } from '../agenda-tabs'
 import { DayBoard } from './day-board'
@@ -27,13 +33,23 @@ interface PageProps {
   searchParams: Promise<{ date?: string }>
 }
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export default async function DiaPage({ searchParams }: PageProps) {
   const params = await searchParams
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? '') ? params.date! : today()
+
+  /*
+   * "Hoje" é o dia do estabelecimento, e não o do servidor.
+   *
+   * Era `new Date().toISOString()`, que é UTC: um petshop em Rio Branco abria a agenda
+   * do dia seguinte a partir das 19h. As configurações vêm antes de tudo justamente
+   * porque a data padrão depende delas; falha aqui cai no fuso de Brasília, que é o
+   * mesmo padrão do resto do produto.
+   */
+  const settings = await serverApi()
+    .getSettings()
+    .catch(() => null)
+  const timezone = settings?.timezone ?? 'America/Sao_Paulo'
+  const hoje = todayIn(timezone)
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? '') ? params.date! : hoje
 
   // O catálogo alimenta o serviço acrescentado no check-out (RN-18). Falha dele não
   // derruba a agenda: sem a lista, a janela de conclusão simplesmente não oferece
@@ -44,7 +60,9 @@ export default async function DiaPage({ searchParams }: PageProps) {
   // fora do ar dão todos no mesmo resultado prático — a agenda do dia sem leva-e-traz,
   // que é uma agenda perfeitamente utilizável.
   //
-  const [view, services, settings, rides] = await Promise.all([
+  const { from, to } = zonedDayRange(date, timezone)
+
+  const [view, services, taxiSettings, rides, blocks] = await Promise.all([
     serverApi()
       .getDayView(date)
       .catch((error: unknown) => {
@@ -61,9 +79,16 @@ export default async function DiaPage({ searchParams }: PageProps) {
       .listTaxiRides({ date, limit: 100 })
       .then((page) => page.items)
       .catch((): TaxiRideResponse[] => []),
+    // Bloqueio ausente é uma coluna sem hachura, não uma agenda quebrada — o mesmo
+    // critério que já vale para o Taxi Dog logo acima.
+    serverApi()
+      .listCalendarBlocks({ from: from.toISOString(), to: to.toISOString() })
+      .catch((): CalendarBlockResponse[] => []),
   ])
 
-  const taxi = settings?.enabled ? { windowMinutes: settings.defaultWindowMinutes } : null
+  const taxi = taxiSettings?.enabled
+    ? { windowMinutes: taxiSettings.defaultWindowMinutes }
+    : null
 
   // Agrupadas por agendamento: o cartão pergunta "este banho tem corrida?", e não
   // "quais corridas existem hoje?".
@@ -73,28 +98,12 @@ export default async function DiaPage({ searchParams }: PageProps) {
   }
 
   const failed = view instanceof ApiError
-  const total = failed ? 0 : view.columns.reduce((sum, column) => sum + column.appointments.length, 0)
-  const emAtendimento = failed
-    ? 0
-    : view.columns.reduce(
-        (sum, column) =>
-          sum +
-          column.appointments.filter((a) => a.status === 'CHECKED_IN' || a.status === 'IN_PROGRESS').length,
-        0,
-      )
-
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Agenda"
-        title="Dia"
-        subtitle={
-          failed
-            ? 'A agenda não respondeu'
-            : total === 0
-              ? 'Nenhum atendimento marcado'
-              : `${total} ${total === 1 ? 'atendimento' : 'atendimentos'}${emAtendimento > 0 ? ` · ${emAtendimento} em andamento` : ''}`
-        }
+        title={date === hoje ? 'Hoje' : 'Dia'}
+        subtitle={failed ? 'A agenda não respondeu' : rotuloDoDia(date)}
         actions={
           !failed && (
             <Link href={`/agenda/novo?date=${date}`} className="btn btn-primary">
@@ -119,9 +128,11 @@ export default async function DiaPage({ searchParams }: PageProps) {
         <DayBoard
           view={view}
           date={date}
+          today={hoje}
           services={services}
           taxi={taxi}
           taxiRides={taxiRides}
+          blocks={blocks}
         />
       )}
     </div>

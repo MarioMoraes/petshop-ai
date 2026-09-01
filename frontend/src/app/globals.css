@@ -865,6 +865,38 @@
   }
 
   /*
+   * A mesma caixa, redonda, para escolha exclusiva.
+   *
+   * O radio nativo é o irmão do checkbox nativo, com o mesmo problema: chega no azul
+   * do sistema operacional. Reaproveitar `.check` e trocar só o raio e a marca mantém
+   * a caixa, a sombra, o foco e o `:disabled` já resolvidos — e faz o par
+   * "escolha uma" / "marque quantas quiser" ser lido pela **forma**, que é a
+   * convenção que todo mundo já conhece, em vez de exigir leitura do rótulo.
+   *
+   * O ponto não dá o pulinho do tique: escolher entre alternativas não é confirmar,
+   * é apontar, e o overshoot ali viraria personalidade em vez de resposta.
+   */
+  .check-radio {
+    border-radius: 9999px;
+  }
+
+  .check-radio::after {
+    height: 0.4375rem;
+    width: 0.4375rem;
+    border: 0;
+    border-radius: 9999px;
+    background-color: #ffffff;
+    transform: translate(-50%, -50%) scale(0.4);
+    transition:
+      transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.12s;
+  }
+
+  .check-radio:checked::after {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  /*
    * A linha inteira é o alvo.
    *
    * Um checkbox de 20px ao lado de uma frase de duas linhas é um alvo mesquinho —
@@ -1209,12 +1241,592 @@
     color: var(--color-accent-ink);
   }
 
+  /* ═════════════════════════════════════════════════════════════════════════
+   * Diálogo
+   *
+   * O sistema não tinha nenhum até aqui: o que precisava de foco exclusivo —
+   * concluir um atendimento, pedir o leva-e-traz — abria um painel espremido
+   * dentro do cartão que o originou, empurrando a coluna inteira para baixo. Um
+   * formulário de quatro campos dentro de uma caixa de 280px não é uma escolha de
+   * layout, é a falta de uma peça.
+   *
+   * A peça é do kit, não da agenda: o próximo lugar que precisar de foco exclusivo
+   * usa esta, e não desenha a sua.
+   * ═══════════════════════════════════════════════════════════════════════ */
+
+  /*
+   * O véu.
+   *
+   * Escuro **e** desfocado. Só escurecer deixa a tela de trás legível e o olho
+   * continua tentando lê-la; só desfocar não abaixa o contraste e o diálogo não
+   * ganha destaque. O `saturate` acompanha o `blur` pelo mesmo motivo de
+   * `.form-actions`: desfoque puro lava a cor do que está embaixo e o véu fica com
+   * cara de vidro sujo.
+   */
+  .dialog-veil {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background-color: color-mix(in srgb, var(--color-shell) 48%, transparent);
+    backdrop-filter: blur(6px) saturate(1.4);
+    -webkit-backdrop-filter: blur(6px) saturate(1.4);
+    animation: veil-in 260ms ease-out both;
+  }
+
+  /*
+   * O painel.
+   *
+   * Três faixas, e as duas das pontas não rolam: o título diz de qual atendimento
+   * se trata e o rodapé carrega o botão que fecha o caso. Num check-out longo, ver
+   * o nome do pet sumir para cima enquanto se digita a observação é exatamente o
+   * jeito de gravar o peso na ficha errada.
+   *
+   * `88svh` e não `vh`: no celular a barra do navegador entra e sai, e `vh` mede a
+   * altura sem ela — o rodapé do diálogo ficaria embaixo da barra de endereço.
+   */
+  .dialog-panel {
+    position: fixed;
+    z-index: 61;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 88svh;
+    background-color: var(--color-card);
+    border: 1px solid #ffffff;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 2px 4px -2px rgb(35 36 39 / 0.16),
+      0 18px 36px -16px rgb(35 36 39 / 0.24),
+      0 48px 90px -40px rgb(35 36 39 / 0.45);
+  }
+
+  /*
+   * No celular é folha inferior, não caixa centrada.
+   *
+   * Uma caixa centrada com margem lateral desperdiça as duas coisas escassas num
+   * aparelho de 390px — largura e alcance do polegar. Ancorada no rodapé, ela
+   * chega perto da mão e ganha a largura inteira; o canto arredondado só em cima
+   * é o que diz que ela sobe de fora da tela em vez de aparecer no meio dela.
+   */
+  .dialog-panel {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 24px 24px 0 0;
+    border-bottom-width: 0;
+    animation: sheet-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @media (min-width: 640px) {
+    .dialog-panel {
+      left: 50%;
+      right: auto;
+      top: 50%;
+      bottom: auto;
+      width: min(38rem, calc(100vw - 3rem));
+      border-radius: var(--radius-card);
+      border-bottom-width: 1px;
+      animation: dialog-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+  }
+
+  /*
+   * O corpo usa o papel da ficha de formulário, e as pontas ficam brancas.
+   *
+   * Mesma razão de `.card-soft`: o campo é branco, e campo branco sobre painel
+   * branco some. O cabeçalho e o rodapé não têm campo nenhum, então continuam no
+   * branco do cartão — e a diferença de cor passa a ser o que separa o que rola do
+   * que fica.
+   */
+  .dialog-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1.25rem 1.25rem 1.5rem;
+    background-image: linear-gradient(
+      180deg,
+      var(--color-card-soft-top) 0%,
+      var(--color-card-soft-bottom) 100%
+    );
+    border-block: 1px solid var(--color-line);
+    --color-subtle: #6b6d72;
+  }
+
+  @media (min-width: 640px) {
+    .dialog-body {
+      padding: 1.5rem 1.75rem 1.75rem;
+    }
+  }
+
+  .dialog-head,
+  .dialog-foot {
+    flex: none;
+    background-color: var(--color-card);
+  }
+
+  .dialog-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    padding: 1.25rem 1.25rem 1.125rem;
+  }
+
+  /*
+   * No celular os botões empilham e ocupam a largura.
+   *
+   * Lado a lado numa folha de 390px eles viravam dois textos soltos encostados à
+   * direita — o secundário nem parecia botão. Empilhados, o principal fica embaixo,
+   * que é onde o polegar chega primeiro.
+   */
+  .dialog-foot {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.625rem;
+    padding: 1rem 1.25rem;
+    /* Respira acima da barra de gestos do iPhone, e nada no desktop. */
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 640px) {
+    .dialog-foot {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .dialog-head {
+      padding: 1.5rem 1.75rem 1.25rem;
+    }
+
+    .dialog-foot {
+      padding: 1.125rem 1.75rem;
+    }
+  }
+
+  /* O X do canto: alvo de 36px para um glifo de 16, que é o mínimo confortável. */
+  .dialog-close {
+    display: inline-flex;
+    height: 2.25rem;
+    width: 2.25rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: var(--color-subtle);
+    transition:
+      background-color 0.2s,
+      color 0.2s;
+  }
+
+  .dialog-close:hover {
+    background-color: rgb(0 0 0 / 0.05);
+    color: var(--color-ink);
+  }
+
+  @keyframes veil-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Sobe e assenta: o mesmo gesto do `.rise`, com um fio de escala. */
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 1rem)) scale(0.975);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+
+  @keyframes sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .dialog-panel {
+      transform: translate(-50%, -50%);
+    }
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+   * Agenda — a linha do tempo do dia
+   *
+   * A tela do dia era uma pilha: um cartão por profissional com os atendimentos
+   * empilhados dentro, na ordem do horário mas sem relação com ele. Ela respondia
+   * "quem atende o quê" e não respondia a pergunta que a recepção faz o dia
+   * inteiro — *"tem vaga hoje?"* —, porque duas linhas coladas podem ser dois
+   * banhos seguidos ou duas horas de buraco entre eles.
+   *
+   * Numa linha do tempo o buraco tem tamanho. É a única razão de a tela custar
+   * posicionamento absoluto e aritmética de minutos (`lib/agenda-dia.ts`) em vez
+   * de continuar sendo uma lista.
+   * ═══════════════════════════════════════════════════════════════════════ */
+
+  /*
+   * A moldura rola nos dois eixos e a calha de horas fica.
+   *
+   * `position: sticky` na calha precisa de um ancestral que role, e este é ele —
+   * daí a rolagem morar aqui e não no `body`. Sem isso, arrastar para o quinto
+   * profissional levaria as horas junto e os blocos ficariam sem referência.
+   */
+  .timeline {
+    position: relative;
+    overflow: auto;
+    overscroll-behavior-x: contain;
+    max-height: min(76svh, 860px);
+    border-radius: var(--radius-card);
+    background-color: var(--color-card);
+    border: 1px solid #ffffff;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 14px 30px -18px rgb(35 36 39 / 0.25);
+  }
+
+  /*
+   * Flex e não grid: as colunas dividem a sobra em partes iguais (`flex: 1 1 0`)
+   * mas nunca encolhem abaixo de `min-width`, e é essa combinação que faz a mesma
+   * tela servir a dois e a sete profissionais — dois esticam e ocupam a largura,
+   * sete param no mínimo legível e a moldura passa a rolar na horizontal.
+   */
+  .timeline-grid {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    min-width: min-content;
+  }
+
+  .timeline-gutter {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    width: 3.75rem;
+    flex: none;
+    background-color: var(--color-card);
+    /* Aresta em vez de borda: a coluna vizinha desliza por baixo dela. */
+    box-shadow: 1px 0 0 var(--color-line);
+  }
+
+  .timeline-col {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 11.5rem;
+    box-shadow: 1px 0 0 var(--color-line) inset;
+  }
+
+  /*
+   * O cabeçalho da coluna acompanha a rolagem vertical.
+   *
+   * Rolando até as 17h com quatro profissionais na tela, uma coluna sem nome no
+   * topo é uma coluna que não se sabe de quem é — e o clique errado vira um
+   * check-out no pet do colega.
+   */
+  .timeline-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 0.875rem 0.75rem;
+    background-color: color-mix(in srgb, var(--color-card) 88%, transparent);
+    backdrop-filter: blur(10px) saturate(1.5);
+    -webkit-backdrop-filter: blur(10px) saturate(1.5);
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .timeline-gutter .timeline-head {
+    box-shadow: 1px 0 0 var(--color-line);
+  }
+
+  /* Coluna do ausente: presente e visivelmente fora de serviço (AC-02). */
+  .timeline-col-off .timeline-head {
+    opacity: 0.62;
+  }
+
+  .timeline-hour {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px solid var(--color-line);
+  }
+
+  /* A meia hora é uma pauta, não uma divisão: some antes de contar como linha. */
+  .timeline-half {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed color-mix(in srgb, var(--color-line) 60%, transparent);
+  }
+
+  .timeline-hour-label {
+    position: absolute;
+    right: 0.625rem;
+    /* Sobe meia linha para o número montar na régua em vez de pender dela. */
+    transform: translateY(-0.55em);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--color-subtle);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Fora da jornada: véu, não outra cor. O que está fora ainda é a mesma coluna. */
+  .timeline-closed {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background-color: rgb(35 36 39 / 0.045);
+  }
+
+  /*
+   * Bloqueio de calendário.
+   *
+   * Hachura e não bloco chapado: o almoço não é um atendimento, e um retângulo
+   * sólido do lado de um banho leria como mais um compromisso. A listra diagonal
+   * diz "indisponível" sem disputar com o que é trabalho de verdade.
+   */
+  .timeline-block {
+    position: absolute;
+    left: 0.25rem;
+    right: 0.25rem;
+    border-radius: 10px;
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgb(35 36 39 / 0.07) 0 6px,
+      rgb(35 36 39 / 0) 6px 12px
+    );
+    border: 1px solid color-mix(in srgb, var(--color-line) 80%, transparent);
+    overflow: hidden;
+  }
+
+  /* O fio do "agora", atravessando as colunas. */
+  /*
+   * Abaixo dos cabeçalhos fixos (z 2 e 3) de propósito: rolando até a tarde, o fio
+   * da manhã passaria por cima do nome dos profissionais.
+   */
+  .timeline-now {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 0;
+    height: 0;
+    border-top: 1.5px solid var(--color-accent);
+    pointer-events: none;
+  }
+
+  .timeline-now::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -0.25rem;
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--color-accent);
+  }
+
+  /*
+   * O bloco do atendimento.
+   *
+   * A espinha de 3px na esquerda carrega o status, e é ela que faz a coluna ser
+   * varrida antes de ser lida: quatro cores empilhadas dizem como está o dia sem
+   * uma palavra. A etiqueta de status continua existindo dentro da ficha — aqui
+   * ela não caberia num bloco de 15 minutos.
+   */
+  .timeline-event {
+    position: absolute;
+    /*
+     * Coluna de flex, e não `display: block`.
+     *
+     * O navegador dá ao `<button>` uma caixa interna que **centra o conteúdo na
+     * vertical**, e num bloco de duas horas isso jogava o nome do pet para o meio do
+     * retângulo — parecia um atendimento marcado meia hora depois do que estava. Num
+     * bloco de 15 minutos o defeito não aparecia, que é o pior tipo: ele só existia
+     * onde ninguém procurava.
+     */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    /* Acima do fio do agora e do véu de fora-de-expediente, abaixo dos cabeçalhos. */
+    z-index: 1;
+    overflow: hidden;
+    border-radius: 12px;
+    /*
+     * O respiro vertical é apertado porque o bloco de 15 minutos — a grade mínima do
+     * produto — tem 21px de altura, e cada pixel de `padding` é um pixel a menos para
+     * o nome do pet. Nos blocos longos a diferença não se nota; no curto, ela é a
+     * diferença entre ler "Jorginho" e ler meia palavra.
+     */
+    padding: 0.25rem 0.5rem 0.25rem 0.625rem;
+    text-align: left;
+    background-color: var(--color-card);
+    border: 1px solid var(--color-line);
+    border-left: 3px solid var(--color-line);
+    box-shadow: 0 6px 14px -10px rgb(35 36 39 / 0.5);
+    transition:
+      transform 0.18s,
+      box-shadow 0.18s,
+      border-color 0.18s;
+  }
+
+  .timeline-event:hover {
+    z-index: 5;
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px -12px rgb(35 36 39 / 0.55);
+  }
+
+  .timeline-event:focus-visible {
+    z-index: 5;
+  }
+
+  /* Concluído recua: o dia já resolveu esta linha e ela não pede mais nada. */
+  .timeline-event-done {
+    background-color: var(--color-chip);
+    box-shadow: none;
+  }
+
+  .timeline-event-done .timeline-event-title {
+    color: var(--color-muted);
+  }
+
+  .timeline-event-critical {
+    border-color: color-mix(in srgb, var(--color-danger) 45%, transparent);
+  }
+
+  .timeline-event-title {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.05rem;
+    color: var(--color-ink);
+  }
+
+  .timeline-event-meta {
+    display: block;
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    color: var(--color-subtle);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Medidor de ocupação.
+   *
+   * Substitui a etiqueta "72% ocupado". O número sozinho exige comparação mental
+   * com os outros profissionais; quatro barrinhas de comprimentos diferentes
+   * entregam a comparação pronta, e o número fica como precisão para quem quer.
+   */
+  .meter {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background-color: rgb(35 36 39 / 0.08);
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background-color: var(--color-chart-bar);
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .meter-fill-full {
+    background-color: var(--color-accent);
+  }
+
+  /*
+   * Pastilha do dia, na faixa de datas.
+   *
+   * Selecionado é **levante branco** com sombra, como `.nav-item-active` e o
+   * polegar do `.segment` — nunca pressão cinza. É a mesma frase dita em três
+   * lugares do produto: onde você está fica claro, e não afundado.
+   */
+  .day-pill {
+    display: flex;
+    flex: none;
+    width: 2.875rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.0625rem;
+    border-radius: 14px;
+    padding: 0.4375rem 0 0.5rem;
+    color: var(--color-muted);
+    transition:
+      background-color 0.2s,
+      color 0.2s,
+      box-shadow 0.2s;
+  }
+
+  .day-pill:hover {
+    background-color: rgb(0 0 0 / 0.04);
+    color: var(--color-ink);
+  }
+
+  .day-pill-active,
+  .day-pill-active:hover {
+    background-color: var(--color-card);
+    color: var(--color-ink);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 8px 18px -12px rgb(35 36 39 / 0.35);
+  }
+
+  .day-pill-weekday {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-subtle);
+  }
+
+  .day-pill-active .day-pill-weekday {
+    color: var(--color-muted);
+  }
+
+  .day-pill-number {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* O ponto de hoje ocupa altura fixa para as pastilhas não dançarem. */
+  .day-pill-dot {
+    height: 0.25rem;
+    width: 0.25rem;
+    border-radius: 9999px;
+    background-color: var(--color-accent);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .check::after,
+    .check-radio::after,
     .segment-thumb,
     .option,
-    .field-lead {
+    .field-lead,
+    .meter-fill,
+    .timeline-event {
       transition: none;
+    }
+
+    .dialog-veil,
+    .dialog-panel {
+      animation: none;
     }
   }
 }

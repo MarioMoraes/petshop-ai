@@ -63,19 +63,25 @@ export function MovementChart({
 
   return (
     <div className="relative z-10">
-      <span className="icon-chip icon-metric">
-        <TrendingUpIcon />
-      </span>
-
       {/*
-        Figura grande em algarismos proporcionais: `tabular-nums` dá a todo dígito a
-        largura do `0`, e a 36px isso deixa "121" com buracos. A tabular fica onde
+        O mesmo cabeçalho compacto dos cartões de número — chip ao lado da figura, e
+        não acima dela. Este cartão é o mais alto da fileira, e numa grade todos os
+        outros esticam até ele: apertar só os cartões de número não teria encolhido
+        linha nenhuma.
+
+        Figura em algarismos proporcionais: `tabular-nums` dá a todo dígito a largura
+        do `0`, e nesta escala isso deixa "121" com buracos. A tabular fica onde
         serve — nos números do eixo, que precisam alinhar entre si.
       */}
-      <p className="mt-5 text-4xl font-semibold">{total.toLocaleString('pt-BR')}</p>
-      <p className="mt-1 text-lg font-semibold">atendimentos</p>
+      <div className="flex items-center gap-3">
+        <span className="icon-chip icon-chip-sm icon-metric">
+          <TrendingUpIcon />
+        </span>
+        <p className="text-3xl font-semibold">{total.toLocaleString('pt-BR')}</p>
+      </div>
+      <p className="mt-2.5 text-base font-semibold">atendimentos</p>
 
-      <div className="mt-6 flex items-end gap-2" aria-hidden="true">
+      <div className="mt-5 flex items-end gap-2" aria-hidden="true">
         {days.map((day) => {
           const isToday = day.date === today
           const height =

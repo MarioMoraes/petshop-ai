@@ -207,7 +207,7 @@ export default async function DashboardPage() {
               movement && (
                 <Link
                   href="/agenda/dia"
-                  className="card card-interactive relative block overflow-hidden p-7"
+                  className="card card-interactive relative block overflow-hidden p-6"
                 >
                   <CardBloom />
                   <MovementChart days={movement.days} today={hoje} />
@@ -244,7 +244,7 @@ function StatSection({
   lead?: ReactNode
 }) {
   return (
-    <section className="mt-10">
+    <section className="mt-8">
       <h2 className="text-sm font-medium uppercase tracking-[0.06em] text-subtle">{title}</h2>
 
       <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -257,16 +257,27 @@ function StatSection({
 
               {/* O conteúdo sobe acima do bloom pelo mesmo motivo do shell. */}
               <div className="relative z-10">
-                <span className={`icon-chip ${stat.iconTone}`}>{stat.icon}</span>
-                <p
-                  className={`mt-5 text-4xl font-semibold tabular-nums ${
-                    stat.tone === 'danger' ? 'text-danger' : ''
-                  }`}
-                >
-                  {stat.value ?? <span className="text-subtle">—</span>}
-                </p>
-                <p className="mt-1 text-lg font-semibold">{stat.label}</p>
-                <p className="mt-3 text-sm leading-relaxed text-muted">{stat.hint}</p>
+                {/*
+                  O chip ao lado do número, e não empilhado sobre ele.
+                  
+                  Empilhado, ele custava 68px de altura (os 48 do chip mais o respiro)
+                  para dizer de que assunto o cartão trata — e com seis cartões na tela
+                  isso empurrava metade do painel para baixo da dobra. Na mesma linha
+                  ele passa a etiquetar o número em vez de anunciá-lo, que é o trabalho
+                  que ele de fato faz.
+                */}
+                <div className="flex items-center gap-3">
+                  <span className={`icon-chip icon-chip-sm ${stat.iconTone}`}>{stat.icon}</span>
+                  <p
+                    className={`text-3xl font-semibold tabular-nums ${
+                      stat.tone === 'danger' ? 'text-danger' : ''
+                    }`}
+                  >
+                    {stat.value ?? <span className="text-subtle">—</span>}
+                  </p>
+                </div>
+                <p className="mt-2.5 text-base font-semibold">{stat.label}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted">{stat.hint}</p>
               </div>
             </>
           )
@@ -277,12 +288,12 @@ function StatSection({
             <Link
               key={stat.label}
               href={stat.href}
-              className="card card-interactive relative overflow-hidden p-7"
+              className="card card-interactive relative overflow-hidden p-6"
             >
               {body}
             </Link>
           ) : (
-            <div key={stat.label} className="card relative overflow-hidden p-7">
+            <div key={stat.label} className="card relative overflow-hidden p-6">
               {body}
             </div>
           )

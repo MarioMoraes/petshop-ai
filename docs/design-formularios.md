@@ -46,7 +46,7 @@ a forma que tem; aqui fica só a regra de uso.
 
 ---
 
-## As oito regras
+## As nove regras
 
 ### 1. Ficha é `Card tone="soft"`. Conteúdo é `Card` branco.
 
@@ -107,9 +107,14 @@ configuração em abas não tem ordem — o olho-de-boi vira o nome do domínio
 | Caixa de seleção com rótulo longo | `<Choice>` |
 | Caixa de seleção dentro de uma linha que já é uma peça | só o átomo `className="check"` |
 | Duas ou três opções exclusivas | `<Segmented>` |
+| Escolha exclusiva numa lista de linhas | `.option` + `.check .check-radio` |
 | Campo | `className="field"` |
 | Campo com glifo | `.field-wrap` + `.field-lead` |
 | Campo numa fila de ações, ao lado de botões | `.field` + `.field-inline` |
+
+`.check-radio` é `.check` com o raio redondo e um ponto no lugar do tique: mesma caixa,
+mesma sombra, mesmo foco. O par "escolha uma" / "marque quantas quiser" passa a ser lido
+pela **forma**, que é a convenção que todo mundo já conhece.
 
 `.field-inline` é a mesma peça em outra proporção: largura do conteúdo e a altura de
 `.btn h-9`, para o seletor que mora numa linha `flex` com botões. Não é um campo
@@ -134,7 +139,31 @@ Estado ativo no sistema é **levante branco**, não pressão cinza — a mesma l
 impede salvar leva `role="status"`: interromper o leitor de tela para dizer "pode seguir
 assim" é o uso que treina o usuário a ignorar avisos.
 
-### 8. A barra de ação é `<FormActions>` — mas só no formulário de página inteira.
+### 8. Formulário que precisa de foco exclusivo é `<Modal>`.
+
+`components/modal.tsx`. Vale quando o formulário responde a uma linha de uma lista — o
+check-out de um atendimento, o pedido de leva-e-traz — e não a uma página inteira.
+Antes dele, esses formulários abriam dentro do cartão que os originou, na largura de
+uma coluna.
+
+O diálogo tem três faixas: **cabeçalho** (chip do domínio, olho-de-boi, título e a
+linha de contexto), **corpo rolável** com o papel de `.card-soft`, e **rodapé** de
+ações. As duas pontas não rolam, e a razão é funcional: o cabeçalho é o que diz de qual
+registro se trata, e vê-lo sumir enquanto se digita é como se preenche a ficha errada.
+
+Regras de uso:
+
+- **Um tom de ícone por diálogo**, o do domínio — a mesma regra 3.
+- **Duas ações no rodapé**, no máximo, e uma delas é a principal. A terceira faz a barra
+  quebrar em duas linhas e joga o botão que encerra o caso para baixo.
+- **Ação destrutiva não vai no rodapé.** Ela desce para o pé do corpo, como texto
+  sublinhado — alcançável, e não a um deslize do polegar da ação principal.
+- **`busy` enquanto a ação está no ar.** Nem `Escape` nem o clique no véu fecham: uma
+  gravação interrompida no meio deixa o usuário sem saber se vingou.
+- Abaixo de `sm` ele vira **folha inferior**, colada no rodapé, e os botões empilham na
+  largura inteira.
+
+### 9. A barra de ação é `<FormActions>` — mas só no formulário de página inteira.
 
 Ela é `position: sticky`, então precisa que a página role. Painel com salvamento próprio
 por aba mantém a linha de botões dentro do cartão: barra grudada dentro de um cartão
@@ -169,6 +198,9 @@ Está aqui para não voltar:
 | Linha marcada tingida com 7% do acento | Duas linhas ligadas liam como erro. |
 | `--color-chip` como superfície rebaixada | Hex fixo só funciona sobre um fundo; sobre a ficha o estado sumia. Use véu de opacidade. |
 | Sombra de uma camada só | Produz mancha, não altura. Blur curto deixa a peça baixa; blur longo tira a aresta. |
+| Painel de formulário aberto dentro do cartão da lista | Espremido na largura de uma coluna, e empurrava o resto da lista para baixo. Virou `<Modal>`. |
+| Três botões no rodapé do diálogo | Quebrava em duas linhas e a ação principal ia para a segunda. |
+| Ação destrutiva ao lado da principal no rodapé | Alvo vizinho do botão mais clicado da janela. |
 
 ---
 
@@ -184,6 +216,7 @@ Está aqui para não voltar:
 | Configurações do Taxi Dog | `app/(admin)/taxi/configuracoes/settings-form.tsx` |
 | Configurações de cobrança | `app/(admin)/financeiro/configuracoes/billing-settings-form.tsx` |
 | Site do estabelecimento | `app/(admin)/site/site-form.tsx` |
+| Ficha e check-out do atendimento | `app/(admin)/agenda/dia/appointment-dialog.tsx` |
 
 Ainda **não** aplicado, por serem telas de lista com formulário embutido — o cartão
 branco de conteúdo continua correto nelas, e forçar seção numerada seria errado:
