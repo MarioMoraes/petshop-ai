@@ -74,9 +74,9 @@ export function TenantSwitcher({
   if (ativos.length === 1) {
     const unico = atual ?? (ativos[0] as Membership)
     return (
-      <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
+      <p className="flex min-w-0 items-center gap-2 text-base font-medium">
         <span className="icon-tint icon-brand shrink-0">
-          <StoreIcon />
+          <StoreIcon size={20} />
         </span>
         <span className="truncate">{unico.tenantName}</span>
       </p>
@@ -120,10 +120,10 @@ export function TenantSwitcher({
         onClick={() => setAberto((estava) => !estava)}
         aria-expanded={aberto}
         aria-haspopup="menu"
-        className="flex min-w-0 items-center gap-2 rounded-full px-2 py-1.5 text-sm font-medium transition hover:bg-black/5"
+        className="flex min-w-0 items-center gap-2 rounded-full px-2 py-1.5 text-base font-medium transition hover:bg-black/5"
       >
         <span className="icon-tint icon-brand shrink-0">
-          <StoreIcon />
+          <StoreIcon size={20} />
         </span>
         <span className="truncate">{atual?.tenantName ?? 'Escolher estabelecimento'}</span>
         <span aria-hidden className="shrink-0 text-muted">

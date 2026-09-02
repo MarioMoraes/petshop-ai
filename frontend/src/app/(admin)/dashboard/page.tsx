@@ -8,6 +8,7 @@ import {
   PawPrintIcon,
   UsersIcon,
   WalletIcon,
+  WaveIcon,
   type IconTone,
 } from '@/components/icons'
 import { serverApi } from '@/lib/api'
@@ -64,7 +65,6 @@ export default async function DashboardPage() {
 
   if (!me.currentTenant?.onboardingCompletedAt) redirect('/onboarding')
 
-  const tenant = me.currentTenant
   const can = (permission: string): boolean => me.permissions.includes(permission)
 
   const settings = await serverApi()
@@ -186,18 +186,26 @@ export default async function DashboardPage() {
     <AppShell active="inicio" me={me} atmosphere>
       <div className="mx-auto max-w-5xl">
         {/*
-          Título 1 · Display do modelo de design, sem o peso 600: mesma Inter, mesmo
-          `leading 1.02` e `tracking −0.035em`, em 45px — três pontos abaixo dos 3rem
-          do degrau base. O tracking negativo é o que sustenta a hierarquia aqui; sem
-          o peso, é ele que impede o nome de ler como parágrafo grande.
+          A saudação é o título da página.
+
+          O nome do estabelecimento vinha aqui em 45px e saiu: ele já está na topbar,
+          no seletor de estabelecimento, e repeti-lo logo abaixo fazia o Início abrir
+          dizendo duas vezes onde a pessoa está antes de dizer qualquer coisa que ela
+          possa usar. Sem ele, quem herda o `<h1>` é a saudação — que é o que a tela
+          realmente diz ao abrir.
         */}
-        <h1 className="text-[45px] leading-[1.02] tracking-[-0.035em] text-ink-soft">
-          {tenant.name}
-        </h1>
-        {/* Título 4 · Card padrão do design: 1.125rem / 1.75rem, peso 600. */}
-        <p className="mt-2 text-lg font-semibold">
+        <h1 className="flex items-center gap-2 text-[22px] leading-8 font-semibold">
           {greetingFor(timezone)}, {firstNameOf(me.user.fullName)}.
-        </p>
+          {/*
+            O aceno é decoração, não informação: `aria-hidden` no traçado (herdado de
+            `BASE`) mantém o leitor de tela lendo só a frase. A inclinação é o que faz a
+            mão aberta ler como aceno em vez de "pare"; o acento é a única cor quente
+            do sistema, e uma saudação é o lugar dela.
+          */}
+          <span className="inline-flex rotate-12 text-accent">
+            <WaveIcon />
+          </span>
+        </h1>
 
         {(movement !== null || fluxo.length > 0) && (
           <StatSection

@@ -87,6 +87,18 @@ const NAV: NavItem[] = [
   { key: 'tutores', href: '/tutores', label: 'Tutores', icon: <UsersIcon />, tone: 'icon-people' },
   { key: 'pets', href: '/pets', label: 'Pets', icon: <PawPrintIcon />, tone: 'icon-pet' },
   {
+    // Fecha o bloco de cadastro — tutores, pets, equipe: as três listas de **quem** o
+    // sistema conhece, antes de o menu passar ao que se faz com eles. E fora de
+    // Configurações porque é gente, não ajuste: quem abre este menu pensando em
+    // "adicionar a Ana" não procuraria dentro de um item chamado Configurações.
+    key: 'equipe',
+    href: '/equipe',
+    label: 'Equipe',
+    icon: <IdCardIcon />,
+    tone: 'icon-people',
+    requires: 'team:read',
+  },
+  {
     // A visão do dia é o destino: é a tela que a recepção abre de manhã e mantém
     // aberta. Serviços e profissionais são configuração, visitada de vez em quando.
     key: 'agenda',
@@ -110,32 +122,6 @@ const NAV: NavItem[] = [
     icon: <VanIcon />,
     tone: 'icon-time',
     requires: 'taxi:operate',
-  },
-  {
-    // Depois do Taxi Dog e antes do Financeiro porque é o outro lado do atendimento:
-    // o que foi combinado com o tutor e o que ele recebeu. O gate é `crm:read`, que a
-    // recepção também tem — ela precisa saber se o lembrete chegou antes de pegar o
-    // telefone, e é essa pergunta que traz alguém a esta tela.
-    key: 'mensagens',
-    href: '/crm',
-    label: 'Mensagens',
-    icon: <BellIcon />,
-    tone: 'icon-brand',
-    requires: 'crm:read',
-  },
-  {
-    // Ao lado de Mensagens porque é a outra ponta do relacionamento: o site é como
-    // quem ainda não é cliente chega, e o contato que ele deixa cai na fila daqui.
-    //
-    // O gate é `site:read_leads`, e não `site:manage`: a recepção trabalha o contato
-    // que chegou pelo formulário sem poder publicar ou tirar a página do ar. A tela
-    // se abre no que cada papel pode fazer.
-    key: 'site',
-    href: '/site',
-    label: 'Site',
-    icon: <GlobeIcon />,
-    tone: 'icon-metric',
-    requires: 'site:read_leads',
   },
   {
     // Pacotes e políticas. O extrato de um tutor mora na ficha dele, que é onde o
@@ -164,14 +150,35 @@ const NAV: NavItem[] = [
     requires: 'finance:configure',
   },
   {
-    // Antes de Configurações porque é gente, não ajuste: quem abre este menu pensando
-    // em "adicionar a Ana" não procuraria dentro de um item chamado Configurações.
-    key: 'equipe',
-    href: '/equipe',
-    label: 'Equipe',
-    icon: <IdCardIcon />,
-    tone: 'icon-people',
-    requires: 'team:read',
+    // Mensagens e Site fecham o menu, logo antes de Configurações: são o que o petshop
+    // mostra para fora — o que sai para o tutor e a página por onde quem ainda não é
+    // cliente chega. O miolo da lista é o trabalho do dia (agenda, atendimento,
+    // dinheiro); estes dois são visitados quando alguém para para olhar o
+    // relacionamento, não no meio de um balcão cheio.
+    //
+    // O gate é `crm:read`, que a recepção também tem — ela precisa saber se o lembrete
+    // chegou antes de pegar o telefone, e é essa pergunta que traz alguém a esta tela.
+    key: 'mensagens',
+    href: '/crm',
+    label: 'Mensagens',
+    icon: <BellIcon />,
+    tone: 'icon-brand',
+    requires: 'crm:read',
+  },
+  {
+    // Logo abaixo de Mensagens porque é a outra ponta do mesmo relacionamento: ali se
+    // vê o que saiu para quem já é cliente, aqui o contato que chegou de quem ainda
+    // não é.
+    //
+    // O gate é `site:read_leads`, e não `site:manage`: a recepção trabalha o contato
+    // que chegou pelo formulário sem poder publicar ou tirar a página do ar. A tela
+    // se abre no que cada papel pode fazer.
+    key: 'site',
+    href: '/site',
+    label: 'Site',
+    icon: <GlobeIcon />,
+    tone: 'icon-metric',
+    requires: 'site:read_leads',
   },
   {
     key: 'configuracoes',

@@ -270,6 +270,25 @@ export function ReceiptIcon() {
   )
 }
 
+/**
+ * Mão aberta — o aceno da saudação do Início. Tom: `icon-brand`.
+ *
+ * É o traçado `hand` do Lucide, o mesmo conjunto de todos os outros. De pé ele lê como
+ * "pare"; quem o usa **inclina** o ícone (`rotate-12`), e é a inclinação que o
+ * transforma em aceno. A rotação não vem embutida aqui para o ícone continuar servindo
+ * a outro uso, se houver.
+ */
+export function WaveIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+      <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+      <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
+      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+    </svg>
+  )
+}
+
 /** Tom: `icon-health`. */
 export function HeartPulseIcon() {
   return (
@@ -480,10 +499,15 @@ export function InboxIcon() {
  *
  * Não é o `HomeIcon`: no menu ele já é o Início, e o mesmo desenho em dois lugares
  * faria o seletor parecer um atalho para o painel.
+ *
+ * O único ícone com `size`, e por um motivo concreto: ele acompanha nomes de
+ * estabelecimento em dois corpos de texto diferentes — 16px na topbar, 14px na lista de
+ * escolha do primeiro acesso —, e um tamanho fixo deixaria um dos dois desproporcional.
+ * O padrão é o menor; quem precisa do maior pede.
  */
-export function StoreIcon() {
+export function StoreIcon({ size = 18 }: { size?: number }) {
   return (
-    <svg {...BASE} width={18} height={18}>
+    <svg {...BASE} width={size} height={size}>
       <path d="m3.5 8 1.9-3.4A2 2 0 0 1 7.2 3.6h9.6a2 2 0 0 1 1.8 1L20.5 8" />
       <path d="M5 11v7.4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V11" />
       <path d="M10 20.4V16h4v4.4" />
