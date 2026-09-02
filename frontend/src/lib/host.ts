@@ -32,6 +32,7 @@ import { isReservedSlug } from '@petshop/shared-types'
  */
 export const ADMIN_ROUTE_PREFIXES = [
   '/agenda',
+  '/cobranca',
   '/configuracoes',
   '/convite',
   '/crm',

@@ -36,6 +36,8 @@ import {
   PaymentSchema,
   ReceiptSchema,
   ReceivablesSchema,
+  AccountsReceivableReportSchema,
+  ReceiptsByDayReportSchema,
   CashflowSchema,
   CreditCheckResponseSchema,
   ServicePackageSchema,
@@ -418,6 +420,62 @@ export function createApiClient(options: ApiClientOptions) {
         )
       }
       return parsed.data
+    }
+  }
+
+  /**
+   * Baixa um documento binário — hoje, os relatórios em PDF do menu Cobrança.
+   *
+   * Não passa pelo `request` porque ele termina em `response.json()`: o corpo aqui são
+   * bytes de PDF, e tentar parseá-los como JSON quebraria antes de qualquer schema. O
+   * caminho de erro, esse sim, continua sendo o mesmo — o gateway responde
+   * `application/problem+json` também quando a rota pedida devolveria PDF, e é dele que
+   * sai a mensagem que a tela mostra.
+   *
+   * Devolve `Uint8Array`, e não `Blob`: quem chama é um route handler do Next, no
+   * servidor, que vai repassar os bytes adiante. O nome do arquivo vem do
+   * `content-disposition` do serviço, que é quem sabe o período impresso.
+   */
+  async function download(path: string, fallbackFilename: string): Promise<DownloadedFile> {
+    const controller = new AbortController()
+    const alarme = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const token = await options.getToken()
+      if (controller.signal.aborted) throw new Error('abortado')
+
+      const response = await doFetch(`${options.baseUrl}${path}`, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: { ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        const problem = await readProblem(response)
+        throw new ApiError(
+          response.status,
+          problem,
+          problem?.detail ?? `Falha ao gerar o documento (${response.status})`,
+        )
+      }
+
+      return {
+        bytes: new Uint8Array(await response.arrayBuffer()),
+        contentType: response.headers.get('content-type') ?? 'application/octet-stream',
+        filename: filenameFrom(response.headers.get('content-disposition')) ?? fallbackFilename,
+      }
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ApiError(
+          504,
+          null,
+          'O documento demorou demais para ser gerado. Tente novamente em instantes.',
+        )
+      }
+      throw error
+    } finally {
+      clearTimeout(alarme)
     }
   }
 
@@ -1456,6 +1514,41 @@ export function createApiClient(options: ApiClientOptions) {
         schema: CashflowSchema,
       }),
 
+    // ─── Cobrança — os relatórios imprimíveis ─────────────────────────────
+
+    /**
+     * Contas a receber: quem deve, há quanto tempo e por qual faixa.
+     *
+     * Difere de `getReceivables`, que continua sendo o total por faixa do painel. Este
+     * traz a lista — é o papel de quem vai ligar.
+     */
+    getAccountsReceivableReport: (query: { asOf?: string; minOverdueDays?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/ledger/reports/accounts-receivable${toQueryString(query)}`,
+        schema: AccountsReceivableReportSchema,
+      }),
+
+    /** Sem `from`/`to`, o mês corrente até hoje no fuso do estabelecimento. */
+    getReceiptsByDayReport: (query: { from?: string; to?: string } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/ledger/reports/receipts-by-day${toQueryString(query)}`,
+        schema: ReceiptsByDayReportSchema,
+      }),
+
+    downloadAccountsReceivablePdf: (query: { asOf?: string; minOverdueDays?: number } = {}) =>
+      download(
+        `/v1/ledger/reports/accounts-receivable/pdf${toQueryString(query)}`,
+        'contas-a-receber.pdf',
+      ),
+
+    downloadReceiptsByDayPdf: (query: { from?: string; to?: string } = {}) =>
+      download(
+        `/v1/ledger/reports/receipts-by-day/pdf${toQueryString(query)}`,
+        'contas-recebidas.pdf',
+      ),
+
     // ─── MOD-CRM (PRD relacionamento_crm_08 §5) ───────────────────────────────
 
     listMessages: (query: MessageFilters = {}) =>
@@ -1591,6 +1684,14 @@ export function createApiClient(options: ApiClientOptions) {
       request({
         method: 'POST',
         path: '/v1/messaging/whatsapp/qr',
+        schema: WhatsappConnectionSchema,
+      }),
+
+    /** Recuperação: apaga a instância no provedor e cria outra, com identidade nova. */
+    recreateWhatsapp: () =>
+      request({
+        method: 'POST',
+        path: '/v1/messaging/whatsapp/recreate',
         schema: WhatsappConnectionSchema,
       }),
 
@@ -1788,4 +1889,38 @@ export type {
   TutorDetail,
   TutorOverview,
   TutorSensitive,
+}
+
+
+/** Um documento binário já lido, pronto para ser repassado pela rota do Next. */
+export interface DownloadedFile {
+  bytes: Uint8Array
+  contentType: string
+  filename: string
+}
+
+/**
+ * O nome do arquivo, tirado do `content-disposition`.
+ *
+ * Quem escolhe o nome é o serviço, porque é ele que sabe o que foi impresso — a data-base
+ * do relatório de contas a receber, o período do relatório diário. O cliente só repassa;
+ * inventar o nome aqui daria dois lugares para mantê-lo em acordo.
+ *
+ * `filename*` (RFC 5987) vem antes porque, quando existe, é o codificado — e é o que os
+ * navegadores preferem.
+ */
+function filenameFrom(header: string | null): string | null {
+  if (!header) return null
+
+  const extended = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header)
+  if (extended?.[1]) {
+    try {
+      return decodeURIComponent(extended[1].trim().replace(/^"|"$/g, ''))
+    } catch {
+      // Header malformado não vale uma exceção: cai no nome padrão de quem chamou.
+    }
+  }
+
+  const plain = /filename="?([^";]+)"?/i.exec(header)
+  return plain?.[1]?.trim() ?? null
 }

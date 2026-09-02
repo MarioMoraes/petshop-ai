@@ -25,6 +25,7 @@ import {
   connectWhatsapp,
   disconnectWhatsapp,
   getConnection,
+  recreateWhatsapp,
   refreshQrCode,
   webhookTokenHash,
 } from './whatsapp.js'
@@ -285,6 +286,31 @@ export async function registerMessagingRoutes(app: FastifyInstance): Promise<voi
         tx.tenant.findFirstOrThrow({ select: { slug: true } }),
       )
       const result = await connectWhatsapp(actorOf(request), tenant.slug)
+      return reply.status(201).send(result)
+    },
+  )
+
+  /**
+   * Recuperação: refaz a instância do zero, identidade e tudo.
+   *
+   * Vizinha do `connect`, mas caminho separado de propósito — ver `recreateWhatsapp`.
+   * O corte de permissão é o mesmo: quem pode ligar o número da empresa é quem pode
+   * recomeçá-lo.
+   */
+  app.post(
+    '/v1/messaging/whatsapp/recreate',
+    {
+      preHandler: requirePermission(
+        'crm:connect_channel',
+        'Refazer a conexão do WhatsApp é uma ação do administrador',
+      ),
+    },
+    async (request, reply) => {
+      const auth = requireTenantContext(request)
+      const tenant = await withTenant(auth.tenantId, (tx) =>
+        tx.tenant.findFirstOrThrow({ select: { slug: true } }),
+      )
+      const result = await recreateWhatsapp(actorOf(request), tenant.slug)
       return reply.status(201).send(result)
     },
   )

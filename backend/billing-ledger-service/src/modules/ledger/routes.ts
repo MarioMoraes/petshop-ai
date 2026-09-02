@@ -4,8 +4,10 @@ import {
   CreatePackagePurchaseSchema,
   CreatePaymentSchema,
   CreateServicePackageSchema,
+  AccountsReceivableQuerySchema,
   CashflowQuerySchema,
   CreditCheckQuerySchema,
+  ReceiptsByDayQuerySchema,
   ListPaymentsQuerySchema,
   ReverseSchema,
   StatementQuerySchema,
@@ -15,9 +17,11 @@ import {
   todayIn,
   zonedDayRange,
 } from '@petshop/shared-types'
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { hasPermission, requirePermission, requireTenantContext } from '../../auth/context.js'
+import { documentUnavailable } from '../../lib/errors.js'
+import { PdfUnavailableError, renderPdf } from '../../lib/pdf.js'
 import { parseInput } from '../../lib/validate.js'
 import type { ActorContext } from './actor.js'
 import { creditCheck } from './credit.js'
@@ -35,6 +39,8 @@ import {
 import { getPayment, listPayments, recordPayment, reversePayment } from './payments.js'
 import { getReceiptForPayment } from './receipts.js'
 import { cashflowByMethod, receivablesByBucket } from './reconciliation.js'
+import { accountsReceivableReport, receiptsByDayReport } from './reports.js'
+import { renderAccountsReceivableHtml, renderReceiptsByDayHtml } from './report-template.js'
 import { getSettings, updateSettings } from './settings.js'
 import { getStatement } from './statement.js'
 
@@ -256,6 +262,48 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
     return cashflowByMethod(actor.tenantId, from, to)
   })
 
+  /**
+   * MOD-COBRANCA — os dois relatórios imprimíveis do menu Cobrança.
+   *
+   * Cada um responde em duas formas, e a diferença está só no `/pdf` do fim: a rota
+   * nua devolve JSON, que é o que a tela desenha, e a `/pdf` devolve o documento. O
+   * corpo é o mesmo objeto nos dois casos, montado uma vez — foi para não ter duas
+   * verdades sobre o mesmo relatório que o cálculo saiu do template.
+   *
+   * O PDF vai **em bytes**, e não como URL assinada de bucket, ao contrário do recibo
+   * do MOD-LEDGER-08. A diferença é a natureza do documento: o recibo é peça contábil
+   * com número, retenção de cinco anos e endereço próprio; o relatório é o retrato de
+   * um instante, parametrizado por data, que não se guarda — arquivar cada clique de
+   * "Baixar PDF" encheria o bucket de folhas que ninguém vai reabrir.
+   */
+  app.get('/v1/ledger/reports/accounts-receivable', CONFIGURE, async (request) => {
+    const query = parseInput(AccountsReceivableQuerySchema, request.query)
+    return accountsReceivableReport(actorFrom(request).tenantId, query)
+  })
+
+  app.get('/v1/ledger/reports/accounts-receivable/pdf', CONFIGURE, async (request, reply) => {
+    const query = parseInput(AccountsReceivableQuerySchema, request.query)
+    const report = await accountsReceivableReport(actorFrom(request).tenantId, query)
+
+    return sendPdf(reply, renderAccountsReceivableHtml(report), `contas-a-receber-${report.asOf}.pdf`)
+  })
+
+  app.get('/v1/ledger/reports/receipts-by-day', CONFIGURE, async (request) => {
+    const query = parseInput(ReceiptsByDayQuerySchema, request.query)
+    return receiptsByDayReport(actorFrom(request).tenantId, query)
+  })
+
+  app.get('/v1/ledger/reports/receipts-by-day/pdf', CONFIGURE, async (request, reply) => {
+    const query = parseInput(ReceiptsByDayQuerySchema, request.query)
+    const report = await receiptsByDayReport(actorFrom(request).tenantId, query)
+
+    return sendPdf(
+      reply,
+      renderReceiptsByDayHtml(report),
+      `contas-recebidas-${report.from}-a-${report.to}.pdf`,
+    )
+  })
+
   app.get('/v1/billing-settings', READ, async (request) => {
     return getSettings(actorFrom(request))
   })
@@ -295,4 +343,33 @@ async function resolvePeriod(
   }
 
   return zonedDayRange(todayIn(timezone), timezone)
+}
+
+
+/**
+ * HTML vira PDF e desce como anexo.
+ *
+ * `attachment` e não `inline`: quem clicou em "Baixar PDF" quer o arquivo, e o visor do
+ * navegador engoliria o nome que a rota escolheu — que é justamente o que torna a pasta
+ * de downloads legível depois de três relatórios.
+ *
+ * `PdfUnavailableError` é o Gotenberg fora do ar, e vira 503 em vez de 500: o relatório
+ * continua inteiro em tela, é só o papel que não sai agora.
+ */
+async function sendPdf(reply: FastifyReply, html: string, filename: string): Promise<FastifyReply> {
+  let pdf: Buffer
+  try {
+    pdf = await renderPdf(html)
+  } catch (error) {
+    if (error instanceof PdfUnavailableError) throw documentUnavailable()
+    throw error
+  }
+
+  return reply
+    .type('application/pdf')
+    .header('content-disposition', `attachment; filename="${filename}"`)
+    // O relatório é o retrato de um instante e leva o telefone de quem deve: nem o
+    // navegador nem nenhum intermediário tem por que guardar uma cópia.
+    .header('cache-control', 'no-store')
+    .send(pdf)
 }

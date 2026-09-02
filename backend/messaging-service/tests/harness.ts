@@ -60,7 +60,9 @@ const { clearTenantKeyCache, createTenantKey, encryptForTenant, withTenant } = a
 )
 const { setEmailPort } = await import('../src/modules/messaging/ports/email.js')
 const { setWhatsAppPort } = await import('../src/modules/messaging/ports/whatsapp.js')
-const { setEvolutionPort } = await import('../src/modules/messaging/ports/evolution.js')
+const { setEvolutionPort, EvolutionRequestError } = await import(
+  '../src/modules/messaging/ports/evolution.js'
+)
 type EvolutionPort = import('../src/modules/messaging/ports/evolution.js').EvolutionPort
 
 // ─── App ─────────────────────────────────────────────────────────────────────
@@ -208,8 +210,21 @@ export interface FakeEvolution {
   qrRequests: string[]
   sent: { instanceName: string; to: string; text: string }[]
   loggedOut: string[]
+  /** Instâncias apagadas no provedor — a identidade vai junto, e é o ponto. */
+  deleted: string[]
   /** Faz o próximo `sendText` falhar. `WHATSAPP_BANNED` derruba a instância (AC-05). */
   failNextSend(errorCode: string, detail?: string): void
+  /** Faz a próxima criação de instância falhar, como um provedor fora do ar. */
+  failNextCreate(detail?: string): void
+  /**
+   * Roda **dentro** do `createInstance`, antes de ele responder.
+   *
+   * Existe para afirmar o que só se vê nesse instante: que a linha do tenant já está
+   * no banco quando o provedor passa a existir. A Evolution dispara o primeiro
+   * `qrcode.updated` em menos de um segundo, e se a linha vier depois esse callback
+   * chega sem dono e leva 401 — que ela trata como definitivo.
+   */
+  onCreateInstance(hook: (input: { webhookToken: string }) => Promise<void>): void
   /** O token gerado na criação — é o que o teste manda no webhook. */
   lastToken(): string
 }
@@ -226,11 +241,23 @@ export function installFakeEvolution(): FakeEvolution {
   const qrRequests: string[] = []
   const sent: FakeEvolution['sent'] = []
   const loggedOut: string[] = []
+  const deleted: string[] = []
   let nextFailure: { errorCode: string; detail: string } | null = null
+  let nextCreateFailure: string | null = null
+  let createHook: ((input: { webhookToken: string }) => Promise<void>) | null = null
 
   const port: EvolutionPort = {
     configured: true,
     async createInstance(input) {
+      if (createHook) await createHook(input)
+      if (nextCreateFailure) {
+        const detail = nextCreateFailure
+        nextCreateFailure = null
+        // O erro precisa ser o do adaptador, e não um `Error` cru: é a classe que faz
+        // a rota responder 502 em vez de 500, e um dublê que lança outra coisa testa
+        // um caminho que a Evolution nunca percorre.
+        throw new EvolutionRequestError(503, detail)
+      }
       created.push(input)
       return { apiKey: `key-${created.length}`, qrCode: 'data:image/png;base64,QVFS' }
     },
@@ -265,6 +292,9 @@ export function installFakeEvolution(): FakeEvolution {
     async logout(instanceName) {
       loggedOut.push(instanceName)
     },
+    async deleteInstance(instanceName) {
+      deleted.push(instanceName)
+    },
   }
 
   setEvolutionPort(port)
@@ -274,8 +304,15 @@ export function installFakeEvolution(): FakeEvolution {
     qrRequests,
     sent,
     loggedOut,
+    deleted,
     failNextSend(errorCode, detail = 'falha injetada') {
       nextFailure = { errorCode, detail }
+    },
+    failNextCreate(detail = 'provedor fora do ar') {
+      nextCreateFailure = detail
+    },
+    onCreateInstance(hook) {
+      createHook = hook
     },
     lastToken() {
       const last = created.at(-1)

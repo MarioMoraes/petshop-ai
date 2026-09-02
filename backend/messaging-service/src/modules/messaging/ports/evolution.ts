@@ -59,6 +59,15 @@ export interface EvolutionPort {
     text: string
   }): Promise<EvolutionSendResult>
   logout(instanceName: string, apiKey: string): Promise<void>
+  /**
+   * Apaga a instância no provedor — **a identidade junto**.
+   *
+   * `logout` encerra a sessão e preserva as chaves de identidade; esta apaga tudo. A
+   * distinção é o que separa "reconectar" de "recomeçar": uma identidade que o
+   * WhatsApp passou a recusar não volta a ser aceita por QR nenhum, porque o código
+   * muda e ela não. Sem isto não há como sair desse estado.
+   */
+  deleteInstance(instanceName: string, apiKey: string): Promise<void>
 }
 
 const REQUEST_TIMEOUT_MS = 12_000
@@ -276,6 +285,18 @@ function createHttpPort(baseUrl: string, globalApiKey: string): EvolutionPort {
         throw new EvolutionRequestError(status, detailOf(body) || `HTTP ${status}`)
       }
     },
+
+    async deleteInstance(instanceName, apiKey) {
+      const { status, body } = await request({
+        method: 'DELETE',
+        path: `/instance/delete/${encodeURIComponent(instanceName)}`,
+        apiKey,
+      })
+      // Mesmo raciocínio do `logout`: apagar o que já não existe é o estado pedido.
+      if (status >= 400 && status !== 404) {
+        throw new EvolutionRequestError(status, detailOf(body) || `HTTP ${status}`)
+      }
+    },
   }
 }
 
@@ -307,6 +328,7 @@ function createUnconfiguredPort(): EvolutionPort {
     requestQrCode: fail,
     fetchSession: fail,
     logout: fail,
+    deleteInstance: fail,
     async sendText() {
       return {
         ok: false,

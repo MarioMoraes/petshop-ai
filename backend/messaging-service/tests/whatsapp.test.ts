@@ -148,6 +148,43 @@ describe('conexão (MOD-CRM-01)', () => {
     expect(evolution.qrRequests).toHaveLength(1)
   })
 
+  it('grava a linha antes de a instância existir no provedor', async () => {
+    // A Evolution dispara o primeiro `qrcode.updated` em menos de um segundo. Quem
+    // descobre o tenant é o hash do token, então a linha precisa estar no banco
+    // **antes** — gravando depois, esse callback chega sem dono e leva 401, que ela
+    // trata como definitivo e para de retentar. O pareamento então nunca conclui, sem
+    // uma linha de erro do nosso lado.
+    let resolvedDuringCreate: { tenantId: string } | null = null
+    evolution.onCreateInstance(async (input) => {
+      const { resolveWhatsappInstanceByTokenHash } = await import('@petshop/db')
+      const { webhookTokenHash } = await import('../src/modules/messaging/whatsapp.js')
+      resolvedDuringCreate = await resolveWhatsappInstanceByTokenHash(
+        webhookTokenHash(input.webhookToken),
+      )
+    })
+
+    await connect()
+
+    expect(resolvedDuringCreate).not.toBeNull()
+    expect(resolvedDuringCreate!.tenantId).toBe(fixture.tenantId)
+  })
+
+  it('desfaz a linha quando o provedor recusa criar a instância', async () => {
+    evolution.failNextCreate()
+
+    const failed = await connect()
+    expect(failed.statusCode).toBe(502)
+
+    // Sem o desfazimento sobraria uma linha `CONNECTING` sem chave de instância, e o
+    // clique seguinte cairia no `refreshQrCode`, que exige a chave e recusa — o dono
+    // ficaria trancado fora do pareamento por um engasgo de rede.
+    expect(await readInstance()).toBeNull()
+
+    const retried = await connect()
+    expect(retried.statusCode).toBe(201)
+    expect((await readInstance())?.status).toBe('CONNECTING')
+  })
+
   it('recusa a conexão para quem não é administrador (AC-06)', async () => {
     const response = await callApi({
       ...asAdmin(fixture),
@@ -207,6 +244,21 @@ describe('webhook (RN-11)', () => {
     expect((await readInstance())?.status).toBe('CONNECTED')
   })
 
+  it('reconhece o giro do QR em vez de descartá-lo', async () => {
+    await connect()
+
+    const response = await callWebhook(evolution.lastToken(), {
+      event: 'qrcode.updated',
+      data: { qrcode: { base64: 'data:image/png;base64,R0lSQURP' } },
+    })
+
+    // O giro não muda estado — quem pareou é o `connection.update`. O que ele muda é o
+    // código que a tela mostra: sem tratá-lo, a pessoa escaneava para sempre o
+    // primeiro QR, que o provedor já havia descartado aos ~45 segundos.
+    expect(response.statusCode).toBe(204)
+    expect((await readInstance())?.status).toBe('CONNECTING')
+  })
+
   it('responde 204 a evento que não muda estado, para a Evolution parar de reenviar', async () => {
     await connect()
 
@@ -217,6 +269,72 @@ describe('webhook (RN-11)', () => {
 
     expect(response.statusCode).toBe(204)
     expect((await readInstance())?.status).toBe('CONNECTING')
+  })
+})
+
+describe('refazer a conexão (recuperação)', () => {
+  async function recreate() {
+    return callApi({
+      ...asAdmin(fixture),
+      permissions: ['crm:read', 'crm:connect_channel'],
+      method: 'POST',
+      url: '/v1/messaging/whatsapp/recreate',
+    })
+  }
+
+  it('apaga a instância no provedor e cria outra com identidade nova', async () => {
+    await connect()
+    const antes = await readInstance()
+    const tokenAntigo = evolution.lastToken()
+
+    const response = await recreate()
+    expect(response.statusCode).toBe(201)
+
+    // Apagar, e não só deslogar: `logout` preserva as chaves de identidade, e é
+    // justamente a identidade que o WhatsApp passa a recusar. Sem este DELETE o QR novo
+    // é recusado igual, e o petshop não tem como sair do estado.
+    expect(evolution.deleted).toContain(antes!.instanceName)
+    expect(evolution.created).toHaveLength(2)
+
+    // Token novo: a linha antiga saiu e outra nasceu. Um webhook com o token velho não
+    // pode mais ser reconhecido.
+    expect(evolution.lastToken()).not.toBe(tokenAntigo)
+    const depois = await readInstance()
+    expect(depois?.status).toBe('CONNECTING')
+    expect(depois?.webhookTokenHash).not.toBe(antes?.webhookTokenHash)
+  })
+
+  it('recusa refazer enquanto o WhatsApp está conectado', async () => {
+    await pair()
+
+    const response = await recreate()
+
+    // Destrutivo não pode ficar a um clique de uma sessão que funciona: para refazer,
+    // desconecte antes — e aí a decisão é explícita.
+    expect(response.statusCode).toBe(409)
+    expect((await readInstance())?.status).toBe('CONNECTED')
+    expect(evolution.deleted).toHaveLength(0)
+  })
+
+  it('recusa refazer quando nunca houve conexão', async () => {
+    const response = await recreate()
+
+    expect(response.statusCode).toBe(409)
+    expect(await readInstance()).toBeNull()
+  })
+
+  it('exige a permissão de administrador (AC-06)', async () => {
+    await connect()
+
+    const response = await callApi({
+      ...asAdmin(fixture),
+      permissions: ['crm:read'],
+      method: 'POST',
+      url: '/v1/messaging/whatsapp/recreate',
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(evolution.deleted).toHaveLength(0)
   })
 })
 

@@ -254,6 +254,22 @@ export function WalletIcon() {
   )
 }
 
+/**
+ * Nota com o canto rasgado — a cobrança. Tom: `icon-money`.
+ *
+ * Divide o tom com a carteira do Financeiro de propósito: dinheiro é dinheiro, e dar à
+ * Cobrança uma cor própria sugeriria um domínio novo onde há um recorte do mesmo. O que
+ * separa os dois no menu é o desenho — a carteira guarda, o papel se leva.
+ */
+export function ReceiptIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M5 3h14v18l-2.3-1.6L14.4 21l-2.4-1.6L9.6 21l-2.3-1.6L5 21Z" />
+      <path d="M9 8h6M9 12h6" />
+    </svg>
+  )
+}
+
 /** Tom: `icon-health`. */
 export function HeartPulseIcon() {
   return (

@@ -139,6 +139,26 @@ async function invalidateCache(tenantId: string): Promise<void> {
   await cacheDelete(CACHE_KEYS.whatsapp(tenantId))
 }
 
+/**
+ * O QR corrente, como o provedor o entregou pela última vez.
+ *
+ * Fica no Redis e não no banco porque é estado de segundos: a Evolution roda o código
+ * a cada ~45s, e o que interessa é sempre o último. Sem Redis a tela volta a depender
+ * do QR devolvido no clique — degrada para o comportamento antigo, não quebra.
+ */
+async function readCachedQrCode(tenantId: string): Promise<string | null> {
+  return cacheGet<string>(CACHE_KEYS.whatsappQr(tenantId))
+}
+
+async function writeCachedQrCode(tenantId: string, qrCode: string): Promise<void> {
+  await cacheSet(CACHE_KEYS.whatsappQr(tenantId), qrCode, CACHE_TTL_SECONDS.whatsappQr)
+}
+
+/** Pareou, caiu ou desligou: não há mais o que escanear. */
+async function forgetQrCode(tenantId: string): Promise<void> {
+  await cacheDelete(CACHE_KEYS.whatsappQr(tenantId))
+}
+
 // ─── Leitura para a tela ─────────────────────────────────────────────────────
 
 export async function getConnection(tenantId: string): Promise<WhatsappConnection> {
@@ -149,14 +169,20 @@ export async function getConnection(tenantId: string): Promise<WhatsappConnectio
 
   const warmup = whatsappWarmupCap(dailyCap, row?.warmupStartedAt ?? null)
 
+  // O QR só interessa enquanto se espera a leitura; pedi-lo em qualquer outro estado
+  // seria uma ida ao Redis por batida do polling para receber `null`.
+  const qrCode = row?.status === 'CONNECTING' ? await readCachedQrCode(tenantId) : null
+
   return {
     status: row?.status ?? 'NOT_CONFIGURED',
     phone: row?.phoneE164 ?? null,
     connectedAt: row?.connectedAt?.toISOString() ?? null,
     lastSeenAt: row?.lastSeenAt?.toISOString() ?? null,
-    // O QR não é persistido: expira em segundos do lado do provedor, e um QR velho na
-    // tela é pior que nenhum — a pessoa fica tentando escanear o que já morreu.
-    qrCode: null,
+    // Não é persistido — vive no Redis, com TTL mais curto que o giro do provedor. O
+    // banco guardaria um código vencido, e um QR velho na tela é pior que nenhum: a
+    // pessoa fica tentando escanear o que já morreu, que foi exatamente o defeito que
+    // fazia todo pareamento falhar antes desta correção.
+    qrCode,
     lastError: row?.lastError ?? null,
     warmupDaysLeft: warmup.daysLeft,
     effectiveDailyCap: warmup.cap,
@@ -205,6 +231,30 @@ export async function connectWhatsapp(
   const instanceName = existing?.instanceName ?? instanceNameFor(slug)
   const token = randomBytes(32).toString('base64url')
 
+  // A linha vai ao banco **antes** de a instância existir no provedor, e a ordem é o
+  // conserto de um defeito real: a Evolution dispara o primeiro `qrcode.updated` em
+  // menos de um segundo, e quem descobre o tenant é o hash do token. Gravando depois,
+  // esse callback chegava antes do commit, não encontrava linha nenhuma e levava 401 —
+  // que a Evolution trata como definitivo e para de retentar.
+  await withTenant(
+    actor.tenantId,
+    async (tx) => {
+      const data = {
+        instanceName,
+        provider: 'evolution',
+        status: 'CONNECTING' as const,
+        webhookTokenHash: hashToken(token),
+        lastError: null,
+      }
+      await tx.whatsappInstance.upsert({
+        where: { tenantId: actor.tenantId },
+        create: { tenantId: actor.tenantId, ...data },
+        update: data,
+      })
+    },
+    tenantOptions(actor),
+  )
+
   let created
   try {
     created = await evolution.createInstance({
@@ -213,6 +263,15 @@ export async function connectWhatsapp(
       webhookToken: token,
     })
   } catch (error) {
+    // Sem instância no provedor, a linha que acabou de ser gravada é pior que nada: o
+    // próximo clique a encontraria em `CONNECTING` e cairia no `refreshQrCode`, que
+    // exige a chave da instância e recusa — o dono ficaria trancado fora do pareamento
+    // por um engasgo de rede. Apagar devolve a tela a "não conectado".
+    await withTenant(actor.tenantId, (tx) =>
+      tx.whatsappInstance.delete({ where: { tenantId: actor.tenantId } }),
+    ).catch((cleanupError: unknown) => {
+      logger.warn({ err: cleanupError, tenantId: actor.tenantId }, 'falha ao desfazer a instância')
+    })
     throw toProviderError(error, 'Não foi possível criar a conexão no provedor')
   }
 
@@ -220,18 +279,9 @@ export async function connectWhatsapp(
     actor.tenantId,
     async (tx) => {
       const cipher = await openCipher(tx, actor.tenantId)
-      const data = {
-        instanceName,
-        provider: 'evolution',
-        status: 'CONNECTING' as const,
-        apiKeyEncrypted: cipher.encrypt(created.apiKey),
-        webhookTokenHash: hashToken(token),
-        lastError: null,
-      }
-      await tx.whatsappInstance.upsert({
+      await tx.whatsappInstance.update({
         where: { tenantId: actor.tenantId },
-        create: { tenantId: actor.tenantId, ...data },
-        update: data,
+        data: { apiKeyEncrypted: cipher.encrypt(created.apiKey) },
       })
 
       await recordAudit(tx, {
@@ -249,6 +299,9 @@ export async function connectWhatsapp(
   )
 
   await invalidateCache(actor.tenantId)
+  // O QR da criação é o corrente até o provedor girar; guardá-lo faz o polling da tela
+  // já nascer com resposta, sem esperar o primeiro `qrcode.updated`.
+  if (created.qrCode) await writeCachedQrCode(actor.tenantId, created.qrCode)
 
   return { ...(await getConnection(actor.tenantId)), qrCode: created.qrCode }
 }
@@ -292,8 +345,95 @@ export async function refreshQrCode(
     }),
   )
   await invalidateCache(actor.tenantId)
+  if (qrCode) await writeCachedQrCode(actor.tenantId, qrCode)
 
   return { ...(await getConnection(actor.tenantId)), qrCode }
+}
+
+/**
+ * Refazer a conexão do zero (recuperação).
+ *
+ * `connectWhatsapp` é idempotente e `refreshQrCode` reusa a instância — os dois de
+ * propósito, porque recriar joga fora a sessão. Só que existe um estado do qual nenhum
+ * dos dois sai: as chaves de identidade nascem na criação e sobrevivem a tudo, e quando
+ * o WhatsApp passa a recusar **aquela identidade** — o que acontece depois de uma
+ * sequência de registros negados — todo QR novo é recusado igual. O código muda, a
+ * identidade não, e o petshop fica presa em "Aguardando leitura do QR" para sempre, com
+ * o celular respondendo "não foi possível conectar, tente mais tarde" e nenhum erro
+ * deste lado. Aconteceu em desenvolvimento, e a saída era `DELETE` na mão no provedor
+ * mais um `delete` no banco: fora do alcance de quem usa o produto.
+ *
+ * É destrutivo e por isso não fica ao lado do botão comum: exige estar **fora** do
+ * estado conectado, para que um clique errado não derrube uma sessão que funciona.
+ */
+export async function recreateWhatsapp(
+  actor: ActorContext,
+  slug: string,
+): Promise<WhatsappConnection & { qrCode: string | null }> {
+  requireProvider()
+
+  const row = await withTenant(actor.tenantId, async (tx) => {
+    const found = await readInstance(tx, actor.tenantId)
+    if (!found) return null
+    const cipher = await openCipher(tx, actor.tenantId)
+    return {
+      instanceName: found.instanceName,
+      status: found.status,
+      apiKey: found.apiKeyEncrypted ? cipher.decrypt(found.apiKeyEncrypted) : null,
+    }
+  })
+
+  if (!row) {
+    throw invalidTransition('Não há conexão de WhatsApp para refazer. Conecte primeiro.')
+  }
+  if (row.status === 'CONNECTED') {
+    throw invalidTransition(
+      'O WhatsApp está conectado. Desconecte antes de refazer a conexão do zero.',
+    )
+  }
+
+  // O provedor é best-effort nos dois passos: se a instância já sumiu do lado de lá, ou
+  // se ele está fora do ar, o que **precisa** acontecer é a linha sair daqui — senão o
+  // clique seguinte encontra a identidade velha de novo e o petshop segue preso.
+  const evolution = getEvolutionPort()
+  const apiKey = row.apiKey
+  if (apiKey) {
+    try {
+      await evolution.logout(row.instanceName, apiKey)
+    } catch (error) {
+      logger.warn({ err: error, tenantId: actor.tenantId }, 'logout antes de refazer falhou')
+    }
+    try {
+      await evolution.deleteInstance(row.instanceName, apiKey)
+    } catch (error) {
+      logger.warn({ err: error, tenantId: actor.tenantId }, 'apagar a instância falhou')
+    }
+  }
+
+  await withTenant(
+    actor.tenantId,
+    async (tx) => {
+      await tx.whatsappInstance.delete({ where: { tenantId: actor.tenantId } })
+      await recordAudit(tx, {
+        tenantId: actor.tenantId,
+        actorUserId: actor.actorUserId ?? null,
+        action: 'whatsapp_instance.recreate',
+        entity: 'whatsapp_instance',
+        entityId: actor.tenantId,
+        before: { instanceName: row.instanceName, status: row.status },
+        ipAddress: actor.ipAddress ?? null,
+        userAgent: actor.userAgent ?? null,
+      })
+    },
+    tenantOptions(actor),
+  )
+
+  await invalidateCache(actor.tenantId)
+  await forgetQrCode(actor.tenantId)
+
+  // Sem linha, `connectWhatsapp` cai no caminho de criação e o provedor gera chaves de
+  // identidade novas — que é a coisa toda.
+  return connectWhatsapp(actor, slug)
 }
 
 /** Desconectar a pedido do dono. A instância continua existindo, sem sessão. */
@@ -337,6 +477,7 @@ export async function disconnectWhatsapp(actor: ActorContext): Promise<WhatsappC
   )
 
   await invalidateCache(actor.tenantId)
+  await forgetQrCode(actor.tenantId)
   return getConnection(actor.tenantId)
 }
 
@@ -522,6 +663,17 @@ async function fallbackPendingToEmail(tenantId: string): Promise<number> {
 /** Só os eventos que mudam estado; o resto é ignorado com 204. */
 const CONNECTION_EVENTS = new Set(['connection.update', 'CONNECTION_UPDATE'])
 
+/**
+ * A troca de QR (AC-01).
+ *
+ * A Evolution roda o código a cada ~45s e avisa por aqui. Ignorar este evento — que era
+ * o que se fazia — deixava na tela o primeiro QR para sempre: aos 45 segundos ele já
+ * não existia do lado do provedor, e o WhatsApp respondia "não foi possível conectar,
+ * tente mais tarde" sem que nenhum frame chegasse até nós. O sintoma não se parece com
+ * defeito nosso, e é.
+ */
+const QRCODE_EVENTS = new Set(['qrcode.updated', 'QRCODE_UPDATED'])
+
 interface WebhookPayload {
   event?: string
   instance?: string
@@ -529,6 +681,10 @@ interface WebhookPayload {
     state?: string
     statusReason?: number | string
     wuid?: string
+    qrcode?: {
+      /** `data:image/png;base64,…` quando o webhook está com `base64: true`. */
+      base64?: string
+    }
   }
 }
 
@@ -541,6 +697,15 @@ interface WebhookPayload {
  */
 export async function applyWebhook(tenantId: string, payload: WebhookPayload): Promise<void> {
   const event = payload.event ?? ''
+
+  if (QRCODE_EVENTS.has(event)) {
+    const qrCode = payload.data?.qrcode?.base64
+    // Só guarda o que dá para desenhar. Um evento sem imagem existe (o provedor avisa
+    // do giro antes de ter o PNG) e substituir o QR bom por nada apagaria a tela.
+    if (qrCode) await writeCachedQrCode(tenantId, qrCode)
+    return
+  }
+
   if (!CONNECTION_EVENTS.has(event)) return
 
   const state = payload.data?.state
@@ -548,6 +713,7 @@ export async function applyWebhook(tenantId: string, payload: WebhookPayload): P
     // `wuid` chega como `5511988887777@s.whatsapp.net`.
     const phone = payload.data?.wuid ? `+${payload.data.wuid.split('@')[0]}` : null
     await markConnected(tenantId, phone)
+    await forgetQrCode(tenantId)
     logger.info({ tenantId }, 'WhatsApp pareado')
     return
   }
@@ -557,6 +723,7 @@ export async function applyWebhook(tenantId: string, payload: WebhookPayload): P
     // 401 do lado do WhatsApp é sessão derrubada pelo aparelho — pareamento perdido,
     // não bloqueio de conta. Um banimento se manifesta no envio, não aqui.
     await markDisconnected(tenantId, reason ? `Conexão encerrada (${reason})` : null)
+    await forgetQrCode(tenantId)
   }
 }
 

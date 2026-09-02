@@ -87,6 +87,18 @@ export function unauthorized(detail = 'Credenciais inválidas'): AppError {
   return new AppError('ERR_IDENT_005', detail)
 }
 
+/**
+ * O Gotenberg está fora, ou não existe neste ambiente.
+ *
+ * Vira 503 e não 500 porque não há nada errado com o pedido: o relatório continua
+ * disponível em tela, e o PDF volta quando a infraestrutura voltar.
+ */
+export function documentUnavailable(
+  detail = 'A geração de PDF está indisponível no momento. Tente novamente em instantes.',
+): AppError {
+  return new AppError('ERR_LEDGER_013', detail)
+}
+
 export function registerErrorHandler(app: FastifyInstance): void {
   registerKitErrorHandler(app, { logger, validationError, notFound })
 }

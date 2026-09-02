@@ -13,6 +13,7 @@ import {
   IdCardIcon,
   HomeIcon,
   PawPrintIcon,
+  ReceiptIcon,
   SettingsIcon,
   UsersIcon,
   VanIcon,
@@ -47,6 +48,7 @@ type NavKey =
   | 'mensagens'
   | 'site'
   | 'financeiro'
+  | 'cobranca'
   | 'equipe'
   | 'configuracoes'
 
@@ -61,6 +63,7 @@ interface NavItem {
     | '/crm'
     | '/site'
     | '/financeiro/pacotes'
+    | '/cobranca'
     | '/equipe'
     | '/configuracoes'
   label: string
@@ -143,6 +146,22 @@ const NAV: NavItem[] = [
     icon: <WalletIcon />,
     tone: 'icon-money',
     requires: 'finance:read',
+  },
+  {
+    // Logo abaixo do Financeiro, e não dentro dele, porque a pergunta é outra: lá se
+    // configura o estabelecimento — pacotes, políticas —, aqui se olha o dinheiro que
+    // falta entrar e o que já entrou. Quem abre isto não vem ajustar nada; vem
+    // imprimir uma folha e pegar o telefone.
+    //
+    // O gate é `finance:configure`, o mesmo das rotas `/v1/ledger/reports/*`: os dois
+    // relatórios são leitura de gestão — um deles lista nome e telefone de todo mundo
+    // que está devendo —, e não material de balcão.
+    key: 'cobranca',
+    href: '/cobranca',
+    label: 'Cobrança',
+    icon: <ReceiptIcon />,
+    tone: 'icon-money',
+    requires: 'finance:configure',
   },
   {
     // Antes de Configurações porque é gente, não ajuste: quem abre este menu pensando

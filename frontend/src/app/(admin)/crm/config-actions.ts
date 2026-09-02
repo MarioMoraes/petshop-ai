@@ -177,6 +177,20 @@ export async function refreshWhatsappQrCodeAction(): Promise<ActionResult<Whatsa
   }
 }
 
+/**
+ * Recuperação (destrutiva): apaga a instância no provedor e cria outra do zero.
+ *
+ * Existe porque conectar e pedir QR novo reusam a mesma identidade, e há um estado em
+ * que o WhatsApp recusa justamente ela — daí nenhum QR resolver.
+ */
+export async function recreateWhatsappAction(): Promise<ActionResult<WhatsappConnection>> {
+  try {
+    return { ok: true, data: await serverApi().recreateWhatsapp() }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
 export async function getWhatsappConnectionAction(): Promise<ActionResult<WhatsappConnection>> {
   try {
     return { ok: true, data: await serverApi().getWhatsappConnection() }

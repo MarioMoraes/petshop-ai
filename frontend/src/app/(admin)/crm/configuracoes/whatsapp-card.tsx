@@ -13,6 +13,7 @@ import {
   connectWhatsappAction,
   disconnectWhatsappAction,
   getWhatsappConnectionAction,
+  recreateWhatsappAction,
   refreshWhatsappQrCodeAction,
 } from '../config-actions'
 
@@ -33,12 +34,14 @@ import {
 const POLL_INTERVAL_MS = 3_000
 
 /**
- * AC-03: quanto tempo o QR fica de pé antes de a tela oferecer outro.
+ * AC-03: quanto tempo um código fica de pé antes de a tela oferecer outro.
  *
- * Cinquenta segundos, e não sessenta: o provedor vence em torno de um minuto, e um
- * botão que aparece **depois** de o código morrer chega tarde — a pessoa já tentou.
+ * Conta a partir de **cada** código, não do primeiro: o provedor gira o QR sozinho a
+ * cada ~45s e o polling traz o novo, então o relógio reinicia junto. Setenta segundos
+ * porque, com o giro funcionando, um código nunca chega até aqui — "vencido" passou a
+ * significar "o giro parou", que é o caso em que o botão realmente ajuda.
  */
-const QR_LIFETIME_MS = 50_000
+const QR_LIFETIME_MS = 70_000
 
 interface Props {
   initial: WhatsappConnection
@@ -51,6 +54,7 @@ export function WhatsappCard({ initial, canConnect }: Props) {
   const [connection, setConnection] = useState(initial)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [qrExpired, setQrExpired] = useState(false)
+  const [confirmingRecreate, setConfirmingRecreate] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -65,9 +69,10 @@ export function WhatsappCard({ initial, canConnect }: Props) {
   const apply = useCallback(
     (next: WhatsappConnection & { qrCode?: string | null }) => {
       setConnection(next)
+      // O polling devolve o mesmo código a cada três segundos enquanto o provedor não
+      // gira; só a troca de verdade interessa, e é ela que reinicia o relógio abaixo.
       if (next.qrCode !== undefined && next.qrCode !== null) {
         setQrCode(next.qrCode)
-        setQrExpired(false)
       }
       if (next.status !== 'CONNECTING') setQrCode(null)
       if (next.status === 'CONNECTED' && previousStatus.current !== 'CONNECTED') {
@@ -79,6 +84,10 @@ export function WhatsappCard({ initial, canConnect }: Props) {
   )
 
   // ─── Polling enquanto o QR está na tela ────────────────────────────────────
+  // A mesma volta traz o estado da conexão **e** o código corrente: o provedor gira o
+  // QR a cada ~45s e avisa por webhook, e sem trazê-lo para cá a tela guardava o
+  // primeiro para sempre — a pessoa escaneava um código que já não existia do outro
+  // lado, e o WhatsApp respondia "tente novamente mais tarde".
   useEffect(() => {
     if (!waitingScan) return
 
@@ -88,16 +97,20 @@ export function WhatsappCard({ initial, canConnect }: Props) {
       })
     }, POLL_INTERVAL_MS)
 
-    // O QR morre sozinho; o polling não o renova. Quem pede outro é o dono, com um
-    // clique — recriar sem ele pedir gastaria chamada ao provedor com a aba esquecida
-    // aberta numa recepção a tarde inteira.
-    const expiry = setTimeout(() => setQrExpired(true), QR_LIFETIME_MS)
-
-    return () => {
-      clearInterval(timer)
-      clearTimeout(expiry)
-    }
+    return () => clearInterval(timer)
   }, [waitingScan, apply])
+
+  // ─── A vida do código que está na tela ─────────────────────────────────────
+  // Reinicia a cada código novo. Se o giro do provedor parar, este é o cronômetro que
+  // apaga a imagem e oferece o botão — recriar sozinho gastaria chamada ao provedor
+  // com a aba esquecida aberta numa recepção a tarde inteira.
+  useEffect(() => {
+    if (!qrCode) return
+
+    setQrExpired(false)
+    const expiry = setTimeout(() => setQrExpired(true), QR_LIFETIME_MS)
+    return () => clearTimeout(expiry)
+  }, [qrCode])
 
   function run(
     action: () => Promise<
@@ -161,6 +174,36 @@ export function WhatsappCard({ initial, canConnect }: Props) {
         </Alert>
       )}
 
+      {confirmingRecreate && (
+        <Alert tone="danger" icon={<AlertTriangleIcon />} title="Refazer a conexão do zero?">
+          Use isto quando o QR não conecta de jeito nenhum — quando o celular responde
+          &ldquo;não foi possível conectar&rdquo; mesmo com um código novo. A conexão
+          atual é apagada e criada outra do zero; você vai precisar ler um QR novo, e as
+          mensagens que estiverem esperando continuam esperando.
+          <span className="mt-3 flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={pending}
+              onClick={() => {
+                setConfirmingRecreate(false)
+                run(recreateWhatsappAction)
+              }}
+            >
+              {pending ? 'Refazendo…' : 'Sim, refazer'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={pending}
+              onClick={() => setConfirmingRecreate(false)}
+            >
+              Cancelar
+            </button>
+          </span>
+        </Alert>
+      )}
+
       {qrCode && (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-white p-6">
           {/* eslint-disable-next-line @next/next/no-img-element -- data URI vinda do
@@ -208,6 +251,19 @@ export function WhatsappCard({ initial, canConnect }: Props) {
               onClick={() => run(connectWhatsappAction)}
             >
               {pending ? 'Conectando…' : status === 'NOT_CONFIGURED' ? 'Conectar WhatsApp' : 'Reconectar'}
+            </button>
+          )}
+
+          {/* Recuperação. Só fora do estado conectado, e o backend recusa de novo lá —
+              um clique errado não pode derrubar uma sessão que funciona. */}
+          {status !== 'NOT_CONFIGURED' && status !== 'CONNECTED' && !confirmingRecreate && (
+            <button
+              type="button"
+              className="btn btn-ghost text-danger"
+              disabled={pending}
+              onClick={() => setConfirmingRecreate(true)}
+            >
+              Refazer a conexão
             </button>
           )}
         </div>

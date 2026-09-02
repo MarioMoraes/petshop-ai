@@ -505,3 +505,118 @@ export const ReceivablesSchema = z.object({
   totalCents: z.number().int(),
 })
 export type Receivables = z.infer<typeof ReceivablesSchema>
+
+// ─── Cobrança — os dois relatórios imprimíveis ───────────────────────────────
+
+/**
+ * Os relatórios do menu Cobrança.
+ *
+ * Não substituem `ReceivablesSchema`/`CashflowSchema`, que continuam sendo os números
+ * do painel: aquilo é um total por faixa, isto é a lista de quem deve e a de quanto
+ * entrou em cada dia. O painel responde "como estamos"; o relatório é o papel que
+ * alguém leva para o telefone ou para o fechamento do caixa.
+ */
+
+export const AGING_BUCKETS = ['0_30d', '30_60d', '60d_plus'] as const
+export const AgingBucketSchema = z.enum(AGING_BUCKETS)
+export type AgingBucket = z.infer<typeof AgingBucketSchema>
+
+export const AGING_BUCKET_LABELS: Record<AgingBucket, string> = {
+  '0_30d': 'Até 30 dias',
+  '30_60d': '30 a 60 dias',
+  '60d_plus': 'Mais de 60 dias',
+}
+
+export const AccountsReceivableQuerySchema = z.object({
+  /** Data-base do envelhecimento. Sem ela, hoje no fuso do estabelecimento. */
+  asOf: z.iso.date().optional(),
+  /** Só quem já passou de N dias de atraso. Zero traz tudo em aberto. */
+  minOverdueDays: z.coerce.number().int().min(0).max(3650).default(0),
+})
+export type AccountsReceivableQuery = z.output<typeof AccountsReceivableQuerySchema>
+
+export const AccountsReceivableRowSchema = z.object({
+  tutorId: z.uuid(),
+  /** Nome social quando houver — RN-14. */
+  tutorName: z.string(),
+  /** Telefone em E.164, decifrado. É por ele que a cobrança acontece. */
+  phone: z.string().nullable(),
+  /** `occurred_at` do débito em aberto mais antigo. */
+  oldestDueAt: z.iso.datetime(),
+  /** Dias entre `oldestDueAt` e a data-base. */
+  overdueDays: z.number().int(),
+  openEntries: z.number().int(),
+  buckets: z.object({
+    '0_30d': z.number().int(),
+    '30_60d': z.number().int(),
+    '60d_plus': z.number().int(),
+  }),
+  totalCents: z.number().int(),
+})
+export type AccountsReceivableRow = z.infer<typeof AccountsReceivableRowSchema>
+
+export const AccountsReceivableReportSchema = z.object({
+  tenantName: z.string(),
+  /** Instante em que o relatório foi montado — sai impresso no rodapé. */
+  generatedAt: z.iso.datetime(),
+  /** O fuso do estabelecimento: é nele que o papel imprime datas e horas. */
+  timezone: z.string(),
+  asOf: z.iso.date(),
+  minOverdueDays: z.number().int(),
+  buckets: z.object({
+    '0_30d': z.number().int(),
+    '30_60d': z.number().int(),
+    '60d_plus': z.number().int(),
+  }),
+  totalCents: z.number().int(),
+  tutorsCount: z.number().int(),
+  /**
+   * Verdadeiro quando a lista foi cortada em `ACCOUNTS_RECEIVABLE_MAX_ROWS`. O papel
+   * diz isso em letras, para ninguém fechar o mês achando que viu tudo.
+   */
+  truncated: z.boolean(),
+  rows: z.array(AccountsReceivableRowSchema),
+})
+export type AccountsReceivableReport = z.infer<typeof AccountsReceivableReportSchema>
+
+/** Teto da listagem. Acima disso o papel deixa de ser lista e vira resma. */
+export const ACCOUNTS_RECEIVABLE_MAX_ROWS = 500
+
+export const ReceiptsByDayQuerySchema = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+})
+export type ReceiptsByDayQuery = z.output<typeof ReceiptsByDayQuerySchema>
+
+const MethodTotalSchema = z.object({
+  method: PaymentMethodSchema,
+  totalCents: z.number().int(),
+  count: z.number().int(),
+})
+
+export const ReceiptsByDayRowSchema = z.object({
+  /** O dia **no fuso do estabelecimento**, não em UTC. */
+  date: z.iso.date(),
+  totalCents: z.number().int(),
+  count: z.number().int(),
+  byMethod: z.array(MethodTotalSchema),
+})
+export type ReceiptsByDayRow = z.infer<typeof ReceiptsByDayRowSchema>
+
+export const ReceiptsByDayReportSchema = z.object({
+  tenantName: z.string(),
+  generatedAt: z.iso.datetime(),
+  timezone: z.string(),
+  from: z.iso.date(),
+  to: z.iso.date(),
+  totalCents: z.number().int(),
+  paymentsCount: z.number().int(),
+  /** Total do período por forma de pagamento — o fechamento do caixa. */
+  byMethod: z.array(MethodTotalSchema),
+  /** Um item por dia **com movimento**; dia sem entrada não vira linha vazia. */
+  days: z.array(ReceiptsByDayRowSchema),
+})
+export type ReceiptsByDayReport = z.infer<typeof ReceiptsByDayReportSchema>
+
+/** Janela máxima do relatório diário. Um ano de linhas ainda cabe num PDF. */
+export const RECEIPTS_BY_DAY_MAX_DAYS = 366

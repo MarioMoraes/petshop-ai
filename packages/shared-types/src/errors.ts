@@ -94,6 +94,11 @@ export const LEDGER_ERRORS = {
   ERR_LEDGER_010: { status: 403, title: 'Permissão financeira insuficiente' },
   ERR_LEDGER_011: { status: 409, title: 'Conta em revisão de consistência' },
   ERR_LEDGER_012: { status: 409, title: 'Chave de idempotência reutilizada' },
+  /**
+   * O Gotenberg não respondeu, ou o ambiente não tem um. É infraestrutura fora do ar,
+   * não erro de quem pediu — daí 503, e não 500: o cliente pode tentar de novo.
+   */
+  ERR_LEDGER_013: { status: 503, title: 'Geração de documento indisponível' },
 } as const
 
 export type LedgerErrorCode = keyof typeof LEDGER_ERRORS

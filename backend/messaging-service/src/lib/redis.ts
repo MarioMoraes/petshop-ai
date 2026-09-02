@@ -26,6 +26,15 @@ export const CACHE_KEYS = {
    * quando esta chave é derrubada.
    */
   whatsapp: (tenantId: string) => `wa:${tenantId}`,
+  /**
+   * O QR **corrente** do pareamento.
+   *
+   * A Evolution roda o código a cada ~45s e empurra cada troca pelo webhook. Sem este
+   * cache o evento chegava e era descartado, a tela ficava com o primeiro código para
+   * sempre, e todo pareamento falhava com "tente novamente mais tarde" — do lado do
+   * WhatsApp, sem uma linha de erro do nosso.
+   */
+  whatsappQr: (tenantId: string) => `waqr:${tenantId}`,
 } as const
 
 export const CACHE_TTL_SECONDS = {
@@ -45,6 +54,12 @@ export const CACHE_TTL_SECONDS = {
    * que ele se perde.
    */
   whatsapp: 60,
+  /**
+   * Um pouco mais que o giro do provedor (~45s), para que a chave nunca fique vazia
+   * entre uma troca e a seguinte. Curto assim de propósito: QR é o que mais depressa
+   * apodrece, e um código vencido na tela é pior que nenhum.
+   */
+  whatsappQr: 90,
 } as const
 
 export const { getRedis, cacheGet, cacheSet, cacheDelete, closeRedis } = createCache({
