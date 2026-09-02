@@ -2,6 +2,7 @@ import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
   AUTOMATION_KEYS,
   AutomationConfigSchema,
+  TAXI_AUTOMATION_KEYS,
   type AutomationKey,
   type MessageChannelPref,
   type UpdateAutomationInput,
@@ -74,6 +75,46 @@ const DEFAULTS: Record<
     label: 'Pet pronto',
     description: 'Avisa que o pet terminou o atendimento e pode ser buscado.',
   },
+
+  // As do Taxi Dog nascem **ligadas**, ao contrário de "pet pronto".
+  //
+  // A diferença não é de gosto: "seu pet está pronto" é uma cortesia que o petshop pode
+  // preferir dar por telefone, mas "o motorista está a caminho" é informação que o tutor
+  // precisa ter para estar em casa quando a campainha tocar. Uma corrida anunciada
+  // depois da chegada não anunciou nada — e o custo de não avisar recai sobre a coleta
+  // frustrada, que é justamente o que o módulo tenta evitar.
+  taxi_en_route: {
+    enabled: true,
+    channel: 'AUTO',
+    templateKey: 'taxi_en_route',
+    config: {},
+    label: 'Taxi Dog a caminho',
+    description: 'Avisa o tutor quando o motorista sai para a coleta, com a janela prometida.',
+  },
+  taxi_arrived: {
+    enabled: true,
+    channel: 'AUTO',
+    templateKey: 'taxi_arrived',
+    config: {},
+    label: 'Taxi Dog chegou',
+    description: 'Avisa que o motorista chegou no endereço e está esperando.',
+  },
+  taxi_delivered: {
+    enabled: true,
+    channel: 'AUTO',
+    templateKey: 'taxi_delivered',
+    config: {},
+    label: 'Taxi Dog entregou',
+    description: 'Confirma ao tutor que o pet chegou em casa.',
+  },
+  taxi_failed: {
+    enabled: true,
+    channel: 'AUTO',
+    templateKey: 'taxi_failed',
+    config: {},
+    label: 'Coleta frustrada',
+    description: 'Avisa o tutor quando não foi possível buscar o pet, e por quê.',
+  },
 }
 
 export async function resolveAutomation(
@@ -99,8 +140,16 @@ export async function resolveAutomation(
 
 export async function listAutomations(tenantId: string): Promise<ResolvedAutomation[]> {
   return withTenant(tenantId, async (tx) => {
+    // AC-04 de MOD-CRM-09: com o Taxi Dog desligado, as automações dele não aparecem.
+    // Quatro interruptores que não fazem nada, no meio dos que fazem, ensinam o admin a
+    // não confiar na tela.
+    const taxi = await tx.taxiSettings.findFirst({ select: { enabled: true } })
+    const taxiOn = taxi?.enabled ?? false
+    const hidden = new Set<string>(taxiOn ? [] : TAXI_AUTOMATION_KEYS)
+
     const resolved: ResolvedAutomation[] = []
     for (const key of AUTOMATION_KEYS) {
+      if (hidden.has(key)) continue
       resolved.push(await resolveAutomation(tx, key))
     }
     return resolved

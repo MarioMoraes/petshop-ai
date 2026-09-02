@@ -185,6 +185,66 @@ services:
       resources:
         limits: { memory: 512M }
 
+  evolution:
+    # O canal WhatsApp (MOD-CRM-01). Tag fixa: uma sessão pareada é estado, e uma
+    # atualização silenciosa desconectaria todos os petshops de uma vez.
+    #
+    # **Sem `ports` e sem rota no Caddyfile.** A Evolution manda mensagem pelo número
+    # da empresa; publicá-la seria oferecer isso à internet com uma chave de API entre
+    # ela e o mundo. Quem fala com ela é o messaging-service, pela rede interna. Para
+    # depurar, use um túnel SSH.
+    # `evoapicloud`, e não `atendai`: o projeto trocou de organização no Docker Hub em
+    # 2025, e o repositório antigo parou na v2.2.3 e deixou de aceitar pull anônimo —
+    # um `docker pull` de lá responde "pull access denied", que parece erro de rede.
+    image: evoapicloud/evolution-api:v2.3.7
+    networks: [interna]
+    environment:
+      SERVER_URL: http://evolution:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?defina EVOLUTION_API_KEY}
+      DATABASE_ENABLED: 'true'
+      DATABASE_PROVIDER: postgresql
+      # O database `evolution` é criado pelo migrator (ver infra/Dockerfile): aqui não
+      # há `docker-entrypoint-initdb.d` montado.
+      DATABASE_CONNECTION_URI: postgresql://postgres:${POSTGRES_PASSWORD:?}@postgres:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: petshop
+      DATABASE_SAVE_DATA_INSTANCE: 'true'
+      # O histórico é do produto, cifrado com a DEK do tenant. Uma segunda cópia em
+      # claro aqui seria um depósito de dado pessoal fora de todo o controle do MOD-CRM.
+      DATABASE_SAVE_DATA_NEW_MESSAGE: 'false'
+      DATABASE_SAVE_MESSAGE_UPDATE: 'false'
+      DATABASE_SAVE_DATA_CONTACTS: 'false'
+      DATABASE_SAVE_DATA_CHATS: 'false'
+      CACHE_REDIS_ENABLED: 'true'
+      CACHE_REDIS_URI: redis://:${REDIS_PASSWORD:?}@redis:6379/7
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_LOCAL_ENABLED: 'false'
+      WEBHOOK_GLOBAL_ENABLED: 'false'
+      DEL_INSTANCE: 'false'
+      LOG_LEVEL: ERROR,WARN
+    volumes:
+      - evolution-instances:/evolution/instances
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:8080/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+    deploy:
+      replicas: 1
+      restart_policy: *restart
+      placement:
+        # No manager, como o Postgres: o volume das sessões é local ao nó, e uma
+        # instância pareada que acorda noutra máquina acorda sem sessão.
+        constraints: [node.role == manager]
+      update_config: { order: stop-first }
+      resources:
+        limits: { memory: 1G }
+
   # ─── Migração ───────────────────────────────────────────────────────────────
   # Tarefa de uma passada só. `condition: on-failure` e não `any`: ao terminar
   # com 0 a task fica `Complete` e o Swarm NÃO a reinicia — é assim que se faz um
@@ -382,6 +442,13 @@ services:
     environment:
       <<: *backend-env
       MESSAGING_SERVICE_PORT: 3010
+      # O canal WhatsApp (MOD-CRM-01). Só este serviço fala com a Evolution.
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:?defina EVOLUTION_API_KEY}
+      # Para onde a Evolution devolve o pareamento e as quedas de conexão. É o próprio
+      # serviço, pelo nome na rede interna — o webhook nunca passa pelo gateway nem
+      # pelo Caddy, e por isso não existe superfície pública nova.
+      EVOLUTION_WEBHOOK_URL: http://messaging-service:3010/internal/v1/whatsapp/webhook
     healthcheck:
       <<: *hc-gateway
       test: ['CMD-SHELL', 'curl -sf http://localhost:3010/health || exit 1']
@@ -495,5 +562,6 @@ volumes:
   postgres-data:
   redis-data:
   rabbitmq-data:
+  evolution-instances:
   caddy-data:
   caddy-config:

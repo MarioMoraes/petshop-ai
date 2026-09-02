@@ -84,6 +84,17 @@ export function badWebhook(detail = 'Assinatura inválida'): AppError {
   return new AppError('ERR_CRM_014', detail)
 }
 
+/**
+ * MOD-CRM-01: a Evolution não respondeu, ou respondeu recusando.
+ *
+ * 502 e não 500: o problema não é deste serviço, e a diferença importa para quem lê o
+ * log de produção às três da manhã. O detalhe do provedor viaja junto — "não foi
+ * possível conectar" sem a frase original não diz a ninguém onde olhar.
+ */
+export function providerUnavailable(detail: string): AppError {
+  return new AppError('ERR_CRM_015', detail)
+}
+
 export function registerErrorHandler(app: FastifyInstance): void {
   registerKitErrorHandler(app, { logger, validationError, notFound })
 }

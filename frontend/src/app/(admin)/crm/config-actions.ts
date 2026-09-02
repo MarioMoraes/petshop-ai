@@ -12,6 +12,7 @@ import type {
   UpdateAutomationInput,
   UpdateMessagingSettingsInput,
   UpsertMessageTemplateInput,
+  WhatsappConnection,
 } from '@petshop/shared-types'
 import { serverApi } from '@/lib/api'
 
@@ -143,6 +144,53 @@ export async function deleteSuppressionAction(id: string): Promise<ActionResult<
     await serverApi().deleteMessagingSuppression(id)
     revalidatePath('/crm/configuracoes')
     return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Conexão do WhatsApp (MOD-CRM-01) ────────────────────────────────────────
+
+/**
+ * As quatro exigem `crm:connect_channel`, menos a leitura — o corte do AC-06.
+ *
+ * **Nenhuma delas faz `revalidatePath`.** O cartão vive de estado de cliente enquanto o
+ * QR está na tela: um `router.refresh()` a cada resposta do polling reconstruiria a
+ * página inteira de três em três segundos, e o QR — que não é persistido — sumiria na
+ * primeira volta. Quem recarrega a página é o cartão, uma vez, quando o pareamento
+ * conclui.
+ */
+
+export async function connectWhatsappAction(): Promise<ActionResult<WhatsappConnection>> {
+  try {
+    return { ok: true, data: await serverApi().connectWhatsapp() }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function refreshWhatsappQrCodeAction(): Promise<ActionResult<WhatsappConnection>> {
+  try {
+    return { ok: true, data: await serverApi().refreshWhatsappQrCode() }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function getWhatsappConnectionAction(): Promise<ActionResult<WhatsappConnection>> {
+  try {
+    return { ok: true, data: await serverApi().getWhatsappConnection() }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function disconnectWhatsappAction(): Promise<ActionResult<WhatsappConnection>> {
+  try {
+    const result = await serverApi().disconnectWhatsapp()
+    // Esta sim revalida: desconectar muda o canal de tudo o que a tela mostra abaixo.
+    revalidatePath('/crm/configuracoes')
+    return { ok: true, data: result }
   } catch (error) {
     return toFailure(error)
   }

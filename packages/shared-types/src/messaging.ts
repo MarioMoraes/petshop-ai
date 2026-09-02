@@ -45,6 +45,7 @@ export const MessageStatusSchema = z.enum([
   'DEAD',
   'BLOCKED',
   'CANCELLED',
+  'MERGED',
 ])
 export type MessageStatus = z.infer<typeof MessageStatusSchema>
 
@@ -268,6 +269,22 @@ export const AutomationConfigSchema = z.discriminatedUnion('key', [
   z.strictObject({
     key: z.literal('service_done'),
   }),
+  // As do Taxi Dog não têm parâmetro: o disparo é o evento da corrida, e não há nada a
+  // afinar. Continuam na união porque `z.strictObject` é o que recusa uma `config` que
+  // o petshop acha que configurou — mandar `leadHours` para "chegamos" gravaria um
+  // campo que ninguém lê.
+  z.strictObject({
+    key: z.literal('taxi_en_route'),
+  }),
+  z.strictObject({
+    key: z.literal('taxi_arrived'),
+  }),
+  z.strictObject({
+    key: z.literal('taxi_delivered'),
+  }),
+  z.strictObject({
+    key: z.literal('taxi_failed'),
+  }),
 ])
 export type AutomationConfig = z.output<typeof AutomationConfigSchema>
 
@@ -276,6 +293,24 @@ export const AUTOMATION_KEYS = [
   'appointment_confirmed',
   'appointment_cancelled',
   'service_done',
+  'taxi_en_route',
+  'taxi_arrived',
+  'taxi_delivered',
+  'taxi_failed',
+] as const
+
+/**
+ * As que só fazem sentido com o Taxi Dog ligado (AC-04 de MOD-CRM-09).
+ *
+ * `listAutomations` as omite quando `taxi_settings.enabled` é falso. Configuração de um
+ * módulo desligado é ruído: quatro interruptores que não fazem nada, no meio dos que
+ * fazem, ensinam o admin a não confiar na tela.
+ */
+export const TAXI_AUTOMATION_KEYS = [
+  'taxi_en_route',
+  'taxi_arrived',
+  'taxi_delivered',
+  'taxi_failed',
 ] as const
 export type AutomationKey = (typeof AUTOMATION_KEYS)[number]
 
@@ -350,6 +385,8 @@ export const MessageStatsSchema = z.object({
   dead: z.number().int(),
   blocked: z.number().int(),
   cancelled: z.number().int(),
+  /** RN-08: absorvidas por outra mensagem. Saíram — só não sozinhas. */
+  merged: z.number().int(),
   /** Por motivo — bloqueio alto por falta de consentimento é problema de cadastro. */
   blockedByReason: z.record(z.string(), z.number().int()),
   /** Idade, em segundos, da mensagem mais velha ainda na fila (AC-03 de MOD-CRM-11). */
@@ -451,6 +488,8 @@ export const MESSAGE_STATUS_LABELS: Record<MessageStatus, string> = {
   DEAD: 'Desistimos',
   BLOCKED: 'Bloqueada',
   CANCELLED: 'Cancelada',
+  // Não é "não enviada": o texto dela saiu, dentro da mensagem que a absorveu.
+  MERGED: 'Agrupada',
 }
 
 export const MESSAGE_CHANNEL_LABELS: Record<MessageChannel, string> = {
@@ -500,4 +539,85 @@ export const MESSAGE_CHANNEL_PREF_LABELS: Record<MessageChannelPref, string> = {
   AUTO: 'Automático',
   WHATSAPP: 'WhatsApp',
   EMAIL: 'E-mail',
+}
+
+// ─── A conexão do WhatsApp (MOD-CRM-01) ──────────────────────────────────────
+
+export const WhatsappInstanceStatusSchema = z.enum([
+  'NOT_CONFIGURED',
+  'CONNECTING',
+  'CONNECTED',
+  'DISCONNECTED',
+  'BANNED',
+])
+export type WhatsappInstanceStatus = z.infer<typeof WhatsappInstanceStatusSchema>
+
+/**
+ * O estado da conexão como a tela o recebe.
+ *
+ * **Sem a chave da instância e sem o token do webhook**, nem cifrados: são credenciais
+ * do provedor, e o navegador não tem o que fazer com elas. O que a tela precisa é
+ * decidir entre quatro desenhos — não configurado, QR na mão, conectado, quebrado.
+ *
+ * `qrCode` só vem em `CONNECTING`, é um data URI e **não** é guardado: expira em
+ * segundos do lado da Evolution, e um QR velho na tela é pior que nenhum, porque a
+ * pessoa fica tentando escanear.
+ */
+export const WhatsappConnectionSchema = z.object({
+  status: WhatsappInstanceStatusSchema,
+  phone: z.string().nullable(),
+  connectedAt: z.iso.datetime().nullable(),
+  lastSeenAt: z.iso.datetime().nullable(),
+  /** `data:image/png;base64,…`, só enquanto `CONNECTING`. */
+  qrCode: z.string().nullable(),
+  /** O que o provedor disse ao cair ou bloquear — a faixa vermelha precisa de motivo. */
+  lastError: z.string().nullable(),
+  /**
+   * RN-06: quantos dias ainda faltam do aquecimento, ou `null` fora dele. A tela avisa
+   * que o teto está reduzido de propósito — senão o admin lê "só saíram 30" como falha.
+   */
+  warmupDaysLeft: z.number().int().nullable(),
+  /** O teto que vale **hoje**, já com o aquecimento aplicado. */
+  effectiveDailyCap: z.number().int(),
+})
+export type WhatsappConnection = z.infer<typeof WhatsappConnectionSchema>
+
+export const WHATSAPP_STATUS_LABELS: Record<WhatsappInstanceStatus, string> = {
+  NOT_CONFIGURED: 'Não conectado',
+  CONNECTING: 'Aguardando leitura do QR',
+  CONNECTED: 'Conectado',
+  DISCONNECTED: 'Desconectado',
+  BANNED: 'Número bloqueado',
+}
+
+/**
+ * RN-06 — o aquecimento do número.
+ *
+ * Nos primeiros dias após o pareamento o teto diário é `min(dailyCap, 30 × dias)`.
+ * Vive aqui, e não no messaging-service, porque a **tela** precisa da mesma conta para
+ * dizer ao admin quanto pode sair hoje — duas implementações da mesma regra divergem
+ * no dia em que uma delas mudar.
+ */
+export const WHATSAPP_WARMUP_DAYS = 7
+export const WHATSAPP_WARMUP_DAILY_STEP = 30
+
+/** Dia 1 do aquecimento vale 30; o dia 8 em diante devolve o teto cheio. */
+export function whatsappWarmupCap(
+  dailyCap: number,
+  warmupStartedAt: Date | null | undefined,
+  now: Date = new Date(),
+): { cap: number; daysLeft: number | null } {
+  if (!warmupStartedAt) return { cap: dailyCap, daysLeft: null }
+
+  const elapsedMs = now.getTime() - warmupStartedAt.getTime()
+  const dayIndex = Math.floor(elapsedMs / 86_400_000) + 1
+  if (dayIndex > WHATSAPP_WARMUP_DAYS) return { cap: dailyCap, daysLeft: null }
+
+  // Relógio adiantado, ou uma data futura gravada à mão: trata-se como o primeiro dia,
+  // que é o lado seguro — nunca conceder teto cheio por causa de um erro de data.
+  const day = Math.max(1, dayIndex)
+  return {
+    cap: Math.min(dailyCap, day * WHATSAPP_WARMUP_DAILY_STEP),
+    daysLeft: WHATSAPP_WARMUP_DAYS - day + 1,
+  }
 }

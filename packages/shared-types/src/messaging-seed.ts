@@ -38,6 +38,12 @@ const BASE_VARIABLES = [
   'petshop.telefone',
 ] as const
 
+/**
+ * As do Taxi Dog. `taxi.janela` é a promessa que o tutor precisa para estar em casa —
+ * "entre 8h e 9h" —, e `taxi.motivo` só aparece no template de coleta frustrada.
+ */
+const TAXI_VARIABLES = [...BASE_VARIABLES, 'pets.lista', 'taxi.janela', 'taxi.motivo'] as const
+
 const APPOINTMENT_VARIABLES = [
   ...BASE_VARIABLES,
   'pets.lista',
@@ -123,6 +129,75 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         '{{tutor.primeiro_nome}},\n\n' +
         '{{pets.lista}} já está pronto(a) e esperando por você no {{petshop.nome}}.\n\n' +
         'Serviço: {{agendamento.servico}}',
+    },
+  },
+
+  // ─── Taxi Dog (MOD-CRM-09) ─────────────────────────────────────────────────
+  //
+  // Os quatro são **OPERATIONAL**, e essa é a única coisa que os separa dos demais:
+  // atravessam a janela de silêncio (RN-04) e não contam para o teto diário. Um
+  // motorista tocando a campainha às 7h30 é um fato sobre o pet, não uma promoção — e
+  // um aviso que chega depois da campainha não avisou nada.
+  {
+    key: 'taxi_en_route',
+    label: 'Taxi Dog a caminho',
+    category: 'OPERATIONAL',
+    variables: TAXI_VARIABLES,
+    subject: 'Estamos a caminho para buscar {{pets.lista}}',
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, saímos para buscar {{pets.lista}}. ' +
+        'A previsão de chegada é {{taxi.janela}}.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Saímos para buscar {{pets.lista}}. A previsão de chegada é {{taxi.janela}}.\n\n' +
+        'Qualquer coisa, fale com a gente pelo {{petshop.telefone}}.',
+    },
+  },
+  {
+    key: 'taxi_arrived',
+    label: 'Taxi Dog chegou',
+    category: 'OPERATIONAL',
+    variables: TAXI_VARIABLES,
+    subject: 'Chegamos para buscar {{pets.lista}}',
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, chegamos no endereço para buscar {{pets.lista}}. ' +
+        'Estamos esperando na porta.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Chegamos no endereço para buscar {{pets.lista}}. Estamos esperando na porta.',
+    },
+  },
+  {
+    key: 'taxi_delivered',
+    label: 'Taxi Dog entregou',
+    category: 'OPERATIONAL',
+    variables: TAXI_VARIABLES,
+    subject: '{{pets.lista}} chegou em casa',
+    body: {
+      WHATSAPP: '{{tutor.primeiro_nome}}, {{pets.lista}} já está em casa. Até a próxima!',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        '{{pets.lista}} já está em casa. Obrigado pela confiança!',
+    },
+  },
+  {
+    key: 'taxi_failed',
+    label: 'Taxi Dog não conseguiu buscar',
+    category: 'OPERATIONAL',
+    variables: TAXI_VARIABLES,
+    subject: 'Não conseguimos buscar {{pets.lista}}',
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, passamos para buscar {{pets.lista}}, mas {{taxi.motivo}}.\n\n' +
+        'O horário no {{petshop.nome}} continua de pé. Fale com a gente pelo ' +
+        '{{petshop.telefone}} para combinarmos o que fazer.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Passamos para buscar {{pets.lista}}, mas {{taxi.motivo}}.\n\n' +
+        'O horário no {{petshop.nome}} continua de pé. Fale com a gente pelo ' +
+        '{{petshop.telefone}} para combinarmos o que fazer.',
     },
   },
 ]

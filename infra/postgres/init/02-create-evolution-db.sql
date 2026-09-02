@@ -1,0 +1,12 @@
+-- Banco da Evolution API (MOD-CRM-01).
+--
+-- A Evolution guarda o estado das sessões de WhatsApp — credenciais do pareamento,
+-- chaves de criptografia do protocolo e o que ela decidir sobre mensagens. É dado de
+-- infraestrutura de um terceiro, e por isso fica **num database separado**: nenhuma
+-- tabela dela deve conviver com as 65 tabelas sob RLS do produto, nem aparecer num
+-- `prisma migrate diff` do `petshop`.
+--
+-- Mesma instância de Postgres, e não uma segunda: são as mesmas máquina, backup e
+-- monitoração, e um segundo container de banco no VPS se pagaria só se o dado fosse
+-- de outra ordem de grandeza — não é.
+CREATE DATABASE evolution;

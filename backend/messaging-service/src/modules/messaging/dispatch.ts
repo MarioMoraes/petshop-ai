@@ -1,4 +1,5 @@
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
+import { whatsappWarmupCap } from '@petshop/shared-types'
 import { publishEvent } from '../../lib/events.js'
 import { logger, recordMetric } from '../../lib/logger.js'
 import { consumeDailySlot, consumeRateSlot } from '../../lib/redis.js'
@@ -8,6 +9,7 @@ import { portFor } from './ports/registry.js'
 import { allows, loadConsents } from './consent.js'
 import { isSuppressed, suppress } from './suppressions.js'
 import { loadSettings } from './settings.js'
+import { markBanned, warmupStartedAt } from './whatsapp.js'
 import { tenantToday } from './window.js'
 
 /**
@@ -28,6 +30,15 @@ import { tenantToday } from './window.js'
 
 const BACKOFF_MINUTES = [1, 5, 30, 120]
 const MAX_ATTEMPTS = 5
+
+/**
+ * De quanto em quanto tempo reexaminar a fila de um canal que caiu.
+ *
+ * Dez minutos, e não o backoff normal: a volta do WhatsApp não depende de nada que
+ * este serviço faça — depende do dono reconectar o celular. Insistir de minuto em
+ * minuto só encheria o log; esperar duas horas atrasaria o retorno sem motivo.
+ */
+const CHANNEL_DOWN_RETRY_MINUTES = 10
 
 /** RN-05: intervalo com jitter entre disparos. Rajada uniforme é assinatura de robô. */
 const JITTER_MIN_MS = 2_000
@@ -172,8 +183,20 @@ async function dispatchOne(
 
   // O teto diário é só de MARKETING (RN-05): lembrete e aviso de taxi não podem ser
   // represados por um limite pensado para campanha.
-  if (prepared.message.category === 'MARKETING') {
-    if (!(await consumeDailySlot(tenantId, today, settings.dailyCap))) {
+  //
+  // **Menos durante o aquecimento (RN-06)**, e esta é uma divergência consciente da
+  // regra acima: nos sete primeiros dias após o pareamento o teto vale para *todo*
+  // envio de WhatsApp, transacional inclusive. Um teto que não conta lembrete não
+  // protege o número de nada — e proteger o número é a única coisa que a RN-06 existe
+  // para fazer. Fora da janela de aquecimento nada muda: `warmup.daysLeft` é `null` e o
+  // caminho volta a ser o de sempre.
+  const warmup =
+    prepared.message.channel === 'WHATSAPP'
+      ? whatsappWarmupCap(settings.dailyCap, await warmupStartedAt(tenantId), now)
+      : { cap: settings.dailyCap, daysLeft: null }
+
+  if (prepared.message.category === 'MARKETING' || warmup.daysLeft !== null) {
+    if (!(await consumeDailySlot(tenantId, today, warmup.cap))) {
       await withTenant(tenantId, (tx) =>
         tx.message.update({
           where: { id: messageId },
@@ -186,6 +209,7 @@ async function dispatchOne(
 
   const port = portFor(prepared.message.channel)
   const result = await port.send({
+    tenantId,
     to: prepared.to,
     subject: prepared.subject,
     body: prepared.body,
@@ -220,6 +244,47 @@ async function dispatchOne(
       sentAt: now.toISOString(),
     })
     return 'sent'
+  }
+
+  // AC-05 de MOD-CRM-01: a Meta bloqueou o número.
+  //
+  // A ordem aqui é o que faz a regra valer. Primeiro a mensagem volta à fila — ela não
+  // errou nada, foi o canal que morreu —, e **só então** a instância cai. Fazer o
+  // contrário, dentro do adaptador, deixaria justamente a mensagem que descobriu o
+  // banimento para trás: o caminho de falha abaixo escreveria por cima dela.
+  //
+  // `markBanned` cuida do resto: derruba a instância, avisa o MOD-ADMIN e move para o
+  // e-mail tudo o que estava esperando — esta inclusive.
+  if (result.errorCode === 'WHATSAPP_BANNED') {
+    await withTenant(tenantId, (tx) =>
+      tx.message.update({
+        where: { id: messageId },
+        data: { status: 'QUEUED', attempts: 0, scheduledFor: null },
+      }),
+    )
+    await markBanned(tenantId, result.errorDetail ?? null)
+    return 'failed'
+  }
+
+  // AC-04 de MOD-CRM-01: o canal saiu do ar, a mensagem não errou nada.
+  //
+  // O celular do dono ficou três dias sem internet e a fila continua íntegra: nada é
+  // descartado, nada conta tentativa, e tudo escoa quando ele reconectar. Sem esta
+  // saída a mensagem passaria por `CHANNEL_UNAVAILABLE` cinco vezes e morreria — três
+  // dias de queda custariam a fila inteira, e o petshop descobriria pelos clientes.
+  if (result.errorCode === 'CHANNEL_UNAVAILABLE') {
+    await withTenant(tenantId, (tx) =>
+      tx.message.update({
+        where: { id: messageId },
+        data: {
+          status: 'SCHEDULED',
+          scheduledFor: new Date(now.getTime() + CHANNEL_DOWN_RETRY_MINUTES * 60_000),
+          errorCode: result.errorCode ?? null,
+          errorDetail: result.errorDetail ?? null,
+        },
+      }),
+    )
+    return 'throttled'
   }
 
   const attempts = prepared.message.attempts + 1

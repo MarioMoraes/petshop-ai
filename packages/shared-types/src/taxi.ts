@@ -89,6 +89,26 @@ export const TAXI_FAILURE_REASON_LABELS: Record<TaxiFailureReason, string> = {
   OTHER: 'Outro motivo',
 }
 
+/**
+ * O mesmo motivo, dito ao **tutor** (AC-03 de MOD-CRM-09).
+ *
+ * Duas listas porque são dois públicos. "Ninguém atendeu" é o que a recepção lê no
+ * painel: seco, cabe numa coluna, e ela sabe o contexto. O tutor recebe uma mensagem no
+ * celular sem contexto nenhum, e a frase precisa carregá-lo junto — nunca o enum, e
+ * nunca uma etiqueta de sistema traduzida ao pé da letra.
+ *
+ * São frases de meio de período: o template as encaixa depois de "não conseguimos
+ * buscar o Thor hoje".
+ */
+export const TAXI_FAILURE_REASON_TUTOR_TEXT: Record<TaxiFailureReason, string> = {
+  NO_ONE_HOME: 'não conseguimos encontrar ninguém no endereço',
+  WRONG_ADDRESS: 'não conseguimos localizar o endereço',
+  PET_REFUSED: 'o pet não quis embarcar',
+  NO_SPACE: 'não havia espaço no veículo desta vez',
+  VEHICLE_ISSUE: 'tivemos um problema com o veículo',
+  OTHER: 'houve um imprevisto no caminho',
+}
+
 export const TAXI_CANCEL_REASONS = [
   'TUTOR_REQUEST',
   'APPOINTMENT_CANCELLED',

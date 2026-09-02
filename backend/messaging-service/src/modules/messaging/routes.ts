@@ -9,8 +9,9 @@ import {
   UpsertMessageTemplateSchema,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
+import { resolveWhatsappInstanceByTokenHash, withTenant } from '@petshop/db'
 import { hasPermission, requirePermission, requireTenantContext } from '../../auth/context.js'
-import { forbidden, invalid, notFound } from '../../lib/errors.js'
+import { badWebhook, forbidden, invalid, notFound } from '../../lib/errors.js'
 import { parseInput } from '../../lib/validate.js'
 import type { ActorContext } from './actor.js'
 import { cancelMessage, enqueueMessage, retryMessage } from './messages.js'
@@ -19,6 +20,14 @@ import { render } from './render.js'
 import { getSettings, toApi, updateSettings } from './settings.js'
 import { createSuppression, listSuppressions, removeSuppression } from './suppressions.js'
 import { listTemplates, resetTemplate, upsertTemplate } from './templates.js'
+import {
+  applyWebhook,
+  connectWhatsapp,
+  disconnectWhatsapp,
+  getConnection,
+  refreshQrCode,
+  webhookTokenHash,
+} from './whatsapp.js'
 
 /**
  * Rotas do messaging-service (PRD relacionamento_crm_08 §5).
@@ -245,6 +254,64 @@ export async function registerMessagingRoutes(app: FastifyInstance): Promise<voi
     },
   )
 
+  // ─── Conexão do WhatsApp (MOD-CRM-01) ──────────────────────────────────────
+
+  /**
+   * O corte de permissão aqui é mais estreito que o de configurar, e de propósito
+   * (AC-06): a recepção **vê** o estado do canal — precisa saber por que o lembrete não
+   * saiu antes de ligar para o tutor —, mas conectar o número da empresa é ato de dono.
+   */
+  app.get(
+    '/v1/messaging/whatsapp',
+    { preHandler: requirePermission('crm:read', 'Você não tem permissão para ver a conexão') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      return getConnection(auth.tenantId)
+    },
+  )
+
+  app.post(
+    '/v1/messaging/whatsapp/connect',
+    {
+      preHandler: requirePermission(
+        'crm:connect_channel',
+        'Conectar o WhatsApp do estabelecimento é uma ação do administrador',
+      ),
+    },
+    async (request, reply) => {
+      const auth = requireTenantContext(request)
+      // O nome da instância na Evolution é `tenant-<slug>` — ver `instanceNameFor`.
+      const tenant = await withTenant(auth.tenantId, (tx) =>
+        tx.tenant.findFirstOrThrow({ select: { slug: true } }),
+      )
+      const result = await connectWhatsapp(actorOf(request), tenant.slug)
+      return reply.status(201).send(result)
+    },
+  )
+
+  /** AC-03: QR novo sem recriar a instância — recriar perderia a sessão. */
+  app.post(
+    '/v1/messaging/whatsapp/qr',
+    {
+      preHandler: requirePermission(
+        'crm:connect_channel',
+        'Conectar o WhatsApp do estabelecimento é uma ação do administrador',
+      ),
+    },
+    async (request) => refreshQrCode(actorOf(request)),
+  )
+
+  app.delete(
+    '/v1/messaging/whatsapp',
+    {
+      preHandler: requirePermission(
+        'crm:connect_channel',
+        'Desconectar o WhatsApp do estabelecimento é uma ação do administrador',
+      ),
+    },
+    async (request) => disconnectWhatsapp(actorOf(request)),
+  )
+
   // ─── Supressões ────────────────────────────────────────────────────────────
 
   app.get(
@@ -271,6 +338,42 @@ export async function registerMessagingRoutes(app: FastifyInstance): Promise<voi
     { preHandler: requirePermission('crm:configure', 'Você não tem permissão para editar a lista') },
     async (request, reply) => {
       await removeSuppression(actorOf(request), request.params.id)
+      return reply.status(204).send()
+    },
+  )
+}
+
+/**
+ * O callback da Evolution (RN-11) — **fora** da autenticação de serviço.
+ *
+ * Registrado à parte porque o provedor não conhece o contrato HMAC do gateway: ele é um
+ * container na rede interna mandando um POST. O que autentica é o token, conferido
+ * contra o hash guardado na instância — e é o mesmo mecanismo do link de convite do
+ * MOD-IDENT-06: o valor cru nunca foi persistido.
+ *
+ * O caminho começa com `/internal/` e **não** está em nenhum prefixo do proxy do
+ * gateway: não há como alcançá-lo de fora do docker.
+ */
+export async function registerWhatsappWebhookRoutes(app: FastifyInstance): Promise<void> {
+  app.post<{ Querystring: { token?: string } }>(
+    '/internal/v1/whatsapp/webhook',
+    async (request, reply) => {
+      // Cabeçalho **ou** query: versões da Evolution divergem em quais cabeçalhos
+      // personalizados repassam, e um webhook que não se identifica é um pareamento que
+      // nunca conclui — sem erro em lugar nenhum.
+      const token =
+        (request.headers['x-webhook-token'] as string | undefined) ?? request.query.token ?? ''
+      if (!token) throw badWebhook('Webhook sem token')
+
+      const instance = await resolveWhatsappInstanceByTokenHash(webhookTokenHash(token))
+      // Mesma resposta para token inválido e token de instância apagada: a diferença
+      // diria a quem tenta se acertou o formato.
+      if (!instance) throw badWebhook('Webhook com token desconhecido')
+
+      await applyWebhook(instance.tenantId, request.body as Parameters<typeof applyWebhook>[1])
+      // 204 sempre que o token confere, mesmo para evento que não nos interessa: a
+      // Evolution reenvia o que não recebe 2xx, e reenviar um `messages.upsert` que
+      // ignoramos de propósito encheria a fila dela para sempre.
       return reply.status(204).send()
     },
   )

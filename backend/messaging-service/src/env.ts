@@ -28,6 +28,23 @@ export const { loadEnv, resetEnvCache } = defineEnv('messaging-service', {
    * padrão (RN-05) — puxar mais do que se pode enviar só encheria memória.
    */
   DISPATCH_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(20),
+
+  /**
+   * Evolution API — o canal WhatsApp (MOD-CRM-01).
+   *
+   * As três são opcionais pela mesma razão que `RESEND_API_KEY`: sem elas o canal fica
+   * **indisponível** e a cascata `AUTO` cai para o e-mail, que é exatamente o
+   * comportamento de antes desta fatia. É o que permite rodar a suíte inteira e o app
+   * de desenvolvimento sem um container de WhatsApp no ar.
+   */
+  EVOLUTION_API_URL: z.string().url().optional(),
+  EVOLUTION_API_KEY: z.string().min(1).optional(),
+  /**
+   * Para onde a Evolution devolve o pareamento e as quedas de conexão. Precisa ser um
+   * endereço que **ela** alcance: em desenvolvimento ela é container e o serviço roda
+   * no host (`host.docker.internal`); em produção os dois são containers na mesma rede.
+   */
+  EVOLUTION_WEBHOOK_URL: z.string().url().optional(),
 })
 
 export type Env = ReturnType<typeof loadEnv>

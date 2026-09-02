@@ -33,15 +33,35 @@ process.env.DISABLE_JOBS = 'true'
 process.env.DISABLE_REDIS = 'true'
 process.env.NODE_ENV = 'test'
 
+// A Evolution é dublada por `installFakeEvolution`, nunca chamada. Estas duas existem
+// para que `getEvolutionPort()` não caia no caminho "não configurada" nos testes que
+// não instalam dublê — é o mesmo estado de uma instalação com o canal disponível.
+process.env.EVOLUTION_API_URL = 'http://evolution.invalido'
+process.env.EVOLUTION_API_KEY = 'chave-de-teste'
+process.env.EVOLUTION_WEBHOOK_URL = 'http://messaging.invalido/internal/v1/whatsapp/webhook'
+
 export const ownerPrisma: OwnerClient = createOwnerClient()
 
 const { buildApp } = await import('../src/app.js')
-const { loadEnv } = await import('../src/env.js')
+const { loadEnv, resetEnvCache } = await import('../src/env.js')
+
+/**
+ * `loadEnv()` é memoizado, e `lib/logger.ts` o chama **no corpo do módulo**. Um arquivo
+ * de teste que importe um módulo do serviço antes deste harness — `dispatch.js`, por
+ * exemplo — congela o ambiente antes das linhas acima rodarem, e as variáveis que este
+ * arquivo acabou de definir simplesmente não existem.
+ *
+ * Isso não dá erro: dá um `undefined` a quilômetros da causa. Derrubar o cache aqui é o
+ * que torna o harness independente da ordem de importação do teste.
+ */
+resetEnvCache()
 const { clearTenantKeyCache, createTenantKey, encryptForTenant, withTenant } = await import(
   '@petshop/db'
 )
 const { setEmailPort } = await import('../src/modules/messaging/ports/email.js')
 const { setWhatsAppPort } = await import('../src/modules/messaging/ports/whatsapp.js')
+const { setEvolutionPort } = await import('../src/modules/messaging/ports/evolution.js')
+type EvolutionPort = import('../src/modules/messaging/ports/evolution.js').EvolutionPort
 
 // ─── App ─────────────────────────────────────────────────────────────────────
 
@@ -58,6 +78,7 @@ export async function closeHarness(): Promise<void> {
   app = null
   setEmailPort(null)
   setWhatsAppPort(null)
+  setEvolutionPort(null)
   const { disconnectPrisma } = await import('@petshop/db')
   await Promise.all([ownerPrisma.$disconnect(), disconnectPrisma()])
 }
@@ -92,6 +113,7 @@ export interface FakePort {
 export function resetPorts(): void {
   setEmailPort(null)
   setWhatsAppPort(null)
+  setEvolutionPort(null)
 }
 
 /**
@@ -104,8 +126,12 @@ export function installFakeEmailPort(options: { available?: boolean } = {}): Fak
   const sent: SentMessage[] = []
   let failure: { permanent?: boolean; errorCode?: string } | null = null
 
+  const available = options.available ?? true
+
   setEmailPort({
-    available: options.available ?? true,
+    async isAvailable() {
+      return available
+    },
     async send(request) {
       if (failure) {
         const current = failure
@@ -132,17 +158,142 @@ export function installFakeEmailPort(options: { available?: boolean } = {}): Fak
   }
 }
 
-/** Liga o canal WhatsApp com um dublê — a fatia 2 antecipada só para o teste de cascata. */
-export function installFakeWhatsAppPort(): FakePort {
+/**
+ * Liga o canal WhatsApp com um dublê.
+ *
+ * `available` é função e não booleano porque a disponibilidade real é **por tenant** —
+ * é o que permite um teste ter o petshop A pareado e o B não, no mesmo processo, e
+ * exercitar a queda de canal da cascata `AUTO` como ela acontece em produção.
+ */
+export function installFakeWhatsAppPort(
+  options: { available?: boolean | ((tenantId: string) => boolean) } = {},
+): FakePort {
   const sent: SentMessage[] = []
+  const decide = options.available ?? true
+  let failure: { permanent?: boolean; errorCode?: string } | null = null
+
   setWhatsAppPort({
-    available: true,
+    async isAvailable(tenantId) {
+      return typeof decide === 'function' ? decide(tenantId) : decide
+    },
     async send(request) {
+      if (failure) {
+        const current = failure
+        failure = null
+        return {
+          ok: false,
+          providerMessageId: null,
+          provider: 'fake-wa',
+          permanent: current.permanent ?? false,
+          errorCode: current.errorCode ?? 'TEST',
+          errorDetail: 'falha injetada pelo teste',
+        }
+      }
       sent.push({ to: request.to, subject: request.subject, body: request.body })
       return { ok: true, providerMessageId: `wa-${sent.length}`, provider: 'fake-wa' }
     },
   })
-  return { sent, failNext: () => undefined }
+
+  return {
+    sent,
+    failNext(next = {}) {
+      failure = next
+    },
+  }
+}
+
+/** O que um dublê da Evolution registrou, para o teste conferir. */
+export interface FakeEvolution {
+  created: { instanceName: string; webhookUrl: string; webhookToken: string }[]
+  qrRequests: string[]
+  sent: { instanceName: string; to: string; text: string }[]
+  loggedOut: string[]
+  /** Faz o próximo `sendText` falhar. `WHATSAPP_BANNED` derruba a instância (AC-05). */
+  failNextSend(errorCode: string, detail?: string): void
+  /** O token gerado na criação — é o que o teste manda no webhook. */
+  lastToken(): string
+}
+
+/**
+ * O provedor de WhatsApp, dublado.
+ *
+ * Ao contrário do `ChannelPort`, este dublê fica **abaixo** do adaptador: o caminho
+ * exercitado é o de verdade — a instância no banco, a chave cifrada com a DEK do
+ * tenant, o hash do token, a máquina de estados. O que não acontece é o HTTP.
+ */
+export function installFakeEvolution(): FakeEvolution {
+  const created: FakeEvolution['created'] = []
+  const qrRequests: string[] = []
+  const sent: FakeEvolution['sent'] = []
+  const loggedOut: string[] = []
+  let nextFailure: { errorCode: string; detail: string } | null = null
+
+  const port: EvolutionPort = {
+    configured: true,
+    async createInstance(input) {
+      created.push(input)
+      return { apiKey: `key-${created.length}`, qrCode: 'data:image/png;base64,QVFS' }
+    },
+    async requestQrCode(instanceName) {
+      qrRequests.push(instanceName)
+      return 'data:image/png;base64,Tk9WTw=='
+    },
+    async fetchSession() {
+      return { state: 'open', phone: '+5511999990000' }
+    },
+    async sendText(input) {
+      if (nextFailure) {
+        const failure = nextFailure
+        nextFailure = null
+        return {
+          ok: false,
+          providerMessageId: null,
+          permanent: true,
+          errorCode: failure.errorCode,
+          errorDetail: failure.detail,
+        }
+      }
+      sent.push({ instanceName: input.instanceName, to: input.to, text: input.text })
+      return {
+        ok: true,
+        providerMessageId: `evo-${sent.length}`,
+        permanent: false,
+        errorCode: null,
+        errorDetail: null,
+      }
+    },
+    async logout(instanceName) {
+      loggedOut.push(instanceName)
+    },
+  }
+
+  setEvolutionPort(port)
+
+  return {
+    created,
+    qrRequests,
+    sent,
+    loggedOut,
+    failNextSend(errorCode, detail = 'falha injetada') {
+      nextFailure = { errorCode, detail }
+    },
+    lastToken() {
+      const last = created.at(-1)
+      if (!last) throw new Error('nenhuma instância foi criada')
+      return last.webhookToken
+    },
+  }
+}
+
+/** O callback da Evolution, como ela o manda: anônimo, com o token no cabeçalho. */
+export async function callWebhook(token: string, payload: unknown) {
+  const instance = await getApp()
+  return instance.inject({
+    method: 'POST',
+    url: '/internal/v1/whatsapp/webhook',
+    headers: { 'x-webhook-token': token },
+    payload: payload as object,
+  })
 }
 
 // ─── Cenário ─────────────────────────────────────────────────────────────────

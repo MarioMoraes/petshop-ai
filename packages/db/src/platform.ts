@@ -269,3 +269,26 @@ export async function expirePendingInvitations(now = new Date()): Promise<number
     return result.count
   })
 }
+
+/**
+ * O tenant de uma instância de WhatsApp, pelo hash do token do webhook (MOD-CRM-01).
+ *
+ * O callback da Evolution chega **sem contexto**: é um POST anônimo dizendo "a sessão
+ * `tenant-fulano` abriu". Descobrir de quem é precede o contexto de tenant, exatamente
+ * como resolver o convite pelo token — daí morar aqui, e não no serviço.
+ *
+ * Busca por hash: o token cru nunca é persistido, e quem não o tem não consegue
+ * enumerar instância nenhuma. Devolve o mínimo — id do tenant e nome da instância —,
+ * nenhum dado pessoal e nenhuma credencial: quem age é `withTenant()`, do outro lado.
+ */
+export async function resolveWhatsappInstanceByTokenHash(
+  tokenHash: string,
+): Promise<{ tenantId: string; instanceName: string } | null> {
+  return runInPlatformScope(async () => {
+    const row = await getMaintenancePrisma().whatsappInstance.findFirst({
+      where: { webhookTokenHash: tokenHash, tenant: { deletedAt: null } },
+      select: { tenantId: true, instanceName: true },
+    })
+    return row ? { tenantId: row.tenantId, instanceName: row.instanceName } : null
+  })
+}

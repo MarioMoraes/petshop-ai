@@ -13,6 +13,7 @@ import {
   type MessageChannelPref,
   type MessagingSettingsResponse,
   type SuppressionResponse,
+  type WhatsappConnection,
 } from '@petshop/shared-types'
 import { Badge, Card, Field, FormError, SectionHead } from '@/components/ui'
 import { BellIcon, CalendarIcon, ShieldCheckIcon } from '@/components/icons'
@@ -22,6 +23,7 @@ import {
   updateAutomationAction,
   updateMessagingSettingsAction,
 } from '../config-actions'
+import { WhatsappCard } from './whatsapp-card'
 
 /**
  * Cada bloco salva sozinho, como em `/configuracoes` e no Taxi Dog.
@@ -34,9 +36,17 @@ interface Props {
   settings: MessagingSettingsResponse
   automations: AutomationResponse[]
   suppressions: SuppressionResponse[]
+  whatsapp: WhatsappConnection | null
+  canConnectChannel: boolean
 }
 
-export function CrmSettingsForm({ settings, automations, suppressions }: Props) {
+export function CrmSettingsForm({
+  settings,
+  automations,
+  suppressions,
+  whatsapp,
+  canConnectChannel,
+}: Props) {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
 
@@ -45,6 +55,9 @@ export function CrmSettingsForm({ settings, automations, suppressions }: Props) 
       <FormError message={error} />
       {saved && <p className="text-sm text-success">{saved}</p>}
 
+      {/* Antes da chave geral: ela decide **se** manda, o cartão decide **por onde** —
+          e um motor ligado sem canal de WhatsApp entrega tudo por e-mail sem avisar. */}
+      {whatsapp && <WhatsappCard initial={whatsapp} canConnect={canConnectChannel} />}
       <MasterSwitch settings={settings} onError={setError} onSaved={setSaved} />
       <Automations automations={automations} onError={setError} onSaved={setSaved} />
       <EngineSettings settings={settings} onError={setError} onSaved={setSaved} />

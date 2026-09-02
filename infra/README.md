@@ -18,7 +18,24 @@ impede migrar para orquestrador depois — as imagens são as mesmas.
 | `scheduling-service` | 3006 | não |
 | `billing-ledger-service` | 3007 | não |
 | `postgres` / `redis` / `rabbitmq` / `gotenberg` | — | não |
+| `evolution` | 8080 | não — **nem por rota no Caddy** |
 | `migrator` | — | roda uma vez e morre |
+
+A Evolution API (canal WhatsApp, MOD-CRM-01) é a única dependência que merece uma
+frase à parte: ela envia mensagem pelo número do próprio petshop, então publicá-la
+seria oferecer isso à internet com uma chave de API entre ela e o mundo. Quem fala
+com ela é só o `messaging-service`, pela rede interna; para depurar, use um túnel
+SSH. O database dela é separado (`evolution`, na mesma instância de Postgres) e é
+o `migrator` que o cria — em produção não há `docker-entrypoint-initdb.d` montado.
+
+> **Em desenvolvimento, num volume que já existia antes desta fatia**, o
+> `postgres/init/02-create-evolution-db.sql` não roda (o init só executa em volume
+> novo) e a Evolution sobe reiniciando. Crie o database uma vez:
+>
+> ```sh
+> docker compose -f infra/docker-compose.yml exec postgres \
+>   psql -U postgres -c 'CREATE DATABASE evolution'
+> ```
 
 O gateway não é publicado de propósito: o cliente HTTP do frontend é `server-only`,
 então o browser nunca fala com a API. A superfície pública é uma porta HTTPS.
@@ -122,7 +139,11 @@ por e-mail quando `RESEND_API_KEY` existe e o domínio de `MAIL_FROM` está
 verificado na conta (SPF + DKIM). Sem a chave nada quebra: o convite é criado
 igual e o link aparece na tela de Equipe, para o admin entregar por WhatsApp.
 
-**6. Segredos.**
+**6. Chave da Evolution API.** `EVOLUTION_API_KEY` no `.env.production` — é a senha
+da API que pareia e envia pelo WhatsApp dos tenants. Gere uma aleatória como as
+senhas de role. Sem ela o canal fica indisponível e tudo cai para o e-mail.
+
+**7. Segredos.**
 
 ```sh
 cp .env.production.example .env.production

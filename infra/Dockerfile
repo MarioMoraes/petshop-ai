@@ -98,7 +98,11 @@ RUN test -n "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" \
 # antes dos serviços, e termina.
 FROM build AS migrator
 ENV NODE_ENV=production
-# Três passos, nesta ordem, e a composição só libera os serviços se todos passarem:
+# Quatro passos, nesta ordem, e a composição só libera os serviços se todos passarem:
+#   0. database da Evolution — em produção não há `docker-entrypoint-initdb.d`
+#                         montado, então o `postgres/init/*.sql` que resolve isso em
+#                         desenvolvimento não roda. Só o owner cria database, e o
+#                         migrator é o único que conecta como ele. Idempotente.
 #   1. migrate deploy   — schema, políticas de RLS, triggers
 #   2. senhas das roles — a migration cria app_user com senha 'app_user'; produção
 #                         não pode ficar assim, e só o owner consegue trocar
@@ -108,6 +112,8 @@ ENV NODE_ENV=production
 # cegas, misturando "o banco ainda não subiu" com "a migração falhou" no mesmo log.
 CMD ["sh", "-c", "set -e; \
   until pg_isready -d \"$DATABASE_URL\" >/dev/null 2>&1; do echo 'migrator: esperando o Postgres…'; sleep 2; done; \
+  psql \"$DATABASE_URL\" -tAc \"SELECT 1 FROM pg_database WHERE datname = 'evolution'\" | grep -q 1 \
+    || psql \"$DATABASE_URL\" -c 'CREATE DATABASE evolution'; \
   pnpm --filter @petshop/db exec prisma migrate deploy; \
   pnpm --filter @petshop/db exec tsx prisma/set-role-passwords.ts; \
   pnpm --filter @petshop/db exec tsx prisma/seed.ts"]

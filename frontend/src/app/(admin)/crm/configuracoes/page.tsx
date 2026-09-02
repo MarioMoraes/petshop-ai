@@ -18,7 +18,7 @@ import { CrmSettingsForm } from './settings-form'
 export const dynamic = 'force-dynamic'
 
 export default async function CrmConfigPage() {
-  const [me, settings, automations, suppressions] = await Promise.all([
+  const [me, settings, automations, suppressions, whatsapp] = await Promise.all([
     serverApi().me(),
     serverApi()
       .getMessagingSettings()
@@ -36,9 +36,15 @@ export default async function CrmConfigPage() {
       .listMessagingSuppressions()
       .then((response) => response.data)
       .catch(() => []),
+    // Falha aqui esconde o cartão em vez de derrubar a tela: o resto da configuração
+    // continua utilizável mesmo com a conexão de WhatsApp indisponível de consultar.
+    serverApi()
+      .getWhatsappConnection()
+      .catch(() => null),
   ])
 
   const canConfigure = me.permissions.includes('crm:configure')
+  const canConnectChannel = me.permissions.includes('crm:connect_channel')
 
   const header = (
     <PageHeader
@@ -94,6 +100,8 @@ export default async function CrmConfigPage() {
         settings={settings}
         automations={automations}
         suppressions={suppressions}
+        whatsapp={whatsapp}
+        canConnectChannel={canConnectChannel}
       />
     </div>
   )

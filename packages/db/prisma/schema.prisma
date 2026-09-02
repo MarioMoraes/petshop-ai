@@ -132,6 +132,7 @@ model Tenant {
   billingSettings   BillingSettings?
   taxiSettings      TaxiSettings?
   messagingSettings MessagingSettings?
+  whatsappInstance  WhatsappInstance?
   siteSettings      SiteSettings?
   memberships       Membership[]
   invitations       Invitation[]
@@ -2495,6 +2496,10 @@ enum MessageStatus {
   DEAD
   BLOCKED
   CANCELLED
+  /// RN-08: absorvida por outra mensagem dentro da janela de 5 minutos. A linha fica
+  /// para a idempotência (o `dedupe_key` do evento continua gravado) e para o painel
+  /// poder dizer a verdade — não foi cancelada, saiu dentro de outra.
+  MERGED
 }
 
 enum MessageBlockReason {
@@ -2569,6 +2574,11 @@ model Message {
   /// O que invalida a mensagem enquanto ela espera (AC-06 de MOD-CRM-03).
   originType MessageOriginType? @map("origin_type")
   originId   String?            @map("origin_id") @db.Uuid
+
+  /// RN-08: quando esta mensagem foi absorvida por outra, qual é a outra. Sem FK
+  /// declarada de propósito — é referência dentro da mesma tabela e do mesmo tenant, e
+  /// a retenção apaga corpos sem apagar linhas, então nada aqui precisa cascatear.
+  mergedIntoId String? @map("merged_into_id") @db.Uuid
 
   /// Quando pode sair. Nulo = assim que o worker pegar.
   scheduledFor DateTime? @map("scheduled_for") @db.Timestamptz(6)
@@ -2736,6 +2746,65 @@ model Automation {
 
   @@unique([tenantId, key], map: "idx_automations_key")
   @@map("automations")
+}
+
+enum WhatsappInstanceStatus {
+  NOT_CONFIGURED
+  CONNECTING
+  CONNECTED
+  DISCONNECTED
+  BANNED
+}
+
+/// A conexão do WhatsApp do petshop (MOD-CRM-01).
+///
+/// Uma linha por tenant: o número é o da empresa, não o de um atendente. É esta tabela
+/// que torna a disponibilidade do canal uma pergunta **por tenant** — antes dela
+/// `ChannelPort.available` era um booleano do processo inteiro, o que só servia
+/// enquanto o único canal era o e-mail.
+///
+/// `warmup_started_at` não é decoração de auditoria: é a âncora do teto progressivo da
+/// RN-06. Um número recém-pareado disparando quinhentas mensagens no primeiro dia é
+/// banimento pedido, e o banimento custa o ativo mais caro do petshop — o número que
+/// os clientes já têm salvo.
+model WhatsappInstance {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  provider String @default("evolution") @db.VarChar(20)
+  /// `tenant-<slug>` na Evolution. Fica gravado porque o slug do tenant é travado, mas
+  /// o nome da instância precisa sobreviver a qualquer mudança futura dele.
+  instanceName String @map("instance_name") @db.VarChar(80)
+
+  status WhatsappInstanceStatus @default(NOT_CONFIGURED)
+
+  /// Preenchido no pareamento, pelo que o provedor informa. É público — é o número que
+  /// o petshop divulga —, então não é cifrado.
+  phoneE164 String? @map("phone_e164") @db.VarChar(20)
+
+  /// A chave da instância na Evolution, cifrada com a DEK do tenant.
+  apiKeyEncrypted String? @map("api_key_encrypted")
+
+  /// Autentica o callback (RN-11). Só o hash: quem lê o banco não consegue forjar um
+  /// webhook, e o token em claro existe uma única vez, na criação da instância.
+  webhookTokenHash String? @map("webhook_token_hash") @db.Char(64)
+
+  connectedAt     DateTime? @map("connected_at") @db.Timestamptz(6)
+  lastSeenAt      DateTime? @map("last_seen_at") @db.Timestamptz(6)
+  warmupStartedAt DateTime? @map("warmup_started_at") @db.Timestamptz(6)
+
+  /// O que o provedor disse quando a conexão caiu ou o número foi bloqueado. Serve à
+  /// faixa vermelha da tela — "desconectado" sem motivo não ajuda ninguém a reconectar.
+  lastError String? @map("last_error") @db.VarChar(300)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// A busca do webhook é por hash, no escopo de plataforma: o callback chega sem saber
+  /// de que tenant é, e é este índice que o resolve.
+  @@index([webhookTokenHash], map: "idx_whatsapp_webhook_token")
+  @@map("whatsapp_instances")
 }
 
 // ---------------------------------------------------------------------------

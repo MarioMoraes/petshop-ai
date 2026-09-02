@@ -241,6 +241,63 @@ export async function givenAppointment(
   })
 }
 
+/**
+ * Uma corrida do Taxi Dog pendurada num agendamento (MOD-CRM-09).
+ *
+ * `windowStartsAt`/`windowEndsAt` são a promessa que o tutor recebe — o texto do aviso
+ * diz "entre 8h e 9h", e é daqui que sai.
+ */
+export async function givenTaxiRide(
+  fixture: TenantFixture,
+  appointment: AppointmentFixture,
+  options: { leg?: 'PICKUP' | 'DROPOFF'; failureReason?: string; window?: [Date, Date] } = {},
+): Promise<string> {
+  const [start, end] = options.window ?? [
+    new Date('2026-09-03T11:00:00Z'),
+    new Date('2026-09-03T12:00:00Z'),
+  ]
+
+  return withTenant(fixture.tenantId, async (tx) => {
+    const ride = await tx.taxiRide.create({
+      data: {
+        tenantId: fixture.tenantId,
+        appointmentId: appointment.appointmentId,
+        petId: appointment.petId,
+        tutorId: appointment.tutorId,
+        leg: options.leg ?? 'PICKUP',
+        status: 'REQUESTED',
+        windowStartsAt: start,
+        windowEndsAt: end,
+        // Snapshot cifrado do endereço (§4 do MOD-TAXI): a corrida guarda para onde
+        // ir, e não uma FK para um cadastro que pode mudar depois.
+        zipCode: '01310100',
+        streetEncrypted: await encryptForTenant(tx, fixture.tenantId, 'Avenida Paulista'),
+        numberEncrypted: await encryptForTenant(tx, fixture.tenantId, '1000'),
+        district: 'Bela Vista',
+        city: 'São Paulo',
+        state: 'SP',
+        priceCents: BigInt(2500),
+        ...(options.failureReason
+          ? { failureReason: options.failureReason as 'NO_ONE_HOME' }
+          : {}),
+      },
+      select: { id: true },
+    })
+    return ride.id
+  })
+}
+
+/** Liga o Taxi Dog. Sem isto as automações de corrida somem da listagem (AC-04). */
+export async function enableTaxi(fixture: TenantFixture): Promise<void> {
+  await withTenant(fixture.tenantId, (tx) =>
+    tx.taxiSettings.upsert({
+      where: { tenantId: fixture.tenantId },
+      update: { enabled: true },
+      create: { tenantId: fixture.tenantId, enabled: true },
+    }),
+  )
+}
+
 // ─── Requisições autenticadas ────────────────────────────────────────────────
 
 export interface CallerOptions {

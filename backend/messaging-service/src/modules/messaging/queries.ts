@@ -151,6 +151,7 @@ export async function messageStats(
       dead: counts.get('DEAD') ?? 0,
       blocked: counts.get('BLOCKED') ?? 0,
       cancelled: counts.get('CANCELLED') ?? 0,
+      merged: counts.get('MERGED') ?? 0,
       blockedByReason,
       oldestPendingSeconds: oldest
         ? Math.floor((Date.now() - oldest.createdAt.getTime()) / 1000)

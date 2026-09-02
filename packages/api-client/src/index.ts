@@ -54,6 +54,7 @@ import {
   ResolvedTemplateSchema,
   SuppressionResponseSchema,
   TemplatePreviewSchema,
+  WhatsappConnectionSchema,
   PaginatedTaxiRidesSchema,
   TaxiBoardSchema,
   TaxiQuoteSchema,
@@ -1565,6 +1566,39 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'DELETE',
         path: `/v1/messaging/suppressions/${id}`,
         schema: z.unknown(),
+      }),
+
+    // ─── Conexão do WhatsApp (MOD-CRM-01) ───────────────────────────────────
+    //
+    // `connect` e `qr` devolvem `qrCode`; `getWhatsappConnection` nunca devolve — o QR
+    // vence em cerca de um minuto do lado do provedor, e um QR guardado é um QR morto.
+
+    getWhatsappConnection: () =>
+      request({
+        method: 'GET',
+        path: '/v1/messaging/whatsapp',
+        schema: WhatsappConnectionSchema,
+      }),
+
+    connectWhatsapp: () =>
+      request({
+        method: 'POST',
+        path: '/v1/messaging/whatsapp/connect',
+        schema: WhatsappConnectionSchema,
+      }),
+
+    refreshWhatsappQrCode: () =>
+      request({
+        method: 'POST',
+        path: '/v1/messaging/whatsapp/qr',
+        schema: WhatsappConnectionSchema,
+      }),
+
+    disconnectWhatsapp: () =>
+      request({
+        method: 'DELETE',
+        path: '/v1/messaging/whatsapp',
+        schema: WhatsappConnectionSchema,
       }),
 
     listAutomations: () =>

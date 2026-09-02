@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { loadEnv } from '../../env.js'
 import { logger } from '../../lib/logger.js'
 import { loadAppointmentVariables } from './appointment-vars.js'
+import { loadTaxiVariables } from './taxi-vars.js'
 import { resolveAutomation } from './automations.js'
 import { getMessagingPort } from './messaging-port.js'
 
@@ -41,6 +42,20 @@ const AtendimentoConcluidoSchema = z.object({
 const TutorAnonimizadoSchema = z.object({
   tenantId: z.uuid(),
   tutorId: z.uuid(),
+})
+
+/**
+ * Os eventos de corrida (MOD-CRM-09).
+ *
+ * `notify` vem do MOD-TAXI e é o que decide se o tutor deve saber — quem publicou já
+ * sabia o que o de cá não sabe. O caso concreto é o AC-02 de MOD-TAXI-08: "coletei" na
+ * perna de volta é o pet **saindo do salão**, e o tutor recebe o "entreguei" minutos
+ * depois. Duas mensagens para o mesmo trajeto é o que faz o cliente silenciar o número.
+ */
+const TaxiCorridaSchema = z.object({
+  tenantId: z.uuid(),
+  rideId: z.uuid(),
+  notify: z.boolean().optional(),
 })
 
 /** Confirmação do horário recém-marcado. */
@@ -101,6 +116,64 @@ export async function handleTutorAnonimizado(payload: unknown): Promise<void> {
   }
 }
 
+// ─── Taxi Dog (MOD-CRM-09) ───────────────────────────────────────────────────
+
+/** "Saímos para buscar" — com a janela prometida (AC-01). */
+export async function handleTaxiACaminho(payload: unknown): Promise<void> {
+  await notifyRide(payload, 'taxi_en_route')
+}
+
+/** "Chegamos e estamos na porta". */
+export async function handleTaxiChegou(payload: unknown): Promise<void> {
+  await notifyRide(payload, 'taxi_arrived')
+}
+
+/**
+ * "O pet chegou em casa" (AC-02).
+ *
+ * Costuma cair no mesmo minuto que o `atendimento.concluido`, e é o caso que a RN-08
+ * nomeia. O agrupamento **não** acontece aqui: quem consolida as duas numa só é o
+ * messaging-service, no enfileiramento, porque é o único lugar que enxerga as duas
+ * origens. Daqui saem dois pedidos, e é assim que deve ser.
+ */
+export async function handleTaxiEntregue(payload: unknown): Promise<void> {
+  await notifyRide(payload, 'taxi_delivered')
+}
+
+/** Coleta frustrada (AC-03). O motivo sai em português, nunca o enum. */
+export async function handleTaxiFalhou(payload: unknown): Promise<void> {
+  await notifyRide(payload, 'taxi_failed')
+}
+
+async function notifyRide(
+  payload: unknown,
+  key: 'taxi_en_route' | 'taxi_arrived' | 'taxi_delivered' | 'taxi_failed',
+): Promise<void> {
+  const event = TaxiCorridaSchema.parse(payload)
+  if (event.notify === false) return
+
+  const automation = await withTenant(event.tenantId, (tx) => resolveAutomation(tx, key))
+  if (!automation.enabled) return
+
+  const context = await withTenant(event.tenantId, (tx) => loadTaxiVariables(tx, event.rideId))
+  if (!context) return
+
+  await getMessagingPort().enqueue({
+    tenantId: event.tenantId,
+    tutorId: context.tutorId,
+    petId: context.petId,
+    templateKey: automation.templateKey,
+    channel: automation.channel,
+    // Por corrida **e** por etapa: a mesma corrida gera "a caminho", "chegamos" e
+    // "entregamos", e uma chave só por corrida faria as duas últimas serem descartadas
+    // como duplicata.
+    dedupeKey: `${key}:${event.rideId}`,
+    originType: 'TAXI_RIDE',
+    originId: event.rideId,
+    variables: context.variables,
+  })
+}
+
 async function cancelPending(tenantId: string, appointmentId: string): Promise<void> {
   const { count } = await withTenant(tenantId, (tx) =>
     tx.message.updateMany({
@@ -151,6 +224,10 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'agendamento.reagendado': handleAgendamentoReagendado,
   'atendimento.concluido': handleAtendimentoConcluido,
   'tutor.anonimizado': handleTutorAnonimizado,
+  'taxi.a_caminho': handleTaxiACaminho,
+  'taxi.chegou': handleTaxiChegou,
+  'taxi.entregue': handleTaxiEntregue,
+  'taxi.falhou': handleTaxiFalhou,
 }
 
 let connection: ChannelModel | null = null

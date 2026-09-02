@@ -29,7 +29,12 @@ const PERMANENT_STATUSES = new Set([400, 401, 403, 404, 422])
 
 function createResendPort(apiKey: string, from: string): ChannelPort {
   return {
-    available: true,
+    // O e-mail está de pé para todo tenant da instalação: sem `RESEND_API_KEY` ele
+    // degrada para log, e nunca fica indisponível. É o contraste com o WhatsApp, que
+    // depende de um pareamento por petshop.
+    async isAvailable() {
+      return true
+    },
     async send(request: SendRequest): Promise<SendResult> {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS)
@@ -91,7 +96,9 @@ function createResendPort(apiKey: string, from: string): ChannelPort {
 /** Sem provedor configurado: registra que havia mensagem a enviar e segue. */
 function createLoggingPort(motivo: string): ChannelPort {
   return {
-    available: true,
+    async isAvailable() {
+      return true
+    },
     async send(request: SendRequest): Promise<SendResult> {
       logger.warn(
         { motivo, subject: request.subject },

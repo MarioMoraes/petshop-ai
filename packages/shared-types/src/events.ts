@@ -850,12 +850,29 @@ export interface MensagemBloqueadaEvent extends MessagingBaseEvent {
   blockReason: string
 }
 
+/**
+ * A conexão de WhatsApp do petshop mudou de estado (MOD-CRM-01).
+ *
+ * Publicado nas quedas e no bloqueio, não no pareamento: conectar é o admin agindo na
+ * tela, e ele já viu o resultado. **Desconectar e ser banido acontecem sozinhos**, do
+ * lado do provedor, e sem este evento o petshop descobriria por um cliente reclamando
+ * que não recebeu. O destinatário é o MOD-ADMIN (AC-05).
+ */
+export interface WhatsappConexaoEvent extends BaseEvent {
+  tenantId: string
+  status: 'DISCONNECTED' | 'BANNED'
+  phone: string | null
+  detail: string | null
+}
+
 export interface MessagingEventMap {
   'mensagem.enfileirada': MensagemEnfileiradaEvent
   'mensagem.enviada': MensagemEnviadaEvent
   'mensagem.entregue': MensagemEntregueEvent
   'mensagem.falhou': MensagemFalhouEvent
   'mensagem.bloqueada': MensagemBloqueadaEvent
+  'whatsapp.desconectado': WhatsappConexaoEvent
+  'whatsapp.banido': WhatsappConexaoEvent
 }
 
 // ─── MOD-SITE ────────────────────────────────────────────────────────────────

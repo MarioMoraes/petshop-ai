@@ -102,6 +102,10 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   'MessagingSettings',
   'MessagingSuppression',
   'Automation',
+  // A conexão de WhatsApp é do tenant como qualquer outra configuração dele. O webhook
+  // do provedor chega sem contexto, mas quem resolve o tenant pelo hash do token é
+  // `platform.ts`, no escopo sancionado — a gravação volta para `withTenant()`.
+  'WhatsappInstance',
   // MOD-SITE: o site do estabelecimento. `SiteLead` entra apesar de a escrita nascer
   // de visitante anônimo — o tenant vem do host, é resolvido antes por
   // `platform.resolveTenantBySlug` e a gravação roda em `withTenant()` como qualquer

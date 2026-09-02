@@ -4,7 +4,10 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { registerAuthContext } from './auth/context.js'
 import { registerErrorHandler } from './lib/errors.js'
 import { logger, loggerOptions } from './lib/logger.js'
-import { registerMessagingRoutes } from './modules/messaging/routes.js'
+import {
+  registerMessagingRoutes,
+  registerWhatsappWebhookRoutes,
+} from './modules/messaging/routes.js'
 
 /**
  * Fábrica do app, separada do `server.ts` para que os testes montem a aplicação
@@ -21,7 +24,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   setDbLogger({ error: (payload, message) => logger.error(payload, message) })
 
   registerErrorHandler(app)
-  registerAuthContext(app)
 
   app.get('/health', async () => ({ status: 'ok', service: 'messaging-service' }))
 
@@ -35,7 +37,16 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   })
 
-  await registerMessagingRoutes(app)
+  // Anônimo: o callback da Evolution não conhece o contrato HMAC do gateway. Quem o
+  // autentica é o token da instância, e é por isso que ele fica **fora** do escopo
+  // autenticado — o mesmo desenho que o `tenant-site-service` usa para a página pública.
+  await app.register(registerWhatsappWebhookRoutes)
+
+  // Autenticada: a assinatura do gateway vale só dentro deste escopo.
+  await app.register(async (authenticated) => {
+    registerAuthContext(authenticated)
+    await registerMessagingRoutes(authenticated)
+  })
 
   return app
 }

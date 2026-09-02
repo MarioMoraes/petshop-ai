@@ -69,7 +69,77 @@ services:
       timeout: 5s
       retries: 10
 
+  evolution:
+    # O canal WhatsApp (MOD-CRM-01). Camada não-oficial sobre o WhatsApp Web: o petshop
+    # pareia o **próprio** número por QR code, sem aprovação de template pela Meta e sem
+    # custo por mensagem. A contrapartida é o risco de banimento, e é ela que justifica
+    # a janela de silêncio, o teto diário, o aquecimento e o jitter que já vivem no
+    # messaging-service.
+    #
+    # Tag fixa, nunca `latest`: uma sessão pareada é estado, e trocar de versão sozinho
+    # é acordar com todos os petshops desconectados.
+    # `evoapicloud`, e não `atendai`: o projeto trocou de organização no Docker Hub em
+    # 2025, e o repositório antigo parou na v2.2.3 e deixou de aceitar pull anônimo —
+    # um `docker pull` de lá responde "pull access denied", que parece erro de rede.
+    image: evoapicloud/evolution-api:v2.3.7
+    container_name: petshop-evolution
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SERVER_URL: http://localhost:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-dev-evolution-api-key}
+      # Database próprio na mesma instância — ver `postgres/init/02-create-evolution-db.sql`.
+      DATABASE_ENABLED: 'true'
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://postgres:postgres@postgres:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: petshop
+      DATABASE_SAVE_DATA_INSTANCE: 'true'
+      # O histórico de mensagens é do **produto** (tabela `messages`, cifrada com a DEK
+      # do tenant). Deixar a Evolution guardar uma segunda cópia em claro seria criar um
+      # depósito de dado pessoal fora de todo o controle que o MOD-CRM construiu.
+      DATABASE_SAVE_DATA_NEW_MESSAGE: 'false'
+      DATABASE_SAVE_MESSAGE_UPDATE: 'false'
+      DATABASE_SAVE_DATA_CONTACTS: 'false'
+      DATABASE_SAVE_DATA_CHATS: 'false'
+      CACHE_REDIS_ENABLED: 'true'
+      # `/7` — os bancos de 0 a 6 são do produto; a Evolution não divide keyspace com
+      # o cache de tenant.
+      CACHE_REDIS_URI: redis://redis:6379/7
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_LOCAL_ENABLED: 'false'
+      # O webhook é configurado **por instância**, no pareamento, com o token daquele
+      # tenant. Um webhook global mandaria todo evento para um endereço só, e o
+      # messaging-service não teria como saber de quem é a sessão.
+      WEBHOOK_GLOBAL_ENABLED: 'false'
+      # Apagar a instância ao desconectar apagaria a sessão pareada junto: uma queda de
+      # rede do celular custaria um QR code novo.
+      DEL_INSTANCE: 'false'
+      LOG_LEVEL: ERROR,WARN
+    ports:
+      # Publicada **só em desenvolvimento**: aqui o `pnpm dev` roda no host e precisa
+      # alcançá-la. Em produção ela fica na rede interna, sem rota no Caddy.
+      - '8080:8080'
+    volumes:
+      - evolution-instances:/evolution/instances
+    healthcheck:
+      # A imagem não traz `curl`; o Node dela, sim.
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:8080/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
 volumes:
   postgres-data:
   redis-data:
   rabbitmq-data:
+  evolution-instances:

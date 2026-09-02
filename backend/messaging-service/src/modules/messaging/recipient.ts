@@ -41,6 +41,7 @@ export async function resolveDelivery(
   tx: TenantTransaction,
   cipher: MessageCipher,
   options: {
+    tenantId: string
     tutorId: string
     preference: MessageChannelPref
     category: MessageCategory
@@ -77,7 +78,10 @@ export async function resolveDelivery(
 
   for (const candidate of wanted) {
     if (!candidate.address) continue
-    if (!channelAvailable(candidate.channel)) continue
+    // Por tenant: o WhatsApp está de pé para quem pareou o número, não para a
+    // instalação inteira. É esta pergunta que faz o petshop sem WhatsApp cair para o
+    // e-mail em vez de enfileirar algo que nunca sairia.
+    if (!(await channelAvailable(candidate.channel, options.tenantId))) continue
 
     blockedChannel = candidate.channel
 

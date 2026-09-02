@@ -20,6 +20,12 @@ export const CACHE_KEYS = {
   rate: (tenantId: string, minute: string) => `msgrate:${tenantId}:${minute}`,
   /** Teto diário, no dia civil do fuso do tenant. */
   dailyCap: (tenantId: string, date: string) => `msgcap:${tenantId}:${date}`,
+  /**
+   * Estado da conexão de WhatsApp. Existe porque a cascata de canal o consulta uma vez
+   * por candidato, por mensagem — e o estado só muda quando um webhook chega, que é
+   * quando esta chave é derrubada.
+   */
+  whatsapp: (tenantId: string) => `wa:${tenantId}`,
 } as const
 
 export const CACHE_TTL_SECONDS = {
@@ -32,6 +38,13 @@ export const CACHE_TTL_SECONDS = {
    */
   consent: 300,
   rate: 120,
+  /**
+   * Um minuto. Curto porque o preço de errar é assimétrico: com o cache velho dizendo
+   * "conectado" a mensagem falha e volta para a fila; dizendo "desconectado" ela cai
+   * para o e-mail sem precisar. O webhook invalida na hora — este TTL cobre o caso em
+   * que ele se perde.
+   */
+  whatsapp: 60,
 } as const
 
 export const { getRedis, cacheGet, cacheSet, cacheDelete, closeRedis } = createCache({

@@ -16,7 +16,7 @@ import {
   unknownTemplate,
 } from '../../lib/errors.js'
 import { tenantOptions, type ActorContext } from './actor.js'
-import { openCipher } from './crypto.js'
+import { openCipher, type MessageCipher } from './crypto.js'
 import { render } from './render.js'
 import { resolveDelivery } from './recipient.js'
 import { resolveTemplate } from './templates.js'
@@ -33,7 +33,19 @@ import { nextOpening } from './window.js'
  * 3. **Para onde e por qual canal?** A cascata de `recipient.ts`, que pode bloquear.
  * 4. **Com que texto?** Renderizado **agora** (RN-14), com os dados deste instante.
  * 5. **Quando pode sair?** A janela de silêncio, que agenda em vez de descartar.
+ *
+ * E, entre a 4 e a 5, a RN-08: **cabe dentro de uma mensagem que ainda não saiu?**
  */
+
+/**
+ * RN-08 — a janela de agrupamento.
+ *
+ * Cinco minutos. Curto porque o objetivo não é economizar mensagem, é não parecer um
+ * robô: o caso que o AC-02 de MOD-CRM-09 nomeia é o taxi entregar o pet e o
+ * atendimento ser concluído no mesmo minuto, e o tutor receber duas notificações
+ * seguidas sobre o mesmo fato.
+ */
+const MERGE_WINDOW_MS = 5 * 60_000
 
 export interface EnqueueResult {
   id: string
@@ -72,6 +84,62 @@ async function baseVariables(
   }
 }
 
+/**
+ * Encaixa o texto novo numa mensagem irmã que ainda não saiu, e devolve o id dela.
+ *
+ * As condições são estreitas de propósito. Mesmo tutor, mesmo canal e **mesma
+ * categoria**: juntar um aviso de taxi (OPERATIONAL, que atravessa a janela de
+ * silêncio) com uma oferta (MARKETING, que não atravessa) faria a oferta sair às sete
+ * da manhã pendurada na carona do aviso. E só o que ainda está em `QUEUED`/`SCHEDULED`
+ * — quem já foi para `SENDING` tem a lease do worker e pode estar no ar neste instante.
+ *
+ * O `UPDATE ... WHERE status IN (...)` é o que fecha a corrida: se o worker reivindicar
+ * a irmã entre a leitura e a escrita, nenhuma linha é afetada e a mensagem nova segue
+ * sozinha. Perder um agrupamento é aceitável; concatenar num corpo que já saiu, não.
+ */
+async function absorbIntoRecent(
+  tx: TenantTransaction,
+  cipher: MessageCipher,
+  input: {
+    tenantId: string
+    tutorId: string
+    channel: MessageChannel
+    category: MessageCategory
+    body: string
+    now: Date
+  },
+): Promise<string | null> {
+  const sibling = await tx.message.findFirst({
+    where: {
+      tutorId: input.tutorId,
+      channel: input.channel,
+      category: input.category,
+      direction: 'OUTBOUND',
+      status: { in: ['QUEUED', 'SCHEDULED'] },
+      createdAt: { gte: new Date(input.now.getTime() - MERGE_WINDOW_MS) },
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, bodyEncrypted: true },
+  })
+  if (!sibling) return null
+
+  let merged: string
+  try {
+    merged = `${cipher.decrypt(sibling.bodyEncrypted)}\n\n${input.body}`
+  } catch {
+    // Corpo ilegível (expurgado pela retenção, ou de outra chave): não dá para
+    // concatenar no escuro. A mensagem nova segue sozinha, que é a queda segura.
+    return null
+  }
+
+  const { count } = await tx.message.updateMany({
+    where: { id: sibling.id, status: { in: ['QUEUED', 'SCHEDULED'] } },
+    data: { bodyEncrypted: cipher.encrypt(merged) },
+  })
+
+  return count === 1 ? sibling.id : null
+}
+
 export async function enqueueMessage(
   actor: ActorContext,
   input: EnqueueMessageInput,
@@ -96,6 +164,11 @@ export async function enqueueMessage(
         scheduledFor: Date | null
       }
 
+  // Um único instante para a janela de silêncio e para a de agrupamento: duas leituras
+  // do relógio na mesma operação podem cair em minutos diferentes, e é o tipo de
+  // diferença que só aparece na virada.
+  const now = new Date()
+
   const result: Enqueued = await withTenant(
     actor.tenantId,
     async (tx) => {
@@ -110,6 +183,7 @@ export async function enqueueMessage(
 
       const cipher = await openCipher(tx, actor.tenantId)
       const decision = await resolveDelivery(tx, cipher, {
+        tenantId: actor.tenantId,
         tutorId: input.tutorId,
         preference: input.channel === 'AUTO' ? settings.defaultChannel : input.channel,
         category,
@@ -137,7 +211,7 @@ export async function enqueueMessage(
 
       // A janela é do tutor: mesmo um `scheduledFor` pedido pelo chamador é empurrado
       // para a próxima abertura se cair na madrugada.
-      const wanted = input.scheduledFor ?? new Date()
+      const wanted = input.scheduledFor ?? now
       const opening = nextOpening(wanted, category, {
         quietStartMin: settings.quietStartMin,
         quietEndMin: settings.quietEndMin,
@@ -147,6 +221,19 @@ export async function enqueueMessage(
       const scheduledFor = opening ?? input.scheduledFor ?? null
 
       const blocked = !decision.ok
+
+      // RN-08: cabe dentro de uma mensagem que ainda não saiu?
+      const absorbedBy = blocked
+        ? null
+        : await absorbIntoRecent(tx, cipher, {
+            tenantId: actor.tenantId,
+            tutorId: input.tutorId,
+            channel,
+            category,
+            body: body.text,
+            now,
+          })
+
       const created = await tx.message.create({
         data: {
           tenantId: actor.tenantId,
@@ -160,12 +247,21 @@ export async function enqueueMessage(
           toHash: hashSearchable(`messaging:${channel.toLowerCase()}`, address.toLowerCase()),
           subjectEncrypted: subject ? cipher.encrypt(subject) : null,
           bodyEncrypted: cipher.encrypt(body.text),
-          status: blocked ? 'BLOCKED' : scheduledFor ? 'SCHEDULED' : 'QUEUED',
+          status: blocked
+            ? 'BLOCKED'
+            : absorbedBy
+              ? 'MERGED'
+              : scheduledFor
+                ? 'SCHEDULED'
+                : 'QUEUED',
           blockReason: blocked ? decision.reason : null,
           dedupeKey: input.dedupeKey,
           originType: input.originType ?? null,
           originId: input.originId ?? null,
-          scheduledFor: blocked ? null : scheduledFor,
+          // Absorvida não tem horário próprio: quem carrega o texto é a irmã, e um
+          // `scheduled_for` aqui faria o worker tentar despachá-la.
+          scheduledFor: blocked || absorbedBy ? null : scheduledFor,
+          mergedIntoId: absorbedBy,
           requestedBy: actor.actorUserId ?? null,
         },
         select: { id: true, status: true },
