@@ -87,6 +87,7 @@ export async function getGateway(): Promise<FastifyInstance> {
   process.env.MEDICAL_RECORD_SERVICE_URL = upstreamAddress
   process.env.SCHEDULING_SERVICE_URL = upstreamAddress
   process.env.BILLING_LEDGER_SERVICE_URL = upstreamAddress
+  process.env.PORTAL_BFF_URL = upstreamAddress
 
   const { resetEnvCache } = await import('../src/env.js')
   resetEnvCache()
@@ -166,6 +167,32 @@ export async function seedTenant(
     },
   })
   return { tenantId, clerkOrgId, slug }
+}
+
+/**
+ * Uma ficha de tutor com acesso ao Portal já vinculado.
+ *
+ * O `phoneEncrypted` é literal porque o gateway não decifra nada — o que ele lê é o
+ * `portal_user_id`, e é só isso que este cenário precisa ter de verdade.
+ */
+export async function seedPortalTutor(
+  tenantId: string,
+  userId: string,
+): Promise<{ tutorId: string }> {
+  const { withTenant } = await import('@petshop/db')
+  const tutor = await withTenant(tenantId, (tx) =>
+    tx.tutor.create({
+      data: {
+        tenantId,
+        fullName: 'Maria Souza',
+        phoneEncrypted: 'v1:x:x:x',
+        phoneHash: `hash-${randomBytes(6).toString('hex')}`,
+        portalUserId: userId,
+      },
+      select: { id: true },
+    }),
+  )
+  return { tutorId: tutor.id }
 }
 
 export async function seedMember(

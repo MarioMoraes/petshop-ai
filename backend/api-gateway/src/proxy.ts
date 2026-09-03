@@ -24,10 +24,15 @@ const STRIPPED_REQUEST_HEADERS = new Set([
   'x-petshop-user-id',
   'x-petshop-tenant-id',
   'x-petshop-role',
+  'x-petshop-tutor-id',
   'x-petshop-permissions',
   'x-petshop-perm-version',
   'x-petshop-timestamp',
   'x-petshop-signature',
+  // O slug do Portal é insumo do gateway, não do serviço: o que segue adiante é o
+  // `tenantId` já resolvido, dentro da assinatura. Repassar o slug daria ao serviço uma
+  // segunda fonte de verdade sobre de que petshop se fala, e as duas divergiriam um dia.
+  'x-petshop-tenant-slug',
 ])
 
 const STRIPPED_RESPONSE_HEADERS = new Set([
@@ -205,6 +210,19 @@ const MESSAGING_PREFIXES = ['/v1/messages', '/v1/messaging']
  */
 const SITE_PREFIXES = ['/v1/site']
 
+/**
+ * MOD-PORTAL. Prefixo próprio, e não um ramo de `/v1`, e isso é a decisão de segurança
+ * do módulo (AC-04 de MOD-PORTAL-11): a superfície do cliente final tem allowlist de
+ * rotas, rate limit e resolução de sessão separados, e **nenhum papel `TUTOR` alcança o
+ * `/v1` administrativo**. Um dia em que as duas dividissem prefixo, uma rota nova do
+ * Admin nasceria ao alcance de quem tem só `_own` sem que ninguém percebesse.
+ */
+const PORTAL_PREFIXES = ['/portal/v1']
+
+export function isPortalPath(path: string): boolean {
+  return matches(path, PORTAL_PREFIXES)
+}
+
 const LEDGER_PREFIXES = [
   '/v1/ledger',
   '/v1/payments',
@@ -238,6 +256,7 @@ function matches(path: string, prefixes: string[]): boolean {
 
 export function resolveTarget(path: string): string | null {
   const env = loadEnv()
+  if (isPortalPath(path)) return env.PORTAL_BFF_URL
   if (matches(path, IDENTITY_PREFIXES)) return env.IDENTITY_SERVICE_URL
   if (isLedgerTutorPath(path)) return env.BILLING_LEDGER_SERVICE_URL
   if (isMessagingTutorPath(path)) return env.MESSAGING_SERVICE_URL

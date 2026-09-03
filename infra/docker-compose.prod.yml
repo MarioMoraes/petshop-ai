@@ -44,6 +44,7 @@ x-backend: &backend
     CRM_AUTOMATION_SERVICE_URL: http://crm-automation-service:3009
     MESSAGING_SERVICE_URL: http://messaging-service:3010
     SITE_SERVICE_URL: http://tenant-site-service:3013
+    PORTAL_BFF_URL: http://portal-bff:3020
     # O site é rota do Next: o serviço precisa alcançá-lo para invalidar a página de
     # um tenant quando o horário ou o catálogo mudam (AC-03 de MOD-SITE-11).
     FRONTEND_INTERNAL_URL: http://frontend:3002
@@ -306,6 +307,15 @@ services:
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET: ${R2_BUCKET:-petshop-media}
+
+  # O Portal do Tutor (MOD-PORTAL). Porta 3020, fora do bloco 3009-3013: é superfície
+  # de outro público, e não mais um serviço de domínio.
+  portal-bff:
+    <<: *backend
+    command: ['node', 'backend/portal-bff/dist/src/server.js']
+    environment:
+      <<: *backend-env
+      PORTAL_BFF_PORT: 3020
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:

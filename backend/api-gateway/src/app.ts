@@ -10,10 +10,11 @@ import {
 } from '@petshop/shared-types'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
 import { InvalidTokenError, verifySessionToken } from './auth/clerk-token.js'
+import { resolvePortalSession, resolvePortalTenant } from './auth/portal-session.js'
 import { resolveSession } from './auth/session.js'
 import { listFromEnv, loadEnv } from './env.js'
 import { logger, loggerOptions } from './lib/logger.js'
-import { proxyRequest, resolveTarget } from './proxy.js'
+import { isPortalPath, proxyRequest, resolveTarget } from './proxy.js'
 
 /**
  * api-gateway (porta 3000, SPEC §2).
@@ -25,6 +26,22 @@ import { proxyRequest, resolveTarget } from './proxy.js'
 
 const PROBLEM_CONTENT_TYPE = 'application/problem+json'
 const PUBLIC_PATHS = new Set(['/health', '/ready'])
+
+/**
+ * O header pelo qual o Next diz de que petshop o Portal está falando.
+ *
+ * O tutor não tem Organization no Clerk, então o tenant **não** pode sair do token: sai
+ * do host que o Next serviu (`{slug}.{APP_DOMAIN}`), e o Next o repassa aqui. Forjá-lo
+ * não leva a lugar nenhum — o contexto resultante só tem `tutorId` se o usuário tiver
+ * ficha *naquele* tenant —, e o header é descartado antes de seguir ao serviço.
+ */
+const TENANT_SLUG_HEADER = 'x-petshop-tenant-slug'
+
+/**
+ * A única rota do Portal que responde sem sessão: a identidade visual que a tela de
+ * login mostra. Não carrega dado de cliente nenhum.
+ */
+const PORTAL_PUBLIC_PATHS = new Set(['/portal/v1/tenant'])
 
 export async function buildApp(): Promise<FastifyInstance> {
   const env = loadEnv()
@@ -70,7 +87,14 @@ export async function buildApp(): Promise<FastifyInstance> {
     keyGenerator: (request: FastifyRequest) => {
       const tenantId = request.authContext?.tenantId
       const userId = request.authContext?.clerkUserId
-      return tenantId && userId ? `${tenantId}:${userId}` : request.ip
+      if (tenantId && userId) return `${tenantId}:${userId}`
+
+      // Sem contexto resolvido, o balde é do IP — e no Portal, do IP **por petshop**.
+      // Sem separar, o NAT de uma operadora esgotaria o balde de um tenant e barraria
+      // os tutores de todos os outros junto.
+      const slug = request.headers[TENANT_SLUG_HEADER]
+      const tenantSlug = Array.isArray(slug) ? slug[0] : slug
+      return tenantSlug ? `${tenantSlug}:${request.ip}` : request.ip
     },
   })
 
@@ -80,27 +104,17 @@ export async function buildApp(): Promise<FastifyInstance> {
     const path = request.url.split('?')[0] ?? ''
     if (PUBLIC_PATHS.has(path) || request.method === 'OPTIONS') return
 
-    const token = readBearerToken(request)
-    if (!token) throw new AppError('ERR_IDENT_005', 'Autenticação obrigatória')
+    const context = isPortalPath(path)
+      ? await resolvePortalRequest(request, path)
+      : await resolveAdminRequest(request, path)
 
-    let claims
-    try {
-      claims = await verifySessionToken(token)
-    } catch (error) {
-      if (error instanceof InvalidTokenError) {
-        request.log.warn({ reason: error.message, path }, 'token de sessão inválido')
-        throw new AppError('ERR_IDENT_005', 'Sessão inválida ou expirada')
-      }
-      throw error
-    }
-
-    const { context } = await resolveSession(claims, request.method)
     request.authContext = context
 
     // Correlação por tenant, exigida pelo SPEC §8.
     request.log = request.log.child({
       tenantId: context.tenantId ?? null,
       userId: context.userId ?? null,
+      tutorId: context.tutorId ?? null,
     })
   })
 
@@ -135,6 +149,85 @@ export async function buildApp(): Promise<FastifyInstance> {
   })
 
   return app
+}
+
+/**
+ * A sessão da equipe, como sempre foi — mais uma guarda nova.
+ *
+ * **Contexto com `tutorId` nunca alcança `/v1`** (AC-04 de MOD-PORTAL-11). Hoje isso é
+ * impossível por construção, porque só `resolvePortalRequest` monta contexto de tutor;
+ * a checagem existe para o dia em que alguém unificar as duas resoluções "porque são
+ * quase iguais" e não perceber que acabou de abrir o Admin para o cliente final.
+ */
+async function resolveAdminRequest(request: FastifyRequest, path: string) {
+  const claims = await verifyBearer(request, path)
+  const { context } = await resolveSession(claims, request.method)
+
+  if (context.tutorId) {
+    request.log.warn({ path, tutorId: context.tutorId }, 'sessão de tutor barrada fora do Portal')
+    throw new AppError('ERR_PORTAL_008', 'Esta área é da equipe do estabelecimento')
+  }
+
+  return context
+}
+
+/**
+ * A sessão do Portal (MOD-PORTAL-02).
+ *
+ * O slug vem do header, e não do token, porque o tutor não tem Organization. Sem o
+ * header não há de que petshop falar: 404, e não 401 — quem não disse o endereço não
+ * tem sessão a apresentar.
+ */
+async function resolvePortalRequest(request: FastifyRequest, path: string) {
+  const raw = request.headers[TENANT_SLUG_HEADER]
+  const slug = (Array.isArray(raw) ? raw[0] : raw)?.trim().toLowerCase() ?? ''
+  if (!slug) throw new AppError('ERR_PORTAL_001', 'Estabelecimento não informado')
+
+  if (PORTAL_PUBLIC_PATHS.has(path)) {
+    // A tela de login precisa do nome e da cor do petshop antes de haver sessão. O
+    // contexto sai sem usuário: é o mínimo que o `portal-bff` precisa para saber de
+    // quem é a página, e nada além disso.
+    const tenant = await resolvePortalTenant(slug)
+    return { clerkUserId: `anon:${slug}`, tenantId: tenant.id, permissions: [] }
+  }
+
+  const claims = await verifyBearer(request, path, portalAuthorizedParty(slug))
+  const { context } = await resolvePortalSession(claims, slug)
+  return context
+}
+
+/**
+ * O `azp` que o token do Portal carrega: o host que o Next serviu.
+ *
+ * Em desenvolvimento o `APP_DOMAIN` é `localhost:3002` e não há subdomínio, então o
+ * host de origem é o próprio domínio — o mesmo que o `CLERK_AUTHORIZED_PARTIES` já
+ * lista, e o extra aqui é inofensivo.
+ */
+function portalAuthorizedParty(slug: string): string {
+  const domain = loadEnv().APP_DOMAIN
+  const protocol = domain.startsWith('localhost') ? 'http' : 'https'
+  return domain.startsWith('localhost')
+    ? `${protocol}://${domain}`
+    : `${protocol}://${slug}.${domain}`
+}
+
+async function verifyBearer(
+  request: FastifyRequest,
+  path: string,
+  extraAuthorizedParty?: string,
+) {
+  const token = readBearerToken(request)
+  if (!token) throw new AppError('ERR_IDENT_005', 'Autenticação obrigatória')
+
+  try {
+    return await verifySessionToken(token, extraAuthorizedParty)
+  } catch (error) {
+    if (error instanceof InvalidTokenError) {
+      request.log.warn({ reason: error.message, path }, 'token de sessão inválido')
+      throw new AppError('ERR_IDENT_005', 'Sessão inválida ou expirada')
+    }
+    throw error
+  }
 }
 
 function readBearerToken(request: FastifyRequest): string | null {

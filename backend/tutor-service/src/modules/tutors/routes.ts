@@ -31,6 +31,7 @@ import {
   getTutor,
   listTutors,
   reactivateTutor,
+  unlinkPortalAccess,
   revealTutorData,
   updateTutor,
   type ActorContext,
@@ -182,6 +183,19 @@ export async function registerTutorRoutes(app: FastifyInstance): Promise<void> {
       await anonymizeTutor(actorOf(request), request.params.id, input)
       return reply.status(204).send()
     },
+  )
+
+  /**
+   * MOD-PORTAL, RN-05 — desfazer o acesso ao Portal desta ficha.
+   *
+   * Gate `tutor:update`, e não uma permissão nova: quem edita a ficha decide quem tem
+   * acesso a ela. É a operação de equipe que o AC-04 de MOD-PORTAL-01 exige para
+   * corrigir um vínculo errado — e a única, porque o Portal recusa a segunda conta.
+   */
+  app.delete<{ Params: TutorParams }>(
+    '/v1/tutors/:id/portal-access',
+    { preHandler: requirePermission('tutor:update') },
+    async (request) => unlinkPortalAccess(actorOf(request), request.params.id),
   )
 
   app.post<{ Params: TutorParams }>(

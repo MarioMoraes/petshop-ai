@@ -16,6 +16,17 @@ export const CACHE_KEYS = {
   /** Resolução telefone → tutorId, usada pelo agente de IA no WhatsApp. */
   phone: (tenantId: string, phoneHash: string) => `tutor:phone:${tenantId}:${phoneHash}`,
   tagCounts: (tenantId: string) => `tutor:tagcount:${tenantId}`,
+  /**
+   * A sessão do Portal, **que é do gateway** — o nome tem de bater com o de
+   * `backend/api-gateway/src/lib/redis.ts`.
+   *
+   * Alcançar o cache de outro serviço não é elegante, e é o mesmo mecanismo que o
+   * MOD-IDENT-04 já usa para derrubar `perm:{tenantId}:{userId}` na troca de papel. A
+   * alternativa seria um consumidor de evento dentro do gateway, que hoje não tem
+   * nenhum e não fala com o broker; o custo de abrir isso é maior que o de manter dois
+   * literais em dia.
+   */
+  portalSession: (tenantId: string, userId: string) => `portal:session:${tenantId}:${userId}`,
   cep: (zipCode: string) => `cep:${zipCode}`,
 } as const
 

@@ -85,6 +85,7 @@ describe('rejeições', () => {
     [SERVICE_HEADERS.permissions, 'tutor:delete,finance:refund'],
     [SERVICE_HEADERS.userId, '44444444-4444-4444-8444-444444444444'],
     [SERVICE_HEADERS.permVersion, '99'],
+    [SERVICE_HEADERS.tutorId, '55555555-5555-4555-8555-555555555555'],
     [SERVICE_HEADERS.clerkUserId, 'user_outro'],
   ])('invalida a assinatura ao adulterar %s', (header, tampered) => {
     const headers = { ...signServiceHeaders(fullContext, SECRET), [header]: tampered }
@@ -99,6 +100,39 @@ describe('rejeições', () => {
 
   it('recusa assinatura de tamanho inesperado sem estourar', () => {
     const headers = { ...signServiceHeaders(fullContext, SECRET), [SERVICE_HEADERS.signature]: 'ab' }
+    expect(verifyServiceHeaders(headers, SECRET)).toEqual({ ok: false, reason: 'BAD_SIGNATURE' })
+  })
+})
+
+describe('contexto do Portal (MOD-PORTAL-02)', () => {
+  const portalContext: ServiceAuthContext = {
+    clerkUserId: 'user_tutora',
+    userId: '66666666-6666-4666-8666-666666666666',
+    tenantId: '22222222-2222-4222-8222-222222222222',
+    role: 'TUTOR',
+    tutorId: '77777777-7777-4777-8777-777777777777',
+    permissions: ['tutor:read_own', 'pet:read_own'],
+  }
+
+  it('leva e traz o tutorId', () => {
+    const result = verifyServiceHeaders(signServiceHeaders(portalContext, SECRET), SECRET)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.context.tutorId).toBe(portalContext.tutorId)
+    expect(result.context.role).toBe('TUTOR')
+  })
+
+  // O ponto do campo: sem cobertura da assinatura, trocar o `tutorId` no caminho daria
+  // a um tutor a ficha de outro, com o resto do contexto intacto.
+  it('invalida a assinatura ao trocar o tutorId por outro', () => {
+    const headers = signServiceHeaders(portalContext, SECRET)
+    headers[SERVICE_HEADERS.tutorId] = '88888888-8888-4888-8888-888888888888'
+    expect(verifyServiceHeaders(headers, SECRET)).toEqual({ ok: false, reason: 'BAD_SIGNATURE' })
+  })
+
+  it('invalida a assinatura ao acrescentar tutorId a uma sessão de equipe', () => {
+    const headers = signServiceHeaders(fullContext, SECRET)
+    headers[SERVICE_HEADERS.tutorId] = '77777777-7777-4777-8777-777777777777'
     expect(verifyServiceHeaders(headers, SECRET)).toEqual({ ok: false, reason: 'BAD_SIGNATURE' })
   })
 })

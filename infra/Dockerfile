@@ -60,6 +60,7 @@ RUN pnpm build --concurrency=2 \
       --filter="@petshop/crm-automation-service" \
       --filter="@petshop/messaging-service" \
       --filter="@petshop/tenant-site-service" \
+      --filter="@petshop/portal-bff" \
       --filter="@petshop/api-client"
 
 # A condição `petshop-dist` do campo `exports` só é exercitada aqui dentro — em

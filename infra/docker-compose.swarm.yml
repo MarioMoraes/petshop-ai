@@ -73,6 +73,7 @@ x-backend: &backend
     CRM_AUTOMATION_SERVICE_URL: http://crm-automation-service:3009
     MESSAGING_SERVICE_URL: http://messaging-service:3010
     SITE_SERVICE_URL: http://tenant-site-service:3013
+    PORTAL_BFF_URL: http://portal-bff:3020
     FRONTEND_INTERNAL_URL: http://frontend:3002
     SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET}
     APP_DOMAIN: ${APP_DOMAIN}
@@ -296,9 +297,12 @@ services:
       # depois do deploy. O ápice segue na lista porque também serve o Admin
       # (`resolveHost` classifica o domínio nu como `admin`).
       #
-      # Quando o MOD-PORTAL chegar, o token passará a ser emitido também em
-      # `{slug}.${APP_DOMAIN}` — um por tenant, que esta lista não tem como enumerar.
-      # A saída de lá é o Portal falar com um host fixo, não crescer isto aqui.
+      # O MOD-PORTAL chegou e o token passou a ser emitido também em
+      # `{slug}.${APP_DOMAIN}` — um host por tenant, criado a qualquer hora, que esta
+      # lista não tem como enumerar. A saída **não** foi crescer isto aqui: para as
+      # rotas `/portal/v1`, o gateway deriva o host exato do slug que veio na
+      # requisição e o acrescenta à lista daquela verificação (`portalAuthorizedParty`
+      # em `app.ts`). É mais estreito que um curinga, não mais largo.
       CLERK_AUTHORIZED_PARTIES: https://app.${APP_DOMAIN:?},https://${APP_DOMAIN}
     healthcheck: &hc-gateway
       test: ['CMD-SHELL', 'curl -sf http://localhost:3000/health || exit 1']
@@ -471,6 +475,24 @@ services:
     healthcheck:
       <<: *hc-gateway
       test: ['CMD-SHELL', 'curl -sf http://localhost:3013/health || exit 1']
+
+  # O Portal do Tutor (MOD-PORTAL). Porta 3020, fora do bloco 3009-3013: é superfície
+  # de outro público, e não mais um serviço de domínio. Sem `ports`: quem o alcança é o
+  # gateway, pela rede overlay — o Portal não tem superfície pública própria.
+  portal-bff:
+    <<: *backend
+    command:
+      [
+        '/app/infra/swarm/aguardar-migracao.sh',
+        'node',
+        'backend/portal-bff/dist/src/server.js',
+      ]
+    environment:
+      <<: *backend-env
+      PORTAL_BFF_PORT: 3020
+    healthcheck:
+      <<: *hc-gateway
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3020/health || exit 1']
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:

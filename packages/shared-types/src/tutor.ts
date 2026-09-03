@@ -482,3 +482,13 @@ export type TutorExport = z.infer<typeof TutorExportSchema>
  * trataria cliente antigo como aquisição nova para sempre.
  */
 export const TUTOR_PHONE_HASH_NAMESPACE = 'tutor:phone'
+
+/**
+ * O namespace do HMAC de `tutors.email_hash`, pelo mesmo motivo do de telefone.
+ *
+ * Saiu de `backend/tutor-service/src/modules/tutors/crypto.ts` quando o MOD-PORTAL
+ * passou a procurar a ficha pelo e-mail que o tutor digita na hora de vincular o
+ * acesso. O valor entra no HMAC **já normalizado** por `normalizeEmail` — quem calcula
+ * o hash de um lado e não do outro nunca casa, e a falha é silenciosa.
+ */
+export const TUTOR_EMAIL_HASH_NAMESPACE = 'tutor:email'

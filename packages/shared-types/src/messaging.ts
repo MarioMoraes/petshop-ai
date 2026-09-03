@@ -131,6 +131,18 @@ export const EnqueueMessageSchema = z.object({
    * silêncio é do tutor, não do chamador.
    */
   scheduledFor: z.coerce.date().optional(),
+  /**
+   * Mensagem que perde o sentido se atrasar: o código de acesso ao Portal é o caso.
+   *
+   * Duas consequências, e as duas são exceções às regras do MOD-CRM: a mensagem **não**
+   * é absorvida por uma irmã recente (RN-08 agruparia o código dentro de outro texto), e
+   * o despacho acontece na mesma requisição, sem esperar o tique do worker. Um código de
+   * dez minutos que sai no minuto sete não serve para nada.
+   *
+   * A janela de silêncio continua valendo pelo que a categoria do template disser — quem
+   * precisa furá-la usa `OPERATIONAL`, e isso é decisão do texto, não de quem o dispara.
+   */
+  urgent: z.boolean().default(false),
 })
 export type EnqueueMessageInput = z.output<typeof EnqueueMessageSchema>
 

@@ -555,6 +555,31 @@ describe('agrupamento por janela (RN-08)', () => {
     expect(email.sent.length + evolution.sent.length).toBe(1)
   })
 
+  it('não agrupa nem espera o worker quando a mensagem é `urgent`', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture)
+
+    // A mensagem irmã existe e está na janela: sem `urgent`, o código seria absorvido
+    // por ela e sairia dentro de um lembrete de banho — quando saísse.
+    await enqueue(tutorId, { templateKey: 'appointment_reminder' })
+
+    const codigo = await enqueue(tutorId, {
+      templateKey: 'portal_codigo_acesso',
+      variables: { 'portal.codigo': '123456' },
+      urgent: true,
+    })
+
+    expect(codigo.json().status).not.toBe('MERGED')
+
+    /**
+     * E o despacho **já aconteceu**, sem `dispatchTenant` neste teste.
+     *
+     * É o ponto do `urgent`: o worker varre a cada minuto, e um código de dez minutos
+     * que sai no sétimo já chegou tarde para quem está com a tela aberta esperando.
+     */
+    expect(email.sent.length + evolution.sent.length).toBeGreaterThan(0)
+  })
+
   it('não agrupa categorias diferentes', async () => {
     await enableMessaging(fixture)
     // Marketing exige consentimento; sem ele a mensagem nasceria bloqueada e o teste

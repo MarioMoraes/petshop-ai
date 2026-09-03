@@ -14,6 +14,11 @@ import 'server-only'
  */
 const APP_DOMAIN = process.env.APP_DOMAIN ?? 'localhost:3002'
 
+/** O domínio da instalação, para quem precisa resolver o host em vez de exibi-lo. */
+export function appDomain(): string {
+  return APP_DOMAIN
+}
+
 /** `petshopdojoao.meupetshop.com.br` — o endereço do tenant, decisão de 2026-08-28. */
 export function tenantHost(slug: string): string {
   return `${slug}.${APP_DOMAIN}`

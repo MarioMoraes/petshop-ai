@@ -147,6 +147,8 @@ model Tenant {
   sitePhotos SitePhoto[]
   siteLeads  SiteLead[]
 
+  portalChallenges PortalLinkChallenge[]
+
   @@index([status])
   @@map("tenants")
 }
@@ -168,6 +170,10 @@ model TenantSettings {
   /// quiser triar liga isto, e aí a solicitação do Portal vira PENDING com reserva
   /// de 24h (AC-03 de MOD-AGENDA-06).
   onlineBookingRequiresApproval Boolean @default(false) @map("online_booking_requires_approval")
+  /// MOD-PORTAL, RN-15: desligar o agendamento online **não** é desligar o Portal.
+  /// São duas chaves, porque um petshop com a agenda cheia ainda quer que o tutor veja
+  /// o histórico e a conta.
+  portalEnabled                 Boolean @default(true) @map("portal_enabled")
 
   /// `{ logoUrl, primaryColor, secondaryColor }`
   branding      Json
@@ -497,9 +503,19 @@ model Tutor {
   dataCompleteness DataCompleteness @default(PARTIAL) @map("data_completeness")
 
   /// RN-13 — vínculo com o login do Portal (MOD-PORTAL).
-  portalUserId String? @map("portal_user_id") @db.Uuid
+  ///
+  /// Preenchido pelo `portal-bff` quando o tutor prova, por código, ser dono do
+  /// telefone ou do e-mail da ficha. Um tutor, um login: o índice único **parcial**
+  /// `idx_tutors_portal_user` é quem garante isso (RN-05), e não uma checagem no
+  /// código — trocar o vínculo é operação de equipe, auditada.
+  portalUserId     String?   @map("portal_user_id") @db.Uuid
+  /// Quando o vínculo nasceu. O `portal_user_id` sozinho não conta essa história.
+  portalLinkedAt   DateTime? @map("portal_linked_at") @db.Timestamptz(6)
+  /// Alimenta a métrica de adoção e a decisão de continuar mandando WhatsApp para
+  /// quem nunca abre o Portal.
+  portalLastSeenAt DateTime? @map("portal_last_seen_at") @db.Timestamptz(6)
   /// Destino do merge, quando `status = MERGED`.
-  mergedIntoId String? @map("merged_into_id") @db.Uuid
+  mergedIntoId     String?   @map("merged_into_id") @db.Uuid
 
   /// Mantido pelo trigger `tutors_search_trigger`; a aplicação nunca escreve aqui.
   searchVector Unsupported("tsvector")? @map("search_vector")
@@ -535,6 +551,8 @@ model Tutor {
   attendances    Attendance[]
   ledgerAccounts LedgerAccount[]
   messages       Message[]
+
+  portalChallenges PortalLinkChallenge[]
 
   mergedInto Tutor?  @relation("TutorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom Tutor[] @relation("TutorMerge")
@@ -2770,7 +2788,7 @@ enum WhatsappInstanceStatus {
 model WhatsappInstance {
   tenantId String @id @map("tenant_id") @db.Uuid
 
-  provider String @default("evolution") @db.VarChar(20)
+  provider     String @default("evolution") @db.VarChar(20)
   /// `tenant-<slug>` na Evolution. Fica gravado porque o slug do tenant é travado, mas
   /// o nome da instância precisa sobreviver a qualquer mudança futura dele.
   instanceName String @map("instance_name") @db.VarChar(80)
@@ -2875,7 +2893,7 @@ model SitePhoto {
 
   /// Chave no R2, segregada por tenant (SPEC §214). A URL pública é montada pelo
   /// frontend a partir do id — o bucket continua privado.
-  storageKey String @map("storage_key")
+  storageKey String        @map("storage_key")
   /// Acessibilidade e SEO de imagem.
   alt        String?       @db.VarChar(120)
   kind       SitePhotoKind @default(GALLERY)
@@ -2906,7 +2924,7 @@ model SiteLead {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
 
-  name String @db.VarChar(120)
+  name           String  @db.VarChar(120)
   /// AES-256-GCM, formato `v1:<iv>:<tag>:<ct>`, como todo telefone do sistema.
   phoneEncrypted String  @map("phone_encrypted")
   /// `hashSearchable('lead_phone', …)` — casa com `tutors.phone_hash` (AC-04).
@@ -2937,4 +2955,58 @@ model SiteLead {
   @@index([tenantId, status, createdAt(sort: Desc)], map: "idx_site_leads_tenant_status")
   @@index([tenantId, phoneHash], map: "idx_site_leads_phone_hash")
   @@map("site_leads")
+}
+
+// ─── MOD-PORTAL ──────────────────────────────────────────────────────────────
+
+enum PortalChannel {
+  EMAIL
+  WHATSAPP
+}
+
+/// O desafio que liga uma conta do Clerk a uma ficha de tutor (MOD-PORTAL-01).
+///
+/// **A linha nasce mesmo quando o identificador não casa com ficha nenhuma**, e é isso
+/// que sustenta a resposta uniforme do RN-04: sem ela, o rate limit só contaria as
+/// tentativas bem-sucedidas e o silêncio na tabela seria, ele próprio, a resposta de
+/// "esta pessoa não é cliente daqui".
+///
+/// Nada aqui é cifrado, e é decisão, não esquecimento: o identificador é *hash* porque
+/// só se busca por igualdade, e o código é *hash* porque nunca precisa ser lido de
+/// volta, só comparado. Cifrar daria a ilusão de proteção com a chave ao lado.
+model PortalLinkChallenge {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Nulo quando não casou com ficha nenhuma.
+  tutorId String? @map("tutor_id") @db.Uuid
+
+  /// `hashSearchable('portal:identifier', …)` — nunca o e-mail ou o telefone em claro.
+  identifierHash String        @map("identifier_hash")
+  channel        PortalChannel
+  /// HMAC do código de 6 dígitos.
+  codeHash       String        @map("code_hash")
+
+  /// Quem pediu. O vínculo só se completa se **o mesmo** usuário verificar — sem isso,
+  /// um código interceptado valeria para qualquer conta.
+  clerkUserId String @map("clerk_user_id")
+
+  /// Marca o caso do AC-06: o mesmo telefone em duas fichas. Escolher uma por conta
+  /// própria daria a um dos dois o extrato financeiro do outro.
+  ambiguous Boolean @default(false)
+
+  attempts Int     @default(0) @db.SmallInt
+  blocked  Boolean @default(false)
+
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+
+  ipAddress String?  @map("ip_address") @db.Inet
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tutor  Tutor? @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, identifierHash, createdAt(sort: Desc)], map: "idx_portal_challenges_tenant_identifier")
+  @@map("portal_link_challenges")
 }

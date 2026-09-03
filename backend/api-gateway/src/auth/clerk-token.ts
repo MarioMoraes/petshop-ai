@@ -85,7 +85,10 @@ export function readKid(token: string): string | null {
   }
 }
 
-export type TokenVerifier = (token: string) => Promise<SessionClaims>
+export type TokenVerifier = (
+  token: string,
+  extraAuthorizedParty?: string,
+) => Promise<SessionClaims>
 
 let verifier: TokenVerifier | null = null
 
@@ -94,13 +97,32 @@ export function setTokenVerifier(next: TokenVerifier | null): void {
   verifier = next
 }
 
-export function verifySessionToken(token: string): Promise<SessionClaims> {
-  return (verifier ?? verifyWithClerk)(token)
+/**
+ * `extraAuthorizedParty` é o host do Portal, e existe porque o `authorizedParties` do
+ * `@clerk/backend` decide por `includes(azp)` — **comparação de string, sem glob**.
+ *
+ * O Admin emite token em um host só, que cabe numa lista de ambiente. O Portal emite em
+ * `{slug}.{APP_DOMAIN}`, um host por tenant, criado a qualquer hora: nenhuma lista
+ * estática o cobre, e um curinga no `.env` nunca casa — foi assim que o Admin quase
+ * subiu em produção respondendo 401 a tudo. O que cobre é derivar o host **exato** do
+ * slug que veio na requisição, que é mais estreito que um curinga, não mais largo.
+ */
+export function verifySessionToken(
+  token: string,
+  extraAuthorizedParty?: string,
+): Promise<SessionClaims> {
+  return (verifier ?? verifyWithClerk)(token, extraAuthorizedParty)
 }
 
-async function verifyWithClerk(token: string): Promise<SessionClaims> {
+async function verifyWithClerk(
+  token: string,
+  extraAuthorizedParty?: string,
+): Promise<SessionClaims> {
   const env = loadEnv()
   const authorizedParties = listFromEnv(env.CLERK_AUTHORIZED_PARTIES)
+  if (extraAuthorizedParty && !authorizedParties.includes(extraAuthorizedParty)) {
+    authorizedParties.push(extraAuthorizedParty)
+  }
 
   const options: Record<string, unknown> = {}
   if (authorizedParties.length > 0) options.authorizedParties = authorizedParties

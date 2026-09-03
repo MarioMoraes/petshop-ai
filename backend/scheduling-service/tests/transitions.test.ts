@@ -17,7 +17,31 @@ import {
 
 /** §6 — a máquina de estado, e as rotas que a acionam. */
 
-const QUINTA_09H = new Date('2026-09-03T09:00:00.000Z')
+/**
+ * Uma quinta-feira distante, às 9h UTC, e a faixa do dia dela.
+ *
+ * Era data cravada — `2026-09-03` —, escolhida por ser uma quinta-feira no futuro. Em
+ * 03/09/2026 ela virou **hoje**, entrou na janela de 24h do cancelamento e derrubou
+ * "cancelar com muita antecedência não é tardio" sem que uma linha de código do serviço
+ * tivesse mudado. O que estes casos precisam é de uma quinta-feira **longe**, não de uma
+ * quinta-feira específica: data de teste que envelhece é bomba-relógio com pavio de anos.
+ */
+function quintaDistante(): Date {
+  const dia = new Date()
+  dia.setUTCHours(9, 0, 0, 0)
+  dia.setUTCDate(dia.getUTCDate() + 35)
+  // 4 = quinta-feira em `getUTCDay()`.
+  dia.setUTCDate(dia.getUTCDate() + ((4 - dia.getUTCDay() + 7) % 7))
+  return dia
+}
+
+const QUINTA_09H = quintaDistante()
+
+/** Meia-noite da quinta e da sexta seguintes, para as consultas por período. */
+const QUINTA_INICIO = new Date(
+  Date.UTC(QUINTA_09H.getUTCFullYear(), QUINTA_09H.getUTCMonth(), QUINTA_09H.getUTCDate()),
+)
+const QUINTA_FIM = new Date(QUINTA_INICIO.getTime() + 24 * 3_600_000)
 
 let tenant: TenantFixture
 
@@ -92,8 +116,8 @@ describe('§6 — check-in e check-out', () => {
   it('RN-17: check-in fora do horário é permitido, e o atraso vai para a trilha', async () => {
     const booking = await givenBooking()
 
-    // O agendamento é de setembro de 2026 e o check-in acontece agora: muito fora do
-    // horário. O pet está ali; recusar não o faria ir embora.
+    // O agendamento é de mais de um mês adiante e o check-in acontece agora: muito fora
+    // do horário. O pet está ali; recusar não o faria ir embora.
     await checkIn(actor(), booking.id)
 
     const audit = await ownerPrisma.auditLog.findFirstOrThrow({
@@ -326,7 +350,7 @@ describe('rotas do agendamento', () => {
     const response = await callApi({
       ...asAdmin(tenant),
       method: 'GET',
-      url: `/v1/availability?serviceId=${serviceId}&petId=${petId}&from=2026-09-03T00:00:00.000Z&to=2026-09-04T00:00:00.000Z`,
+      url: `/v1/availability?serviceId=${serviceId}&petId=${petId}&from=${QUINTA_INICIO.toISOString()}&to=${QUINTA_FIM.toISOString()}`,
     })
 
     expect(response.statusCode).toBe(200)
@@ -348,7 +372,7 @@ describe('rotas do agendamento', () => {
     const response = await callApi({
       ...asAdmin(tenant),
       method: 'GET',
-      url: '/v1/appointments?from=2026-09-03T00:00:00.000Z&to=2026-09-04T00:00:00.000Z',
+      url: `/v1/appointments?from=${QUINTA_INICIO.toISOString()}&to=${QUINTA_FIM.toISOString()}`,
     })
 
     expect(response.statusCode).toBe(200)

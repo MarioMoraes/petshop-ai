@@ -200,6 +200,47 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         '{{petshop.telefone}} para combinarmos o que fazer.',
     },
   },
+  {
+    key: 'portal_codigo_acesso',
+    label: 'Código de acesso ao Portal',
+    /**
+     * `OPERATIONAL`, e não `TRANSACTIONAL` como o PRD portal_tutor_09 §3 escreveu.
+     *
+     * O PRD supôs que TRANSACTIONAL ignora a janela de silêncio; quem a ignora, em
+     * `window.ts`, é **OPERATIONAL**. Um código pedido às 23h sairia às 8h da manhã
+     * seguinte, sete horas depois de expirar — e o tutor ficaria olhando para uma tela
+     * de "enviamos o código" que nunca cumpre a promessa.
+     */
+    category: 'OPERATIONAL',
+    variables: [...BASE_VARIABLES, 'portal.codigo'],
+    subject: 'Seu código de acesso: {{portal.codigo}}',
+    body: {
+      WHATSAPP:
+        '{{portal.codigo}} é o seu código de acesso ao Portal do {{petshop.nome}}.\n\n' +
+        'Ele vale por 10 minutos. Não compartilhe com ninguém.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Seu código de acesso ao Portal do {{petshop.nome}} é {{portal.codigo}}.\n\n' +
+        'Ele vale por 10 minutos. Se não foi você quem pediu, ignore esta mensagem.',
+    },
+  },
+  {
+    key: 'portal_boas_vindas',
+    label: 'Boas-vindas ao Portal',
+    category: 'TRANSACTIONAL',
+    variables: [...BASE_VARIABLES, 'portal.link'],
+    subject: 'Seu acesso ao Portal do {{petshop.nome}} está pronto',
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, seu acesso ao Portal do {{petshop.nome}} está pronto.\n\n' +
+        'Por ele você vê os seus pets, o histórico e a sua conta: {{portal.link}}',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Seu acesso ao Portal do {{petshop.nome}} está pronto. Por ele você acompanha ' +
+        'os seus pets, o histórico de atendimentos e a sua conta.\n\n' +
+        '{{portal.link}}',
+    },
+  },
 ]
 
 const BY_KEY = new Map(MESSAGE_TEMPLATES.map((template) => [template.key, template]))

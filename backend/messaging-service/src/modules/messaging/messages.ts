@@ -17,6 +17,7 @@ import {
 } from '../../lib/errors.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { openCipher, type MessageCipher } from './crypto.js'
+import { dispatchTenant } from './dispatch.js'
 import { render } from './render.js'
 import { resolveDelivery } from './recipient.js'
 import { resolveTemplate } from './templates.js'
@@ -222,17 +223,25 @@ export async function enqueueMessage(
 
       const blocked = !decision.ok
 
-      // RN-08: cabe dentro de uma mensagem que ainda não saiu?
-      const absorbedBy = blocked
-        ? null
-        : await absorbIntoRecent(tx, cipher, {
-            tenantId: actor.tenantId,
-            tutorId: input.tutorId,
-            channel,
-            category,
-            body: body.text,
-            now,
-          })
+      /**
+       * RN-08: cabe dentro de uma mensagem que ainda não saiu?
+       *
+       * `urgent` sai fora do agrupamento, e é a exceção que o código de acesso do
+       * Portal exige. Absorver um código de seis dígitos dentro de outro texto o
+       * entrega no meio de um lembrete de banho — quando entrega; a irmã pode estar
+       * agendada para depois de ele expirar.
+       */
+      const absorbedBy =
+        blocked || input.urgent
+          ? null
+          : await absorbIntoRecent(tx, cipher, {
+              tenantId: actor.tenantId,
+              tutorId: input.tutorId,
+              channel,
+              category,
+              body: body.text,
+              now,
+            })
 
       const created = await tx.message.create({
         data: {
@@ -302,6 +311,24 @@ export async function enqueueMessage(
         scheduledFor: result.scheduledFor?.toISOString() ?? null,
       })
     }
+  }
+
+  /**
+   * Despacho na mesma requisição, para a mensagem que não sobrevive à fila.
+   *
+   * O worker varre a cada minuto, e um código de dez minutos que sai no sétimo já
+   * chegou tarde para quem está com a tela aberta esperando. `dispatchTenant` é o mesmo
+   * passo que o job daria — sem jitter, porque o jitter existe para espalhar disparo de
+   * campanha, e aqui há uma mensagem só, pedida por uma pessoa.
+   *
+   * Falha aqui **não** vira erro do chamador: a mensagem está gravada e enfileirada, e
+   * o worker a pega no minuto seguinte. Perder a resposta do `enqueue` por causa do
+   * despacho seria trocar um atraso por uma falha.
+   */
+  if (input.urgent && !result.duplicate && !result.blockReason) {
+    await dispatchTenant(actor.tenantId, { jitter: false }).catch((error: unknown) => {
+      logger.error({ err: error, tenantId: actor.tenantId }, 'falha no despacho imediato')
+    })
   }
 
   return { id: result.id, status: result.status, duplicate: result.duplicate }

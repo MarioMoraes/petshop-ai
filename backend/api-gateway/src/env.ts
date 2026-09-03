@@ -27,6 +27,17 @@ export const { loadEnv, resetEnvCache } = defineEnv('api-gateway', {
   CRM_AUTOMATION_SERVICE_URL: z.string().url().default('http://localhost:3009'),
   MESSAGING_SERVICE_URL: z.string().url().default('http://localhost:3010'),
   SITE_SERVICE_URL: z.string().url().default('http://localhost:3013'),
+  PORTAL_BFF_URL: z.string().url().default('http://localhost:3020'),
+
+  /**
+   * Domínio da instalação, usado para montar o host que emite o token do Portal.
+   *
+   * O `authorizedParties` do `@clerk/backend` é comparação de string **sem glob**, e o
+   * Portal é servido em `{slug}.{APP_DOMAIN}` — um host por tenant, criado a qualquer
+   * hora. Nenhuma lista estática cobre isso; o que cobre é derivar o host exato do slug
+   * que veio na requisição e conferir contra ele.
+   */
+  APP_DOMAIN: z.string().default('localhost:3002'),
 
   /** Origens aceitas pelo CORS (SPEC §7.4: CORS restritivo por domínio). */
   CORS_ORIGINS: z.string().default('http://localhost:3002'),

@@ -113,6 +113,10 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   'SiteSettings',
   'SitePhoto',
   'SiteLead',
+  // MOD-PORTAL: pelo mesmo motivo de `SiteLead`. Quem pede o desafio é uma conta do
+  // Clerk sem vínculo nenhum com o tenant, mas o tenant vem do host e é resolvido antes
+  // de a linha existir — a tentativa é do petshop que a recebeu.
+  'PortalLinkChallenge',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
   // tenants por definição, e exigir contexto dele seria negar o que ele é.

@@ -207,6 +207,12 @@ export interface TutorTagEvent extends BaseEvent {
 }
 
 export interface TutorEventMap {
+  /**
+   * O desvínculo do Portal sai daqui, e não do `portal-bff`: quem o provoca é a equipe,
+   * pela ficha, com `tutor:update`. O evento gêmeo `tutor.portal_vinculado` fica no
+   * mapa do MOD-PORTAL, porque é o BFF quem o publica — o corte segue quem escreve.
+   */
+  'tutor.portal_desvinculado': TutorPortalDesvinculadoEvent
   'tutor.criado': TutorCriadoEvent
   'tutor.atualizado': TutorAtualizadoEvent
   'tutor.inativado': TutorInativadoEvent
@@ -920,4 +926,53 @@ export interface SiteEventMap {
   'site.despublicado': SitePublicacaoEvent
   'lead.recebido': LeadRecebidoEvent
   'lead.convertido': LeadConvertidoEvent
+}
+
+// ─── MOD-PORTAL ──────────────────────────────────────────────────────────────
+
+interface PortalBaseEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+}
+
+/**
+ * O vínculo nasceu: esta ficha passou a ter dono do lado de fora do balcão.
+ *
+ * Consumido pelo CRM (boas-vindas) e pela trilha. O `channel` diz por onde o código
+ * chegou, e é o que responde depois se vale a pena continuar mandando WhatsApp para
+ * quem já usa o Portal.
+ */
+export interface TutorPortalVinculadoEvent extends PortalBaseEvent {
+  userId: string
+  channel: 'EMAIL' | 'WHATSAPP'
+}
+
+/**
+ * O vínculo foi desfeito pela equipe, ou pela anonimização da ficha.
+ *
+ * Consumido pelo gateway, que descarta o cache da sessão do Portal — é o que faz o
+ * AC-05 de MOD-PORTAL-02 valer antes de o TTL de 60s vencer.
+ */
+export interface TutorPortalDesvinculadoEvent extends PortalBaseEvent {
+  reason: 'EQUIPE' | 'ANONIMIZACAO'
+  actorId: string | null
+}
+
+/**
+ * O padrão que interessa não é a tentativa, é a série delas.
+ *
+ * Não carrega o identificador em claro, só o hash: um evento que dissesse "fulano@
+ * tentou entrar" seria, ele próprio, o vazamento que o módulo inteiro evita.
+ */
+export interface PortalAcessoSuspeitoEvent extends BaseEvent {
+  tenantId: string
+  identifierHash: string
+  ip: string | null
+  attempts: number
+}
+
+export interface PortalEventMap {
+  'tutor.portal_vinculado': TutorPortalVinculadoEvent
+  'tutor.portal_desvinculado': TutorPortalDesvinculadoEvent
+  'portal.acesso_suspeito': PortalAcessoSuspeitoEvent
 }

@@ -22,7 +22,14 @@ import {
 } from '../../lib/errors.js'
 import { publishEvent } from '../../lib/events.js'
 import { recordMetric } from '../../lib/logger.js'
-import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet, invalidateTutor } from '../../lib/redis.js'
+import {
+  CACHE_KEYS,
+  CACHE_TTL_SECONDS,
+  cacheDelete,
+  cacheGet,
+  cacheSet,
+  invalidateTutor,
+} from '../../lib/redis.js'
 import { createAddressIn } from '../addresses/service.js'
 import { recordConsentsIn } from '../consents/service.js'
 import { hashCnpj, hashCpf, hashPhone, hashTutorEmail, openCipher } from './crypto.js'
@@ -426,6 +433,71 @@ export async function reactivateTutor(
     },
     actor.actorUserId ? { userId: actor.actorUserId } : {},
   )
+
+  await invalidateTutor(actor.tenantId, tutorId)
+  return getTutor(actor.tenantId, tutorId)
+}
+
+// ─── Acesso ao Portal (MOD-PORTAL-01, RN-05) ─────────────────────────────────
+
+/**
+ * Desfaz o vínculo entre a ficha e um login do Portal.
+ *
+ * **É a única saída para um vínculo errado**, e por isso precisa existir junto da fatia
+ * que cria vínculos. O AC-04 de MOD-PORTAL-01 recusa a segunda conta sobre a mesma
+ * ficha, e a recusa é definitiva: quem entrou com o telefone certo de outra pessoa —
+ * um número reciclado pela operadora é o caso realista — só sai daqui.
+ *
+ * O evento é o que faz a revogação valer **agora**, e não quando o cache de 60s do
+ * gateway vencer (AC-05 de MOD-PORTAL-02).
+ */
+export async function unlinkPortalAccess(
+  actor: ActorContext,
+  tutorId: string,
+): Promise<TutorDetail> {
+  const previous = await withTenant(
+    actor.tenantId,
+    async (tx) => {
+      const row = await tx.tutor.findFirst({ where: { id: tutorId, deletedAt: null } })
+      if (!row) throw notFound()
+      if (!row.portalUserId) return null
+
+      await tx.tutor.update({
+        where: { id: tutorId },
+        data: {
+          portalUserId: null,
+          portalLinkedAt: null,
+          updatedBy: actor.actorUserId ?? null,
+        },
+      })
+      await recordAudit(tx, {
+        tenantId: actor.tenantId,
+        actorUserId: actor.actorUserId ?? null,
+        action: 'portal.unlinked',
+        entity: 'tutor',
+        entityId: tutorId,
+        before: { portalUserId: row.portalUserId },
+        after: { portalUserId: null },
+        ipAddress: actor.ipAddress ?? null,
+      })
+
+      return row.portalUserId
+    },
+    actor.actorUserId ? { userId: actor.actorUserId } : {},
+  )
+
+  if (previous) {
+    // Antes do evento, e não por ele: o gateway não consome broker, e o que revoga a
+    // sessão agora é esta chave sumir (AC-05 de MOD-PORTAL-02).
+    await cacheDelete(CACHE_KEYS.portalSession(actor.tenantId, previous))
+
+    await publishEvent('tutor.portal_desvinculado', {
+      tenantId: actor.tenantId,
+      tutorId,
+      reason: 'EQUIPE',
+      actorId: actor.actorUserId ?? null,
+    })
+  }
 
   await invalidateTutor(actor.tenantId, tutorId)
   return getTutor(actor.tenantId, tutorId)

@@ -8,6 +8,7 @@ import {
   ownerPrisma,
   resetDatabase,
   seedMember,
+  seedPortalTutor,
   seedTenant,
 } from './harness.js'
 
@@ -454,5 +455,134 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
   it('rota desconhecida não é roteada para lugar nenhum', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
     expect(resolveTarget('/v1/inexistente')).toBeNull()
+  })
+})
+
+describe('MOD-PORTAL — a superfície do tutor', () => {
+  const SLUG_HEADER = 'x-petshop-tenant-slug'
+
+  it('resolve a sessão pelo host e assina o contexto com tutorId e as permissões `_own`', async () => {
+    const tenant = await seedTenant('petshop-portal')
+    const { userId, clerkUserId } = await seedMember(tenant.tenantId, 'RECEPTIONIST')
+    const { tutorId } = await seedPortalTutor(tenant.tenantId, userId)
+
+    // O token **não** tem Organization: o tutor não é membro de nada. Quem diz de que
+    // petshop se fala é o host, e é o que este header carrega.
+    const response = await call({
+      url: '/portal/v1/me',
+      token: givenToken({ clerkUserId }),
+      headers: { [SLUG_HEADER]: tenant.slug },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const forwarded = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
+    expect(forwarded.ok).toBe(true)
+    if (!forwarded.ok) return
+    expect(forwarded.context.tutorId).toBe(tutorId)
+    expect(forwarded.context.role).toBe('TUTOR')
+    expect(forwarded.context.tenantId).toBe(tenant.tenantId)
+    expect(forwarded.context.permissions).toContain('pet:read_own')
+    // O que o papel de equipe daria fica de fora: o mesmo login, no Portal, é tutor.
+    expect(forwarded.context.permissions).not.toContain('tutor:read')
+  })
+
+  it('AC-04 de MOD-PORTAL-02: quem é funcionário e cliente entra no Portal como tutor', async () => {
+    const tenant = await seedTenant('petshop-banhista')
+    const { userId, clerkUserId } = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
+    await seedPortalTutor(tenant.tenantId, userId)
+
+    // O mesmo token que no Admin daria acesso total.
+    const token = givenToken({ clerkUserId, clerkOrgId: tenant.clerkOrgId })
+
+    const portal = await call({
+      url: '/portal/v1/me',
+      token,
+      headers: { [SLUG_HEADER]: tenant.slug },
+    })
+    expect(portal.statusCode).toBe(200)
+
+    const context = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
+    expect(context.ok).toBe(true)
+    if (!context.ok) return
+    expect(context.context.role).toBe('TUTOR')
+    expect(context.context.permissions).not.toContain('tenant:configure')
+  })
+
+  it('a sessão sem ficha vinculada segue sem tutorId e sem permissão nenhuma', async () => {
+    const tenant = await seedTenant('petshop-sem-ficha')
+    const { clerkUserId } = await seedMember(tenant.tenantId, 'RECEPTIONIST')
+
+    const response = await call({
+      url: '/portal/v1/access/challenge',
+      method: 'POST',
+      token: givenToken({ clerkUserId }),
+      headers: { [SLUG_HEADER]: tenant.slug },
+      payload: { identifier: 'maria@exemplo.com' },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const forwarded = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
+    expect(forwarded.ok).toBe(true)
+    if (!forwarded.ok) return
+    expect(forwarded.context.tutorId).toBeUndefined()
+    expect(forwarded.context.permissions).toEqual([])
+  })
+
+  it('sem o header de host não há de que petshop falar', async () => {
+    const tenant = await seedTenant('petshop-sem-host')
+    const { clerkUserId } = await seedMember(tenant.tenantId, 'RECEPTIONIST')
+
+    const response = await call({ url: '/portal/v1/me', token: givenToken({ clerkUserId }) })
+
+    expect(response.statusCode).toBe(404)
+    expect(response.json().code).toBe('ERR_PORTAL_001')
+  })
+
+  it('subdomínio de tenant suspenso responde como inexistente', async () => {
+    const tenant = await seedTenant('petshop-suspenso', 'SUSPENDED')
+    const { userId, clerkUserId } = await seedMember(tenant.tenantId, 'RECEPTIONIST')
+    await seedPortalTutor(tenant.tenantId, userId)
+
+    const response = await call({
+      url: '/portal/v1/me',
+      token: givenToken({ clerkUserId }),
+      headers: { [SLUG_HEADER]: tenant.slug },
+    })
+
+    expect(response.statusCode).toBe(404)
+  })
+
+  it('o slug forjado de outro petshop não empresta ficha nenhuma', async () => {
+    const meu = await seedTenant('petshop-meu')
+    const alheio = await seedTenant('petshop-alheio')
+    const { userId, clerkUserId } = await seedMember(meu.tenantId, 'RECEPTIONIST')
+    await seedPortalTutor(meu.tenantId, userId)
+
+    const response = await call({
+      url: '/portal/v1/me',
+      token: givenToken({ clerkUserId }),
+      headers: { [SLUG_HEADER]: alheio.slug },
+    })
+
+    // A requisição chega ao BFF, mas sem `tutorId`: o vínculo é por tenant, e neste
+    // aqui a pessoa não tem ficha. Quem responde 401 é o `requireTutorContext`.
+    expect(response.statusCode).toBe(200)
+    const forwarded = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
+    expect(forwarded.ok).toBe(true)
+    if (!forwarded.ok) return
+    expect(forwarded.context.tenantId).toBe(alheio.tenantId)
+    expect(forwarded.context.tutorId).toBeUndefined()
+  })
+
+  it('o prefixo do Portal vai para o portal-bff, e nada mais vai', async () => {
+    const { resolveTarget } = await import('../src/proxy.js')
+    const { loadEnv } = await import('../src/env.js')
+    const env = loadEnv()
+
+    expect(resolveTarget('/portal/v1/me')).toBe(env.PORTAL_BFF_URL)
+    expect(resolveTarget('/portal/v1/access/challenge')).toBe(env.PORTAL_BFF_URL)
+    // O prefixo administrativo continua onde estava: a separação é o AC-04 de
+    // MOD-PORTAL-11, e é ela que garante que nenhum tutor alcance `/v1`.
+    expect(resolveTarget('/v1/tutors')).toBe(env.TUTOR_SERVICE_URL)
   })
 })

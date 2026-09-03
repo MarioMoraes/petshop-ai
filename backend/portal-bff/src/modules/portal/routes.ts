@@ -1,0 +1,197 @@
+import { withTenant } from '@petshop/db'
+import {
+  PortalChallengeSchema,
+  PortalTimelineQuerySchema,
+  PortalVerifySchema,
+  UpdateOwnPetSchema,
+} from '@petshop/shared-types'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
+import {
+  requireOwnScope,
+  requirePermission,
+  requireTenantContext,
+  requireTutorContext,
+} from '../../auth/context.js'
+import { forbidden, unauthorized } from '../../lib/errors.js'
+import { logger } from '../../lib/logger.js'
+import { parseInput } from '../../lib/validate.js'
+import type { ActorContext } from './actor.js'
+import { requestChallenge } from './challenge.js'
+import { readPortalContext, readPortalTenant, touchLastSeen } from './me.js'
+import { listOwnPets, readOwnPet, updateOwnPet } from './pets.js'
+import { readOwnPetTimeline } from './timeline.js'
+import { verifyChallenge } from './verify.js'
+
+/**
+ * As rotas do Portal (PRD portal_tutor_09 §5).
+ *
+ * A fatia 1 entregou a **porta** — identidade, escopo e contexto. A fatia 2 abre os
+ * cômodos que já são do tutor: os pets e a história de cada um.
+ *
+ * A partir daqui as rotas param de chamar `requireTutorContext` direto e passam a
+ * declarar a permissão `_own` no `preHandler`, lendo o recorte de `requireOwnScope`.
+ * A troca não é estilística: quem lê o escopo **não compila** sem ter passado pelo
+ * gate, e é assim que o RN-02 — "handler que esquece de filtrar não deve ser possível" —
+ * deixa de depender de disciplina. `/me` fica de fora porque é a rota que descreve a
+ * sessão em si, e não um recurso sob escopo.
+ *
+ * O prefixo é `/portal/v1`, e não `/v1`. A separação é o que permite ao gateway ter
+ * allowlist e rate limit próprios para a superfície do cliente final — e é o que garante
+ * que nenhum papel `TUTOR` alcance uma rota administrativa (AC-04 de MOD-PORTAL-11).
+ */
+
+function actorOf(request: FastifyRequest): ActorContext {
+  const auth = requireTenantContext(request)
+  return {
+    tenantId: auth.tenantId,
+    actorUserId: auth.userId,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'],
+  }
+}
+
+// ─── Superfície pública ──────────────────────────────────────────────────────
+
+export async function registerPublicPortalRoutes(app: FastifyInstance): Promise<void> {
+  /**
+   * A identidade visual do petshop, para a tela de login.
+   *
+   * O tenant já vem resolvido pelo gateway, a partir do host — esta rota não decide de
+   * quem é a página, só a descreve.
+   */
+  app.get('/portal/v1/tenant', async (request) => {
+    const auth = requireTenantContext(request)
+    return readPortalTenant(auth.tenantId)
+  })
+}
+
+// ─── Superfície autenticada ──────────────────────────────────────────────────
+
+export async function registerPortalRoutes(app: FastifyInstance): Promise<void> {
+  /**
+   * MOD-PORTAL-01 — pedir o código.
+   *
+   * **Exige sessão do Clerk**, divergindo do §5 do PRD, que a marcou como pública. O
+   * §4 do mesmo documento declara `clerk_user_id` obrigatório na linha do desafio, e as
+   * duas coisas não cabem juntas: sem sessão não há quem gravar ali, e sem o campo o
+   * vínculo não pode exigir que **o mesmo** usuário verifique — um código interceptado
+   * valeria para qualquer conta.
+   *
+   * Nada da defesa se perde com isso: o 202 uniforme, o honeypot e o piso de tempo
+   * continuam valendo. O que muda é que varrer a base do petshop passa a custar uma
+   * conta no Clerk por varredura.
+   */
+  app.post('/portal/v1/access/challenge', async (request, reply) => {
+    const auth = requireTenantContext(request)
+    const input = parseInput(PortalChallengeSchema, request.body)
+
+    const response = await requestChallenge({
+      actor: actorOf(request),
+      clerkUserId: auth.clerkUserId,
+      input,
+    })
+
+    return reply.status(202).send(response)
+  })
+
+  /** MOD-PORTAL-01, AC-02 — consumir o código e criar o vínculo. */
+  app.post('/portal/v1/access/verify', async (request) => {
+    const auth = requireTenantContext(request)
+    const input = parseInput(PortalVerifySchema, request.body)
+
+    if (!auth.userId) {
+      // O espelho local do usuário do Clerk ainda não existe. Sem ele não há o que
+      // gravar em `portal_user_id` — e o vínculo apontaria para ninguém.
+      logger.warn({ clerkUserId: auth.clerkUserId }, 'verificação sem espelho local do usuário')
+      throw unauthorized('Não foi possível concluir o acesso. Entre novamente.')
+    }
+
+    return verifyChallenge({
+      actor: actorOf(request),
+      clerkUserId: auth.clerkUserId,
+      userId: auth.userId,
+      input,
+    })
+  })
+
+  /** MOD-PORTAL-02 — o contexto do tutor autenticado. */
+  app.get('/portal/v1/me', async (request) => {
+    const auth = requireTutorContext(request)
+
+    const context = await withTenant(auth.tenantId, (tx) =>
+      readPortalContext(tx, auth.tenantId, auth.tutorId),
+    )
+
+    // RN-15: o Portal desligado tranca a casa, não a porta — quem já entrou precisa
+    // saber por que não há nada a fazer aqui, e a mensagem é do estabelecimento.
+    if (!context.features.portalEnabled) {
+      throw forbidden('O Portal está indisponível neste estabelecimento no momento.')
+    }
+
+    // Métrica de adoção, fora do caminho da resposta.
+    void touchLastSeen(auth.tenantId, auth.tutorId).catch((error: unknown) => {
+      logger.warn({ err: error }, 'falha ao marcar a visita do tutor')
+    })
+
+    return context
+  })
+
+  // ─── MOD-PORTAL-03 — Meus Pets ─────────────────────────────────────────────
+
+  app.get(
+    '/portal/v1/pets',
+    { preHandler: requirePermission('pet:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      return { pets: await listOwnPets(tenantId, tutorId) }
+    },
+  )
+
+  app.get(
+    '/portal/v1/pets/:petId',
+    { preHandler: requirePermission('pet:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const { petId } = request.params as { petId: string }
+      return readOwnPet(tenantId, tutorId, petId)
+    },
+  )
+
+  /**
+   * AC-02 e AC-03 de MOD-PORTAL-03.
+   *
+   * O 422 do campo travado nasce do `UpdateOwnPetSchema`, aqui no `parseInput`: peso,
+   * porte, raça e pelagem não chegam ao handler porque o schema é `.strict()` e não os
+   * declara. A trava é o contrato, e não uma checagem que alguém possa esquecer de
+   * repetir na próxima rota de escrita.
+   */
+  app.patch(
+    '/portal/v1/pets/:petId',
+    { preHandler: requirePermission('pet:update_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const { petId } = request.params as { petId: string }
+      const input = parseInput(UpdateOwnPetSchema, request.body)
+
+      return updateOwnPet(tenantId, tutorId, petId, input)
+    },
+  )
+
+  // ─── MOD-PORTAL-04 — Histórico do Pet ──────────────────────────────────────
+
+  app.get(
+    '/portal/v1/pets/:petId/timeline',
+    { preHandler: requirePermission('pet:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const { petId } = request.params as { petId: string }
+      const query = parseInput(PortalTimelineQuerySchema, request.query)
+
+      return readOwnPetTimeline(tenantId, tutorId, petId, query)
+    },
+  )
+}

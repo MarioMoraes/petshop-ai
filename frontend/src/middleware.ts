@@ -61,6 +61,15 @@ const withClerk = clerkMiddleware(async (auth, request) => {
   return NextResponse.next()
 })
 
+/**
+ * O Portal do Tutor: a sessão é resolvida, o desvio é da página.
+ *
+ * `clerkMiddleware` sem callback apenas popula o contexto de autenticação; nenhuma rota
+ * é protegida por ele. É o que dá a `auth()` um usuário nas páginas de `(portal)` sem
+ * impor a política do Admin a um público que tem outra porta.
+ */
+const withClerkPortal = clerkMiddleware()
+
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
   const host = request.headers.get('host') ?? ''
   const decision = routeFor(host, request.nextUrl.pathname, APP_DOMAIN)
@@ -93,9 +102,16 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
     )
   }
 
-  // Portal segue sem o gate da equipe: ele ganha o próprio quando o MOD-PORTAL
-  // existir; hoje as rotas não existem e o Next responde 404, que é a resposta
-  // honesta para uma área que ainda não foi construída.
+  /**
+   * O Portal roda o `clerkMiddleware`, mas **sem** o gate da equipe.
+   *
+   * O tutor precisa da sessão do Clerk — sem ela, `auth()` nas páginas não enxerga
+   * ninguém e o Portal não sai do lugar. O que ele não pode herdar é o redirecionamento
+   * do Admin: quem chega sem sessão em `/portal` vai para `/portal/entrar`, decidido
+   * pela própria página, e não para o login da equipe em outro host.
+   */
+  if (decision.action === 'portal') return withClerkPortal(request, event)
+
   if (decision.action !== 'admin') return NextResponse.next()
 
   return withClerk(request, event)

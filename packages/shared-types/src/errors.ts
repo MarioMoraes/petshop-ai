@@ -170,6 +170,28 @@ export const SITE_ERRORS = {
 
 export type SiteErrorCode = keyof typeof SITE_ERRORS
 
+/**
+ * PRD portal_tutor_09 §5.
+ *
+ * `ERR_PORTAL_001` é 404 **de propósito** onde outro módulo poria 403: recurso que
+ * existe para outro tutor responde "não encontrado", porque 403 confirma existência e
+ * transformaria a superfície pública num enumerador (RN-03).
+ */
+export const PORTAL_ERRORS = {
+  ERR_PORTAL_001: { status: 404, title: 'Não encontrado' },
+  ERR_PORTAL_002: { status: 422, title: 'Código inválido ou expirado' },
+  ERR_PORTAL_003: { status: 409, title: 'Ficha já tem acesso ao Portal' },
+  ERR_PORTAL_004: { status: 429, title: 'Muitas tentativas' },
+  ERR_PORTAL_005: { status: 409, title: 'Mais de uma ficha com este contato' },
+  ERR_PORTAL_006: { status: 401, title: 'Acesso ao Portal encerrado' },
+  ERR_PORTAL_007: { status: 422, title: 'Campo não editável pelo tutor' },
+  ERR_PORTAL_008: { status: 403, title: 'Recurso indisponível neste estabelecimento' },
+  ERR_PORTAL_009: { status: 409, title: 'Operação incompatível com o estado atual' },
+  ERR_PORTAL_010: { status: 502, title: 'Serviço indisponível' },
+} as const
+
+export type PortalErrorCode = keyof typeof PORTAL_ERRORS
+
 export const ERROR_CATALOG = {
   ...IDENTITY_ERRORS,
   ...TUTOR_ERRORS,
@@ -179,6 +201,7 @@ export const ERROR_CATALOG = {
   ...TAXI_ERRORS,
   ...CRM_ERRORS,
   ...SITE_ERRORS,
+  ...PORTAL_ERRORS,
 } as const
 
 export type ErrorCode = keyof typeof ERROR_CATALOG

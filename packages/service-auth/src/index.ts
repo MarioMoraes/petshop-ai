@@ -19,6 +19,7 @@ export const SERVICE_HEADERS = {
   userId: 'x-petshop-user-id',
   tenantId: 'x-petshop-tenant-id',
   role: 'x-petshop-role',
+  tutorId: 'x-petshop-tutor-id',
   permissions: 'x-petshop-permissions',
   permVersion: 'x-petshop-perm-version',
   timestamp: 'x-petshop-timestamp',
@@ -36,6 +37,18 @@ export interface ServiceAuthContext {
   /** Ausente quando o usuário ainda não tem tenant — é o caso de `POST /v1/tenants`. */
   tenantId?: string
   role?: RoleKey
+  /**
+   * A ficha de tutor deste usuário, quando a sessão é do Portal (MOD-PORTAL-02).
+   *
+   * Sem ele, `tutor:read_own` é indistinguível de `tutor:read` — a permissão diria
+   * "só os próprios" sem que houvesse de quem. É o campo que dá sentido às nove
+   * permissões `_own` que existem desde o MOD-IDENT-04 e nunca foram exigidas.
+   *
+   * Presente **somente** na sessão do Portal. Uma sessão de equipe nunca o carrega,
+   * nem a de quem é funcionário e cliente do mesmo petshop: são duas sessões, com dois
+   * escopos, e a do Portal não amplia por o usuário ter membership.
+   */
+  tutorId?: string
   permissions: PermissionKey[]
   permVersion?: number
 }
@@ -49,6 +62,7 @@ function canonicalPayload(context: ServiceAuthContext, timestamp: number): strin
     context.userId ?? '',
     context.tenantId ?? '',
     context.role ?? '',
+    context.tutorId ?? '',
     [...context.permissions].sort().join(','),
     context.permVersion?.toString() ?? '',
     timestamp.toString(),
@@ -73,6 +87,7 @@ export function signServiceHeaders(
   if (context.userId) headers[SERVICE_HEADERS.userId] = context.userId
   if (context.tenantId) headers[SERVICE_HEADERS.tenantId] = context.tenantId
   if (context.role) headers[SERVICE_HEADERS.role] = context.role
+  if (context.tutorId) headers[SERVICE_HEADERS.tutorId] = context.tutorId
   if (context.permVersion !== undefined) {
     headers[SERVICE_HEADERS.permVersion] = context.permVersion.toString()
   }
@@ -122,9 +137,11 @@ export function verifyServiceHeaders(
   const userId = readHeader(headers, SERVICE_HEADERS.userId)
   const tenantId = readHeader(headers, SERVICE_HEADERS.tenantId)
   const role = readHeader(headers, SERVICE_HEADERS.role)
+  const tutorId = readHeader(headers, SERVICE_HEADERS.tutorId)
   if (userId) context.userId = userId
   if (tenantId) context.tenantId = tenantId
   if (role) context.role = role as RoleKey
+  if (tutorId) context.tutorId = tutorId
   if (permVersionRaw) context.permVersion = Number(permVersionRaw)
 
   const expected = createHmac('sha256', secret)
