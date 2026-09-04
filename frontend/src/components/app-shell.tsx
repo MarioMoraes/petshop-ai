@@ -214,7 +214,14 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
   // (ver `lib/pendencias.ts`), então isto não tem como derrubar a tela.
   const pendencias = montarPendencias(await carregarPendencias(me))
 
-  const trialDaysLeft = trialDaysLeftOf(me.currentTenant?.trialEndsAt)
+  // Só quem está em TRIAL conta dias de teste. `trialEndsAt` não é zerado quando o
+  // estabelecimento assina — a data fica no cadastro como registro do que foi o
+  // período —, então ler só a data faz um tenant já ACTIVE continuar anunciando
+  // "2 dias de teste" até o prazo antigo vencer. Quem manda é o status.
+  const trialDaysLeft =
+    me.currentTenant?.status === 'TRIAL'
+      ? trialDaysLeftOf(me.currentTenant.trialEndsAt)
+      : null
   const roleLabel = roleLabelOf(me)
 
   // `--color-focus` chega de `/v1/me` como a cor de marca do tenant corrente
@@ -274,15 +281,29 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
              * `userButtonAvatarBox` além de `avatarBox`: os dois descritores caem no mesmo
              * elemento, e só o específico vence a regra interna do widget. A `<img>` de
              * dentro é 100% da caixa, então a foto cresce junto.
+             *
+             * O `box-shadow` é a folga entre a foto e o anel de `.avatar-ring` — sombra, e
+             * não borda, porque assim ele não entra nos 32px nem no cálculo do padding do
+             * `<span>`. O anel em si está em `globals.css`, com as medidas da referência.
              */}
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: { width: '32px', height: '32px' },
-                  userButtonAvatarBox: { width: '32px', height: '32px' },
-                },
-              }}
-            />
+            <span className="avatar-ring">
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: {
+                      width: '32px',
+                      height: '32px',
+                      boxShadow: '0 0 0 3px var(--color-surface)',
+                    },
+                    userButtonAvatarBox: {
+                      width: '32px',
+                      height: '32px',
+                      boxShadow: '0 0 0 3px var(--color-surface)',
+                    },
+                  },
+                }}
+              />
+            </span>
           </div>
         </header>
 
@@ -365,7 +386,7 @@ function roleLabelOf(me: MeResponse): string | null {
   return me.memberships.find((m) => m.tenantId === tenantId)?.roleLabel ?? null
 }
 
-/** Dias inteiros até o fim do teste, nunca negativo. */
+/** Dias inteiros até o fim do teste, nunca negativo. Não decide se o selo aparece. */
 export function trialDaysLeftOf(trialEndsAt: string | null | undefined): number | null {
   if (!trialEndsAt) return null
   const remaining = new Date(trialEndsAt).getTime() - Date.now()

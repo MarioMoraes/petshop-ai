@@ -1813,6 +1813,55 @@
     background-color: var(--color-accent);
   }
 
+  /*
+   * Anel do avatar do usuário logado, na topbar. Medido da referência que o usuário
+   * mandou: uma cor em quase toda a volta e um arco claro sobre o topo — é gradiente
+   * cônico, não linear. Um linear clarearia o lado inteiro; na referência o lado
+   * esquerdo e o de baixo continuam cheios e só a hora do relógio entre 11h e 2h abre.
+   *
+   * A cor não é a da referência: é `--color-focus`, a cor principal do tenant
+   * (Configurações → Identidade visual → "Ou informe a cor exata"), que o `AppShell`
+   * põe na raiz. O anel acompanha a marca do estabelecimento como já fazem o foco dos
+   * campos e os botões.
+   *
+   * `--ring-glow` é o arco claro, derivado da mesma cor em vez de fixo. Na referência
+   * ele não é só um tom mais claro do azul: é mais claro, menos saturado e girado uns
+   * 28° no matiz — por isso o `oklch(from ...)`, que reproduz os três de uma vez em
+   * qualquer marca. O `color-mix` antes dele é o que sobra num navegador sem cor
+   * relativa: perde o giro de matiz, mantém o clareado, e o anel continua de pé.
+   *
+   * A folga entre o anel e a foto é a própria `--color-surface` da faixa: na
+   * referência ela é o fundo escuro aparecendo, então aqui acompanha o tema claro em
+   * vez de copiar o roxo do print. Quem a desenha é o `box-shadow` do avatar (ver
+   * `app-shell.tsx`), que pinta por cima deste fundo sem ocupar espaço no layout.
+   *
+   * Proporções da referência, e não pixels dela: anel e folga valem ~8,5% do diâmetro
+   * da foto cada um. Com a foto em 32px dá 3px para cada, e 44px de diâmetro externo.
+   */
+  .avatar-ring {
+    --ring-glow: color-mix(in oklab, var(--color-focus) 60%, #ffffff);
+
+    display: inline-flex;
+    padding: 6px;
+    border-radius: 9999px;
+    background: conic-gradient(
+      from 20deg,
+      var(--ring-glow) 0deg,
+      var(--ring-glow) 35deg,
+      var(--color-focus) 80deg,
+      var(--color-focus) 310deg,
+      var(--ring-glow) 360deg
+    );
+  }
+
+  @supports (color: oklch(from red l c h)) {
+    .avatar-ring {
+      --ring-glow: oklch(
+        from var(--color-focus) calc(l + 0.13) calc(c - 0.06) calc(h + 28)
+      );
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .check::after,
     .check-radio::after,
