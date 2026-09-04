@@ -1830,19 +1830,16 @@
    * qualquer marca. O `color-mix` antes dele é o que sobra num navegador sem cor
    * relativa: perde o giro de matiz, mantém o clareado, e o anel continua de pé.
    *
-   * A folga entre o anel e a foto é a própria `--color-surface` da faixa: na
-   * referência ela é o fundo escuro aparecendo, então aqui acompanha o tema claro em
-   * vez de copiar o roxo do print. Quem a desenha é o `box-shadow` do avatar (ver
-   * `app-shell.tsx`), que pinta por cima deste fundo sem ocupar espaço no layout.
-   *
-   * Proporções da referência, e não pixels dela: anel e folga valem ~8,5% do diâmetro
-   * da foto cada um. Com a foto em 32px dá 3px para cada, e 44px de diâmetro externo.
+   * A referência tem uma folga entre o anel e a foto; aqui não. O anel encosta na
+   * foto de propósito — num avatar deste tamanho a folga virava um fio claro que lia
+   * como falha de alinhamento, não como respiro. Sem ela a foto ficou com os 6px que
+   * a folga ocupava, e o conjunto externo continua nos mesmos 44px.
    */
   .avatar-ring {
     --ring-glow: color-mix(in oklab, var(--color-focus) 60%, #ffffff);
 
     display: inline-flex;
-    padding: 6px;
+    padding: 3px;
     border-radius: 9999px;
     background: conic-gradient(
       from 20deg,

@@ -277,29 +277,20 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
               {roleLabel && <p className="hint truncate">{roleLabel}</p>}
             </div>
             {/*
-             * Avatar acima do padrão do Clerk (28px), para equilibrar com o nome ao lado.
+             * Avatar bem acima do padrão do Clerk (28px): a foto ocupa tudo que sobra
+             * dentro do anel de `.avatar-ring`, que só reserva os 3px da borda. Mexer
+             * neste tamanho sem mexer no padding de lá muda o diâmetro externo.
+             *
              * `userButtonAvatarBox` além de `avatarBox`: os dois descritores caem no mesmo
              * elemento, e só o específico vence a regra interna do widget. A `<img>` de
              * dentro é 100% da caixa, então a foto cresce junto.
-             *
-             * O `box-shadow` é a folga entre a foto e o anel de `.avatar-ring` — sombra, e
-             * não borda, porque assim ele não entra nos 32px nem no cálculo do padding do
-             * `<span>`. O anel em si está em `globals.css`, com as medidas da referência.
              */}
             <span className="avatar-ring">
               <UserButton
                 appearance={{
                   elements: {
-                    avatarBox: {
-                      width: '32px',
-                      height: '32px',
-                      boxShadow: '0 0 0 3px var(--color-surface)',
-                    },
-                    userButtonAvatarBox: {
-                      width: '32px',
-                      height: '32px',
-                      boxShadow: '0 0 0 3px var(--color-surface)',
-                    },
+                    avatarBox: { width: '38px', height: '38px' },
+                    userButtonAvatarBox: { width: '38px', height: '38px' },
                   },
                 }}
               />
