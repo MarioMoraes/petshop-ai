@@ -7,13 +7,12 @@ import type { MeResponse } from '@petshop/shared-types'
 import { CheckIcon, ChevronDownIcon, StoreIcon } from './icons'
 
 /**
- * Qual estabelecimento está aberto — e, para quem trabalha em mais de um, como trocar.
+ * Como trocar de estabelecimento, para quem trabalha em mais de um.
  *
- * Até aqui a moldura mostrava o nome da pessoa e o papel dela, mas **nunca o nome do
- * petshop**: com um vínculo só isso passa despercebido, com dois é a diferença entre
- * cadastrar o pet no lugar certo e no lugar errado. Por isso o seletor aparece mesmo
- * para quem tem um vínculo — ali, sem menu nenhum, ele é só a etiqueta que diz onde
- * você está. Uma seta que abre uma lista de um item seria um convite falso.
+ * Dizer **onde** se está é trabalho da marca no topo da lateral, que agora leva o
+ * nome do petshop. Sobra a esta peça só a troca — e troca só existe com dois
+ * vínculos ou mais. Com um, o componente não desenha nada: uma seta que abre uma
+ * lista de um item seria um convite falso, e a etiqueta repetiria a lateral.
  *
  * Client component porque a troca é do lado do cliente: quem carrega o `org_id` é o
  * token do Clerk, e só o `setActive` do SDK o reescreve. A lista, essa, chega pronta
@@ -68,20 +67,8 @@ export function TenantSwitcher({
     }
   }, [aberto])
 
-  if (ativos.length === 0) return null
-
-  // Um vínculo só: etiqueta, não menu.
-  if (ativos.length === 1) {
-    const unico = atual ?? (ativos[0] as Membership)
-    return (
-      <p className="flex min-w-0 items-center gap-2 text-base font-medium">
-        <span className="icon-tint icon-brand shrink-0">
-          <StoreIcon size={20} />
-        </span>
-        <span className="truncate">{unico.tenantName}</span>
-      </p>
-    )
-  }
+  // Um vínculo só (ou nenhum): não há para onde trocar, e o nome já está na lateral.
+  if (ativos.length < 2) return null
 
   async function trocar(destino: Membership) {
     if (destino.tenantSlug === currentSlug) {

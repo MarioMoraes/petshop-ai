@@ -194,16 +194,22 @@ export default async function DashboardPage() {
           possa usar. Sem ele, quem herda o `<h1>` é a saudação — que é o que a tela
           realmente diz ao abrir.
         */}
-        <h1 className="flex items-center gap-2 text-[22px] leading-8 font-semibold">
+        {/* 24px é valor arbitrário: fica entre `text-2xl` (24px) e o `leading` da
+            escala, e o par 24/36 mantém a proporção que a saudação tinha em 22/32. */}
+        <h1 className="flex items-center gap-2 text-[24px] leading-9 font-semibold">
           {greetingFor(timezone)}, {firstNameOf(me.user.fullName)}.
           {/*
             O aceno é decoração, não informação: `aria-hidden` no traçado (herdado de
-            `BASE`) mantém o leitor de tela lendo só a frase. A inclinação é o que faz a
-            mão aberta ler como aceno em vez de "pare"; o acento é a única cor quente
-            do sistema, e uma saudação é o lugar dela.
+            `BASE`) mantém o leitor de tela lendo só a frase. A inclinação e os arcos de
+            movimento do traçado são o que fazem a mão aberta ler como aceno em vez de
+            "pare"; o acento é a única cor quente do sistema, e uma saudação é o lugar
+            dela.
+
+            22px, e não os 20 do resto do conjunto: o ícone acompanha o tamanho da
+            frase ao lado — texto que cresce sozinho deixa o ícone pequeno demais.
           */}
           <span className="inline-flex rotate-12 text-accent">
-            <WaveIcon />
+            <WaveIcon size={22} />
           </span>
         </h1>
 

@@ -188,6 +188,15 @@ export const PORTAL_ERRORS = {
   ERR_PORTAL_008: { status: 403, title: 'Recurso indisponível neste estabelecimento' },
   ERR_PORTAL_009: { status: 409, title: 'Operação incompatível com o estado atual' },
   ERR_PORTAL_010: { status: 502, title: 'Serviço indisponível' },
+  /**
+   * AC-03 de MOD-PORTAL-06 — cancelar agora custa dinheiro, e o tutor ainda não disse
+   * que sabe disso.
+   *
+   * Não é `ERR_PORTAL_009`: o estado permite cancelar, e o cancelamento vai acontecer.
+   * O que falta é a confirmação de quem vai pagar a taxa. Um 409 genérico faria a tela
+   * dizer "não deu" para o que é, na verdade, "tem certeza?".
+   */
+  ERR_PORTAL_011: { status: 409, title: 'Cancelamento tardio exige confirmação' },
 } as const
 
 export type PortalErrorCode = keyof typeof PORTAL_ERRORS

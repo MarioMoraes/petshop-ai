@@ -1,4 +1,5 @@
 import { withTenant } from '@petshop/db'
+import { NON_ATTENDING_ROLE_KEYS } from '@petshop/shared-types'
 import type { ActorContext } from '../catalog/actor.js'
 import { zonedMidnight } from './timezone.js'
 
@@ -77,7 +78,19 @@ export async function getDayView(
 
   const columns = await withTenant(actor.tenantId, async (tx) => {
     const professionals = await tx.professional.findMany({
-      where: { active: true, deletedAt: null },
+      /**
+       * O motorista fica de fora (`NON_ATTENDING_ROLE_KEYS`).
+       *
+       * Ele é um `professionals` como qualquer outro, mas a corrida dele mora em
+       * `taxi_rides` e não em `appointments` — a coluna existia só para nunca ter nada
+       * dentro, entre o banhista e o tosador. Quem quer ver o dia do motorista abre o
+       * painel do Taxi Dog, que é onde a rota dele está.
+       */
+      where: {
+        active: true,
+        deletedAt: null,
+        roleKey: { notIn: [...NON_ATTENDING_ROLE_KEYS] },
+      },
       include: { schedules: { where: { weekday } } },
       orderBy: { displayName: 'asc' },
     })

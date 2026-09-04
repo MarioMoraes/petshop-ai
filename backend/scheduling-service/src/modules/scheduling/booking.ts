@@ -1,5 +1,5 @@
 import { Prisma, withTenant, type TenantTransaction } from '@petshop/db'
-import { AppError } from '@petshop/shared-types'
+import { AppError, NON_ATTENDING_ROLE_KEYS } from '@petshop/shared-types'
 import { recordAudit } from '../../lib/audit.js'
 import { publishEvent } from '../../lib/events.js'
 import { invalid, notFound, professionalUnavailable } from '../../lib/errors.js'
@@ -159,11 +159,24 @@ export async function assertBookable(
 
   const professional = await tx.professional.findFirst({
     where: { id: input.professionalId, deletedAt: null },
-    select: { id: true, displayName: true, active: true },
+    select: { id: true, displayName: true, active: true, roleKey: true },
   })
   if (!professional) throw notFound('Profissional não encontrado')
   if (!professional.active) {
     throw professionalUnavailable(`${professional.displayName} não está mais atendendo`)
+  }
+
+  /**
+   * Motorista não atende pet, e a regra é do **papel**.
+   *
+   * A habilitação por serviço, logo abaixo, já barraria o caso normal — mas ela é
+   * dado que alguém digita, e um clique errado na tela de profissionais devolveria o
+   * motorista para a agenda de banho. O papel não se marca por engano.
+   */
+  if ((NON_ATTENDING_ROLE_KEYS as readonly string[]).includes(professional.roleKey)) {
+    throw professionalUnavailable(
+      `${professional.displayName} é motorista e não executa atendimento`,
+    )
   }
 
   // AC-03: habilitação por serviço.

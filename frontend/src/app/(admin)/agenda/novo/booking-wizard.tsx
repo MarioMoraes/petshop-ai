@@ -136,12 +136,11 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
     const requestId = ++slotsRequestId.current
 
     startTransition(async () => {
-      // A disponibilidade é consultada por serviço; com mais de um, o primeiro define
-      // a grade e a confirmação valida o conjunto. É a aproximação honesta: combinar
-      // n serviços exigiria o cálculo completo do lado do servidor, que a fatia de
-      // encaixe múltiplo ainda não tem.
+      // A grade é do conjunto escolhido: o servidor soma as durações e só oferece
+      // quem executa todos os serviços. Até o MOD-PORTAL isto era uma aproximação —
+      // o primeiro serviço definia a grade e a confirmação validava o resto.
       const result = await availabilityAction({
-        serviceId: serviceIds[0]!,
+        serviceIds,
         petId: pet!.id,
         ...(professionalId ? { professionalId } : {}),
         from: `${date}T00:00:00.000Z`,

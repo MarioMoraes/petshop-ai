@@ -7,10 +7,10 @@ import { montarPendencias } from './pendencias'
  * que não há inadimplente nenhum.
  */
 describe('montarPendencias', () => {
-  const nada = { leads: null, mensagens: null, inadimplentes: null }
+  const nada = { aprovacoes: null, leads: null, mensagens: null, inadimplentes: null }
 
   it('não mostra linha para contagem zero — ausência de trabalho não é aviso', () => {
-    expect(montarPendencias({ leads: 0, mensagens: 0, inadimplentes: 0 })).toEqual([])
+    expect(montarPendencias({ ...nada, leads: 0, mensagens: 0, inadimplentes: 0 })).toEqual([])
   })
 
   it('não mostra linha para o que não foi apurado', () => {
@@ -20,12 +20,24 @@ describe('montarPendencias', () => {
   it('trata "não apurado" e zero do mesmo jeito na tela, por caminhos diferentes', () => {
     // Some das duas formas, mas por motivos distintos: o teste existe para que
     // trocar `null` por `0` em `carregarPendencias` não passe despercebido.
-    expect(montarPendencias({ leads: null, mensagens: 2, inadimplentes: 0 })).toHaveLength(1)
+    expect(montarPendencias({ ...nada, mensagens: 2, inadimplentes: 0 })).toHaveLength(1)
   })
 
   it('conta cada fonte na sua própria linha, na ordem do fluxo de trabalho', () => {
-    const linhas = montarPendencias({ leads: 3, mensagens: 2, inadimplentes: 1 })
-    expect(linhas.map((l) => l.key)).toEqual(['leads', 'mensagens', 'inadimplentes'])
+    const linhas = montarPendencias({
+      aprovacoes: { count: 4, nextDate: '2026-09-10' },
+      leads: 3,
+      mensagens: 2,
+      inadimplentes: 1,
+    })
+    // A triagem do Portal abre a lista: é a única com prazo — o horário reservado
+    // expira em 24h e leva o cliente junto.
+    expect(linhas.map((l) => l.key)).toEqual([
+      'aprovacoes',
+      'leads',
+      'mensagens',
+      'inadimplentes',
+    ])
   })
 
   it('leva a contagem inteira para a linha, sem novo recorte', () => {
@@ -58,11 +70,33 @@ describe('montarPendencias', () => {
    * a fila sozinha, e o sino só chama gente para o que ninguém mais vai tentar.
    */
   it('aponta cada linha para a tela que resolve a pendência, já filtrada', () => {
-    const linhas = montarPendencias({ leads: 1, mensagens: 1, inadimplentes: 1 })
+    const linhas = montarPendencias({
+      aprovacoes: { count: 1, nextDate: '2026-09-10' },
+      leads: 1,
+      mensagens: 1,
+      inadimplentes: 1,
+    })
     expect(linhas.map((l) => l.href)).toEqual([
+      '/agenda/dia?date=2026-09-10',
       '/site/contatos?status=NEW',
       '/crm?status=DEAD',
       '/tutores?tag=INADIMPLENTE',
     ])
+  })
+
+  /*
+   * A visão da agenda é por dia. Sem o dia do pedido mais próximo, o link cairia em
+   * "hoje" e abriria uma tela sem nenhum dos pedidos que o sino acabou de anunciar.
+   */
+  it('leva a triagem para o dia do pedido mais próximo, e cai em hoje se ele faltar', () => {
+    const comDia = montarPendencias({ ...nada, aprovacoes: { count: 2, nextDate: '2026-12-24' } })
+    expect(comDia[0]?.href).toBe('/agenda/dia?date=2026-12-24')
+
+    const semDia = montarPendencias({ ...nada, aprovacoes: { count: 2, nextDate: null } })
+    expect(semDia[0]?.href).toBe('/agenda/dia')
+  })
+
+  it('não mostra a triagem quando a fila está vazia', () => {
+    expect(montarPendencias({ ...nada, aprovacoes: { count: 0, nextDate: null } })).toEqual([])
   })
 })

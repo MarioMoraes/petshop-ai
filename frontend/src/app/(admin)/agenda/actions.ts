@@ -209,6 +209,26 @@ export async function replaceScheduleAction(
 
 // ─── Agendamentos ────────────────────────────────────────────────────────────
 
+/**
+ * A recepção confirma a solicitação que veio do Portal (AC-03 de MOD-AGENDA-06).
+ *
+ * Sem esta ação o `online_booking_requires_approval` era uma armadilha: o tutor pedia,
+ * o horário ficava reservado em `PENDING` e **ninguém tinha como confirmar** — o job
+ * `agenda.expire-approvals` devolvia o horário à grade 24h depois, e o pedido morria
+ * sem que nenhuma tela tivesse mostrado um botão.
+ */
+export async function approveAppointmentAction(
+  id: string,
+): Promise<ActionResult<AppointmentResponse>> {
+  try {
+    const appointment = await serverApi().approveAppointment(id)
+    revalidatePath('/agenda/dia')
+    return { ok: true, data: appointment }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
 export async function checkInAction(id: string): Promise<ActionResult<AppointmentResponse>> {
   try {
     const appointment = await serverApi().checkInAppointment(id)
@@ -324,7 +344,7 @@ export async function searchPetsAction(query: string): Promise<
 
 /** Horários livres já com a duração e o preço calculados para **este** pet. */
 export async function availabilityAction(query: {
-  serviceId: string
+  serviceIds: string[]
   petId: string
   professionalId?: string
   from: string

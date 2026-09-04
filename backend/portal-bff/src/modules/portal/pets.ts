@@ -211,6 +211,28 @@ type PetRow = {
 }
 
 /**
+ * A posse, e só ela — para quem vai agendar e não precisa da ficha inteira.
+ *
+ * É a primeira linha de toda rota de agendamento: nada é pedido ao scheduling-service
+ * antes de o vínculo estar provado aqui. A porta do domínio assina um contexto com
+ * permissão de escrita na agenda, e o que impede isso de virar uma porta aberta é
+ * exatamente esta consulta acontecer antes.
+ */
+export async function assertOwnsPet(
+  tx: TenantTransaction,
+  tutorId: string,
+  petId: string,
+): Promise<{ id: string; name: string; status: string; sizeId: string }> {
+  const link = await tx.petTutor.findFirst({
+    where: { tutorId, petId, unlinkedAt: null, pet: { deletedAt: null } },
+    select: { pet: { select: { id: true, name: true, status: true, sizeId: true } } },
+  })
+
+  if (!link || link.pet.status === 'TRANSFERRED_OUT') throw notFound()
+  return link.pet
+}
+
+/**
  * O pet **e o vínculo**, numa consulta só.
  *
  * A ausência responde 404 tanto para o pet que não existe quanto para o que é de outro

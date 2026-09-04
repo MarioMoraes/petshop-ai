@@ -303,3 +303,211 @@ export const PortalTimelineQuerySchema = z
   })
   .strict()
 export type PortalTimelineQuery = z.output<typeof PortalTimelineQuerySchema>
+
+// ─── MOD-PORTAL-05 — Agendamento Online ──────────────────────────────────────
+
+/**
+ * Um serviço que o tutor pode marcar, já com o preço **deste** pet.
+ *
+ * O preço vem junto do cardápio, e não depois da escolha, por decisão de produto de
+ * 2026-08-28: agendar sem saber quanto custa faz o tutor ligar para perguntar, e a
+ * ligação anula o autoatendimento que justifica o módulo.
+ *
+ * Serviço sem preço cadastrado para o porte do pet **não aparece**. A alternativa
+ * seria oferecê-lo e recusar na confirmação, que é levar alguém até o fim de um
+ * caminho sem saída.
+ */
+export const PortalBookableServiceSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  category: z.string(),
+  priceCents: z.number().int(),
+  durationMin: z.number().int(),
+})
+export type PortalBookableService = z.infer<typeof PortalBookableServiceSchema>
+
+export const PortalBookingServicesResponseSchema = z.object({
+  petName: z.string(),
+  services: z.array(PortalBookableServiceSchema),
+})
+export type PortalBookingServicesResponse = z.infer<
+  typeof PortalBookingServicesResponseSchema
+>
+
+/**
+ * A consulta de horários.
+ *
+ * `serviceIds` separado por vírgula, como na rota do domínio que responde por baixo —
+ * o BFF repassa a pergunta em vez de recalcular a grade, e é isso que garante o AC-01:
+ * o tutor vê os mesmos horários que a recepção veria.
+ */
+export const PortalAvailabilityQuerySchema = z
+  .object({
+    petId: z.uuid(),
+    serviceIds: z
+      .string()
+      .transform((raw) => raw.split(',').map((id) => id.trim()).filter(Boolean))
+      .pipe(z.array(z.uuid()).min(1).max(10)),
+    /** Dia no fuso do petshop (`YYYY-MM-DD`), e não um instante: quem escolhe é o dia. */
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  })
+  .strict()
+export type PortalAvailabilityQuery = z.output<typeof PortalAvailabilityQuerySchema>
+
+export const PortalSlotSchema = z.object({
+  startsAt: z.string(),
+  endsAt: z.string(),
+  professionalId: z.uuid(),
+  professionalName: z.string(),
+})
+export type PortalSlot = z.infer<typeof PortalSlotSchema>
+
+export const PortalAvailabilityResponseSchema = z.object({
+  slots: z.array(PortalSlotSchema),
+  /** AC-02 do MOD-AGENDA-11: dia vazio sem alternativa devolve o tutor ao telefone. */
+  nextAvailable: z.string().nullable(),
+  durationMin: z.number().int(),
+  priceCents: z.number().int(),
+  timezone: z.string(),
+  /**
+   * RN-07: a antecedência mínima do tenant, para a tela **não oferecer** o que o POST
+   * recusaria. O filtro acontece no BFF; o número vem junto para a tela poder explicar
+   * por que o começo do dia sumiu.
+   */
+  minNoticeHours: z.number().int(),
+})
+export type PortalAvailabilityResponse = z.infer<typeof PortalAvailabilityResponseSchema>
+
+/**
+ * O pedido de agendamento (MOD-PORTAL-05).
+ *
+ * **Diverge do §5 do PRD em dois pontos, conscientemente.**
+ *
+ * `professionalId` é obrigatório, e no PRD é opcional: o horário que o tutor tocou já
+ * nomeia quem atende — cada vaga da grade é de um profissional. Aceitá-lo ausente
+ * obrigaria o BFF a escolher alguém, e escolher por conta própria é como se marca o
+ * banho na pessoa errada.
+ *
+ * `idempotencyKey` **não existe aqui**. O que protege do duplo toque é o próprio
+ * pedido: agendamento do mesmo pet, no mesmo instante e ainda em pé devolve o que já
+ * existe em vez de criar o segundo. Uma chave que ninguém guarda seria teatro, e
+ * guardá-la exigiria tabela para resolver o que a pergunta natural já resolve.
+ *
+ * `taxi` fica para a fatia 4, com o resto do MOD-PORTAL-07.
+ */
+export const PortalBookingSchema = z
+  .object({
+    petId: z.uuid(),
+    serviceIds: z.array(z.uuid()).min(1).max(10),
+    startsAt: z.iso.datetime(),
+    professionalId: z.uuid(),
+    notes: z.string().trim().max(500).optional(),
+    /** RN-09: o alerta clínico crítico que o tutor viu e confirmou. */
+    acknowledgedAlerts: z.boolean().default(false),
+  })
+  .strict()
+export type PortalBookingInput = z.output<typeof PortalBookingSchema>
+
+// ─── MOD-PORTAL-06 — Meus Agendamentos ───────────────────────────────────────
+
+export const PortalAppointmentSchema = z.object({
+  id: z.uuid(),
+  status: z.string(),
+  startsAt: z.string(),
+  endsAt: z.string(),
+  petId: z.uuid(),
+  petName: z.string(),
+  professionalName: z.string(),
+  services: z.array(z.string()),
+  /** O preço congelado na criação (RN-04 do MOD-AGENDA), não a tabela de hoje. */
+  totalCents: z.number().int(),
+  /** `true` enquanto o petshop não decidiu a triagem do AC-06 de MOD-PORTAL-05. */
+  awaitingApproval: z.boolean(),
+})
+export type PortalAppointment = z.infer<typeof PortalAppointmentSchema>
+
+/**
+ * O que o tutor pode fazer com **este** agendamento, respondido pelo servidor.
+ *
+ * A tela não recalcula janela de cancelamento nem lê estado para decidir o que
+ * mostrar: a regra é do tenant e muda por configuração, e um botão que aparece quando
+ * não deveria é pior do que botão nenhum.
+ */
+export const PortalAppointmentActionsSchema = z.object({
+  canCancel: z.boolean(),
+  canReschedule: z.boolean(),
+  /** Cancelar agora cai fora da janela e gera taxa (AC-03). */
+  cancelIsLate: z.boolean(),
+  cancelFeeCents: z.number().int(),
+  cancellationWindowHours: z.number().int(),
+})
+export type PortalAppointmentActions = z.infer<typeof PortalAppointmentActionsSchema>
+
+export const PortalAppointmentDetailSchema = PortalAppointmentSchema.extend({
+  source: z.string(),
+  /**
+   * Os serviços por id, e não só pelo rótulo.
+   *
+   * É o que a remarcação precisa: a grade do dia novo depende da duração do **mesmo**
+   * conjunto, e reconstruí-lo a partir dos nomes exigiria casar texto com catálogo.
+   */
+  serviceIds: z.array(z.uuid()),
+  cancelledAt: z.string().nullable(),
+  cancelledLate: z.boolean().nullable(),
+  actions: PortalAppointmentActionsSchema,
+})
+export type PortalAppointmentDetail = z.infer<typeof PortalAppointmentDetailSchema>
+
+/**
+ * Os próximos vêm com `actions`; os passados, não.
+ *
+ * Não é economia de bytes: o cartão do futuro tem botões e o do passado não tem, e uma
+ * tela que decidisse sozinha quais mostrar precisaria conhecer a janela de cancelamento
+ * do petshop — que é configuração e muda sem que ninguém publique front nenhum.
+ *
+ * `timezone` acompanha pelo RN-19: a hora exibida é a do estabelecimento, e não a do
+ * aparelho de quem está olhando — o tutor viajando leria o horário errado.
+ */
+export const PortalUpcomingAppointmentSchema = PortalAppointmentSchema.extend({
+  actions: PortalAppointmentActionsSchema,
+})
+export type PortalUpcomingAppointment = z.infer<typeof PortalUpcomingAppointmentSchema>
+
+export const PortalAppointmentsResponseSchema = z.object({
+  upcoming: z.array(PortalUpcomingAppointmentSchema),
+  past: z.array(PortalAppointmentSchema),
+  nextCursor: z.string().nullable(),
+  timezone: z.string(),
+})
+export type PortalAppointmentsResponse = z.infer<typeof PortalAppointmentsResponseSchema>
+
+export const PortalAppointmentsQuerySchema = z
+  .object({
+    cursor: z.string().optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict()
+export type PortalAppointmentsQuery = z.output<typeof PortalAppointmentsQuerySchema>
+
+/**
+ * AC-03 de MOD-PORTAL-06 — cancelar fora da janela.
+ *
+ * `acknowledgeFee` é o mesmo desenho de `acknowledgedAlerts` no MOD-AGENDA: o servidor
+ * recusa a primeira tentativa dizendo quanto custa, e a segunda passa. A consequência
+ * é mostrada **antes**, e quem confirma é a pessoa, não a tela.
+ */
+export const PortalCancelSchema = z
+  .object({
+    acknowledgeFee: z.boolean().default(false),
+  })
+  .strict()
+export type PortalCancelInput = z.output<typeof PortalCancelSchema>
+
+export const PortalRescheduleSchema = z
+  .object({
+    startsAt: z.iso.datetime(),
+    professionalId: z.uuid(),
+  })
+  .strict()
+export type PortalRescheduleInput = z.output<typeof PortalRescheduleSchema>

@@ -18,7 +18,12 @@ import {
 import { Modal } from '@/components/modal'
 import { Alert, Badge, Choice, Field, FormError, SectionHead } from '@/components/ui'
 import { horaDe, minutosNoFuso, STATUS_LABELS } from '@/lib/agenda-dia'
-import { cancelAppointmentAction, checkInAction, checkOutAction } from '../actions'
+import {
+  approveAppointmentAction,
+  cancelAppointmentAction,
+  checkInAction,
+  checkOutAction,
+} from '../actions'
 import { TaxiPanel } from './taxi-panel'
 
 /**
@@ -95,8 +100,23 @@ export function AppointmentDialog({
 
   const podeConcluir = appointment.status === 'CHECKED_IN' || appointment.status === 'IN_PROGRESS'
   const podeChegar = appointment.status === 'CONFIRMED'
+  /**
+   * A fila do Portal. `PENDING` só existe quando o petshop liga a triagem, e enquanto
+   * ela dura o horário **está reservado** — confirmar é o que transforma o pedido do
+   * tutor em compromisso, e recusar é cancelar, que já tem botão.
+   */
+  const podeAprovar = appointment.status === 'PENDING'
   const podePedirTaxi = taxi !== null && TAXI_ABLE.has(appointment.status) && rides.length < 2
   const podeCancelar = TAXI_ABLE.has(appointment.status)
+
+  function aprovar() {
+    setErro(null)
+    startEnvio(async () => {
+      const resultado = await approveAppointmentAction(appointment.id)
+      if (resultado.ok) onDone()
+      else setErro(resultado.message)
+    })
+  }
 
   function registrarChegada() {
     setErro(null)
@@ -201,6 +221,16 @@ export function AppointmentDialog({
               {rides.length === 0 ? 'Taxi Dog' : 'Pedir a outra perna'}
             </button>
           )}
+          {podeAprovar && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={enviando}
+              onClick={aprovar}
+            >
+              {enviando ? 'Confirmando…' : 'Confirmar horário'}
+            </button>
+          )}
           {podeChegar && (
             <button
               type="button"
@@ -221,7 +251,7 @@ export function AppointmentDialog({
               Concluir atendimento
             </button>
           )}
-          {!podeChegar && !podeConcluir && (
+          {!podeChegar && !podeConcluir && !podeAprovar && (
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Fechar
             </button>
@@ -288,10 +318,10 @@ export function AppointmentDialog({
           </div>
         )}
 
-        {appointment.status === 'PENDING' && (
+        {podeAprovar && (
           <p className="hint">
-            Este horário ainda aguarda aprovação. O check-in só é liberado depois que ele
-            for confirmado.
+            Pedido pelo site, aguardando a sua confirmação. O horário já está reservado, e
+            se ninguém decidir em 24h ele volta para a agenda.
           </p>
         )}
 

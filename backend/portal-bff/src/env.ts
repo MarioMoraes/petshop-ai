@@ -18,6 +18,14 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
   PORTAL_BFF_PORT: z.coerce.number().int().default(3020),
   APP_DOMAIN: z.string().default('localhost:3002'),
   MESSAGING_SERVICE_URL: z.string().url().default('http://localhost:3010'),
+  /**
+   * O serviço da agenda, para onde vai todo agendamento marcado pelo Portal.
+   *
+   * O BFF fala com ele **direto**, e não pelo gateway: o gateway existe para validar
+   * JWT do Clerk e resolver tenant, e o BFF já tem as duas coisas resolvidas. Passar
+   * por ele só somaria um salto e um ponto de falha.
+   */
+  SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3006'),
 
   /**
    * O bucket das fotos, só para **assinar** o endereço de leitura (`lib/photo-urls.ts`).

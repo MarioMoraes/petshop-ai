@@ -19,7 +19,7 @@ import type { Route } from 'next'
  * client) importe os tipos daqui sem arrastar `server-only` junto.
  */
 
-export type PendenciaKey = 'leads' | 'mensagens' | 'inadimplentes'
+export type PendenciaKey = 'aprovacoes' | 'leads' | 'mensagens' | 'inadimplentes'
 
 export interface Pendencia {
   key: PendenciaKey
@@ -41,6 +41,14 @@ export interface Pendencia {
  * como zero faria o sino jurar que está tudo em ordem quando ele simplesmente não sabe.
  */
 export interface ContagemPendencias {
+  /**
+   * A fila da triagem do Portal, com o dia do pedido mais próximo.
+   *
+   * É a única fonte que traz um destino junto do número, e o motivo é a tela: a visão
+   * da agenda é por **dia**, então "3 pedidos" sem dizer qual dia abriria uma tela
+   * vazia na metade das vezes.
+   */
+  aprovacoes: { count: number; nextDate: string | null } | null
   leads: number | null
   mensagens: number | null
   inadimplentes: number | null
@@ -68,6 +76,22 @@ function plural(n: number, singular: string, plural_: string): string {
  */
 export function montarPendencias(contagem: ContagemPendencias): Pendencia[] {
   const linhas: Pendencia[] = []
+
+  /**
+   * Primeiro da lista, e não em ordem alfabética: é a única pendência com **prazo**.
+   * O horário fica reservado por 24h e depois some sozinho, levando junto o cliente
+   * que pediu. Contato do site e tutor inadimplente esperam sem estragar.
+   */
+  if (contagem.aprovacoes?.count) {
+    const { count, nextDate } = contagem.aprovacoes
+    linhas.push({
+      key: 'aprovacoes',
+      count,
+      titulo: plural(count, 'horário pedido pelo site', 'horários pedidos pelo site'),
+      detalhe: 'aguardando sua confirmação',
+      href: nextDate ? `/agenda/dia?date=${nextDate}` : '/agenda/dia',
+    })
+  }
 
   if (contagem.leads) {
     linhas.push({

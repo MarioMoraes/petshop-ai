@@ -28,6 +28,7 @@ import {
   SizeSchema,
   AppointmentResponseSchema,
   AvailabilityResponseSchema,
+  PendingApprovalsSchema,
   BillingSettingsSchema,
   LedgerAccountSchema,
   LedgerEntrySchema,
@@ -1271,6 +1272,17 @@ export function createApiClient(options: ApiClientOptions) {
         schema: TaxiRouteSchema,
       }),
 
+    /**
+     * A fila da triagem do Portal, para o sino de pendências. Só o contador e o dia
+     * para onde ir — ver `PendingApprovalsSchema`.
+     */
+    countPendingApprovals: () =>
+      request({
+        method: 'GET',
+        path: '/v1/appointments/pending-count',
+        schema: PendingApprovalsSchema,
+      }),
+
     listAppointments: (query: {
       from?: string
       to?: string
@@ -1292,8 +1304,12 @@ export function createApiClient(options: ApiClientOptions) {
       }),
 
     /** Horários livres já com a duração e o preço calculados para **este** pet. */
+    /**
+     * `serviceIds` é lista, e vira uma string com vírgula na query — é assim que a
+     * rota a lê. A grade é do conjunto: dois serviços somam duração e preço.
+     */
     getAvailability: (query: {
-      serviceId: string
+      serviceIds: string[]
       petId: string
       professionalId?: string
       from: string
@@ -1301,7 +1317,7 @@ export function createApiClient(options: ApiClientOptions) {
     }) =>
       request({
         method: 'GET',
-        path: `/v1/availability${toQueryString(query)}`,
+        path: `/v1/availability${toQueryString({ ...query, serviceIds: query.serviceIds.join(',') })}`,
         schema: AvailabilityResponseSchema,
       }),
 

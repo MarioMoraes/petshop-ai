@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import type { Pendencia, PendenciaKey } from '@/lib/pendencias'
-import { BellIcon, GlobeIcon, WalletIcon, type IconTone } from './icons'
+import { BellIcon, CalendarIcon, GlobeIcon, WalletIcon, type IconTone } from './icons'
 
 /**
  * O sino de pendências, ao lado do avatar.
@@ -25,6 +25,7 @@ import { BellIcon, GlobeIcon, WalletIcon, type IconTone } from './icons'
 const ICONES: Record<PendenciaKey, { icon: React.ReactNode; tone: IconTone }> = {
   // O mesmo tom que o item de menu correspondente: o ícone é do domínio, não da
   // tela, e o olho liga o aviso ao lugar onde ele se resolve.
+  aprovacoes: { icon: <CalendarIcon />, tone: 'icon-time' },
   leads: { icon: <GlobeIcon />, tone: 'icon-metric' },
   mensagens: { icon: <BellIcon />, tone: 'icon-brand' },
   inadimplentes: { icon: <WalletIcon />, tone: 'icon-money' },

@@ -265,6 +265,8 @@ export async function givenProfessional(
     serviceIds?: string[]
     maxConcurrentPets?: number
     windows?: { weekday: number; startsAtMin: number; endsAtMin: number }[]
+    /** `DRIVER` é o caso que a agenda precisa **não** enxergar (RN-03 do MOD-TAXI). */
+    roleKey?: 'BATHER' | 'GROOMER' | 'VET' | 'DRIVER'
   } = {},
 ): Promise<string> {
   const windows =
@@ -276,7 +278,7 @@ export async function givenProfessional(
       data: {
         tenantId: fixture.tenantId,
         displayName: options.name ?? 'Ana',
-        roleKey: 'BATHER',
+        roleKey: options.roleKey ?? 'BATHER',
         maxConcurrentPets: options.maxConcurrentPets ?? 1,
         schedules: {
           create: windows.map((window) => ({ tenantId: fixture.tenantId, ...window })),

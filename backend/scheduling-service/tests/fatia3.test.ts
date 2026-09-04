@@ -26,7 +26,40 @@ import {
 
 /** MOD-AGENDA 05, 06, 08 e 09 — o que fechou o módulo. */
 
-const QUINTA_09H = new Date('2026-09-03T09:00:00.000Z')
+/**
+ * Uma quinta-feira distante, e não uma quinta-feira específica.
+ *
+ * Era `2026-09-03`, cravada por ser uma quinta no futuro. Em 04/09/2026 ela virou
+ * **ontem** e derrubou quatro casos de uma vez: agendamento com `source: PORTAL` passa
+ * pelo gate de antecedência mínima, e nenhuma antecedência salva uma data no passado.
+ * Mesma armadilha que já tinha explodido em `transitions.test.ts` — data de teste que
+ * envelhece é bomba-relógio com pavio de anos.
+ */
+function quintaDistante(): Date {
+  const dia = new Date()
+  dia.setUTCHours(9, 0, 0, 0)
+  dia.setUTCDate(dia.getUTCDate() + 35)
+  // 4 = quinta-feira em `getUTCDay()`.
+  dia.setUTCDate(dia.getUTCDate() + ((4 - dia.getUTCDay() + 7) % 7))
+  return dia
+}
+
+const QUINTA_09H = quintaDistante()
+
+/** O dia civil dessa quinta em UTC — é o que as rotas por data recebem. */
+const QUINTA_DIA = QUINTA_09H.toISOString().slice(0, 10)
+
+/** Outra hora do mesmo dia. `hora` no formato `HH:MM`. */
+function quintaAs(hora: string): Date {
+  return new Date(`${QUINTA_DIA}T${hora}:00.000Z`)
+}
+
+/** O dia civil `n` dias antes da quinta, para as séries do gráfico de movimento. */
+function diaAntes(n: number): string {
+  const dia = new Date(QUINTA_09H)
+  dia.setUTCDate(dia.getUTCDate() - n)
+  return dia.toISOString().slice(0, 10)
+}
 
 let tenant: TenantFixture
 
@@ -73,7 +106,7 @@ describe('MOD-AGENDA-08 AC-04 — remarcação preserva a cadeia', () => {
     })
 
     const result = await reschedule(actor(), original.id, {
-      startsAt: new Date('2026-09-03T14:00:00.000Z'),
+      startsAt: quintaAs('14:00'),
     })
 
     const antigo = await ownerPrisma.appointment.findUniqueOrThrow({
@@ -86,7 +119,7 @@ describe('MOD-AGENDA-08 AC-04 — remarcação preserva a cadeia', () => {
       where: { id: result.newAppointmentId },
     })
     expect(novo.status).toBe('CONFIRMED')
-    expect(novo.startsAt.toISOString()).toBe('2026-09-03T14:00:00.000Z')
+    expect(novo.startsAt.toISOString()).toBe(quintaAs('14:00').toISOString())
   })
 
   it('AC-05: a cadeia conta quantas vezes a mesma marcação já andou', async () => {
@@ -103,7 +136,7 @@ describe('MOD-AGENDA-08 AC-04 — remarcação preserva a cadeia', () => {
     const contagens: number[] = []
     for (const hora of ['11:00', '13:00', '15:00']) {
       const result = await reschedule(actor(), atual, {
-        startsAt: new Date(`2026-09-03T${hora}:00.000Z`),
+        startsAt: quintaAs(hora),
       })
       contagens.push(result.rescheduleCount)
       atual = result.newAppointmentId
@@ -122,7 +155,7 @@ describe('MOD-AGENDA-08 AC-04 — remarcação preserva a cadeia', () => {
       items: [{ serviceId }],
     })
     await reschedule(actor(), original.id, {
-      startsAt: new Date('2026-09-03T14:00:00.000Z'),
+      startsAt: quintaAs('14:00'),
     })
 
     // RESCHEDULED não ocupa lugar: o horário das 09:00 aceita outro pet.
@@ -147,7 +180,7 @@ describe('MOD-AGENDA-08 AC-04 — remarcação preserva a cadeia', () => {
     await checkIn(actor(), booking.id)
 
     await expect(
-      reschedule(actor(), booking.id, { startsAt: new Date('2026-09-03T14:00:00.000Z') }),
+      reschedule(actor(), booking.id, { startsAt: quintaAs('14:00') }),
     ).rejects.toMatchObject({ code: 'ERR_AGENDA_006' })
   })
 })
@@ -184,6 +217,55 @@ describe('MOD-AGENDA-06 AC-03 — aprovação do Portal', () => {
         items: [{ serviceId }],
       }),
     ).rejects.toMatchObject({ code: 'ERR_AGENDA_004' })
+  })
+
+  /**
+   * O contador que alimenta o sino do Admin.
+   *
+   * Sem ele, ligar a triagem era armadilha: o pedido do tutor ficava `PENDING`, nenhuma
+   * tela dizia que havia algo a decidir, e o job devolvia o horário à grade 24h depois.
+   */
+  it('a fila da triagem sai contada, com o dia do pedido mais próximo', async () => {
+    await comAprovacao()
+    const { serviceId, professionalId, petId } = await cenario({ maxConcurrentPets: 3 })
+    await ownerPrisma.tenantSettings.update({
+      where: { tenantId: tenant.tenantId },
+      data: { timezone: 'UTC' },
+    })
+
+    await createBooking(actor(), {
+      petId,
+      professionalId,
+      startsAt: quintaAs('14:00'),
+      items: [{ serviceId }],
+      source: 'PORTAL',
+    })
+    await createBooking(actor(), {
+      petId,
+      professionalId,
+      startsAt: QUINTA_09H,
+      items: [{ serviceId }],
+      source: 'PORTAL',
+    })
+    // O que a equipe marcou no balcão não é pedido do site, e não entra na fila.
+    const outro = await givenPet(tenant, { name: 'Mel' })
+    await createBooking(actor(), {
+      petId: outro.petId,
+      professionalId,
+      startsAt: quintaAs('16:00'),
+      items: [{ serviceId }],
+    })
+
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: '/v1/appointments/pending-count',
+    })
+
+    expect(response.statusCode).toBe(200)
+    // O mais próximo é o das 09h, e não o que foi criado primeiro: o sino aponta para
+    // o dia do pedido, não para a ordem de chegada.
+    expect(response.json()).toMatchObject({ count: 2, nextDate: QUINTA_DIA })
   })
 
   it('aprovar leva a CONFIRMED e registra na trilha', async () => {
@@ -258,7 +340,7 @@ describe('MOD-AGENDA-09 — visão do dia', () => {
       }),
     )
 
-    const view = await getDayView(actor(), '2026-09-03', 'UTC')
+    const view = await getDayView(actor(), QUINTA_DIA, 'UTC')
 
     expect(view.columns).toHaveLength(1)
     const coluna = view.columns[0]!
@@ -280,13 +362,43 @@ describe('MOD-AGENDA-09 — visão do dia', () => {
       windows: [{ weekday: 1, startsAtMin: 480, endsAtMin: 1080 }],
     })
 
-    const view = await getDayView(actor(), '2026-09-03', 'UTC')
+    const view = await getDayView(actor(), QUINTA_DIA, 'UTC')
 
     // A coluna **não** some: uma coluna que desaparece faz a equipe achar que o
     // sistema perdeu a pessoa.
     expect(view.columns).toHaveLength(1)
     expect(view.columns[0]?.absent).toBe(true)
     expect(view.columns[0]?.absenceReason).toBe('Sem jornada neste dia')
+  })
+
+  /**
+   * O motorista tem jornada, folga e capacidade como qualquer profissional — e por isso
+   * ganhava uma coluna no painel do dia, ao lado do banhista, que nunca teria nada
+   * dentro: corrida mora em `taxi_rides`, não em `appointments`.
+   */
+  it('o motorista não vira coluna no painel do dia, nem oferece horário', async () => {
+    const serviceId = await givenService(tenant)
+    await givenProfessional(tenant, { name: 'Ana Banhista', serviceIds: [serviceId] })
+    await givenProfessional(tenant, { name: 'Zé Motorista', roleKey: 'DRIVER' })
+
+    const view = await getDayView(actor(), QUINTA_DIA, 'UTC')
+    expect(view.columns.map((coluna) => coluna.professionalName)).toEqual(['Ana Banhista'])
+
+    // E se alguém o habilitar num serviço por engano, a criação recusa pelo papel.
+    const motorista = await givenProfessional(tenant, {
+      name: 'Outro Motorista',
+      roleKey: 'DRIVER',
+      serviceIds: [serviceId],
+    })
+    const { petId } = await givenPet(tenant)
+    await expect(
+      createBooking(actor(), {
+        petId,
+        professionalId: motorista,
+        startsAt: QUINTA_09H,
+        items: [{ serviceId }],
+      }),
+    ).rejects.toMatchObject({ code: 'ERR_AGENDA_005' })
   })
 
   it('bloqueio explica a ausência em vez de só constatá-la', async () => {
@@ -297,14 +409,16 @@ describe('MOD-AGENDA-09 — visão do dia', () => {
         data: {
           tenantId: tenant.tenantId,
           professionalId,
-          startsAt: new Date('2026-09-03T00:00:00.000Z'),
-          endsAt: new Date('2026-09-04T00:00:00.000Z'),
+          startsAt: quintaAs('00:00'),
+          // A sexta seguinte: o CHECK de `calendar_blocks` exige fim depois do início,
+          // e uma data cravada aqui volta a ser o passado da quinta calculada.
+          endsAt: new Date(quintaAs('00:00').getTime() + 24 * 3_600_000),
           reason: 'Folga',
         },
       }),
     )
 
-    const view = await getDayView(actor(), '2026-09-03', 'UTC')
+    const view = await getDayView(actor(), QUINTA_DIA, 'UTC')
     expect(view.columns[0]?.absent).toBe(true)
     expect(view.columns[0]?.absenceReason).toBe('Folga')
   })
@@ -317,9 +431,9 @@ describe('MOD-AGENDA-09 — visão do dia', () => {
       startsAt: QUINTA_09H,
       items: [{ serviceId }],
     })
-    await reschedule(actor(), booking.id, { startsAt: new Date('2026-09-03T14:00:00.000Z') })
+    await reschedule(actor(), booking.id, { startsAt: quintaAs('14:00') })
 
-    const view = await getDayView(actor(), '2026-09-03', 'UTC')
+    const view = await getDayView(actor(), QUINTA_DIA, 'UTC')
     // O remarcado sumiu; só o novo aparece.
     expect(view.columns[0]?.appointments).toHaveLength(1)
     expect(view.columns[0]?.appointments[0]?.startsAt).toContain('14:00')
@@ -563,7 +677,7 @@ describe('consumidores de evento', () => {
     const passado = await createBooking(actor(), {
       petId,
       professionalId,
-      startsAt: new Date('2026-09-03T09:00:00.000Z'),
+      startsAt: quintaAs('09:00'),
       items: [{ serviceId }],
     })
     await ownerPrisma.appointment.update({
@@ -615,7 +729,7 @@ describe('rotas novas', () => {
     const response = await callApi({
       ...asAdmin(tenant),
       method: 'GET',
-      url: '/v1/agenda/day?date=2026-09-03',
+      url: `/v1/agenda/day?date=${QUINTA_DIA}`,
     })
 
     expect(response.statusCode).toBe(200)
@@ -640,14 +754,14 @@ describe('rotas novas', () => {
     await createBooking(actor(), {
       petId,
       professionalId,
-      startsAt: new Date('2026-09-03T11:00:00.000Z'),
+      startsAt: quintaAs('11:00'),
       items: [{ serviceId }],
     })
 
     const response = await callApi({
       ...asAdmin(tenant),
       method: 'GET',
-      url: '/v1/agenda/movement?date=2026-09-03&days=7',
+      url: `/v1/agenda/movement?date=${QUINTA_DIA}&days=7`,
     })
 
     expect(response.statusCode).toBe(200)
@@ -655,9 +769,9 @@ describe('rotas novas', () => {
     // A janela termina em `date` e o dia sem movimento continua na série: uma barra
     // que some deslocaria o eixo do gráfico.
     expect(body.days).toHaveLength(7)
-    expect(body.days[0].date).toBe('2026-08-28')
-    expect(body.days[6]).toMatchObject({ date: '2026-09-03', total: 2, totalCents: 14000 })
-    expect(body.days[5]).toMatchObject({ date: '2026-09-02', total: 0, totalCents: 0 })
+    expect(body.days[0].date).toBe(diaAntes(6))
+    expect(body.days[6]).toMatchObject({ date: QUINTA_DIA, total: 2, totalCents: 14000 })
+    expect(body.days[5]).toMatchObject({ date: diaAntes(1), total: 0, totalCents: 0 })
   })
 
   it('GET /v1/agenda/movement não conta o cancelado', async () => {
@@ -681,13 +795,13 @@ describe('rotas novas', () => {
     const response = await callApi({
       ...asAdmin(tenant),
       method: 'GET',
-      url: '/v1/agenda/movement?date=2026-09-03',
+      url: `/v1/agenda/movement?date=${QUINTA_DIA}`,
     })
 
     expect(response.statusCode).toBe(200)
     // `days` cai no padrão de 7 quando não vem na query.
     expect(response.json().days).toHaveLength(7)
-    expect(response.json().days[6]).toMatchObject({ date: '2026-09-03', total: 0 })
+    expect(response.json().days[6]).toMatchObject({ date: QUINTA_DIA, total: 0 })
   })
 
   it('POST /v1/recurrences cria a série e relata o que pulou', async () => {
@@ -723,7 +837,7 @@ describe('rotas novas', () => {
       ...asAdmin(tenant),
       method: 'POST',
       url: `/v1/appointments/${booking.id}/reschedule`,
-      payload: { startsAt: '2026-09-03T14:00:00.000Z' },
+      payload: { startsAt: quintaAs('14:00').toISOString() },
     })
 
     expect(response.statusCode).toBe(200)

@@ -18,9 +18,15 @@ import { PortalError, readPortalContext } from '@/lib/portal-api'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * O que ainda não existe continua anunciado, e a lista **encolhe** a cada fatia.
+ *
+ * Item que ganhou tela sai daqui no mesmo commit em que a tela nasce — senão o Portal
+ * promete em uma seção o que já entrega na outra, e é a promessa que se lê primeiro.
+ */
 const EM_BREVE = [
-  'Marcar horário e pedir o leva-e-traz',
   'Acompanhar a sua conta e baixar recibos',
+  'Pedir o leva-e-traz junto com o horário',
   'Rever as mensagens que o estabelecimento mandou',
 ]
 
@@ -51,9 +57,24 @@ export default async function PortalInicioPage() {
           </DataRow>
         </div>
 
-        <Link href="/portal/pets" className="btn btn-primary mt-4 w-full">
-          Ver meus pets
-        </Link>
+        <div className="mt-4 flex flex-col gap-2">
+          {/*
+            Marcar horário é o botão principal, e "ver meus pets" desce a fantasma.
+            É o que a pessoa vem fazer: consultar a ficha é o que se faz uma vez, marcar
+            banho é o que se faz todo mês.
+          */}
+          {context.features.onlineBookingEnabled && (
+            <Link href="/portal/agendar" className="btn btn-primary w-full">
+              Marcar horário
+            </Link>
+          )}
+          <Link href="/portal/agendamentos" className="btn btn-ghost w-full">
+            Meus agendamentos
+          </Link>
+          <Link href="/portal/pets" className="btn btn-ghost w-full">
+            Meus pets
+          </Link>
+        </div>
       </Card>
 
       <Card>

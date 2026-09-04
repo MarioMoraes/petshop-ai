@@ -36,7 +36,7 @@ export function PortalFrame({
    * que transforma um link para uma tela que ninguém criou em erro de compilação em vez
    * de um 404 que só aparece em produção. Mesma escolha do `NavItem` do `AppShell`.
    */
-  voltar?: { href: '/portal/inicio' | '/portal/pets'; label: string }
+  voltar?: { href: '/portal/inicio' | '/portal/pets' | '/portal/agendamentos'; label: string }
   /** Um botão à direita do título — a edição da ficha, por exemplo. */
   acao?: ReactNode
   children: ReactNode

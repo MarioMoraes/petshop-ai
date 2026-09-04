@@ -226,14 +226,15 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
 
   return (
     <div className="flex min-h-[100svh] bg-surface" style={brandStyle}>
-      <Sidebar active={active} items={items} />
+      <Sidebar active={active} items={items} tenantName={me.currentTenant?.name ?? null} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-line bg-surface/85 px-4 py-3 backdrop-blur sm:px-8">
           {/*
-           * À esquerda, onde se está: o estabelecimento aberto e, se for o caso, o
-           * prazo do teste. O seletor vem primeiro porque é o contexto de tudo o que
-           * a tela mostra — o aviso de teste é sobre a conta, não sobre onde ela está.
+           * À esquerda, o que é da conta: o prazo do teste e, para quem trabalha em
+           * mais de um estabelecimento, o seletor. O nome do petshop saiu daqui — ele
+           * agora é a marca no topo da lateral, e repeti-lo na faixa era dizer duas
+           * vezes a mesma coisa a dois palmos de distância.
            */}
           <div className="flex min-w-0 items-center gap-3">
             <TenantSwitcher
@@ -310,11 +311,20 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
  * subir junto com ele. Escondido abaixo de `lg`, onde 260px de largura fixa comeriam
  * metade da tela.
  */
-function Sidebar({ active, items }: { active: NavKey; items: NavItem[] }) {
+function Sidebar({
+  active,
+  items,
+  tenantName,
+}: {
+  active: NavKey
+  items: NavItem[]
+  /** Nome do estabelecimento aberto; `null` enquanto não há tenant resolvido. */
+  tenantName: string | null
+}) {
   return (
     <aside className="sticky top-0 hidden h-[100svh] w-[260px] shrink-0 flex-col border-r border-line px-4 py-5 lg:flex">
-      <Link href="/dashboard" aria-label="Ir para o início" className="px-2 py-1">
-        <Logo />
+      <Link href="/dashboard" aria-label="Ir para o início" className="block min-w-0 px-2 py-1">
+        <Logo name={tenantName} />
       </Link>
 
       <nav className="mt-8 flex flex-col gap-1 text-sm">

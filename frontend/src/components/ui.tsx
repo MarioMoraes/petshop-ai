@@ -43,14 +43,22 @@ export function Card({
   )
 }
 
-export function Logo() {
+/**
+ * A marca do topo da lateral.
+ *
+ * `name` troca o nome do produto pelo do estabelecimento aberto: dentro do admin,
+ * quem está ali já sabe qual sistema usa — o que precisa ver o tempo todo é em qual
+ * petshop está mexendo. Fora do admin (entrada, convite, onboarding, portal) não há
+ * tenant resolvido, e o padrão continua sendo "PetShop AI".
+ */
+export function Logo({ name }: { name?: string | null }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="relative flex h-6 w-9 items-center" aria-hidden="true">
+    <div className="flex min-w-0 items-center gap-2.5">
+      <span className="relative flex h-6 w-9 shrink-0 items-center" aria-hidden="true">
         <span className="absolute left-0 h-6 w-6 rounded-full bg-shell" />
         <span className="absolute left-3.5 h-6 w-6 rounded-full bg-accent" />
       </span>
-      <span className="font-semibold">PetShop AI</span>
+      <span className="truncate font-semibold">{name || 'PetShop AI'}</span>
     </div>
   )
 }

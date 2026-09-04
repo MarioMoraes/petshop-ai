@@ -4,6 +4,10 @@ import { headers } from 'next/headers'
 import { resolveHost } from '@/lib/host'
 import { appDomain } from '@/lib/domain'
 import type {
+  PortalAppointmentDetail,
+  PortalAppointmentsResponse,
+  PortalAvailabilityResponse,
+  PortalBookingServicesResponse,
   PortalChallengeResponse,
   PortalContextResponse,
   PortalPetDetail,
@@ -180,4 +184,83 @@ export function readOwnPetTimeline(
   const suffix = query.size > 0 ? `?${query.toString()}` : ''
 
   return request({ path: `/portal/v1/pets/${petId}/timeline${suffix}` })
+}
+
+// ─── MOD-PORTAL-05 — Agendamento Online ──────────────────────────────────────
+
+export function readBookableServices(petId: string): Promise<PortalBookingServicesResponse> {
+  return request({ path: `/portal/v1/booking/services?petId=${petId}` })
+}
+
+/**
+ * Os horários de um dia.
+ *
+ * `date` é dia civil no fuso do petshop, e não um instante: quem escolhe escolhe um
+ * dia, e converter para UTC aqui jogaria a madrugada para o dia anterior.
+ */
+export function readAvailability(query: {
+  petId: string
+  serviceIds: string[]
+  date: string
+}): Promise<PortalAvailabilityResponse> {
+  const search = new URLSearchParams({
+    petId: query.petId,
+    serviceIds: query.serviceIds.join(','),
+    date: query.date,
+  })
+  return request({ path: `/portal/v1/booking/availability?${search.toString()}` })
+}
+
+export interface CreatedBookingResponse {
+  id: string
+  status: string
+  startsAt: string
+  endsAt: string
+  petName: string
+  professionalName: string
+  services: string[]
+  totalCents: number
+  awaitingApproval: boolean
+  duplicate: boolean
+}
+
+export function createBooking(body: {
+  petId: string
+  serviceIds: string[]
+  startsAt: string
+  professionalId: string
+  acknowledgedAlerts?: boolean
+}): Promise<CreatedBookingResponse> {
+  return request({ method: 'POST', path: '/portal/v1/booking', body })
+}
+
+// ─── MOD-PORTAL-06 — Meus Agendamentos ───────────────────────────────────────
+
+export function readOwnAppointments(
+  options: { cursor?: string; limit?: number } = {},
+): Promise<PortalAppointmentsResponse> {
+  const query = new URLSearchParams()
+  if (options.cursor) query.set('cursor', options.cursor)
+  if (options.limit) query.set('limit', String(options.limit))
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+
+  return request({ path: `/portal/v1/appointments${suffix}` })
+}
+
+export function readOwnAppointment(id: string): Promise<PortalAppointmentDetail> {
+  return request({ path: `/portal/v1/appointments/${id}` })
+}
+
+export function cancelOwnAppointment(
+  id: string,
+  body: { acknowledgeFee: boolean },
+): Promise<PortalAppointmentDetail> {
+  return request({ method: 'POST', path: `/portal/v1/appointments/${id}/cancel`, body })
+}
+
+export function rescheduleOwnAppointment(
+  id: string,
+  body: { startsAt: string; professionalId: string },
+): Promise<PortalAppointmentDetail> {
+  return request({ method: 'POST', path: `/portal/v1/appointments/${id}/reschedule`, body })
 }

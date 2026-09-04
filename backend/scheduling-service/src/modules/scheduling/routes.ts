@@ -9,9 +9,11 @@ import {
   DayViewQuerySchema,
   ListAppointmentsQuerySchema,
   MovementQuerySchema,
+  NON_ATTENDING_ROLE_KEYS,
   RecurrenceScopeSchema,
   RescheduleSchema,
   todayIn,
+  zonedDate,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
@@ -71,31 +73,52 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
       })
       if (!pet) throw notFound('Pet não encontrado')
 
-      const service = await tx.service.findFirst({
-        where: { id: query.serviceId, deletedAt: null, active: true },
-        select: { id: true, category: true },
-      })
-      if (!service) throw notFound('Serviço não encontrado')
+      const coatFactor = pet.coat ? Number(pet.coat.groomingTimeFactor) : null
+      let durationMin = 0
+      let priceCents = 0
 
-      const pricing = await tx.servicePricing.findFirst({
-        where: { serviceId: service.id, sizeId: pet.sizeId },
-      })
-      if (!pricing) {
-        throw notFound('Este serviço não tem preço definido para o porte deste pet')
+      /**
+       * Duração e preço somados serviço a serviço, na mesma ordem em que o pedido
+       * chegou. Cada um tem a própria conta de porte e pelagem — banho de cão peludo
+       * demora mais, tosa não muda — e somar os resultados é diferente de aplicar o
+       * fator à soma.
+       */
+      for (const serviceId of query.serviceIds) {
+        const service = await tx.service.findFirst({
+          where: { id: serviceId, deletedAt: null, active: true },
+          select: { id: true, category: true },
+        })
+        if (!service) throw notFound('Serviço não encontrado')
+
+        const pricing = await tx.servicePricing.findFirst({
+          where: { serviceId: service.id, sizeId: pet.sizeId },
+        })
+        if (!pricing) {
+          throw notFound('Este serviço não tem preço definido para o porte deste pet')
+        }
+
+        durationMin += resolveItemDuration({
+          sizeDurationMin: pricing.durationMin,
+          coatFactor,
+          category: service.category,
+        })
+        priceCents += Number(pricing.priceCents)
       }
 
-      const durationMin = resolveItemDuration({
-        sizeDurationMin: pricing.durationMin,
-        coatFactor: pet.coat ? Number(pet.coat.groomingTimeFactor) : null,
-        category: service.category,
-      })
-
-      // Sem `professionalId`, oferece a agenda de todos os habilitados no serviço.
+      /**
+       * Sem `professionalId`, oferece a agenda de todos os habilitados — e habilitado
+       * aqui é quem executa **todos** os serviços do pedido, não algum deles. Um `some`
+       * sobre a lista inteira ofereceria o horário de quem faz só o banho para um
+       * pedido de banho e tosa, e a recusa viria no POST.
+       */
       const professionals = await tx.professional.findMany({
         where: {
           active: true,
           deletedAt: null,
-          services: { some: { serviceId: service.id } },
+          // Motorista não atende pet, ainda que alguém o habilite num serviço por
+          // engano na tela de profissionais. A regra é do papel, não da habilitação.
+          roleKey: { notIn: [...NON_ATTENDING_ROLE_KEYS] },
+          AND: query.serviceIds.map((serviceId) => ({ services: { some: { serviceId } } })),
           ...(query.professionalId ? { id: query.professionalId } : {}),
         },
         select: { id: true, displayName: true },
@@ -116,11 +139,11 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
           startsAt: slot.startsAt.toISOString(),
           endsAt: slot.endsAt.toISOString(),
           durationMin,
-          priceCents: Number(pricing.priceCents),
+          priceCents,
         })),
         nextAvailable: result.nextAvailable?.toISOString() ?? null,
         durationMin,
-        priceCents: Number(pricing.priceCents),
+        priceCents,
         timezone: await loadTimezone(tx),
       }
     })
@@ -129,6 +152,45 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
   app.get('/v1/appointments', READ, async (request) => {
     const query = parseInput(ListAppointmentsQuerySchema, request.query)
     return listAppointments(actorFrom(request), query)
+  })
+
+  /**
+   * A fila da triagem, para o sino do Admin (AC-06 de MOD-PORTAL-05).
+   *
+   * Rota de **contagem**, e não `listAppointments` com `status=PENDING`: aquela tem
+   * `take: 200`, e um contador que soma uma listagem truncada mente calado a partir do
+   * item 201. Aqui é `count` no banco.
+   *
+   * Só `source: PORTAL`. `PENDING` também nasce de uma série recorrente criada com a
+   * triagem ligada, e essa foi a própria equipe que marcou — chamá-la de "pedido do
+   * site" faria o sino mentir sobre a origem.
+   *
+   * Precisa vir **antes** de `/v1/appointments/:id`: o Fastify casa por ordem de
+   * registro, e `pending-count` seria lido como um id.
+   */
+  app.get('/v1/appointments/pending-count', READ, async (request) => {
+    const actor = actorFrom(request)
+
+    return withTenant(actor.tenantId, async (tx) => {
+      const where = { status: 'PENDING' as const, source: 'PORTAL' as const }
+
+      const [count, proximo, timezone] = await Promise.all([
+        tx.appointment.count({ where }),
+        tx.appointment.findFirst({
+          where,
+          orderBy: { startsAt: 'asc' },
+          select: { startsAt: true },
+        }),
+        loadTimezone(tx),
+      ])
+
+      return {
+        count,
+        // RN-19: o dia é o do estabelecimento. Cortar por UTC mandaria o link para
+        // ontem em toda solicitação da madrugada.
+        nextDate: proximo ? zonedDate(proximo.startsAt, timezone) : null,
+      }
+    })
   })
 
   app.get('/v1/appointments/:id', READ, async (request) => {

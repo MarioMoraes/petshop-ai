@@ -350,7 +350,7 @@ describe('rotas do agendamento', () => {
     const response = await callApi({
       ...asAdmin(tenant),
       method: 'GET',
-      url: `/v1/availability?serviceId=${serviceId}&petId=${petId}&from=${QUINTA_INICIO.toISOString()}&to=${QUINTA_FIM.toISOString()}`,
+      url: `/v1/availability?serviceIds=${serviceId}&petId=${petId}&from=${QUINTA_INICIO.toISOString()}&to=${QUINTA_FIM.toISOString()}`,
     })
 
     expect(response.statusCode).toBe(200)

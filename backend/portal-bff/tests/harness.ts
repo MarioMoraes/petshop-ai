@@ -4,7 +4,12 @@ import { fileURLToPath } from 'node:url'
 import { config } from 'dotenv'
 import type { FastifyInstance } from 'fastify'
 import { signServiceHeaders, type ServiceAuthContext } from '@petshop/service-auth'
-import { ROLE_PERMISSIONS, type PermissionKey } from '@petshop/shared-types'
+import {
+  AppError,
+  ROLE_PERMISSIONS,
+  type PermissionKey,
+  type ServiceCategory,
+} from '@petshop/shared-types'
 
 /**
  * Harness do Portal do Tutor.
@@ -42,6 +47,7 @@ export const ownerPrisma: OwnerClient = createOwnerClient()
 const { buildApp } = await import('../src/app.js')
 const { loadEnv } = await import('../src/env.js')
 const { setMessagingPort } = await import('../src/modules/portal/messaging-port.js')
+const { setSchedulingPort } = await import('../src/modules/portal/scheduling-port.js')
 const { resetRateMemory } = await import('../src/modules/portal/rate-limit.js')
 const { clearTenantKeyCache, createTenantKey, withTenant, encryptWithKey, getTenantKey } =
   await import('@petshop/db')
@@ -61,6 +67,7 @@ export async function closeHarness(): Promise<void> {
   await app?.close()
   app = null
   setMessagingPort(null)
+  setSchedulingPort(null)
   const { disconnectPrisma } = await import('@petshop/db')
   await Promise.all([ownerPrisma.$disconnect(), disconnectPrisma()])
 }
@@ -358,20 +365,83 @@ export async function givenPet(
   })
 }
 
-/** Um serviço de catálogo, que o item do agendamento exige por FK. */
-export async function givenService(fixture: TenantFixture, name = 'Banho'): Promise<string> {
+export interface ServiceOptions {
+  name?: string
+  category?: ServiceCategory
+  active?: boolean
+  /** Sem preço para o porte do pet, o serviço não entra no cardápio do Portal. */
+  priced?: boolean
+  priceCents?: number
+  durationMin?: number
+  /** Quem executa. Sem ninguém habilitado, o serviço não é oferecido. */
+  professionalId?: string
+}
+
+/**
+ * Um serviço de catálogo — com preço para o porte pequeno e um executor, que é o que o
+ * cardápio do Portal exige para oferecê-lo.
+ *
+ * Os dois são opcionais de propósito: os testes do AC-02 provam justamente que o
+ * serviço sem preço e o serviço sem profissional **não** aparecem.
+ */
+export async function givenService(
+  fixture: TenantFixture,
+  nameOrOptions: string | ServiceOptions = 'Banho',
+): Promise<string> {
+  const options: ServiceOptions =
+    typeof nameOrOptions === 'string' ? { name: nameOrOptions } : nameOrOptions
+  const cat = await getCatalog()
+
   return withTenant(fixture.tenantId, async (tx) => {
     const service = await tx.service.create({
       data: {
         tenantId: fixture.tenantId,
-        name,
-        category: 'BATH',
-        baseDurationMin: 60,
+        name: options.name ?? 'Banho',
+        category: options.category ?? 'BATH',
+        baseDurationMin: options.durationMin ?? 60,
+        active: options.active ?? true,
+        ...(options.priced === false
+          ? {}
+          : {
+              pricing: {
+                create: {
+                  tenantId: fixture.tenantId,
+                  sizeId: cat.sizeSmallId,
+                  priceCents: BigInt(options.priceCents ?? 8000),
+                  durationMin: options.durationMin ?? 60,
+                },
+              },
+            }),
+        ...(options.professionalId
+          ? {
+              professionals: {
+                create: {
+                  tenantId: fixture.tenantId,
+                  professionalId: options.professionalId,
+                },
+              },
+            }
+          : {}),
       },
       select: { id: true },
     })
     return service.id
   })
+}
+
+/** Configuração do tenant que a fatia 3 lê: janela, taxa, antecedência e as chaves. */
+export async function setSettings(
+  fixture: TenantFixture,
+  data: {
+    onlineBookingEnabled?: boolean
+    onlineBookingRequiresApproval?: boolean
+    minBookingNoticeHours?: number
+    cancellationWindowHours?: number
+    noShowFeePercent?: number
+    portalEnabled?: boolean
+  },
+): Promise<void> {
+  await ownerPrisma.tenantSettings.update({ where: { tenantId: fixture.tenantId }, data })
 }
 
 export async function givenProfessional(fixture: TenantFixture, name = 'Ana Banhista'): Promise<string> {
@@ -386,7 +456,14 @@ export async function givenProfessional(fixture: TenantFixture, name = 'Ana Banh
 
 export interface AppointmentOptions {
   startsAt: Date
-  status?: 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
+  status?:
+    | 'PENDING'
+    | 'CONFIRMED'
+    | 'CHECKED_IN'
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'NO_SHOW'
   serviceLabel?: string
 }
 
@@ -519,4 +596,195 @@ export async function givenTemperament(fixture: TenantFixture, petId: string): P
       },
     })
   })
+}
+
+// ─── Cenário da fatia 3 — o agendamento ──────────────────────────────────────
+
+export interface SchedulingDouble {
+  /** O que a porta devolveu como grade; o teste ajusta antes de chamar. */
+  slots: { startsAt: Date; professionalId: string; professionalName: string }[]
+  nextAvailable: string | null
+  /** Erro que a próxima criação deve levantar — é como se exercita a tradução. */
+  failCreateWith: AppError | null
+  calls: {
+    availability: { serviceIds: string[]; from: string; to: string }[]
+    created: { petId: string; startsAt: string; source: 'PORTAL' }[]
+    cancelled: string[]
+    rescheduled: { appointmentId: string; startsAt: string }[]
+  }
+}
+
+/**
+ * Dublê da porta do scheduling-service que **escreve no banco de verdade**.
+ *
+ * Um dublê que só devolvesse um objeto deixaria de fora tudo o que vem depois da
+ * criação: a lista, o detalhe, o reconhecimento do duplo toque, o cancelamento. O que
+ * este dublê substitui é a regra de domínio — gates, grade, transação serializável —,
+ * que tem suíte própria no scheduling-service. O efeito no banco continua real.
+ */
+export function fakeScheduling(fixture: TenantFixture): SchedulingDouble {
+  const double: SchedulingDouble = {
+    slots: [],
+    nextAvailable: null,
+    failCreateWith: null,
+    calls: { availability: [], created: [], cancelled: [], rescheduled: [] },
+  }
+
+  async function insert(input: {
+    petId: string
+    professionalId: string
+    startsAt: string
+    serviceIds: string[]
+    status: 'PENDING' | 'CONFIRMED'
+  }) {
+    return withTenant(fixture.tenantId, async (tx) => {
+      const link = await tx.petTutor.findFirstOrThrow({
+        where: { petId: input.petId, unlinkedAt: null },
+        select: { tutorId: true },
+      })
+      const services = await tx.service.findMany({
+        where: { id: { in: input.serviceIds } },
+        select: { id: true, name: true },
+      })
+      const startsAt = new Date(input.startsAt)
+
+      const appointment = await tx.appointment.create({
+        data: {
+          tenantId: fixture.tenantId,
+          petId: input.petId,
+          tutorId: link.tutorId,
+          professionalId: input.professionalId,
+          startsAt,
+          endsAt: new Date(startsAt.getTime() + 60 * 60 * 1000),
+          status: input.status,
+          source: 'PORTAL',
+          totalCents: BigInt(8000 * services.length),
+          items: {
+            create: services.map((service) => ({
+              tenantId: fixture.tenantId,
+              serviceId: service.id,
+              label: service.name,
+              durationMin: 60,
+              priceCents: 8000n,
+            })),
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          totalCents: true,
+          pet: { select: { name: true } },
+          professional: { select: { displayName: true } },
+          items: { select: { serviceId: true, label: true, priceCents: true, durationMin: true } },
+        },
+      })
+
+      return {
+        id: appointment.id,
+        status: appointment.status,
+        source: 'PORTAL' as const,
+        startsAt: appointment.startsAt.toISOString(),
+        endsAt: appointment.endsAt.toISOString(),
+        petId: input.petId,
+        petName: appointment.pet.name,
+        tutorId: link.tutorId,
+        professionalId: input.professionalId,
+        professionalName: appointment.professional.displayName,
+        items: appointment.items.map((item) => ({
+          serviceId: item.serviceId,
+          label: item.label,
+          priceCents: Number(item.priceCents),
+          durationMin: item.durationMin,
+          addedAtCheckout: false,
+        })),
+        totalCents: Number(appointment.totalCents),
+        checkinAt: null,
+        checkoutAt: null,
+        cancelledAt: null,
+        cancelledLate: null,
+        notes: null,
+        createdAt: new Date().toISOString(),
+      }
+    })
+  }
+
+  setSchedulingPort({
+    async availability(_caller, input) {
+      double.calls.availability.push({
+        serviceIds: input.serviceIds,
+        from: input.from,
+        to: input.to,
+      })
+      return {
+        slots: double.slots.map((slot) => ({
+          professionalId: slot.professionalId,
+          professionalName: slot.professionalName,
+          startsAt: slot.startsAt.toISOString(),
+          endsAt: new Date(slot.startsAt.getTime() + 60 * 60 * 1000).toISOString(),
+          durationMin: 60,
+          priceCents: 8000,
+        })),
+        nextAvailable: double.nextAvailable,
+        durationMin: 60,
+        priceCents: 8000,
+        timezone: 'America/Sao_Paulo',
+      }
+    },
+
+    async create(_caller, input) {
+      if (double.failCreateWith) throw double.failCreateWith
+      double.calls.created.push({
+        petId: input.petId,
+        startsAt: input.startsAt,
+        source: 'PORTAL',
+      })
+
+      const settings = await ownerPrisma.tenantSettings.findUniqueOrThrow({
+        where: { tenantId: fixture.tenantId },
+        select: { onlineBookingRequiresApproval: true },
+      })
+
+      return insert({
+        petId: input.petId,
+        professionalId: input.professionalId,
+        startsAt: input.startsAt,
+        serviceIds: input.serviceIds,
+        status: settings.onlineBookingRequiresApproval ? 'PENDING' : 'CONFIRMED',
+      })
+    },
+
+    async cancel(_caller, appointmentId) {
+      double.calls.cancelled.push(appointmentId)
+      return withTenant(fixture.tenantId, async (tx) => {
+        const updated = await tx.appointment.update({
+          where: { id: appointmentId },
+          data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledLate: true },
+          select: { id: true, petId: true, professionalId: true },
+        })
+        return { id: updated.id } as never
+      })
+    },
+
+    async reschedule(_caller, appointmentId, input) {
+      double.calls.rescheduled.push({ appointmentId, startsAt: input.startsAt })
+      const old = await withTenant(fixture.tenantId, (tx) =>
+        tx.appointment.update({
+          where: { id: appointmentId },
+          data: { status: 'RESCHEDULED' },
+          select: { petId: true, items: { select: { serviceId: true } } },
+        }),
+      )
+      return insert({
+        petId: old.petId,
+        professionalId: input.professionalId,
+        startsAt: input.startsAt,
+        serviceIds: old.items.map((item) => item.serviceId),
+        status: 'CONFIRMED',
+      })
+    },
+  })
+
+  return double
 }

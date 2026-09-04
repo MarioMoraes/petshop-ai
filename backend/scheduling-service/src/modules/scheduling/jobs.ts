@@ -1,4 +1,5 @@
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
+import { publishEvent } from '../../lib/events.js'
 import { logger, recordMetric } from '../../lib/logger.js'
 import { createBooking } from './booking.js'
 import { expandOccurrences, parseRRule, MATERIALIZATION_WEEKS } from './recurrence.js'
@@ -101,6 +102,25 @@ export async function expirePendingApprovals(
           },
         })
       })
+      /**
+       * O tutor precisa saber que o pedido dele morreu.
+       *
+       * O evento é o mesmo do cancelamento pelo balcão, e é o que faz o MOD-CRM mandar
+       * o aviso — o consumidor de `agendamento.cancelado` já existe desde a fatia 1 do
+       * CRM. Sem esta linha, quem pediu horário pelo site esperava a confirmação, não
+       * recebia nada, e aparecia no petshop no dia marcado.
+       *
+       * `late: false` e `feeCents: 0` porque a falta não é dele: quem não decidiu foi o
+       * estabelecimento, e cobrar taxa por isso seria o pior tipo de erro de produto.
+       */
+      await publishEvent('agendamento.cancelado', {
+        tenantId: row.tenant_id,
+        appointmentId: row.id,
+        late: false,
+        feeCents: 0,
+        cancelledBy: null,
+      })
+
       expired += 1
     } catch (error) {
       logger.error({ err: error, appointmentId: row.id }, 'falha ao expirar solicitação')

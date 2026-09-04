@@ -17,7 +17,15 @@ export async function carregarPendencias(me: MeResponse): Promise<ContagemPenden
   const agora = new Date()
   const desde = new Date(agora.getTime() - JANELA_HORAS * 60 * 60 * 1000)
 
-  const [leads, mensagens, inadimplentes] = await Promise.all([
+  const [aprovacoes, leads, mensagens, inadimplentes] = await Promise.all([
+    /*
+     * `schedule:read_all` e não `schedule:write_all`: quem só lê a agenda ainda
+     * precisa saber que há pedido parado — é a recepção que vai chamar quem aprova.
+     */
+    pode('schedule:read_all')
+      ? api.countPendingApprovals().catch(() => null)
+      : Promise.resolve(null),
+
     pode('site:read_leads')
       ? api
           .countSiteLeads()
@@ -52,5 +60,5 @@ export async function carregarPendencias(me: MeResponse): Promise<ContagemPenden
       : Promise.resolve(null),
   ])
 
-  return { leads, mensagens, inadimplentes }
+  return { aprovacoes, leads, mensagens, inadimplentes }
 }

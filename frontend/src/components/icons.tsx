@@ -278,13 +278,26 @@ export function ReceiptIcon() {
  * transforma em aceno. A rotação não vem embutida aqui para o ícone continuar servindo
  * a outro uso, se houver.
  */
-export function WaveIcon() {
+/**
+ * Aceno da saudação. Único ícone do conjunto que não é Lucide puro: a mão (`hand`)
+ * está lá, mas parada ela lê como "pare" — o Lucide não tem mão acenando. Os dois
+ * arcos à esquerda são o movimento, e é o que faz o gesto virar aceno. Para caberem,
+ * a mão encolhe para 84% e desloca para a direita.
+ *
+ * `size` porque ele acompanha um texto que já cresceu duas vezes: quando a saudação
+ * sobe, o ícone sobe junto. O padrão é o tamanho do resto do conjunto.
+ */
+export function WaveIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg {...BASE}>
-      <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
-      <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
-      <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
-      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+    <svg {...BASE} width={size} height={size}>
+      <g transform="translate(3.2 1.6) scale(0.84)">
+        <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+        <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+        <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
+        <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+      </g>
+      <path d="M3.6 9.6a5 5 0 0 0 0 5" />
+      <path d="M1.2 7.9a8 8 0 0 0 0 8.4" />
     </svg>
   )
 }

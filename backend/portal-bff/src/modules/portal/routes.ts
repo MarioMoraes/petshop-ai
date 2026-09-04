@@ -1,6 +1,11 @@
 import { withTenant } from '@petshop/db'
 import {
+  PortalAppointmentsQuerySchema,
+  PortalAvailabilityQuerySchema,
+  PortalBookingSchema,
+  PortalCancelSchema,
   PortalChallengeSchema,
+  PortalRescheduleSchema,
   PortalTimelineQuerySchema,
   PortalVerifySchema,
   UpdateOwnPetSchema,
@@ -12,11 +17,19 @@ import {
   requireTenantContext,
   requireTutorContext,
 } from '../../auth/context.js'
-import { forbidden, unauthorized } from '../../lib/errors.js'
+import { forbidden, invalid, unauthorized } from '../../lib/errors.js'
 import { logger } from '../../lib/logger.js'
 import { parseInput } from '../../lib/validate.js'
 import type { ActorContext } from './actor.js'
+import type { SchedulingCaller } from './scheduling-port.js'
 import { requestChallenge } from './challenge.js'
+import {
+  cancelOwnAppointment,
+  listOwnAppointments,
+  readOwnAppointment,
+  rescheduleOwnAppointment,
+} from './appointments.js'
+import { createBooking, listBookableServices, readAvailability } from './booking.js'
 import { readPortalContext, readPortalTenant, touchLastSeen } from './me.js'
 import { listOwnPets, readOwnPet, updateOwnPet } from './pets.js'
 import { readOwnPetTimeline } from './timeline.js'
@@ -47,6 +60,22 @@ function actorOf(request: FastifyRequest): ActorContext {
     actorUserId: auth.userId,
     ipAddress: request.ip,
     userAgent: request.headers['user-agent'],
+  }
+}
+
+/**
+ * Quem o BFF diz ser ao falar com o scheduling-service.
+ *
+ * O `userId` é o do tutor, e não o de um usuário de serviço: é ele que vira
+ * `created_by` do agendamento e autor na trilha de auditoria do outro lado. Um
+ * agendamento sem autor real seria indefensável na primeira reclamação.
+ */
+function callerOf(request: FastifyRequest): SchedulingCaller {
+  const auth = requireTenantContext(request)
+  return {
+    tenantId: auth.tenantId,
+    clerkUserId: auth.clerkUserId,
+    userId: auth.userId ?? undefined,
   }
 }
 
@@ -192,6 +221,117 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       const query = parseInput(PortalTimelineQuerySchema, request.query)
 
       return readOwnPetTimeline(tenantId, tutorId, petId, query)
+    },
+  )
+
+  // ─── MOD-PORTAL-05 — Agendamento Online ────────────────────────────────────
+
+  /**
+   * O cardápio deste pet, com preço.
+   *
+   * `schedule:write_own` e não `read_own`: esta lista só existe para quem vai marcar.
+   * Quem só quer saber quanto custa um banho lê a página pública do petshop, que é
+   * onde a vitrine mora.
+   */
+  app.get(
+    '/portal/v1/booking/services',
+    { preHandler: requirePermission('schedule:write_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const { petId } = request.query as { petId?: string }
+      if (!petId) throw invalid('Informe o pet')
+
+      return listBookableServices(tenantId, tutorId, petId)
+    },
+  )
+
+  app.get(
+    '/portal/v1/booking/availability',
+    { preHandler: requirePermission('schedule:write_own') },
+    async (request) => {
+      const { tutorId } = requireOwnScope(request)
+      const query = parseInput(PortalAvailabilityQuerySchema, request.query)
+
+      return readAvailability(callerOf(request), tutorId, query)
+    },
+  )
+
+  /**
+   * AC-03 — cria o agendamento.
+   *
+   * **201 quando nasce, 200 quando o pedido reencontrou o que já existia.** A diferença
+   * importa para quem depura: dois 201 seguidos seriam duas linhas na agenda, e é
+   * justamente o que o reconhecimento do duplo toque impede.
+   */
+  app.post(
+    '/portal/v1/booking',
+    { preHandler: requirePermission('schedule:write_own') },
+    async (request, reply) => {
+      const { tutorId } = requireOwnScope(request)
+      const input = parseInput(PortalBookingSchema, request.body)
+
+      const booking = await createBooking(callerOf(request), tutorId, input)
+      return reply.status(booking.duplicate ? 200 : 201).send(booking)
+    },
+  )
+
+  // ─── MOD-PORTAL-06 — Meus Agendamentos ─────────────────────────────────────
+
+  app.get(
+    '/portal/v1/appointments',
+    { preHandler: requirePermission('schedule:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const query = parseInput(PortalAppointmentsQuerySchema, request.query)
+
+      return listOwnAppointments(tenantId, tutorId, query)
+    },
+  )
+
+  app.get(
+    '/portal/v1/appointments/:appointmentId',
+    { preHandler: requirePermission('schedule:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const { appointmentId } = request.params as { appointmentId: string }
+
+      return readOwnAppointment(tenantId, tutorId, appointmentId)
+    },
+  )
+
+  /**
+   * AC-02 e AC-03 — cancelar.
+   *
+   * A primeira tentativa de um cancelamento tardio com taxa volta `ERR_PORTAL_011` com
+   * o valor; a tela mostra a consequência e reenvia com `acknowledgeFee`. É o mesmo
+   * desenho do reconhecimento de alerta clínico do MOD-AGENDA, e pelo mesmo motivo:
+   * quem assume o custo precisa ter dito que sabia dele.
+   */
+  app.post(
+    '/portal/v1/appointments/:appointmentId/cancel',
+    { preHandler: requirePermission('schedule:write_own') },
+    async (request) => {
+      const { tutorId } = requireOwnScope(request)
+      const { appointmentId } = request.params as { appointmentId: string }
+      const input = parseInput(PortalCancelSchema, request.body ?? {})
+
+      return cancelOwnAppointment(callerOf(request), tutorId, appointmentId, input)
+    },
+  )
+
+  /** AC-04 — remarcar. Devolve o agendamento **novo**; o anterior vira histórico. */
+  app.post(
+    '/portal/v1/appointments/:appointmentId/reschedule',
+    { preHandler: requirePermission('schedule:write_own') },
+    async (request) => {
+      const { tutorId } = requireOwnScope(request)
+      const { appointmentId } = request.params as { appointmentId: string }
+      const input = parseInput(PortalRescheduleSchema, request.body)
+
+      return rescheduleOwnAppointment(callerOf(request), tutorId, appointmentId, input)
     },
   )
 }

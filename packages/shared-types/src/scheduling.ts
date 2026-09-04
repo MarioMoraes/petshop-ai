@@ -33,6 +33,20 @@ export const BOOKABLE_SERVICE_CATEGORIES: readonly ServiceCategory[] = SERVICE_C
   (category) => category !== 'TAXI',
 )
 
+/**
+ * Papéis que **não atendem pet** — hoje, só o motorista.
+ *
+ * O motorista é uma linha de `professionals` por decisão do MOD-TAXI (RN-03): assim
+ * ele herda jornada, folga e capacidade do MOD-AGENDA em vez de o taxi criar uma
+ * segunda noção de escala. O efeito colateral é que ele aparecia em toda pergunta
+ * feita à tabela — inclusive "quem atende hoje?", que ganhava uma coluna do motorista
+ * eternamente vazia, porque corrida não é agendamento: ela mora em `taxi_rides`.
+ *
+ * A lista existe para que a exclusão seja **uma** decisão citável, e não quatro
+ * consultas com o mesmo `roleKey` escrito à mão. Papel novo que não atenda entra aqui.
+ */
+export const NON_ATTENDING_ROLE_KEYS = ['DRIVER'] as const
+
 /** Grade de 15 minutos (convenção do §4 do PRD); toda duração é múltipla dela. */
 export const SCHEDULE_GRID_MIN = 15
 
@@ -349,8 +363,24 @@ export const CancelAppointmentSchema = z.object({
   waiveFee: z.boolean().default(false),
 })
 
+/**
+ * A disponibilidade é do **conjunto** de serviços, não de um deles.
+ *
+ * `serviceIds` chega como lista separada por vírgula porque isto é query string, e
+ * `?serviceIds=a&serviceIds=b` depende de como cada cliente serializa array. Uma
+ * string com vírgula tem uma leitura só.
+ *
+ * Até o MOD-PORTAL, quem pedia dois serviços recebia a grade do **primeiro** e
+ * descobria o resto na confirmação — aproximação que o balcão absorvia porque havia
+ * um atendente para remarcar. No Portal não há: o tutor escolheria um horário que o
+ * POST recusaria, sem entender por quê. Somar as durações aqui é o que torna a grade
+ * verdadeira para os dois públicos.
+ */
 export const AvailabilityQuerySchema = z.object({
-  serviceId: z.uuid(),
+  serviceIds: z
+    .string()
+    .transform((raw) => raw.split(',').map((id) => id.trim()).filter(Boolean))
+    .pipe(z.array(z.uuid()).min(1).max(10)),
   /** Porte e pelagem mudam a duração — disponibilidade sem pet é aproximação. */
   petId: z.uuid(),
   professionalId: z.uuid().optional(),
@@ -389,6 +419,24 @@ export const AvailabilityResponseSchema = z.object({
    */
   timezone: z.string(),
 })
+export type AvailabilityResponse = z.infer<typeof AvailabilityResponseSchema>
+
+/**
+ * A fila da triagem do Portal, para o sino de pendências (MOD-PORTAL-05, AC-06).
+ *
+ * Contagem e **a data do pedido mais antigo**, e não a lista: o sino precisa do número,
+ * e o clique precisa de para onde ir — a visão do dia é por dia, e mandar o usuário
+ * para "hoje" quando o pedido é de sexta faz o botão abrir uma tela vazia.
+ *
+ * Nada de nome de pet ou de tutor aqui: é contador de moldura, e a ficha está a um
+ * clique de distância.
+ */
+export const PendingApprovalsSchema = z.object({
+  count: z.number().int(),
+  /** Dia civil (`YYYY-MM-DD`) do pedido mais próximo, no fuso do tenant. */
+  nextDate: z.string().nullable(),
+})
+export type PendingApprovals = z.infer<typeof PendingApprovalsSchema>
 
 export const AppointmentResponseSchema = z.object({
   id: z.uuid(),
