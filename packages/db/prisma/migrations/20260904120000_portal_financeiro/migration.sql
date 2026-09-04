@@ -1,0 +1,14 @@
+-- MOD-PORTAL-08 (AC-05) — a chave PIX do estabelecimento.
+--
+-- O extrato do Portal mostra o saldo devedor e **não** oferece "pagar agora": não há
+-- PSP na v1 (RN-19 do financeiro_tutor_05), e um botão que finge um checkout que não
+-- existe é pior que a ausência dele. O que a tela oferece é o caminho real — a chave
+-- PIX e o horário de atendimento —, e a chave precisava de onde morar.
+--
+-- Fica em `billing_settings`, e não em `tenant_settings`, porque é instrução de
+-- pagamento: mora ao lado de `enabled_payment_methods`, que já decide se PIX_MANUAL
+-- sequer aparece no balcão.
+--
+-- Sem cifra, pela mesma razão do endereço comercial: é dado destinado a ser
+-- distribuído a todo cliente.
+ALTER TABLE "billing_settings" ADD COLUMN "pix_key" VARCHAR(140);

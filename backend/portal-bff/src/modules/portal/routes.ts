@@ -6,6 +6,7 @@ import {
   PortalCancelSchema,
   PortalChallengeSchema,
   PortalRescheduleSchema,
+  PortalStatementQuerySchema,
   PortalTimelineQuerySchema,
   PortalVerifySchema,
   UpdateOwnPetSchema,
@@ -30,6 +31,7 @@ import {
   rescheduleOwnAppointment,
 } from './appointments.js'
 import { createBooking, listBookableServices, readAvailability } from './booking.js'
+import { readOwnFinance, readOwnReceipt, readOwnStatement } from './finance.js'
 import { readPortalContext, readPortalTenant, touchLastSeen } from './me.js'
 import { listOwnPets, readOwnPet, updateOwnPet } from './pets.js'
 import { readOwnPetTimeline } from './timeline.js'
@@ -332,6 +334,65 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       const input = parseInput(PortalRescheduleSchema, request.body)
 
       return rescheduleOwnAppointment(callerOf(request), tutorId, appointmentId, input)
+    },
+  )
+
+  // ─── MOD-PORTAL-08 — Extrato e Recibos ─────────────────────────────────────
+
+  /**
+   * O painel: saldo, o que está em aberto, pacotes e como pagar.
+   *
+   * `finance:read_own` é permissão que existe desde o MOD-IDENT e **nenhuma rota
+   * exigia** — como as outras oito `_own` até a fatia 1. Aqui ela ganha a primeira.
+   */
+  app.get(
+    '/portal/v1/finance',
+    { preHandler: requirePermission('finance:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      return readOwnFinance(tenantId, tutorId)
+    },
+  )
+
+  app.get(
+    '/portal/v1/finance/statement',
+    { preHandler: requirePermission('finance:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const query = parseInput(PortalStatementQuerySchema, request.query)
+
+      return readOwnStatement(tenantId, tutorId, query)
+    },
+  )
+
+  /**
+   * AC-03 — o recibo do pagamento.
+   *
+   * Devolve a **URL assinada**, não os bytes: o recibo é peça contábil e já mora no
+   * bucket com retenção de cinco anos, ao contrário dos relatórios do MOD-COBRANCA, que
+   * são o retrato de um instante e por isso descem em bytes. O que atravessa aqui é o
+   * endereço de um arquivo que já existe.
+   */
+  app.get(
+    '/portal/v1/finance/receipts/:paymentId',
+    { preHandler: requirePermission('finance:read_own') },
+    async (request) => {
+      const { tutorId } = requireOwnScope(request)
+      const { paymentId } = request.params as { paymentId: string }
+      const auth = requireTenantContext(request)
+
+      return readOwnReceipt(
+        { tenantId: auth.tenantId, clerkUserId: auth.clerkUserId, userId: auth.userId ?? undefined },
+        {
+          actorUserId: auth.userId,
+          ipAddress: request.ip,
+          userAgent: request.headers['user-agent'],
+        },
+        tutorId,
+        paymentId,
+      )
     },
   )
 }

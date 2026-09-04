@@ -43,6 +43,7 @@ export async function loadSettings(
     packageExpiryWarningDays: row.packageExpiryWarningDays,
     noShowConsumesPackageCredit: row.noShowConsumesPackageCredit,
     receiptFooterText: row.receiptFooterText,
+    pixKey: row.pixKey,
   }
 }
 
@@ -94,6 +95,9 @@ export async function updateSettings(
         ...(input.receiptFooterText !== undefined
           ? { receiptFooterText: input.receiptFooterText }
           : {}),
+        // String vazia vinda do formulário é "apaguei o campo", e gravá-la faria o
+        // Portal exibir um bloco de PIX com uma chave em branco.
+        ...(input.pixKey !== undefined ? { pixKey: input.pixKey || null } : {}),
       }
 
       await tx.billingSettings.upsert({

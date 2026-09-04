@@ -10,8 +10,11 @@ import type {
   PortalBookingServicesResponse,
   PortalChallengeResponse,
   PortalContextResponse,
+  PortalFinanceResponse,
   PortalPetDetail,
   PortalPetSummary,
+  PortalReceiptResponse,
+  PortalStatementResponse,
   PortalTenantResponse,
   PortalTimelineResponse,
   UpdateOwnPetInput,
@@ -263,4 +266,32 @@ export function rescheduleOwnAppointment(
   body: { startsAt: string; professionalId: string },
 ): Promise<PortalAppointmentDetail> {
   return request({ method: 'POST', path: `/portal/v1/appointments/${id}/reschedule`, body })
+}
+
+// ─── MOD-PORTAL-08 — Extrato e Recibos ───────────────────────────────────────
+
+export function readOwnFinance(): Promise<PortalFinanceResponse> {
+  return request({ path: '/portal/v1/finance' })
+}
+
+/**
+ * O extrato, paginado por página.
+ *
+ * Por página e não por cursor, ao contrário do histórico do pet: os lançamentos são
+ * ordenados por data do fato gerador, que **repete** quando três serviços do mesmo dia
+ * entram juntos. Um cursor por data pularia linhas ou as repetiria.
+ */
+export function readOwnStatement(
+  options: { page?: number; limit?: number } = {},
+): Promise<PortalStatementResponse> {
+  const query = new URLSearchParams()
+  if (options.page) query.set('page', String(options.page))
+  if (options.limit) query.set('limit', String(options.limit))
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+
+  return request({ path: `/portal/v1/finance/statement${suffix}` })
+}
+
+export function readOwnReceipt(paymentId: string): Promise<PortalReceiptResponse> {
+  return request({ path: `/portal/v1/finance/receipts/${paymentId}` })
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { formatBRL } from '@petshop/shared-types'
+import { formatBRL, portalCreditCents, portalOwesCents } from '@petshop/shared-types'
 import { Card, DataRow } from '@/components/ui'
 import { PortalFrame } from '../frame'
 import { PortalError, readPortalContext } from '@/lib/portal-api'
@@ -25,7 +25,6 @@ export const dynamic = 'force-dynamic'
  * promete em uma seção o que já entrega na outra, e é a promessa que se lê primeiro.
  */
 const EM_BREVE = [
-  'Acompanhar a sua conta e baixar recibos',
   'Pedir o leva-e-traz junto com o horário',
   'Rever as mensagens que o estabelecimento mandou',
 ]
@@ -41,7 +40,14 @@ export default async function PortalInicioPage() {
     throw error
   }
 
-  const saldo = context.tutor.balanceCents
+  /**
+   * **Negativo é dívida** (RN-02 do MOD-LEDGER), e esta tela já leu ao contrário: até a
+   * fatia 4 ela comparava `saldo > 0` com "Em aberto" e dizia "Sem pendências" a quem
+   * devia. As duas funções vêm do pacote compartilhado justamente para que a conversão
+   * não seja refeita, e reinvertida, em cada tela nova.
+   */
+  const deve = portalOwesCents(context.tutor.balanceCents)
+  const credito = portalCreditCents(context.tutor.balanceCents)
 
   return (
     <PortalFrame
@@ -52,8 +58,12 @@ export default async function PortalInicioPage() {
       <Card>
         <div className="flex flex-col gap-1">
           <DataRow label="Pets cadastrados">{context.tutor.petsCount}</DataRow>
-          <DataRow label={saldo > 0 ? 'Em aberto' : 'Sua conta'}>
-            {saldo > 0 ? formatBRL(saldo) : 'Sem pendências'}
+          <DataRow label={deve > 0 ? 'Em aberto' : 'Sua conta'}>
+            {deve > 0
+              ? formatBRL(deve)
+              : credito > 0
+                ? `${formatBRL(credito)} de crédito`
+                : 'Sem pendências'}
           </DataRow>
         </div>
 
@@ -73,6 +83,9 @@ export default async function PortalInicioPage() {
           </Link>
           <Link href="/portal/pets" className="btn btn-ghost w-full">
             Meus pets
+          </Link>
+          <Link href="/portal/financeiro" className="btn btn-ghost w-full">
+            Minha conta
           </Link>
         </div>
       </Card>

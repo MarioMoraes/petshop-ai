@@ -511,3 +511,138 @@ export const PortalRescheduleSchema = z
   })
   .strict()
 export type PortalRescheduleInput = z.output<typeof PortalRescheduleSchema>
+
+// ─── MOD-PORTAL-08 — Extrato e Recibos ───────────────────────────────────────
+
+/**
+ * A convenção de sinal da plataforma, dita uma vez para quem escrever tela.
+ *
+ * **Negativo é dívida, positivo é crédito** (RN-02 do MOD-LEDGER, e a mesma de
+ * `tutors.balance_cents`). Ela é contraintuitiva na leitura de quem monta a tela — a
+ * tentação é ler "saldo maior que zero" como "deve" — e já produziu um cartão do Portal
+ * dizendo "Sem pendências" a quem devia. As duas funções abaixo existem para que
+ * nenhuma tela precise lembrar da regra.
+ */
+export function portalOwesCents(balanceCents: number): number {
+  return balanceCents < 0 ? -balanceCents : 0
+}
+
+export function portalCreditCents(balanceCents: number): number {
+  return balanceCents > 0 ? balanceCents : 0
+}
+
+/**
+ * Um crédito de pacote ainda de pé (AC-04).
+ *
+ * `expiresAt` vem sempre, e não só quando está perto: a regra de que o crédito não
+ * usado expira e **nada é devolvido** (RN-08 do MOD-LEDGER) precisa ser dita antes do
+ * vencimento, e uma data que só aparece na última semana é aviso que chega tarde.
+ */
+export const PortalPackageSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  petName: z.string().nullable(),
+  creditsTotal: z.number().int(),
+  creditsRemaining: z.number().int(),
+  expiresAt: z.string(),
+  /** Dentro da janela de aviso do tenant (`packageExpiryWarningDays`). */
+  expiringSoon: z.boolean(),
+})
+export type PortalPackage = z.infer<typeof PortalPackageSchema>
+
+/**
+ * AC-05 — como pagar, já que não há botão de pagar.
+ *
+ * Não existe PSP na v1: fingir um checkout seria pior que a ausência dele. O que a tela
+ * entrega é o caminho real, e ele só aparece quando o petshop configurou alguma coisa —
+ * um bloco "Como pagar" vazio manda o tutor procurar o que não existe.
+ */
+export const PortalPaymentInstructionsSchema = z.object({
+  pixKey: z.string().nullable(),
+  phone: z.string().nullable(),
+  whatsapp: z.string().nullable(),
+  /** Grade de funcionamento, já resolvida em linhas prontas para exibição. */
+  hours: z.array(z.object({ label: z.string(), value: z.string() })),
+})
+export type PortalPaymentInstructions = z.infer<typeof PortalPaymentInstructionsSchema>
+
+export const PortalFinanceResponseSchema = z.object({
+  /** Negativo = deve; positivo = tem crédito. Ver `portalOwesCents`. */
+  balanceCents: z.number().int(),
+  /** Soma dos débitos ainda não quitados. Zero para quem está em dia. */
+  openDebitsCents: z.number().int(),
+  /** O débito mais antigo em aberto, para a tela dizer "desde quando". */
+  oldestOpenDebitAt: z.string().nullable(),
+  packages: z.array(PortalPackageSchema),
+  howToPay: PortalPaymentInstructionsSchema,
+  timezone: z.string(),
+})
+export type PortalFinanceResponse = z.infer<typeof PortalFinanceResponseSchema>
+
+/**
+ * Uma linha do extrato.
+ *
+ * `internalNotes` **não existe neste tipo** (AC-02). O campo não é omitido na
+ * serialização: ele nunca é consultado, como o temperamento do pet na fatia 2. Filtrar
+ * na resposta significaria o texto ter saído do banco e atravessado o processo.
+ *
+ * `amountCents` já vem **com sinal** — crédito positivo, débito negativo —, para que a
+ * tela não precise combinar `direction` com um valor absoluto e errar o sinal em uma
+ * das duas listas.
+ */
+export const PortalStatementEntrySchema = z.object({
+  id: z.uuid(),
+  occurredAt: z.string(),
+  description: z.string(),
+  amountCents: z.number().int(),
+  category: z.string(),
+  petName: z.string().nullable(),
+  /** `true` quando o lançamento foi estornado. A tela risca a linha. */
+  reversed: z.boolean(),
+  /**
+   * O pagamento que originou a linha, quando há um. É a chave do recibo (AC-03) — e
+   * nula em tudo o mais, que é a forma de a tela não oferecer recibo de um débito.
+   */
+  paymentId: z.uuid().nullable(),
+})
+export type PortalStatementEntry = z.infer<typeof PortalStatementEntrySchema>
+
+/**
+ * Paginação por página, e não por cursor como no histórico do pet.
+ *
+ * O extrato ordena por `occurred_at`, que **repete** — três serviços do mesmo dia
+ * lançados juntos têm o mesmo instante —, e um cursor por data ou pularia linhas ou as
+ * repetiria. O total acompanha para a tela saber quando parar de oferecer "ver mais".
+ */
+export const PortalStatementQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict()
+export type PortalStatementQuery = z.output<typeof PortalStatementQuerySchema>
+
+export const PortalStatementResponseSchema = z.object({
+  entries: z.array(PortalStatementEntrySchema),
+  page: z.number().int(),
+  limit: z.number().int(),
+  total: z.number().int(),
+  balanceCents: z.number().int(),
+  timezone: z.string(),
+})
+export type PortalStatementResponse = z.infer<typeof PortalStatementResponseSchema>
+
+/**
+ * O recibo, como a tela o recebe (AC-03).
+ *
+ * `url` é assinada e de vida curta, e pode voltar nula: o PDF nasce depois do
+ * pagamento, fora da transação, e um recibo ainda em preparo tem número mas não tem
+ * arquivo. A tela diz "em preparo" em vez de oferecer um link morto.
+ */
+export const PortalReceiptResponseSchema = z.object({
+  number: z.string(),
+  status: z.string(),
+  issuedAt: z.string().nullable(),
+  url: z.string().nullable(),
+})
+export type PortalReceiptResponse = z.infer<typeof PortalReceiptResponseSchema>

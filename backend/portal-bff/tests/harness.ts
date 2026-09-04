@@ -68,6 +68,8 @@ export async function closeHarness(): Promise<void> {
   app = null
   setMessagingPort(null)
   setSchedulingPort(null)
+  const { setLedgerPort } = await import('../src/modules/portal/ledger-port.js')
+  setLedgerPort(null)
   const { disconnectPrisma } = await import('@petshop/db')
   await Promise.all([ownerPrisma.$disconnect(), disconnectPrisma()])
 }
@@ -783,6 +785,228 @@ export function fakeScheduling(fixture: TenantFixture): SchedulingDouble {
         serviceIds: old.items.map((item) => item.serviceId),
         status: 'CONFIRMED',
       })
+    },
+  })
+
+  return double
+}
+
+// ─── Cenário da fatia 4 — a conta corrente ───────────────────────────────────
+
+/**
+ * A conta do tutor, criada como o `billing-ledger-service` a cria: preguiçosamente.
+ *
+ * O teste que **não** chama esta função está exercitando o caso do tutor sem
+ * movimentação — saldo zero e extrato vazio, nunca 404 (RN-17 do MOD-LEDGER).
+ */
+export async function givenLedgerAccount(
+  fixture: TenantFixture,
+  tutorId: string,
+  balanceCents: number,
+): Promise<string> {
+  return withTenant(fixture.tenantId, async (tx) => {
+    const account = await tx.ledgerAccount.create({
+      data: { tenantId: fixture.tenantId, tutorId, balanceCents: BigInt(balanceCents) },
+      select: { id: true },
+    })
+    return account.id
+  })
+}
+
+export interface EntryOptions {
+  direction: 'DEBIT' | 'CREDIT'
+  amountCents: number
+  description: string
+  occurredAt: Date
+  category?:
+    | 'SERVICE'
+    | 'PRODUCT'
+    | 'NO_SHOW_FEE'
+    | 'PACKAGE_PURCHASE'
+    | 'PACKAGE_REDEMPTION'
+    | 'PAYMENT'
+    | 'ADJUSTMENT'
+  /** Quanto do débito já foi quitado. É o que separa "em aberto" de "pago". */
+  settledCents?: number
+  status?: 'POSTED' | 'REVERSED'
+  petId?: string
+  /** A anotação de balcão que o AC-02 proíbe de viajar até o Portal. */
+  internalNotes?: string
+  sourceType?: 'ATTENDANCE' | 'PAYMENT' | 'PACKAGE' | 'MANUAL' | 'SYSTEM'
+  sourceId?: string
+}
+
+export async function givenEntry(
+  fixture: TenantFixture,
+  tutorId: string,
+  accountId: string,
+  options: EntryOptions,
+): Promise<string> {
+  return withTenant(fixture.tenantId, async (tx) => {
+    const key = await getTenantKey(tx, fixture.tenantId)
+    const entry = await tx.ledgerEntry.create({
+      data: {
+        tenantId: fixture.tenantId,
+        accountId,
+        tutorId,
+        direction: options.direction,
+        amountCents: BigInt(options.amountCents),
+        balanceAfterCents: 0n,
+        category: options.category ?? (options.direction === 'DEBIT' ? 'SERVICE' : 'PAYMENT'),
+        description: options.description,
+        occurredAt: options.occurredAt,
+        settledCents: BigInt(options.settledCents ?? 0),
+        status: options.status ?? 'POSTED',
+        sourceType: options.sourceType ?? 'MANUAL',
+        ...(options.sourceId ? { sourceId: options.sourceId } : {}),
+        ...(options.petId ? { petId: options.petId } : {}),
+        ...(options.internalNotes
+          ? { internalNotesEncrypted: encryptWithKey(options.internalNotes, key) }
+          : {}),
+      },
+      select: { id: true },
+    })
+    return entry.id
+  })
+}
+
+/** Um pagamento com o lançamento de crédito que lhe corresponde 1:1. */
+export async function givenPayment(
+  fixture: TenantFixture,
+  tutorId: string,
+  accountId: string,
+  options: { amountCents: number; receivedAt: Date; description?: string },
+): Promise<{ paymentId: string; entryId: string }> {
+  const entryId = await givenEntry(fixture, tutorId, accountId, {
+    direction: 'CREDIT',
+    amountCents: options.amountCents,
+    description: options.description ?? 'Pagamento recebido',
+    occurredAt: options.receivedAt,
+    category: 'PAYMENT',
+    sourceType: 'PAYMENT',
+  })
+
+  const paymentId = await withTenant(fixture.tenantId, async (tx) => {
+    const payment = await tx.payment.create({
+      data: {
+        tenantId: fixture.tenantId,
+        accountId,
+        tutorId,
+        amountCents: BigInt(options.amountCents),
+        method: 'PIX_MANUAL',
+        receivedAt: options.receivedAt,
+        entryId,
+      },
+      select: { id: true },
+    })
+    return payment.id
+  })
+
+  // O `source_id` do lançamento é o que liga a linha do extrato ao recibo, e
+  // `ledger_entries` é append-only por RULE: a atualização vai em SQL cru, como o
+  // próprio serviço faria se precisasse.
+  await withTenant(fixture.tenantId, (tx) =>
+    tx.$executeRaw`UPDATE ledger_entries SET source_id = ${paymentId}::uuid WHERE id = ${entryId}::uuid`,
+  )
+
+  return { paymentId, entryId }
+}
+
+export interface PackagePurchaseOptions {
+  name?: string
+  creditsTotal?: number
+  creditsUsed?: number
+  expiresAt: Date
+  petId?: string
+  status?: 'ACTIVE' | 'CONSUMED' | 'EXPIRED' | 'SUSPENDED' | 'CANCELLED'
+}
+
+export async function givenPackagePurchase(
+  fixture: TenantFixture,
+  tutorId: string,
+  accountId: string,
+  options: PackagePurchaseOptions,
+): Promise<string> {
+  const name = options.name ?? 'Pacote 4 banhos'
+  const credits = options.creditsTotal ?? 4
+
+  const entryId = await givenEntry(fixture, tutorId, accountId, {
+    direction: 'DEBIT',
+    amountCents: 28000,
+    description: name,
+    occurredAt: new Date(options.expiresAt.getTime() - 90 * 86_400_000),
+    category: 'PACKAGE_PURCHASE',
+    settledCents: 28000,
+    sourceType: 'PACKAGE',
+  })
+
+  return withTenant(fixture.tenantId, async (tx) => {
+    const pkg = await tx.servicePackage.create({
+      data: {
+        tenantId: fixture.tenantId,
+        name,
+        serviceIds: [],
+        credits,
+        priceCents: 28000n,
+      },
+      select: { id: true },
+    })
+
+    const purchase = await tx.packagePurchase.create({
+      data: {
+        tenantId: fixture.tenantId,
+        tutorId,
+        packageId: pkg.id,
+        // RN-05: o que o tutor viu no ato da compra, congelado.
+        snapshot: { name, serviceIds: [], credits, priceCents: 28000, validityDays: 90 },
+        creditsTotal: credits,
+        creditsUsed: options.creditsUsed ?? 0,
+        expiresAt: options.expiresAt,
+        status: options.status ?? 'ACTIVE',
+        entryId,
+        ...(options.petId ? { petId: options.petId } : {}),
+      },
+      select: { id: true },
+    })
+    return purchase.id
+  })
+}
+
+export interface LedgerDouble {
+  /** O que a porta devolve; o teste ajusta antes de chamar. */
+  receipt: { number: string; status: string; issuedAt: string | null; url: string | null }
+  /** Erro que a próxima emissão deve levantar. */
+  failWith: AppError | null
+  calls: string[]
+}
+
+/**
+ * Dublê da porta do `billing-ledger-service`.
+ *
+ * Aqui o dublê **não** escreve no banco, ao contrário do `fakeScheduling`: o que ele
+ * substitui é a emissão do PDF — Gotenberg, bucket e numeração sequencial —, que não
+ * deixa rastro que o Portal leia depois. O que este lado precisa provar é outra coisa:
+ * que a posse é conferida antes da chamada, e que o acesso vai para a trilha.
+ */
+export async function fakeLedger(): Promise<LedgerDouble> {
+  const { setLedgerPort } = await import('../src/modules/portal/ledger-port.js')
+
+  const double: LedgerDouble = {
+    receipt: {
+      number: '2026/000123',
+      status: 'ISSUED',
+      issuedAt: '2026-09-01T12:00:00.000Z',
+      url: 'https://bucket.example/recibo.pdf?assinatura=x',
+    },
+    failWith: null,
+    calls: [],
+  }
+
+  setLedgerPort({
+    async receipt(_caller, paymentId) {
+      double.calls.push(paymentId)
+      if (double.failWith) throw double.failWith
+      return double.receipt
     },
   })
 

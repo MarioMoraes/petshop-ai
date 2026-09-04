@@ -28,6 +28,15 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
   SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3006'),
 
   /**
+   * O serviço financeiro, para **emitir** o recibo do pagamento (MOD-PORTAL-08).
+   *
+   * O extrato e o saldo não passam por aqui — são leitura, e o BFF lê o banco direto.
+   * Esta URL existe só para o `GET /v1/payments/:id/receipt`, que gera o PDF quando
+   * ele ainda não existe. Ver `modules/portal/ledger-port.ts`.
+   */
+  BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3007'),
+
+  /**
    * O bucket das fotos, só para **assinar** o endereço de leitura (`lib/photo-urls.ts`).
    *
    * Opcionais pela mesma razão do pet-service, e a consequência aqui é ainda mais

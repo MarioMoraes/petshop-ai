@@ -406,6 +406,14 @@ export const BillingSettingsSchema = z.object({
   packageExpiryWarningDays: z.array(z.number().int()),
   noShowConsumesPackageCredit: z.boolean(),
   receiptFooterText: z.string().nullable(),
+  /**
+   * A chave PIX que o tutor copia para pagar (AC-05 de MOD-PORTAL-08).
+   *
+   * Instrução de pagamento, não checkout: a v1 não processa dinheiro (RN-19) e quem
+   * registra a entrada continua sendo o balcão. Nula, o Portal mostra só o telefone e
+   * o horário de atendimento — nunca um campo vazio dizendo "PIX".
+   */
+  pixKey: z.string().nullable(),
 })
 export type BillingSettings = z.infer<typeof BillingSettingsSchema>
 
@@ -417,6 +425,7 @@ export const UpdateBillingSettingsSchema = z.object({
   packageExpiryWarningDays: z.array(z.number().int().min(0).max(365)).max(5).optional(),
   noShowConsumesPackageCredit: z.boolean().optional(),
   receiptFooterText: z.string().trim().max(500).nullable().optional(),
+  pixKey: z.string().trim().max(140).nullable().optional(),
 })
 export type UpdateBillingSettingsInput = z.output<typeof UpdateBillingSettingsSchema>
 
@@ -432,6 +441,7 @@ export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   packageExpiryWarningDays: [15, 3],
   noShowConsumesPackageCredit: false,
   receiptFooterText: null,
+  pixKey: null,
 }
 
 // ─── MOD-LEDGER-09 — limite de crédito e inadimplência ───────────────────────

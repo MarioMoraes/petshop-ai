@@ -2091,6 +2091,17 @@ model BillingSettings {
   /// RN-20: o sistema emite **recibo**, não nota fiscal. O texto deixa isso explícito.
   receiptFooterText String? @map("receipt_footer_text")
 
+  /// A chave PIX que o tutor copia para pagar (AC-05 de MOD-PORTAL-08).
+  ///
+  /// **Não é cifrada**, pela mesma razão do endereço comercial em `tenant_settings`:
+  /// existe para ser distribuída — vai no balcão, no WhatsApp e na tela do Portal.
+  /// Cifrar o que se entrega a todo cliente seria cerimônia sem proteção.
+  ///
+  /// A v1 não processa dinheiro (RN-19): não há PSP, não há conciliação automática e
+  /// o pagamento continua sendo registrado à mão por quem recebeu. A chave é
+  /// instrução, não checkout.
+  pixKey String? @map("pix_key") @db.VarChar(140)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

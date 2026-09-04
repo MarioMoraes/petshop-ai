@@ -41,6 +41,7 @@ export function BillingSettingsForm({ settings, receivables, canEdit }: Props) {
       {receivables && <ReceivablesCard receivables={receivables} />}
       <CreditLimitCard settings={settings} canEdit={canEdit} />
       <PaymentMethodsCard settings={settings} canEdit={canEdit} />
+      <PixKeyCard settings={settings} canEdit={canEdit} />
       <PackagePolicyCard settings={settings} canEdit={canEdit} />
     </div>
   )
@@ -269,6 +270,63 @@ function PaymentMethodsCard({
           saved={saved}
           disabled={enabled.length === 0}
           onSave={() => save({ enabledPaymentMethods: enabled })}
+        />
+      )}
+    </Card>
+  )
+}
+
+/**
+ * A chave PIX que o Portal do Tutor exibe (AC-05 de MOD-PORTAL-08).
+ *
+ * O cliente que abre "Minha conta" e vê um saldo devedor não encontra botão de pagar —
+ * não há meio de pagamento integrado na v1, e um checkout fingido seria pior que a
+ * ausência dele. O que ele encontra é esta chave, o telefone público e o horário de
+ * atendimento.
+ *
+ * Cartão próprio, e não um campo dentro de "Formas de pagamento aceitas": aquela lista
+ * decide o que o **balcão** pode registrar; esta chave é o que o **cliente** lê. Ligar
+ * PIX na lista e deixar a chave vazia é situação legítima — o petshop que só recebe PIX
+ * presencialmente, pelo aparelho do caixa.
+ */
+function PixKeyCard({ settings, canEdit }: { settings: BillingSettings; canEdit: boolean }) {
+  const [pixKey, setPixKey] = useState(settings.pixKey ?? '')
+  const { save, error, saved, pending } = useSave()
+
+  return (
+    <Card tone="soft">
+      <SectionHead
+        icon={<WalletIcon />}
+        tone="icon-money"
+        eyebrow="Financeiro"
+        title="Chave PIX no Portal do Tutor"
+        description="Aparece para o cliente que tem valor em aberto, junto do telefone e do horário de atendimento. Em branco, o Portal mostra só o contato."
+      />
+
+      <FormError message={error} />
+
+      <div className="mt-4">
+        <Field
+          label="Chave PIX"
+          htmlFor="pix"
+          hint="CPF, CNPJ, telefone, e-mail ou chave aleatória. Confira antes de salvar: o cliente copia daqui."
+        >
+          <input
+            id="pix"
+            className="field"
+            value={pixKey}
+            disabled={!canEdit}
+            onChange={(event) => setPixKey(event.target.value)}
+            placeholder="Sem chave PIX"
+          />
+        </Field>
+      </div>
+
+      {canEdit && (
+        <SaveRow
+          pending={pending}
+          saved={saved}
+          onSave={() => save({ pixKey: pixKey.trim() === '' ? null : pixKey.trim() })}
         />
       )}
     </Card>
