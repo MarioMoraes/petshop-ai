@@ -269,7 +269,20 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
               <p className="truncate text-sm font-medium">{me.user.fullName}</p>
               {roleLabel && <p className="hint truncate">{roleLabel}</p>}
             </div>
-            <UserButton />
+            {/*
+             * Avatar acima do padrão do Clerk (28px), para equilibrar com o nome ao lado.
+             * `userButtonAvatarBox` além de `avatarBox`: os dois descritores caem no mesmo
+             * elemento, e só o específico vence a regra interna do widget. A `<img>` de
+             * dentro é 100% da caixa, então a foto cresce junto.
+             */}
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: { width: '32px', height: '32px' },
+                  userButtonAvatarBox: { width: '32px', height: '32px' },
+                },
+              }}
+            />
           </div>
         </header>
 
