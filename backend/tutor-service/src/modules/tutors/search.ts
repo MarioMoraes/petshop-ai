@@ -19,7 +19,7 @@ import { hashCnpj, hashCpf, hashPhone, hashTutorEmail } from './crypto.js'
  *      funcionaria: o mesmo valor cifra diferente a cada gravação.
  *   2. **Texto** — `websearch_to_tsquery` sobre o `search_vector` (GIN), somado a
  *      similaridade trigram no nome, para tolerar "maria silva" ↔ "Maria da Silva".
- *   3. **Vazio ou curto** — lista padrão por `updated_at DESC` (AC-03).
+ *   3. **Vazio ou curto** — lista padrão em ordem alfabética pelo nome exibido.
  *
  * A entrada nunca é concatenada no SQL: tudo vai por parâmetro, e o texto passa por
  * `websearch_to_tsquery`, que trata `&`, `|`, `!` e `:` como texto comum em vez de
@@ -161,16 +161,42 @@ function buildWhere(query: ListTutorsQuery, shape: QueryShape): Prisma.Sql {
   return Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
 }
 
-function buildOrderBy(shape: QueryShape): Prisma.Sql {
-  if (shape.kind !== 'text') return Prisma.sql`t."updated_at" DESC`
+/**
+ * A ordem alfabética da listagem, e o nome por que ela ordena.
+ *
+ * `COALESCE(social_name, full_name)` é o **nome exibido** (RN-14 do MOD-TUTOR), e não o
+ * nome de registro. Ordenar por `full_name` colocaria em "R" a tutora que a tela mostra
+ * como "Ana" — uma lista em ordem alfabética que parece embaralhada é pior do que uma
+ * lista sem ordem nenhuma.
+ *
+ * `unaccent(lower(...))` porque a intercalação do banco não é garantida: sem isso,
+ * "Álvaro" cai depois de "Zuleica" em `C` e antes de "Ana" em `pt_BR`. A mesma função que
+ * a busca já usa, e aqui ela não precisa ser imutável — é `ORDER BY`, não índice.
+ */
+const ORDEM_ALFABETICA = Prisma.sql`unaccent(lower(COALESCE(t."social_name", t."full_name"))) ASC, t."id" ASC`
 
-  // Relevância = full-text primeiro, similaridade de nome como desempate. Quem
-  // digitou "mari" quer a Maria mais provável no topo, não a mais recente.
+function buildOrderBy(shape: QueryShape): Prisma.Sql {
+  /**
+   * A lista sem busca é alfabética.
+   *
+   * Diverge do AC-03 do PRD, que pedia `updated_at DESC`, a pedido do usuário em
+   * 2026-09-05. Recência é a ordem certa para quem acabou de mexer em alguém e quer
+   * voltar; quem abre "Tutores" está procurando uma pessoa pelo nome, e numa lista
+   * paginada de centenas o nome é a única âncora que a pessoa tem.
+   *
+   * O `t."id"` no fim não é enfeite: dois homônimos sem desempate podem trocar de lugar
+   * entre a página 1 e a 2, e o mesmo tutor apareceria duas vezes ou nenhuma.
+   */
+  if (shape.kind !== 'text') return ORDEM_ALFABETICA
+
+  // Com busca, quem manda é a relevância: full-text primeiro, similaridade de nome como
+  // desempate. Quem digitou "mari" quer a Maria mais provável no topo, não a primeira do
+  // alfabeto. O alfabeto volta como último critério, entre empatados.
   return Prisma.sql`
     (
       ts_rank(t."search_vector", websearch_to_tsquery('portuguese', unaccent(${shape.value})))
       + similarity(t."full_name", ${shape.value})
     ) DESC,
-    t."updated_at" DESC
+    ${ORDEM_ALFABETICA}
   `
 }

@@ -291,3 +291,30 @@ export function rotuloDoDia(dateISO: string): string {
     timeZone: 'UTC',
   })
 }
+
+/**
+ * Onde a caixa da linha do tempo deve parar para mostrar o agora.
+ *
+ * Função pura, e fora do componente, porque é a única parte do posicionamento que dá
+ * para conferir sem um navegador: o resto é `scrollTop` e medida de elemento.
+ *
+ * **O agora não fica no topo.** Fica com um terço da caixa de folga acima, porque a
+ * pergunta do balcão não é só "o que vem agora" — é também "o que acabou de sair da
+ * bancada". Colar o fio no topo esconderia a resposta da metade da pergunta.
+ *
+ * O piso da folga é a **altura do cabeçalho**, que é grudado no topo da caixa e cobriria
+ * o fio numa janela baixa. Sem ele, a tela de quem trabalha com o navegador pela metade
+ * posicionaria o agora exatamente atrás dos nomes dos profissionais.
+ */
+export function alvoDaRolagem(medidas: {
+  /** Distância do fio do agora até o topo do conteúdo rolável, em pixels. */
+  topoDoFio: number
+  /** Altura visível da caixa. */
+  alturaCaixa: number
+  /** Altura do cabeçalho grudado no topo. */
+  alturaCabecalho: number
+}): number {
+  const folga = Math.max(medidas.alturaCabecalho, medidas.alturaCaixa / 3)
+  // Manhã cedo: o alvo é negativo e a caixa já está no lugar certo, que é o começo.
+  return Math.max(0, medidas.topoDoFio - folga)
+}

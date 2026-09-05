@@ -7,10 +7,11 @@ import {
   formatBRL,
   type PortalAppointment,
   type PortalAppointmentActions,
+  type PortalTaxiRide,
 } from '@petshop/shared-types'
 import { Badge, Card, FormError } from '@/components/ui'
 import { Modal } from '@/components/modal'
-import { CalendarIcon } from '@/components/icons'
+import { CalendarIcon, VanIcon } from '@/components/icons'
 import { cancelar } from './actions'
 
 /**
@@ -64,6 +65,8 @@ export function AppointmentCard({
         </div>
         {appointment.awaitingApproval && <Badge tone="accent">Aguardando confirmação</Badge>}
       </div>
+
+      <TaxiStrip rides={appointment.taxi} timezone={timezone} />
 
       <p className="mt-3 text-sm font-medium">{formatBRL(appointment.totalCents)}</p>
 
@@ -131,6 +134,17 @@ export function AppointmentCard({
           </p>
         )}
 
+        {/*
+          AC-06 de MOD-PORTAL-07: as corridas caem junto, e não se cobram. Dizer isso no
+          diálogo evita a pergunta seguinte — "e o leva-e-traz, continua?" — que hoje vira
+          telefonema.
+        */}
+        {appointment.taxi.length > 0 && (
+          <p className="hint mt-2">
+            O leva-e-traz deste horário é cancelado junto, sem cobrança.
+          </p>
+        )}
+
         <FormError message={erro} />
       </Modal>
     </Card>
@@ -148,4 +162,53 @@ function dataHoraLonga(instant: string, timeZone: string): string {
     timeZone,
   }).format(new Date(instant))
   return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+/**
+ * O leva-e-traz deste agendamento (AC-05 de MOD-PORTAL-07).
+ *
+ * **Status e janela, e nada mais.** Sem mapa e sem a posição do veículo: o rastreamento
+ * por GPS é a questão 7 do MOD-TAXI, está fora da v1, e carrega uma discussão de LGPD
+ * sobre localização do trabalhador que não se resolve numa tela. Sem o nome do motorista
+ * pelo mesmo motivo — e porque saber quem dirige não muda nada do que o tutor faz.
+ *
+ * O texto do status vem pronto do servidor. O rótulo do painel — "Sem motorista",
+ * "Atribuída" — é escrito para quem opera, e no celular do tutor leria como falha.
+ */
+export function TaxiStrip({
+  rides,
+  timezone,
+}: {
+  rides: PortalTaxiRide[]
+  timezone: string
+}) {
+  if (rides.length === 0) return null
+
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      {rides.map((ride) => (
+        <div key={ride.id} className="flex items-start gap-2 text-sm">
+          <span className="text-muted mt-0.5 shrink-0">
+            <VanIcon />
+          </span>
+          <span className="min-w-0">
+            <span className="block">
+              {ride.legLabel} · <strong className="font-medium">{ride.statusText}</strong>
+            </span>
+            <span className="hint block">
+              entre {hora(ride.windowStartsAt, timezone)} e {hora(ride.windowEndsAt, timezone)}
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function hora(instant: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
+  }).format(new Date(instant))
 }

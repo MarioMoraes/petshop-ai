@@ -109,6 +109,42 @@ export const TAXI_FAILURE_REASON_TUTOR_TEXT: Record<TaxiFailureReason, string> =
   OTHER: 'houve um imprevisto no caminho',
 }
 
+/**
+ * O status da corrida dito ao **tutor** (AC-05 de MOD-PORTAL-07).
+ *
+ * Terceira lista de rótulos do módulo, pela mesma razão da segunda: são públicos
+ * diferentes. `TAXI_RIDE_STATUS_LABELS` é a coluna do painel, escrita para quem opera —
+ * "Sem motorista" e "Atribuída" descrevem a fila interna. O tutor lendo "Sem motorista"
+ * no celular entende que ninguém vai buscar o pet dele, e liga para o petshop; é
+ * exatamente o telefonema que o Portal existe para evitar.
+ *
+ * `REQUESTED` e `ASSIGNED` colapsam em "Programado" de propósito: se um motorista já foi
+ * escalado é decisão de escala, e a escala muda três vezes antes da hora. O que o tutor
+ * precisa saber é que a corrida está de pé.
+ *
+ * A perna entra no texto porque "Entregue" numa coleta e numa devolução são lugares
+ * opostos — o pet no petshop e o pet em casa.
+ */
+export function taxiStatusTutorText(leg: TaxiLeg, status: TaxiRideStatus): string {
+  switch (status) {
+    case 'REQUESTED':
+    case 'ASSIGNED':
+      return 'Programado'
+    case 'EN_ROUTE':
+      return leg === 'PICKUP' ? 'A caminho do seu endereço' : 'A caminho da sua casa'
+    case 'ARRIVED':
+      return 'Chegou'
+    case 'ONBOARD':
+      return 'Com o pet a bordo'
+    case 'DELIVERED':
+      return leg === 'PICKUP' ? 'Pet no petshop' : 'Pet em casa'
+    case 'FAILED':
+      return 'Não realizada'
+    case 'CANCELLED':
+      return 'Cancelada'
+  }
+}
+
 export const TAXI_CANCEL_REASONS = [
   'TUTOR_REQUEST',
   'APPOINTMENT_CANCELLED',

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { SignOutButton } from '@clerk/nextjs'
 import { formatBRL, portalCreditCents, portalOwesCents } from '@petshop/shared-types'
 import { Card, DataRow } from '@/components/ui'
 import { PortalFrame } from '../frame'
@@ -24,10 +25,7 @@ export const dynamic = 'force-dynamic'
  * Item que ganhou tela sai daqui no mesmo commit em que a tela nasce — senão o Portal
  * promete em uma seção o que já entrega na outra, e é a promessa que se lê primeiro.
  */
-const EM_BREVE = [
-  'Pedir o leva-e-traz junto com o horário',
-  'Rever as mensagens que o estabelecimento mandou',
-]
+const EM_BREVE = ['Rever as mensagens que o estabelecimento mandou']
 
 export default async function PortalInicioPage() {
   let context
@@ -87,6 +85,18 @@ export default async function PortalInicioPage() {
           <Link href="/portal/financeiro" className="btn btn-ghost w-full">
             Minha conta
           </Link>
+
+          {/*
+            O "Sair" fecha a lista, no mesmo botão fantasma dos outros.
+            Fica aqui e não no rodapé de toda tela porque sair é o fim de uma visita, e
+            o Início é onde a visita termina. Sem ele, o Portal não tinha saída nenhuma —
+            e ele roda no celular de família, que passa de mão em mão.
+          */}
+          <SignOutButton redirectUrl="/portal/entrar">
+            <button type="button" className="btn btn-ghost w-full">
+              Sair
+            </button>
+          </SignOutButton>
         </div>
       </Card>
 

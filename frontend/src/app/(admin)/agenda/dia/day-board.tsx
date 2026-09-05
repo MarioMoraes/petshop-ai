@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CalendarBlockResponse,
   DayAppointment,
@@ -12,6 +12,7 @@ import type {
   TaxiRideResponse,
 } from '@petshop/shared-types'
 import {
+  alvoDaRolagem,
   distribuirPistas,
   forasDaJornada,
   horaDe,
@@ -191,6 +192,11 @@ export function DayBoard({ view, date, today, services, taxi, taxiRides, blocks 
 
   const agora = useAgora(timezone, date === today)
 
+  const caixaRef = useRef<HTMLDivElement>(null)
+  const cabecalhoRef = useRef<HTMLDivElement>(null)
+  const fioRef = useRef<HTMLDivElement>(null)
+  useRolarAteAgora({ agora, caixaRef, cabecalhoRef, fioRef })
+
   const topoDe = (minutos: number): number =>
     FOLGA_TOPO + (minutos - janela.inicioMin) * PX_POR_MINUTO
 
@@ -219,11 +225,15 @@ export function DayBoard({ view, date, today, services, taxi, taxiRides, blocks 
         </div>
       ) : (
         <>
-          <div className="timeline">
+          <div className="timeline" ref={caixaRef}>
             <div className="timeline-grid" style={{ height: `calc(${ALTURA_CABECALHO} + ${alturaPx}px)` }}>
               {/* ─── Calha de horas ────────────────────────────────────────── */}
               <div className="timeline-gutter">
-                <div className="timeline-head" style={{ height: ALTURA_CABECALHO }} />
+                <div
+                  ref={cabecalhoRef}
+                  className="timeline-head"
+                  style={{ height: ALTURA_CABECALHO }}
+                />
                 <div className="relative" style={{ height: alturaPx }}>
                   {horas.map((minuto) => (
                     <span key={minuto} className="timeline-hour-label" style={{ top: topoDe(minuto) }}>
@@ -303,6 +313,7 @@ export function DayBoard({ view, date, today, services, taxi, taxiRides, blocks 
               {/* O fio do agora atravessa as colunas, com o ponto na calha. */}
               {agora !== null && agora >= janela.inicioMin && agora <= janela.fimMin && (
                 <div
+                  ref={fioRef}
                   aria-hidden
                   className="timeline-now"
                   style={{ top: `calc(${ALTURA_CABECALHO} + ${topoDe(agora)}px)` }}
@@ -530,6 +541,66 @@ function nomeDoProfissional(view: DayView, appointmentId: string): string {
     column.appointments.some((appointment) => appointment.id === appointmentId),
   )
   return coluna?.professionalName ?? '—'
+}
+
+/**
+ * Abre a agenda de hoje já no horário de agora.
+ *
+ * O dia desenhado vai da primeira jornada ao último atendimento — dez, doze horas —, e
+ * a caixa mostra umas seis. Sem isto, quem abre a tela às 15h cai nas 8h da manhã e rola
+ * até achar o presente, toda vez. A recepção abre esta tela dezenas de vezes por dia.
+ *
+ * **Uma vez só, e não a cada tique do relógio.** O fio do agora se move de minuto em
+ * minuto; rolar junto arrancaria a tela de quem foi olhar a tarde. O `useRef` é o que
+ * separa "abriu a tela" de "o relógio andou" — estado não serviria, porque mudá-lo
+ * provocaria o render que o próprio efeito observa.
+ *
+ * A trava **destrava** quando o fio some, isto é, quando se navega para outro dia: voltar
+ * para hoje é abrir a tela de novo, e merece o mesmo posicionamento.
+ *
+ * Onde exatamente o fio para é conta de `alvoDaRolagem`, em `lib/agenda-dia.ts`, que é
+ * pura e testada — o que sobra aqui é medir os elementos e atribuir o `scrollTop`.
+ *
+ * Salto seco, sem animação: a tela ainda não foi olhada quando isto acontece, e conteúdo
+ * que desliza sozinho ao abrir desorienta em vez de orientar.
+ */
+function useRolarAteAgora({
+  agora,
+  caixaRef,
+  cabecalhoRef,
+  fioRef,
+}: {
+  agora: number | null
+  caixaRef: React.RefObject<HTMLDivElement | null>
+  cabecalhoRef: React.RefObject<HTMLDivElement | null>
+  fioRef: React.RefObject<HTMLDivElement | null>
+}): void {
+  const jaRolou = useRef(false)
+
+  useEffect(() => {
+    // Outro dia não tem "agora": a trava volta ao lugar para quando hoje voltar.
+    if (agora === null) {
+      jaRolou.current = false
+      return
+    }
+    if (jaRolou.current) return
+
+    const caixa = caixaRef.current
+    const fio = fioRef.current
+    // Sem fio, o agora caiu fora da faixa desenhada — antes de abrir ou depois de
+    // fechar. O topo é a resposta certa nos dois casos, e é onde a caixa já está.
+    if (!caixa || !fio) return
+
+    // Medida, e não `6rem` repetido aqui: a altura do cabeçalho entra na conta porque
+    // ele é grudado no topo da caixa e cobriria o fio. Duplicar a constante a faria
+    // divergir do CSS no dia em que o cabeçalho mudasse de tamanho.
+    caixa.scrollTop = alvoDaRolagem({
+      topoDoFio: fio.offsetTop,
+      alturaCaixa: caixa.clientHeight,
+      alturaCabecalho: cabecalhoRef.current?.offsetHeight ?? 0,
+    })
+    jaRolou.current = true
+  }, [agora, caixaRef, cabecalhoRef, fioRef])
 }
 
 /**

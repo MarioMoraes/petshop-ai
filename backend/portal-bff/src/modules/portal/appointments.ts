@@ -8,10 +8,11 @@ import type {
   PortalCancelInput,
   PortalRescheduleInput,
 } from '@petshop/shared-types'
-import { AppError, formatBRL } from '@petshop/shared-types'
+import { AppError, formatBRL, type PortalTaxiRide } from '@petshop/shared-types'
 import { invalidState, notFound } from '../../lib/errors.js'
 import { assertOnlineBooking } from './booking.js'
 import { getSchedulingPort, type SchedulingCaller } from './scheduling-port.js'
+import { readRidesByAppointment } from './taxi.js'
 
 /**
  * MOD-PORTAL-06 — os agendamentos do tutor.
@@ -45,7 +46,21 @@ const appointmentSelect = {
   petId: true,
   pet: { select: { name: true } },
   professional: { select: { displayName: true } },
-  items: { select: { serviceId: true, label: true } },
+  /**
+   * A categoria do serviço vem junto por causa da taxa de cancelamento.
+   *
+   * Desde o MOD-TAXI, `total_cents` inclui as corridas (RN-05 daquele módulo), e cobrar
+   * um percentual sobre elas cobraria o tutor pelo transporte que não vai acontecer —
+   * o mesmo AC-06 que o scheduling-service passou a respeitar do lado dele.
+   */
+  items: {
+    select: {
+      serviceId: true,
+      label: true,
+      priceCents: true,
+      service: { select: { category: true } },
+    },
+  },
 } as const
 
 type AppointmentRow = {
@@ -60,7 +75,12 @@ type AppointmentRow = {
   petId: string
   pet: { name: string }
   professional: { displayName: string }
-  items: { serviceId: string; label: string }[]
+  items: {
+    serviceId: string
+    label: string
+    priceCents: bigint
+    service: { category: string }
+  }[]
 }
 
 // ─── Leitura ─────────────────────────────────────────────────────────────────
@@ -115,12 +135,24 @@ export async function listOwnAppointments(
       tx.tenantSettings.findUnique({ where: { tenantId }, select: { timezone: true } }),
     ])
 
+    /**
+     * As corridas dos dois blocos numa consulta só (AC-05 de MOD-PORTAL-07).
+     *
+     * Uma consulta por agendamento faria a lista do tutor com dez linhas custar onze
+     * idas ao banco, e o SLO desta tela é de celular em 4G.
+     */
+    const rides = await readRidesByAppointment(
+      tx,
+      tutorId,
+      [...upcoming, ...page].map((appointment) => appointment.id),
+    )
+
     return {
       upcoming: upcoming.map((appointment) => ({
-        ...toSummary(appointment),
+        ...toSummary(appointment, rides.get(appointment.id) ?? []),
         actions: actionsFor(appointment, policy),
       })),
-      past: page.map(toSummary),
+      past: page.map((appointment) => toSummary(appointment, rides.get(appointment.id) ?? [])),
       nextCursor,
       timezone: settings?.timezone ?? 'America/Sao_Paulo',
     }
@@ -135,9 +167,10 @@ export async function readOwnAppointment(
   return withTenant(tenantId, async (tx) => {
     const appointment = await findOwn(tx, tutorId, appointmentId)
     const policy = await readCancellationPolicy(tx, tenantId)
+    const rides = await readRidesByAppointment(tx, tutorId, [appointment.id])
 
     return {
-      ...toSummary(appointment),
+      ...toSummary(appointment, rides.get(appointment.id) ?? []),
       source: appointment.source,
       serviceIds: appointment.items.map((item) => item.serviceId),
       cancelledAt: appointment.cancelledAt?.toISOString() ?? null,
@@ -282,13 +315,23 @@ function actionsFor(
   const hoursAhead = (appointment.startsAt.getTime() - Date.now()) / 3_600_000
   const late = cancellable && hoursAhead < policy.windowHours
 
+  /**
+   * A base exclui o leva-e-traz, como no `feeBaseCents` do scheduling-service.
+   *
+   * As duas contas precisam bater dígito a dígito: o número daqui é o que o tutor lê no
+   * diálogo antes de confirmar, e o de lá é o que vira lançamento. Divergirem faria o
+   * extrato cobrar diferente do que a tela prometeu — a pior forma de descobrir a regra.
+   */
+  const taxiCents = appointment.items
+    .filter((item) => item.service.category === 'TAXI')
+    .reduce((soma, item) => soma + Number(item.priceCents), 0)
+  const feeBase = Math.max(0, Number(appointment.totalCents) - taxiCents)
+
   return {
     canCancel: cancellable,
     canReschedule: cancellable,
     cancelIsLate: late,
-    cancelFeeCents: late
-      ? Math.round((Number(appointment.totalCents) * policy.feePercent) / 100)
-      : 0,
+    cancelFeeCents: late ? Math.round((feeBase * policy.feePercent) / 100) : 0,
     cancellationWindowHours: policy.windowHours,
   }
 }
@@ -303,7 +346,7 @@ function cannotChange(status: string): AppError {
   return invalidState('Este agendamento não pode mais ser alterado pelo site.')
 }
 
-function toSummary(appointment: AppointmentRow): PortalAppointment {
+function toSummary(appointment: AppointmentRow, taxi: PortalTaxiRide[]): PortalAppointment {
   return {
     id: appointment.id,
     status: appointment.status,
@@ -312,8 +355,19 @@ function toSummary(appointment: AppointmentRow): PortalAppointment {
     petId: appointment.petId,
     petName: appointment.pet.name,
     professionalName: appointment.professional.displayName,
-    services: appointment.items.map((item) => item.label),
+    /**
+     * O item da corrida sai da lista de serviços.
+     *
+     * Ele existe para cobrar (RN-05 do MOD-TAXI) e vira "Taxi Dog — ida" ao lado de
+     * "Banho"; o transporte já tem o próprio bloco na tela, com status e janela, e
+     * repeti-lo como se fosse um serviço faria o tutor ler duas vezes a mesma coisa.
+     * O valor continua dentro de `totalCents`, que é o que ele vai pagar.
+     */
+    services: appointment.items
+      .filter((item) => item.service.category !== 'TAXI')
+      .map((item) => item.label),
     totalCents: Number(appointment.totalCents),
     awaitingApproval: appointment.status === 'PENDING',
+    taxi,
   }
 }

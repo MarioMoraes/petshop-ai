@@ -336,6 +336,37 @@ export async function checkOut(
 
 // ─── Cancelamento ────────────────────────────────────────────────────────────
 
+/**
+ * A base da taxa de arrependimento — o total **sem** o leva-e-traz.
+ *
+ * `appointments.total_cents` inclui as corridas desde o MOD-TAXI: a corrida vira um
+ * `appointment_items` com `duration_min = 0` e soma no total (RN-05 do MOD-TAXI). Cobrar
+ * um percentual sobre esse total cobra o tutor **pelo transporte que não vai acontecer**,
+ * e o transporte já é desfeito por conta própria — a cascata de `agendamento.cancelado`
+ * cancela as corridas e o `removeCharge` do taxidog-service apaga o item.
+ *
+ * O AC-06 de MOD-PORTAL-07 diz a regra em uma linha: não se cobra duas vezes pelo mesmo
+ * arrependimento. Sem esta subtração, um banho de R$ 80 com R$ 30 de leva-e-traz e taxa
+ * de 50% cobraria R$ 55 em vez de R$ 40.
+ *
+ * A ordem dos fatos é o que torna a subtração necessária aqui: a taxa é calculada e
+ * publicada **antes** de o taxidog-service consumir o evento e devolver o valor da
+ * corrida. Quando o ledger lê `feeCents`, o total ainda está inflado.
+ */
+async function feeBaseCents(
+  tx: TenantTransaction,
+  appointment: { id: string; totalCents: bigint },
+): Promise<number> {
+  const taxiItems = await tx.appointmentItem.findMany({
+    where: { appointmentId: appointment.id, service: { category: 'TAXI' } },
+    select: { priceCents: true },
+  })
+
+  const taxiCents = taxiItems.reduce((soma, item) => soma + Number(item.priceCents), 0)
+  return Math.max(0, Number(appointment.totalCents) - taxiCents)
+}
+
+
 export interface CancelInput {
   reason?: string | undefined
   /** A recepção pode isentar a taxa do cancelamento tardio (RN-06). */
@@ -370,7 +401,9 @@ export async function cancel(actor: ActorContext, appointmentId: string, input: 
       const late = !input.systemInitiated && hoursAhead < windowHours
       const feeCents =
         late && !input.waiveFee
-          ? Math.round((Number(appointment.totalCents) * (settings?.noShowFeePercent ?? 0)) / 100)
+          ? Math.round(
+              ((await feeBaseCents(tx, appointment)) * (settings?.noShowFeePercent ?? 0)) / 100,
+            )
           : 0
 
       const cipher = input.reason ? await openCipher(tx, actor.tenantId) : null
@@ -441,8 +474,12 @@ export async function markNoShow(actor: ActorContext, appointmentId: string) {
         where: { tenantId: actor.tenantId },
         select: { noShowFeePercent: true },
       })
+      // A mesma base do cancelamento, e pela mesma razão: quem faltou não deve um
+      // percentual sobre a corrida. Quando a coleta chegou a sair e não achou ninguém,
+      // quem decide se ela se cobra é `charge_failed_pickup` do MOD-TAXI — regra que
+      // olha para a corrida em si, não para a falta.
       const feeCents = Math.round(
-        (Number(appointment.totalCents) * (settings?.noShowFeePercent ?? 0)) / 100,
+        ((await feeBaseCents(tx, appointment)) * (settings?.noShowFeePercent ?? 0)) / 100,
       )
 
       await applyTransition(

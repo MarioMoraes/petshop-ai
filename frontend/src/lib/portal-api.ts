@@ -15,6 +15,8 @@ import type {
   PortalPetSummary,
   PortalReceiptResponse,
   PortalStatementResponse,
+  PortalTaxiOffer,
+  PortalTaxiRide,
   PortalTenantResponse,
   PortalTimelineResponse,
   UpdateOwnPetInput,
@@ -58,8 +60,23 @@ export class PortalError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /**
+     * O resto do `problem+json`, sem a moldura.
+     *
+     * O BFF manda contexto junto de vários erros — os horários próximos de um conflito,
+     * os alertas clínicos a reconhecer, o valor da taxa, as janelas alternativas do
+     * leva-e-traz. Sem este campo, a tela recebia a frase e jogava fora o que a tornava
+     * acionável.
+     */
+    readonly extra: Record<string, unknown> = {},
   ) {
     super(message)
+  }
+
+  /** A lista de horários que o 409 de van cheia oferece (AC-04 de MOD-PORTAL-07). */
+  get alternativeStartsAt(): string[] | undefined {
+    const value = this.extra.alternativeStartsAt
+    return Array.isArray(value) ? (value as string[]) : undefined
   }
 }
 
@@ -110,14 +127,21 @@ async function request<T>(options: RequestOptions): Promise<T> {
     })
 
     const payload = (await response.json().catch(() => null)) as
-      | { code?: string; detail?: string }
+      | ({ code?: string; detail?: string } & Record<string, unknown>)
       | null
 
     if (!response.ok) {
+      // A moldura do problem+json fica de fora; o que interessa é o contexto do erro.
+      const moldura = new Set(['code', 'detail', 'title', 'status', 'type'])
+      const extra = Object.fromEntries(
+        Object.entries(payload ?? {}).filter(([chave]) => !moldura.has(chave)),
+      )
+
       throw new PortalError(
         response.status,
         payload?.code ?? 'ERR_PORTAL_010',
         payload?.detail ?? 'Não foi possível concluir agora. Tente novamente.',
+        extra,
       )
     }
 
@@ -225,6 +249,8 @@ export interface CreatedBookingResponse {
   totalCents: number
   awaitingApproval: boolean
   duplicate: boolean
+  taxi: PortalTaxiRide[]
+  taxiWarning: string | null
 }
 
 export function createBooking(body: {
@@ -233,8 +259,22 @@ export function createBooking(body: {
   startsAt: string
   professionalId: string
   acknowledgedAlerts?: boolean
+  taxi?: { pickup: boolean; dropoff: boolean }
 }): Promise<CreatedBookingResponse> {
   return request({ method: 'POST', path: '/portal/v1/booking', body })
+}
+
+// ─── MOD-PORTAL-07 — Taxi Dog no Agendamento ─────────────────────────────────
+
+/**
+ * A oferta de leva-e-traz para este tutor.
+ *
+ * Não depende do pet nem do horário escolhido: o preço é do **CEP** do endereço
+ * primário, e é por isso que a pergunta cabe uma vez só por tela em vez de a cada
+ * mudança de serviço.
+ */
+export function readTaxiOffer(): Promise<PortalTaxiOffer> {
+  return request({ path: '/portal/v1/booking/taxi' })
 }
 
 // ─── MOD-PORTAL-06 — Meus Agendamentos ───────────────────────────────────────

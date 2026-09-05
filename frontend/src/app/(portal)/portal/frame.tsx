@@ -17,6 +17,10 @@ import { Logo } from '@/components/ui'
  * A navegação é **um link de volta, e só** (`voltar`). Um menu com três itens ocuparia,
  * em toda tela, o espaço da informação que a tela existe para dar; e o Portal é raso o
  * bastante para que voltar sempre chegue ao início em um ou dois toques.
+ *
+ * O "Sair" **não** mora aqui: ele é um atalho do Início, ao lado dos outros, e uma saída
+ * própria da tela de vínculo. Repeti-lo no rodapé de toda tela daria a um botão raro a
+ * mesma presença que a marca do produto.
  */
 export function PortalFrame({
   tenantName,

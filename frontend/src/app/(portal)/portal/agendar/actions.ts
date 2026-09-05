@@ -4,12 +4,14 @@ import { revalidatePath } from 'next/cache'
 import type {
   PortalAvailabilityResponse,
   PortalBookingServicesResponse,
+  PortalTaxiOffer,
 } from '@petshop/shared-types'
 import {
   PortalError,
   createBooking,
   readAvailability,
   readBookableServices,
+  readTaxiOffer,
   type CreatedBookingResponse,
 } from '@/lib/portal-api'
 
@@ -32,11 +34,23 @@ export interface ActionFailure {
   message: string
   /** As alternativas que o domínio mandou junto do 409 de conflito. */
   suggestions?: { startsAt: string }[]
+  /**
+   * Os horários do mesmo dia em que o leva-e-traz ainda cabe (AC-04 de MOD-PORTAL-07).
+   *
+   * Chega no corpo do 409 de van cheia, e é o que transforma a recusa em escolha: sem
+   * eles o tutor fica sabendo que não pode e não fica sabendo quando poderia.
+   */
+  alternativeStartsAt?: string[]
 }
 
 function toFailure(error: unknown): ActionFailure {
   if (error instanceof PortalError) {
-    return { ok: false, code: error.code, message: error.message }
+    return {
+      ok: false,
+      code: error.code,
+      message: error.message,
+      ...(error.alternativeStartsAt ? { alternativeStartsAt: error.alternativeStartsAt } : {}),
+    }
   }
   return {
     ok: false,
@@ -67,12 +81,29 @@ export async function carregarHorarios(query: {
   }
 }
 
+/**
+ * A oferta de leva-e-traz (MOD-PORTAL-07).
+ *
+ * Carregada junto dos serviços e não a cada mudança de escolha: o preço é do CEP do
+ * endereço primário do tutor, e nem o pet nem o horário o mudam.
+ */
+export async function carregarTaxi(): Promise<
+  ({ ok: true } & PortalTaxiOffer) | ActionFailure
+> {
+  try {
+    return { ok: true, ...(await readTaxiOffer()) }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
 export async function confirmarAgendamento(input: {
   petId: string
   serviceIds: string[]
   startsAt: string
   professionalId: string
   acknowledgedAlerts?: boolean
+  taxi?: { pickup: boolean; dropoff: boolean }
 }): Promise<({ ok: true } & CreatedBookingResponse) | ActionFailure> {
   try {
     const booking = await createBooking(input)
@@ -81,6 +112,9 @@ export async function confirmarAgendamento(input: {
     revalidatePath('/portal/agendamentos')
     revalidatePath('/portal/pets')
     revalidatePath('/portal/inicio')
+    // O leva-e-traz vira item do agendamento e entra na conta do tutor (RN-05 do
+    // MOD-TAXI); sem isto o extrato mostraria o banho e não o transporte.
+    revalidatePath('/portal/financeiro')
     return { ok: true, ...booking }
   } catch (error) {
     return toFailure(error)

@@ -99,4 +99,74 @@ describe('MOD-TUTOR-06 — busca', () => {
   it('rejeita limite acima do teto', async () => {
     expect((await search('limit=500')).statusCode).toBe(422)
   })
+
+  /**
+   * A lista sem busca é alfabética (pedido do usuário em 2026-09-05, no lugar do
+   * `updated_at DESC` do AC-03).
+   *
+   * O acento entra no teste de propósito: "Comércio" e "José Antônio" só caem no lugar
+   * certo porque a ordenação passa por `unaccent`. Sem ela, a intercalação do banco
+   * decide — e ela varia com o locale do cluster, o que faria a lista mudar de ordem ao
+   * trocar de servidor.
+   */
+  it('lista sem busca em ordem alfabética, ignorando acento', async () => {
+    const response = await search('limit=20')
+
+    expect(response.json().data.map((t: { displayName: string }) => t.displayName)).toEqual([
+      'Comércio de Rações Ltda',
+      'José Antônio Pereira',
+      'Maria Silva',
+      'Mariana Souza',
+    ])
+  })
+
+  it('a ordem é estável entre páginas', async () => {
+    const primeira = await search('limit=2&page=1')
+    const segunda = await search('limit=2&page=2')
+
+    const nomes = [...primeira.json().data, ...segunda.json().data].map(
+      (t: { displayName: string }) => t.displayName,
+    )
+    expect(nomes).toEqual([
+      'Comércio de Rações Ltda',
+      'José Antônio Pereira',
+      'Maria Silva',
+      'Mariana Souza',
+    ])
+  })
+})
+
+/**
+ * O nome social manda na ordem, porque é ele que a tela mostra (RN-14).
+ *
+ * Tenant próprio para não mexer no total que os testes acima conferem.
+ */
+describe('ordem alfabética e nome social', () => {
+  let outro: TenantFixture
+
+  beforeAll(async () => {
+    outro = await givenTenant('Petshop do Nome Social')
+
+    for (const person of [
+      { fullName: 'Zuleica Ramos', socialName: 'Ana Ramos', phone: '11955554444' },
+      { fullName: 'Bruno Carvalho', phone: '11944443333' },
+    ]) {
+      const response = await callApi({
+        ...asAdmin(outro),
+        method: 'POST',
+        url: '/v1/tutors',
+        payload: { ...person, consents: { whatsapp: false, email: false, terms: true } },
+      })
+      if (response.statusCode !== 201) throw new Error(`cenário falhou: ${response.body}`)
+    }
+  })
+
+  it('ordena por "Ana", que é o que a lista exibe, e não por "Zuleica"', async () => {
+    const response = await callApi({ ...asAdmin(outro), method: 'GET', url: '/v1/tutors' })
+
+    expect(response.json().data.map((t: { displayName: string }) => t.displayName)).toEqual([
+      'Ana Ramos',
+      'Bruno Carvalho',
+    ])
+  })
 })

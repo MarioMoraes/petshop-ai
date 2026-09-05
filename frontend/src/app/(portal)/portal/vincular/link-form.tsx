@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
+import { SignOutButton } from '@clerk/nextjs'
 import { Alert, Card, Field, FormActions, FormError, SectionHead } from '@/components/ui'
 import { IdCardIcon, ShieldCheckIcon } from '@/components/icons'
 import { confirmarCodigo, pedirCodigo } from './actions'
@@ -159,7 +160,18 @@ export function LinkForm() {
           for encontrado, o código não chega — e aí é com eles que você fala.
         </Alert>
 
+        {/*
+          A saída desta tela, no molde do aceite de convite do Admin.
+          Quem entrou com a conta errada não tem ficha para vincular e não tem para onde
+          ir: o Início, que é onde mora o "Sair", exige justamente o vínculo que falta.
+          Sem este botão a tela é uma armadilha.
+        */}
         <FormActions>
+          <SignOutButton redirectUrl="/portal/entrar">
+            <button type="button" className="btn btn-ghost" disabled={enviando}>
+              Entrar com outra conta
+            </button>
+          </SignOutButton>
           <button type="submit" className="btn btn-primary" disabled={enviando}>
             {enviando ? 'Enviando…' : 'Enviar código'}
           </button>

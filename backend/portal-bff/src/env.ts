@@ -37,6 +37,15 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
   BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3007'),
 
   /**
+   * O Taxi Dog, para cotar e pedir o leva-e-traz junto do agendamento (MOD-PORTAL-07).
+   *
+   * Mesmo desenho da agenda: quem valida capacidade, zona e janela é o serviço de
+   * domínio. O BFF pergunta o preço, pergunta se há motorista e pede a corrida — as três
+   * são operações que o taxidog-service já expunha ao balcão.
+   */
+  TAXIDOG_SERVICE_URL: z.string().url().default('http://localhost:3008'),
+
+  /**
    * O bucket das fotos, só para **assinar** o endereço de leitura (`lib/photo-urls.ts`).
    *
    * Opcionais pela mesma razão do pet-service, e a consequência aqui é ainda mais

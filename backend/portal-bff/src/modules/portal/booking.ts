@@ -3,16 +3,30 @@ import {
   AppError,
   BOOKABLE_SERVICE_CATEGORIES,
   formatBRL,
+  zonedDate,
   zonedDayRange,
   type PortalAvailabilityQuery,
   type PortalAvailabilityResponse,
   type PortalBookableService,
   type PortalBookingInput,
   type PortalBookingServicesResponse,
+  type PortalBookingTaxi,
+  type PortalTaxiRide,
 } from '@petshop/shared-types'
 import { forbidden, invalid, notFound } from '../../lib/errors.js'
+import { logger } from '../../lib/logger.js'
 import { assertOwnsPet } from './pets.js'
 import { getSchedulingPort, type SchedulingCaller } from './scheduling-port.js'
+import {
+  assertCapacity,
+  findAlternativeSlots,
+  planLegs,
+  readRidesByAppointment,
+  readTaxiOffer,
+  readTaxiSettings,
+  toPortalRide,
+} from './taxi.js'
+import { getTaxiPort } from './taxi-port.js'
 
 /**
  * MOD-PORTAL-05 — marcar horário.
@@ -219,6 +233,16 @@ export interface CreatedBooking {
   awaitingApproval: boolean
   /** `true` quando o pedido reencontrou um agendamento que já existia (duplo toque). */
   duplicate: boolean
+  /** As corridas criadas junto, quando o tutor pediu o leva-e-traz (MOD-PORTAL-07). */
+  taxi: PortalTaxiRide[]
+  /**
+   * O que deu errado **só** com o transporte (AC-03 de MOD-PORTAL-07).
+   *
+   * O agendamento está criado quando este campo vem preenchido — é a diferença entre
+   * "não deu para marcar" e "marcamos, mas o leva-e-traz não saiu". Perder o banho por
+   * causa do transporte seria o pior desfecho possível, e é o que este campo evita.
+   */
+  taxiWarning: string | null
 }
 
 /**
@@ -235,19 +259,46 @@ export async function createBooking(
   tutorId: string,
   input: PortalBookingInput,
 ): Promise<CreatedBooking> {
-  const { settings, existing } = await withTenant(caller.tenantId, async (tx) => {
+  const { settings, taxiSettings, existing } = await withTenant(caller.tenantId, async (tx) => {
     const found = await assertOnlineBooking(tx, caller.tenantId)
     await assertOwnsPet(tx, tutorId, input.petId)
     return {
       settings: found,
+      taxiSettings: await readTaxiSettings(tx, caller.tenantId),
       existing: await findSameBooking(tx, tutorId, input.petId, new Date(input.startsAt)),
     }
   })
 
-  if (existing) return { ...existing, duplicate: true }
+  if (existing) {
+    /**
+     * O duplo toque devolve o que existe **com as corridas que existem**.
+     *
+     * Sem isto, o segundo toque de quem pediu leva-e-traz responderia sem transporte
+     * nenhum, e a tela diria que a corrida não saiu — quando ela saiu no primeiro toque.
+     */
+    const taxi = await withTenant(
+      caller.tenantId,
+      async (tx) =>
+        (await readRidesByAppointment(tx, tutorId, [existing.id])).get(existing.id) ?? [],
+    )
+    return { ...existing, duplicate: true, taxi, taxiWarning: null }
+  }
 
+  /**
+   * O leva-e-traz é decidido **antes** de o agendamento existir, e por isso está aqui.
+   *
+   * A ordem não é detalhe: a recusa por falta de vaga (AC-04) precisa acontecer com o
+   * horário ainda livre, para o tutor escolher outro sem ter um agendamento a cancelar.
+   * Já a recusa por endereço (AC-03) não derruba nada — o agendamento segue sem o taxi,
+   * e o aviso viaja na resposta.
+   */
+  const plano = input.taxi
+    ? await planTaxi(caller, tutorId, input, input.taxi, settings, taxiSettings.windowMinutes)
+    : null
+
+  let created
   try {
-    const created = await getSchedulingPort().create(caller, {
+    created = await getSchedulingPort().create(caller, {
       petId: input.petId,
       professionalId: input.professionalId,
       startsAt: input.startsAt,
@@ -255,21 +306,178 @@ export async function createBooking(
       notes: input.notes,
       acknowledgedAlerts: input.acknowledgedAlerts,
     })
-
-    return {
-      id: created.id,
-      status: created.status,
-      startsAt: created.startsAt,
-      endsAt: created.endsAt,
-      petName: created.petName,
-      professionalName: created.professionalName,
-      services: created.items.map((item) => item.label),
-      totalCents: created.totalCents,
-      awaitingApproval: created.status === 'PENDING',
-      duplicate: false,
-    }
   } catch (error) {
     throw translateBookingError(error, settings.timezone)
+  }
+
+  const taxi =
+    plano && plano.ok
+      ? await requestRides(caller, created, input.taxi!, taxiSettings.windowMinutes)
+      : { rides: [], warning: plano?.warning ?? null }
+
+  return {
+    id: created.id,
+    status: created.status,
+    startsAt: created.startsAt,
+    endsAt: created.endsAt,
+    petName: created.petName,
+    professionalName: created.professionalName,
+    services: created.items.map((item) => item.label),
+    totalCents: created.totalCents,
+    awaitingApproval: created.status === 'PENDING',
+    duplicate: false,
+    taxi: taxi.rides,
+    taxiWarning: taxi.warning,
+  }
+}
+
+// ─── O leva-e-traz (MOD-PORTAL-07) ───────────────────────────────────────────
+
+type TaxiPlan = { ok: true } | { ok: false; warning: string }
+
+/**
+ * A checagem que precede o agendamento: dá para buscar, e cabe alguém na van?
+ *
+ * A janela sondada aqui é calculada a partir da **duração somada dos serviços**, e não
+ * do `ends_at` real — que ainda não existe, porque o agendamento não foi criado. É a
+ * mesma soma que o domínio vai fazer, das mesmas linhas de `service_pricing`, então o
+ * número bate; e se não batesse, a consequência seria uma sondagem alguns minutos fora,
+ * não um pedido errado — a corrida é criada depois, com a janela do agendamento real.
+ */
+async function planTaxi(
+  caller: SchedulingCaller,
+  tutorId: string,
+  input: PortalBookingInput,
+  choice: PortalBookingTaxi,
+  settings: BookingSettings,
+  windowMinutes: number,
+): Promise<TaxiPlan> {
+  const offer = await readTaxiOffer(caller, tutorId)
+
+  // AC-03: sem endereço, fora de área ou com o módulo desligado, o agendamento segue —
+  // e o tutor lê o porquê no lugar de um erro. A tela já sabia disso pela oferta; quem
+  // cai aqui é a tela velha, ou a chamada direta.
+  if (!offer.available) return { ok: false, warning: offer.message ?? 'Leva-e-traz indisponível.' }
+
+  const durationMin = await withTenant(caller.tenantId, (tx) =>
+    sumDuration(tx, input.petId, input.serviceIds),
+  )
+  const startsAt = new Date(input.startsAt)
+  const endsAt = new Date(startsAt.getTime() + durationMin * 60_000)
+
+  await assertCapacity(caller, planLegs({ startsAt, endsAt }, windowMinutes, choice), () =>
+    alternativesFor(caller, tutorId, input, choice, settings, windowMinutes),
+  )
+
+  return { ok: true }
+}
+
+/**
+ * A duração do conjunto, pelo porte do pet.
+ *
+ * A mesma fonte de `listBookableServices` e a mesma que o `resolveItems` do domínio
+ * congela no item — três lugares lendo `service_pricing` pelo `size_id`, e é assim que
+ * a janela sondada aqui coincide com o atendimento que vai nascer.
+ */
+async function sumDuration(
+  tx: TenantTransaction,
+  petId: string,
+  serviceIds: string[],
+): Promise<number> {
+  const pet = await tx.pet.findFirstOrThrow({ where: { id: petId }, select: { sizeId: true } })
+  const pricing = await tx.servicePricing.findMany({
+    where: { serviceId: { in: serviceIds }, sizeId: pet.sizeId },
+    select: { durationMin: true },
+  })
+  return pricing.reduce((soma, linha) => soma + linha.durationMin, 0)
+}
+
+/**
+ * Os horários do mesmo dia que ainda têm vaga no leva-e-traz (AC-04).
+ *
+ * Pergunta a grade de novo em vez de reaproveitar a que a tela já tem: entre a consulta
+ * do tutor e o toque de confirmar passaram minutos, e oferecer como alternativa um
+ * horário que também acabou de ser tomado é trocar uma frustração por duas.
+ */
+async function alternativesFor(
+  caller: SchedulingCaller,
+  tutorId: string,
+  input: PortalBookingInput,
+  choice: PortalBookingTaxi,
+  settings: BookingSettings,
+  windowMinutes: number,
+): Promise<string[]> {
+  try {
+    const dia = zonedDate(new Date(input.startsAt), settings.timezone)
+    const grade = await readAvailability(caller, tutorId, {
+      petId: input.petId,
+      serviceIds: input.serviceIds,
+      date: dia,
+    })
+
+    const candidatos = grade.slots.filter((slot) => slot.startsAt !== input.startsAt)
+    return await findAlternativeSlots(
+      caller,
+      candidatos.map((slot) => ({ startsAt: slot.startsAt, endsAt: slot.endsAt })),
+      windowMinutes,
+      choice,
+    )
+  } catch (error) {
+    logger.warn({ err: error }, 'falha ao montar alternativas de leva-e-traz')
+    return []
+  }
+}
+
+/**
+ * O pedido da corrida, depois de o agendamento existir.
+ *
+ * **A falha aqui não desfaz o agendamento** (§5 do PRD): o banho está marcado, e desfazê-lo
+ * porque a van recusou seria destruir o que deu certo por causa do que era acessório. O
+ * tutor recebe o agendamento e o aviso sobre o transporte, e resolve o transporte falando
+ * com a equipe.
+ *
+ * A janela sai do agendamento **criado**, não do pedido: é `starts_at` e `ends_at` reais
+ * que o `assertCoherentWindow` do taxidog-service confere.
+ */
+async function requestRides(
+  caller: SchedulingCaller,
+  created: { id: string; startsAt: string; endsAt: string },
+  choice: PortalBookingTaxi,
+  windowMinutes: number,
+): Promise<{ rides: PortalTaxiRide[]; warning: string | null }> {
+  const legs = planLegs(
+    { startsAt: new Date(created.startsAt), endsAt: new Date(created.endsAt) },
+    windowMinutes,
+    choice,
+  )
+
+  try {
+    const rides = await getTaxiPort().createRides(caller, { appointmentId: created.id, legs })
+    return {
+      rides: rides.map((ride) =>
+        toPortalRide({
+          id: ride.id,
+          leg: ride.leg,
+          status: ride.status,
+          windowStartsAt: new Date(ride.windowStartsAt),
+          windowEndsAt: new Date(ride.windowEndsAt),
+          priceCents: BigInt(ride.priceCents),
+        }),
+      ),
+      warning: null,
+    }
+  } catch (error) {
+    logger.error(
+      { err: error, appointmentId: created.id },
+      'agendamento criado, leva-e-traz recusado',
+    )
+    return {
+      rides: [],
+      warning:
+        error instanceof AppError
+          ? `Seu horário está marcado, mas o leva-e-traz não pôde ser confirmado: ${error.message}`
+          : 'Seu horário está marcado, mas não foi possível confirmar o leva-e-traz. Fale com o estabelecimento.',
+    }
   }
 }
 
@@ -285,7 +493,7 @@ async function findSameBooking(
   tutorId: string,
   petId: string,
   startsAt: Date,
-): Promise<Omit<CreatedBooking, 'duplicate'> | null> {
+): Promise<Omit<CreatedBooking, 'duplicate' | 'taxi' | 'taxiWarning'> | null> {
   const found = await tx.appointment.findFirst({
     where: { tutorId, petId, startsAt, status: { in: [...LIVE_STATUSES] } },
     select: {

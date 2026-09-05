@@ -2,12 +2,25 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatBRL, type PortalPetSummary, type PortalSlot } from '@petshop/shared-types'
+import Link from 'next/link'
+import {
+  formatBRL,
+  type PortalPetSummary,
+  type PortalSlot,
+  type PortalTaxiOffer,
+} from '@petshop/shared-types'
 import { Alert, Card, Choice, SectionHead } from '@/components/ui'
-import { AlertTriangleIcon, CalendarIcon, CheckIcon, PawPrintIcon } from '@/components/icons'
+import {
+  AlertTriangleIcon,
+  CalendarIcon,
+  CheckIcon,
+  PawPrintIcon,
+  VanIcon,
+} from '@/components/icons'
 import {
   carregarHorarios,
   carregarServicos,
+  carregarTaxi,
   confirmarAgendamento,
   type ActionFailure,
 } from './actions'
@@ -37,9 +50,12 @@ interface Servico {
 export function BookingWizard({
   pets,
   tenantName,
+  taxiEnabled,
 }: {
   pets: PortalPetSummary[]
   tenantName: string
+  /** `features.taxiEnabled` do contexto: sem isso a oferta nem chega a ser perguntada. */
+  taxiEnabled: boolean
 }) {
   const router = useRouter()
   const [petId, setPetId] = useState<string | null>(pets.length === 1 ? pets[0]!.id : null)
@@ -52,6 +68,10 @@ export function BookingWizard({
   const [escolhido, setEscolhido] = useState<PortalSlot | null>(null)
   const [falha, setFalha] = useState<ActionFailure | null>(null)
   const [reconhecerAlertas, setReconhecerAlertas] = useState(false)
+  const [oferta, setOferta] = useState<PortalTaxiOffer | null>(null)
+  const [levar, setLevar] = useState(false)
+  const [trazer, setTrazer] = useState(false)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [carregando, startTransition] = useTransition()
 
   /**
@@ -65,7 +85,38 @@ export function BookingWizard({
 
   const pet = pets.find((candidato) => candidato.id === petId) ?? null
   const selecionados = servicos.filter((servico) => escolhidos.includes(servico.id))
-  const total = selecionados.reduce((soma, servico) => soma + servico.priceCents, 0)
+  const servicosCents = selecionados.reduce((soma, servico) => soma + servico.priceCents, 0)
+
+  const pernas = (levar ? 1 : 0) + (trazer ? 1 : 0)
+  const taxiCents = (oferta?.priceCentsPerLeg ?? 0) * pernas
+  const total = servicosCents + taxiCents
+
+  /**
+   * O cartão do leva-e-traz aparece por dois motivos e some por um.
+   *
+   * Aparece quando dá para pedir, e aparece quando **não** dá por um motivo do próprio
+   * tutor — endereço faltando ou fora da área —, porque essa é a informação que ele
+   * precisa para resolver. Some quando o petshop simplesmente não faz leva-e-traz: aí
+   * não é uma negativa, é um serviço que não existe, e anunciá-lo para negar em seguida
+   * só ocuparia a tela.
+   */
+  const mostrarTaxi =
+    oferta !== null && oferta.reason !== 'DISABLED' && oferta.reason !== 'NOT_CONFIGURED'
+
+  /**
+   * A numeração dos passos é montada, e não escrita à mão.
+   *
+   * O cartão do pet só existe para quem tem mais de um, e o do leva-e-traz só para quem
+   * pode pedir — dois condicionais que já bastariam para a tela dizer "Passo 3" duas
+   * vezes na mesma rolagem.
+   */
+  const passos = [
+    ...(pets.length > 1 ? ['pet'] : []),
+    'servicos',
+    ...(mostrarTaxi ? ['taxi'] : []),
+    'dia',
+  ]
+  const passo = (chave: string) => `Passo ${passos.indexOf(chave) + 1}`
 
   // Os serviços dependem do pet: o preço é do porte dele.
   useEffect(() => {
@@ -85,6 +136,21 @@ export function BookingWizard({
       setServicos(resultado.services)
     })
   }, [petId])
+
+  /**
+   * A oferta de leva-e-traz é pedida uma vez, e não a cada escolha.
+   *
+   * O preço é do CEP do endereço primário do tutor: nem o pet, nem os serviços, nem o
+   * horário o mudam. Refazer a pergunta a cada toque só somaria latência à tela.
+   */
+  useEffect(() => {
+    if (!taxiEnabled) return
+
+    startTransition(async () => {
+      const resultado = await carregarTaxi()
+      if (resultado.ok) setOferta(resultado)
+    })
+  }, [taxiEnabled])
 
   /**
    * A grade depende do conjunto de serviços e do dia.
@@ -125,9 +191,20 @@ export function BookingWizard({
     )
   }
 
-  function confirmar() {
+  /**
+   * Confirma o pedido.
+   *
+   * `comTaxi` existe para o botão "marcar sem o leva-e-traz" da recusa por falta de vaga
+   * (AC-04): ele reenvia o mesmo pedido sem o transporte, sem obrigar o tutor a rolar
+   * para cima e desmarcar duas caixas. Perder o banho por causa do transporte é o pior
+   * desfecho possível, e um toque é o que separa o tutor dele.
+   */
+  function confirmar(comTaxi = true) {
     if (!petId || !escolhido) return
     setFalha(null)
+    setAviso(null)
+
+    const pedirTaxi = comTaxi && mostrarTaxi && (levar || trazer)
 
     startTransition(async () => {
       const resultado = await confirmarAgendamento({
@@ -136,6 +213,7 @@ export function BookingWizard({
         startsAt: escolhido.startsAt,
         professionalId: escolhido.professionalId,
         ...(reconhecerAlertas ? { acknowledgedAlerts: true } : {}),
+        ...(pedirTaxi ? { taxi: { pickup: levar, dropoff: trazer } } : {}),
       })
 
       if (!resultado.ok) {
@@ -143,6 +221,19 @@ export function BookingWizard({
         // RN-09: o alerta clínico é um "tem certeza?", e a segunda tentativa passa. O
         // botão precisa mudar de texto, e é este estado que o muda.
         if (resultado.code === 'ERR_AGENDA_009') setReconhecerAlertas(true)
+        return
+      }
+
+      /**
+       * O agendamento nasceu e o leva-e-traz não (AC-03).
+       *
+       * A tela **para aqui** em vez de navegar: o aviso é a única notícia que o tutor vai
+       * receber sobre o transporte, e passar direto para a lista o faria descobrir depois,
+       * na porta de casa, que ninguém vem buscar.
+       */
+      if (resultado.taxiWarning) {
+        setAviso(resultado.taxiWarning)
+        router.refresh()
         return
       }
 
@@ -192,7 +283,7 @@ export function BookingWizard({
           <SectionHead
             icon={<PawPrintIcon />}
             tone="icon-pet"
-            eyebrow={pets.length > 1 ? 'Passo 2' : 'Passo 1'}
+            eyebrow={passo('servicos')}
             title="O que o pet vai fazer"
             description={`Os preços são os do porte do ${pet.name}.`}
           />
@@ -222,8 +313,75 @@ export function BookingWizard({
 
           {selecionados.length > 1 && (
             <p className="hint mt-3">
-              Total: <strong className="text-ink">{formatBRL(total)}</strong>
+              Total: <strong className="text-ink">{formatBRL(servicosCents)}</strong>
             </p>
+          )}
+        </Card>
+      )}
+
+      {escolhidos.length > 0 && mostrarTaxi && oferta && (
+        <Card>
+          <SectionHead
+            icon={<VanIcon />}
+            tone="icon-time"
+            eyebrow={passo('taxi')}
+            title="Leva-e-traz"
+            description={
+              oferta.available
+                ? 'Buscamos e devolvemos o seu pet em casa.'
+                : undefined
+            }
+          />
+
+          {oferta.available ? (
+            <>
+              <div className="mt-4 flex flex-col gap-2">
+                <Choice
+                  checked={levar}
+                  onChange={setLevar}
+                  label={
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate">Buscar o pet em casa</span>
+                      <span className="shrink-0 font-medium">
+                        {formatBRL(oferta.priceCentsPerLeg ?? 0)}
+                      </span>
+                    </span>
+                  }
+                />
+                <Choice
+                  checked={trazer}
+                  onChange={setTrazer}
+                  label={
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate">Devolver o pet em casa</span>
+                      <span className="shrink-0 font-medium">
+                        {formatBRL(oferta.priceCentsPerLeg ?? 0)}
+                      </span>
+                    </span>
+                  }
+                />
+              </div>
+
+              {/*
+                O endereço aparece antes de virar corrida: é para lá que o motorista vai,
+                e esta é a última tela em que alguém pode notar que a família se mudou.
+              */}
+              {oferta.address && (
+                <p className="hint mt-3">
+                  {pernas > 0 ? 'Vamos até ' : 'No endereço '}
+                  <strong className="text-ink">{oferta.address.label}</strong>.
+                </p>
+              )}
+
+              {pernas > 0 && (
+                <p className="hint mt-1">
+                  A janela é de até {oferta.windowMinutes} minutos antes ou depois do
+                  atendimento. Avisamos quando o motorista sair.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="hint mt-4">{oferta.message}</p>
           )}
         </Card>
       )}
@@ -233,7 +391,7 @@ export function BookingWizard({
           <SectionHead
             icon={<CalendarIcon />}
             tone="icon-time"
-            eyebrow={pets.length > 1 ? 'Passo 3' : 'Passo 2'}
+            eyebrow={passo('dia')}
             title="Que dia"
           />
           <input
@@ -281,9 +439,66 @@ export function BookingWizard({
         <Alert
           tone={falha.code === 'ERR_AGENDA_009' ? 'accent' : 'danger'}
           icon={<AlertTriangleIcon />}
-          title={falha.code === 'ERR_AGENDA_009' ? 'Atenção no atendimento' : 'Não deu para marcar'}
+          title={
+            falha.code === 'ERR_AGENDA_009'
+              ? 'Atenção no atendimento'
+              : falha.code === 'ERR_TAXI_007'
+                ? 'Sem vaga no leva-e-traz'
+                : 'Não deu para marcar'
+          }
         >
           {falha.message}
+
+          {/*
+            AC-04: a recusa aponta a saída. Os horários vêm do servidor, que sondou a
+            van em cada um deles — a tela não adivinha nenhum.
+          */}
+          {falha.alternativeStartsAt && falha.alternativeStartsAt.length > 0 && (
+            <span className="mt-3 flex flex-wrap gap-2">
+              {falha.alternativeStartsAt.map((instante) => (
+                <button
+                  key={instante}
+                  type="button"
+                  className="btn btn-ghost h-9 px-3"
+                  onClick={() => {
+                    const alvo = horarios.find((slot) => slot.startsAt === instante)
+                    if (alvo) setEscolhido(alvo)
+                    setFalha(null)
+                  }}
+                >
+                  {hora(instante, fuso)}
+                </button>
+              ))}
+            </span>
+          )}
+
+          {falha.code === 'ERR_TAXI_007' && (
+            <span className="mt-3 block">
+              <button
+                type="button"
+                className="btn btn-ghost h-9"
+                onClick={() => confirmar(false)}
+                disabled={carregando}
+              >
+                Marcar sem o leva-e-traz
+              </button>
+            </span>
+          )}
+        </Alert>
+      )}
+
+      {/*
+        O agendamento existe e o transporte não. O tutor não segue para a lista sozinho:
+        este aviso é a única notícia que ele vai ter sobre o leva-e-traz.
+      */}
+      {aviso && (
+        <Alert tone="accent" icon={<VanIcon />} title="Horário marcado, transporte não" role="status">
+          {aviso}
+          <span className="mt-3 block">
+            <Link href="/portal/agendamentos" className="btn btn-primary h-9">
+              Ver meus agendamentos
+            </Link>
+          </span>
         </Alert>
       )}
 
@@ -302,13 +517,27 @@ export function BookingWizard({
             <p className="text-muted">
               {dataHoraLonga(escolhido.startsAt, fuso)} com {escolhido.professionalName}
             </p>
+
+            {/*
+              AC-02: o valor da corrida somado ao do serviço, **antes** da confirmação.
+              Discriminado e não embutido no total, porque o tutor precisa poder decidir
+              tirar só o transporte.
+            */}
+            {pernas > 0 && oferta?.priceCentsPerLeg !== null && (
+              <p className="text-muted">
+                Leva-e-traz: {[levar && 'buscar', trazer && 'devolver'].filter(Boolean).join(' e ')}
+                {' · '}
+                {formatBRL(taxiCents)}
+              </p>
+            )}
+
             <p className="mt-2 text-base font-medium">{formatBRL(total)}</p>
           </div>
 
           <button
             type="button"
             className="btn btn-primary mt-5 w-full"
-            onClick={confirmar}
+            onClick={() => confirmar()}
             disabled={carregando}
           >
             {carregando

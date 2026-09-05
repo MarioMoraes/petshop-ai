@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { SITE_VISIBLE_TENANT_STATUSES } from './site.js'
+import { TaxiLegSchema, TaxiRideStatusSchema } from './taxi.js'
 
 /**
  * MOD-PORTAL — o contrato da superfície do tutor (PRD portal_tutor_09 §5).
@@ -379,6 +380,103 @@ export const PortalAvailabilityResponseSchema = z.object({
 })
 export type PortalAvailabilityResponse = z.infer<typeof PortalAvailabilityResponseSchema>
 
+// ─── MOD-PORTAL-07 — Taxi Dog no Agendamento ─────────────────────────────────
+
+/**
+ * O leva-e-traz pedido **junto** do agendamento (decisão de produto de 2026-08-28,
+ * respondendo à questão 3 de `taxi_dog_07.md`).
+ *
+ * Não existe pedido de corrida solto no Portal, e a razão é estrutural: no MOD-TAXI o
+ * dono da corrida é o agendamento (RN-01). Uma segunda porta criaria uma segunda fila de
+ * aprovação além da que o agendamento online já pode ter, e o tutor ficaria esperando
+ * duas confirmações para uma tarde só.
+ *
+ * Ida e volta são **duas linhas** em `taxi_rides` (RN-02 do MOD-TAXI), e por isso duas
+ * caixas independentes: quem leva o pet e quer que o petshop o traga de volta é caso
+ * comum, e o contrário também.
+ */
+export const PortalBookingTaxiSchema = z
+  .object({
+    pickup: z.boolean().default(false),
+    dropoff: z.boolean().default(false),
+  })
+  .strict()
+  .refine((value) => value.pickup || value.dropoff, {
+    message: 'Escolha ao menos uma perna do leva-e-traz',
+  })
+export type PortalBookingTaxi = z.output<typeof PortalBookingTaxiSchema>
+
+/**
+ * Por que o leva-e-traz **não** está disponível para este tutor.
+ *
+ * O motivo viaja como enum e não só como frase porque a tela reage diferente a cada um:
+ * endereço faltando é algo que o tutor resolve (e a mensagem manda falar com a equipe,
+ * enquanto MOD-PORTAL-09 não existe), fora de área é definitivo para aquele endereço, e
+ * `UNAVAILABLE` é o taxidog-service fora do ar — que volta sozinho.
+ */
+export const PORTAL_TAXI_UNAVAILABLE_REASONS = [
+  'DISABLED',
+  'NO_ADDRESS',
+  'OUT_OF_AREA',
+  'NOT_CONFIGURED',
+  'UNAVAILABLE',
+] as const
+export const PortalTaxiUnavailableReasonSchema = z.enum(PORTAL_TAXI_UNAVAILABLE_REASONS)
+export type PortalTaxiUnavailableReason = z.infer<typeof PortalTaxiUnavailableReasonSchema>
+
+/**
+ * AC-02 — quanto custa buscar aqui, **antes** de a corrida existir.
+ *
+ * A oferta sai de `GET /v1/taxi/quote`, que o MOD-TAXI criou justamente para isto: um
+ * POST que criasse a corrida para descobrir o preço deixaria lixo no painel do petshop a
+ * cada pergunta do tutor.
+ *
+ * O preço é **por perna**. Somar as duas aqui esconderia que quem pede só a ida paga
+ * metade, e a tela precisa dos dois números para montar as duas caixas.
+ *
+ * `address` é o endereço primário do tutor, exibido inteiro de propósito: é para lá que
+ * o motorista vai, e a última chance de alguém notar que a família se mudou é agora.
+ */
+export const PortalTaxiOfferSchema = z.object({
+  available: z.boolean(),
+  reason: PortalTaxiUnavailableReasonSchema.nullable(),
+  /** A frase já escrita para o tutor. Nula quando o leva-e-traz está disponível. */
+  message: z.string().nullable(),
+  address: z
+    .object({
+      label: z.string(),
+      zipCode: z.string(),
+    })
+    .nullable(),
+  priceCentsPerLeg: z.number().int().nullable(),
+  /** A janela prometida, em minutos, para a tela dizer "buscamos até uma hora antes". */
+  windowMinutes: z.number().int(),
+})
+export type PortalTaxiOffer = z.infer<typeof PortalTaxiOfferSchema>
+
+/**
+ * Uma corrida, como o tutor a vê (AC-05).
+ *
+ * **Sem mapa, sem posição do veículo e sem o nome do motorista.** O rastreamento por GPS
+ * é a questão 7 do MOD-TAXI e está fora da v1; o nome de quem dirige é dado de um
+ * trabalhador exibido a um cliente, e não muda nada do que o tutor faz a seguir. O que
+ * resolve a ansiedade de quem espera é o status e a janela, e são esses que descem.
+ *
+ * `statusText` vem pronto do servidor, por `taxiStatusTutorText`: o rótulo do painel é
+ * escrito para a operação, e "Sem motorista" no celular do tutor lê como falha.
+ */
+export const PortalTaxiRideSchema = z.object({
+  id: z.uuid(),
+  leg: TaxiLegSchema,
+  legLabel: z.string(),
+  status: TaxiRideStatusSchema,
+  statusText: z.string(),
+  windowStartsAt: z.string(),
+  windowEndsAt: z.string(),
+  priceCents: z.number().int(),
+})
+export type PortalTaxiRide = z.infer<typeof PortalTaxiRideSchema>
+
 /**
  * O pedido de agendamento (MOD-PORTAL-05).
  *
@@ -394,7 +492,8 @@ export type PortalAvailabilityResponse = z.infer<typeof PortalAvailabilityRespon
  * existe em vez de criar o segundo. Uma chave que ninguém guarda seria teatro, e
  * guardá-la exigiria tabela para resolver o que a pergunta natural já resolve.
  *
- * `taxi` fica para a fatia 4, com o resto do MOD-PORTAL-07.
+ * `taxi` chegou na fatia 4 (MOD-PORTAL-07) e é **opcional**: o pedido sem ele é o
+ * agendamento puro, e continua sendo o caminho da maioria.
  */
 export const PortalBookingSchema = z
   .object({
@@ -405,6 +504,8 @@ export const PortalBookingSchema = z
     notes: z.string().trim().max(500).optional(),
     /** RN-09: o alerta clínico crítico que o tutor viu e confirmou. */
     acknowledgedAlerts: z.boolean().default(false),
+    /** MOD-PORTAL-07: o leva-e-traz pedido junto, nunca como pedido solto. */
+    taxi: PortalBookingTaxiSchema.optional(),
   })
   .strict()
 export type PortalBookingInput = z.output<typeof PortalBookingSchema>
@@ -424,6 +525,14 @@ export const PortalAppointmentSchema = z.object({
   totalCents: z.number().int(),
   /** `true` enquanto o petshop não decidiu a triagem do AC-06 de MOD-PORTAL-05. */
   awaitingApproval: z.boolean(),
+  /**
+   * As corridas de leva-e-traz deste agendamento (AC-05 de MOD-PORTAL-07).
+   *
+   * Vazio na esmagadora maioria dos casos, e sempre presente: uma lista opcional faria
+   * cada tela testar `undefined` antes de percorrer, e a primeira que esquecesse
+   * quebraria só na conta que tem taxi — que é justamente a que ninguém testa à mão.
+   */
+  taxi: z.array(PortalTaxiRideSchema).default([]),
 })
 export type PortalAppointment = z.infer<typeof PortalAppointmentSchema>
 

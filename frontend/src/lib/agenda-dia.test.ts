@@ -9,6 +9,7 @@ import {
   janelaDoDia,
   minutosNoFuso,
   recortar,
+  alvoDaRolagem,
 } from './agenda-dia'
 
 const SP = 'America/Sao_Paulo'
@@ -244,5 +245,29 @@ describe('faixaDeDias', () => {
 
   it('atravessa a virada do mês', () => {
     expect(faixaDeDias('2026-09-01')[2]!.numero).toBe(31)
+  })
+})
+
+describe('alvoDaRolagem', () => {
+  const CABECALHO = 96
+
+  it('deixa um terço da caixa de folga acima do agora', () => {
+    // Caixa de 720px: 240 de folga, e o fio das 15h a 900px do topo do conteúdo.
+    expect(
+      alvoDaRolagem({ topoDoFio: 900, alturaCaixa: 720, alturaCabecalho: CABECALHO }),
+    ).toBe(660)
+  })
+
+  it('numa caixa baixa, a folga é a altura do cabeçalho', () => {
+    // Um terço de 210 são 70px — menos que o cabeçalho, que cobriria o fio.
+    expect(
+      alvoDaRolagem({ topoDoFio: 400, alturaCaixa: 210, alturaCabecalho: CABECALHO }),
+    ).toBe(304)
+  })
+
+  it('de manhã cedo não rola nada: o começo do dia já é o lugar certo', () => {
+    expect(
+      alvoDaRolagem({ topoDoFio: 120, alturaCaixa: 720, alturaCabecalho: CABECALHO }),
+    ).toBe(0)
   })
 })

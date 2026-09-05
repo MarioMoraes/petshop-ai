@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatBRL, type PortalAppointmentDetail, type PortalSlot } from '@petshop/shared-types'
 import { Alert, Card, SectionHead } from '@/components/ui'
-import { AlertTriangleIcon, CalendarIcon } from '@/components/icons'
+import { AlertTriangleIcon, CalendarIcon, VanIcon } from '@/components/icons'
 import { carregarHorarios } from '../../../agendar/actions'
 import { remarcar } from '../../actions'
 
@@ -128,6 +128,21 @@ export function RescheduleForm({ appointment }: { appointment: PortalAppointment
       {erro && (
         <Alert tone="danger" icon={<AlertTriangleIcon />} title="Não deu para remarcar">
           {erro}
+        </Alert>
+      )}
+
+      {/*
+        RN-15 do MOD-TAXI: remarcar **não** move a corrida.
+        O agendamento novo é outro registro, e mover a janela sozinho assumiria que o
+        motorista está livre no dia novo — o que ninguém verificou. As corridas antigas
+        são canceladas em cascata, e o tutor precisa saber disso **antes** de confirmar:
+        descobrir na porta de casa que ninguém vem buscar é o pior jeito de aprender a
+        regra.
+      */}
+      {appointment.taxi.length > 0 && (
+        <Alert tone="accent" icon={<VanIcon />} title="O leva-e-traz não vai junto" role="status">
+          Ao remarcar, o transporte deste horário é cancelado. Peça de novo marcando um
+          horário novo com leva-e-traz, ou fale com o estabelecimento.
         </Alert>
       )}
 

@@ -34,6 +34,7 @@ import { createBooking, listBookableServices, readAvailability } from './booking
 import { readOwnFinance, readOwnReceipt, readOwnStatement } from './finance.js'
 import { readPortalContext, readPortalTenant, touchLastSeen } from './me.js'
 import { listOwnPets, readOwnPet, updateOwnPet } from './pets.js'
+import { readTaxiOffer } from './taxi.js'
 import { readOwnPetTimeline } from './timeline.js'
 import { verifyChallenge } from './verify.js'
 
@@ -275,6 +276,28 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
 
       const booking = await createBooking(callerOf(request), tutorId, input)
       return reply.status(booking.duplicate ? 200 : 201).send(booking)
+    },
+  )
+
+  // ─── MOD-PORTAL-07 — Taxi Dog no Agendamento ───────────────────────────────
+
+  /**
+   * AC-02 — quanto custa o leva-e-traz para o endereço deste tutor.
+   *
+   * `schedule:write_own` e não uma permissão de taxi: o leva-e-traz não é um pedido
+   * próprio no Portal, é uma opção do agendamento (decisão de produto de 2026-08-28).
+   * Quem pode marcar horário pode perguntar o preço do transporte; quem não pode, não
+   * tem o que fazer com a resposta.
+   *
+   * Responde 200 mesmo quando o leva-e-traz **não** está disponível — ver a divergência
+   * explicada em `readTaxiOffer`.
+   */
+  app.get(
+    '/portal/v1/booking/taxi',
+    { preHandler: requirePermission('schedule:write_own') },
+    async (request) => {
+      const { tutorId } = requireOwnScope(request)
+      return readTaxiOffer(callerOf(request), tutorId)
     },
   )
 

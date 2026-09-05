@@ -64,7 +64,11 @@ export default async function PortalAgendarPage() {
           </p>
         </Card>
       ) : (
-        <BookingWizard pets={agendaveis} tenantName={context.tenant.name} />
+        <BookingWizard
+          pets={agendaveis}
+          tenantName={context.tenant.name}
+          taxiEnabled={context.features.taxiEnabled}
+        />
       )}
     </PortalFrame>
   )

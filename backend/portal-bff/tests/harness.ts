@@ -9,6 +9,7 @@ import {
   ROLE_PERMISSIONS,
   type PermissionKey,
   type ServiceCategory,
+  type TaxiRideResponse,
 } from '@petshop/shared-types'
 
 /**
@@ -48,6 +49,7 @@ const { buildApp } = await import('../src/app.js')
 const { loadEnv } = await import('../src/env.js')
 const { setMessagingPort } = await import('../src/modules/portal/messaging-port.js')
 const { setSchedulingPort } = await import('../src/modules/portal/scheduling-port.js')
+const { setTaxiPort } = await import('../src/modules/portal/taxi-port.js')
 const { resetRateMemory } = await import('../src/modules/portal/rate-limit.js')
 const { clearTenantKeyCache, createTenantKey, withTenant, encryptWithKey, getTenantKey } =
   await import('@petshop/db')
@@ -70,6 +72,8 @@ export async function closeHarness(): Promise<void> {
   setSchedulingPort(null)
   const { setLedgerPort } = await import('../src/modules/portal/ledger-port.js')
   setLedgerPort(null)
+  const { setTaxiPort } = await import('../src/modules/portal/taxi-port.js')
+  setTaxiPort(null)
   const { disconnectPrisma } = await import('@petshop/db')
   await Promise.all([ownerPrisma.$disconnect(), disconnectPrisma()])
 }
@@ -784,6 +788,164 @@ export function fakeScheduling(fixture: TenantFixture): SchedulingDouble {
         startsAt: input.startsAt,
         serviceIds: old.items.map((item) => item.serviceId),
         status: 'CONFIRMED',
+      })
+    },
+  })
+
+  return double
+}
+
+// ─── Cenário da fatia 4 — o leva-e-traz (MOD-PORTAL-07) ──────────────────────
+
+export interface TaxiSettingsOptions {
+  enabled?: boolean
+  /** Sem ele o domínio recusaria com ERR_TAXI_010, e a oferta some da tela. */
+  withService?: boolean
+  defaultWindowMinutes?: number
+}
+
+export async function givenTaxiSettings(
+  fixture: TenantFixture,
+  options: TaxiSettingsOptions = {},
+): Promise<void> {
+  const serviceId =
+    options.withService === false
+      ? null
+      : await givenService(fixture, { name: 'Taxi Dog', category: 'TAXI' })
+
+  await ownerPrisma.taxiSettings.create({
+    data: {
+      tenantId: fixture.tenantId,
+      enabled: options.enabled ?? true,
+      taxiServiceId: serviceId,
+      defaultPriceCents: 1500n,
+      defaultWindowMinutes: options.defaultWindowMinutes ?? 60,
+    },
+  })
+}
+
+/** O endereço primário do tutor — o que a corrida copia (RN-11 do MOD-TAXI). */
+export async function givenTutorAddress(
+  fixture: TenantFixture,
+  tutorId: string,
+  zipCode = '01310100',
+): Promise<void> {
+  await withTenant(fixture.tenantId, async (tx) => {
+    const key = await getTenantKey(tx, fixture.tenantId)
+    await tx.tutorAddress.create({
+      data: {
+        tenantId: fixture.tenantId,
+        tutorId,
+        zipCode,
+        streetEncrypted: encryptWithKey('Avenida Paulista', key),
+        numberEncrypted: encryptWithKey('1000', key),
+        district: 'Bela Vista',
+        city: 'São Paulo',
+        state: 'SP',
+        isPrimary: true,
+      },
+    })
+  })
+}
+
+export interface TaxiDouble {
+  /** Preço devolvido pela cotação; `null` faz a cotação recusar por zona (RN-18). */
+  quoteCents: number | null
+  /** Quantas vagas a van tem na janela consultada. Zero é van cheia (AC-04). */
+  remaining: number
+  /** Erro que a próxima criação de corrida deve levantar. */
+  failCreateWith: AppError | null
+  calls: {
+    quotes: string[]
+    windows: { startsAt: string; endsAt: string }[]
+    created: { appointmentId: string; legs: string[] }[]
+  }
+}
+
+/**
+ * Dublê da porta do taxidog-service que **escreve corridas de verdade**.
+ *
+ * Mesmo desenho do `fakeScheduling`, e pelo mesmo motivo: o que se substitui é a regra
+ * de domínio — zona, capacidade, item de cobrança —, que tem suíte própria no
+ * taxidog-service. O efeito no banco continua real, e é dele que o AC-05 depende: o
+ * status que o tutor lê sai da tabela, não da resposta da criação.
+ */
+export function fakeTaxi(fixture: TenantFixture): TaxiDouble {
+  const double: TaxiDouble = {
+    quoteCents: 2500,
+    remaining: 2,
+    failCreateWith: null,
+    calls: { quotes: [], windows: [], created: [] },
+  }
+
+  setTaxiPort({
+    async quote(_caller, zipCode) {
+      double.calls.quotes.push(zipCode)
+      if (double.quoteCents === null) {
+        throw new AppError('ERR_TAXI_011', `O CEP ${zipCode} está fora das zonas atendidas`)
+      }
+      return { zipCode, priceCents: double.quoteCents, priceSource: 'ZONE', zone: null }
+    },
+
+    async availableDrivers(_caller, window) {
+      double.calls.windows.push(window)
+      if (double.remaining <= 0) return []
+      return [{ id: randomUUID(), displayName: 'Carlos Motorista', remaining: double.remaining }]
+    },
+
+    async createRides(_caller, input) {
+      if (double.failCreateWith) throw double.failCreateWith
+      double.calls.created.push({
+        appointmentId: input.appointmentId,
+        legs: input.legs.map((leg) => leg.leg),
+      })
+
+      return withTenant(fixture.tenantId, async (tx) => {
+        const appointment = await tx.appointment.findFirstOrThrow({
+          where: { id: input.appointmentId },
+          select: { petId: true, tutorId: true },
+        })
+        const key = await getTenantKey(tx, fixture.tenantId)
+        const created: TaxiRideResponse[] = []
+
+        for (const leg of input.legs) {
+          const ride = await tx.taxiRide.create({
+            data: {
+              tenantId: fixture.tenantId,
+              appointmentId: input.appointmentId,
+              petId: appointment.petId,
+              tutorId: appointment.tutorId,
+              leg: leg.leg,
+              status: 'REQUESTED',
+              windowStartsAt: new Date(leg.windowStartsAt),
+              windowEndsAt: new Date(leg.windowEndsAt),
+              zipCode: '01310100',
+              streetEncrypted: encryptWithKey('Avenida Paulista', key),
+              numberEncrypted: encryptWithKey('1000', key),
+              district: 'Bela Vista',
+              city: 'São Paulo',
+              state: 'SP',
+              priceCents: BigInt(double.quoteCents ?? 0),
+              priceSource: 'ZONE',
+            },
+          })
+
+          created.push({
+            id: ride.id,
+            appointmentId: ride.appointmentId,
+            petId: ride.petId,
+            tutorId: ride.tutorId,
+            leg: ride.leg,
+            legLabel: ride.leg === 'PICKUP' ? 'Buscar' : 'Levar',
+            status: ride.status,
+            statusLabel: 'Sem motorista',
+            windowStartsAt: ride.windowStartsAt.toISOString(),
+            windowEndsAt: ride.windowEndsAt.toISOString(),
+            priceCents: Number(ride.priceCents),
+          } as never)
+        }
+
+        return created
       })
     },
   })
