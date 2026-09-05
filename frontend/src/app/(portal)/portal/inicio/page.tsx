@@ -12,20 +12,14 @@ import { PortalError, readPortalContext } from '@/lib/portal-api'
  * A fatia 1 entregou a **porta**, e esta tela era a prova de que ela abre. Com a fatia
  * 2 ela vira o que devia ser: o desvio para os pets, que é o que o tutor veio buscar.
  *
- * O que ainda não existe continua anunciado. Quem entrou e não encontrou o que
- * procurava conclui que o acesso não funcionou — dizer "chega em breve" custa duas
- * linhas e evita uma ligação, que é justamente o que o módulo promete eliminar.
+ * **O cartão "em breve" saiu com o MOD-PORTAL-10**, e não por descuido: ele existia
+ * para que quem entrasse e não encontrasse o que procurava não concluísse que o acesso
+ * falhou. A última promessa dele — rever as mensagens — virou tela, e um cartão vazio
+ * anunciando nada faria a tela terminar num silêncio esquisito. Se uma fatia futura
+ * voltar a prometer algo, o cartão volta com ela.
  */
 
 export const dynamic = 'force-dynamic'
-
-/**
- * O que ainda não existe continua anunciado, e a lista **encolhe** a cada fatia.
- *
- * Item que ganhou tela sai daqui no mesmo commit em que a tela nasce — senão o Portal
- * promete em uma seção o que já entrega na outra, e é a promessa que se lê primeiro.
- */
-const EM_BREVE = ['Rever as mensagens que o estabelecimento mandou']
 
 export default async function PortalInicioPage() {
   let context
@@ -85,6 +79,9 @@ export default async function PortalInicioPage() {
           <Link href="/portal/financeiro" className="btn btn-ghost w-full">
             Minha conta
           </Link>
+          <Link href="/portal/mensagens" className="btn btn-ghost w-full">
+            Mensagens
+          </Link>
 
           {/*
             O "Sair" fecha a lista, no mesmo botão fantasma dos outros.
@@ -98,17 +95,6 @@ export default async function PortalInicioPage() {
             </button>
           </SignOutButton>
         </div>
-      </Card>
-
-      <Card>
-        <p className="section-eyebrow">Em breve por aqui</p>
-        <ul className="mt-3 flex flex-col gap-2 text-muted">
-          {EM_BREVE.map((item) => (
-            <li key={item} className="text-sm">
-              {item}
-            </li>
-          ))}
-        </ul>
       </Card>
     </PortalFrame>
   )

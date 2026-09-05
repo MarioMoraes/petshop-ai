@@ -50,6 +50,7 @@ const { loadEnv } = await import('../src/env.js')
 const { setMessagingPort } = await import('../src/modules/portal/messaging-port.js')
 const { setSchedulingPort } = await import('../src/modules/portal/scheduling-port.js')
 const { setTaxiPort } = await import('../src/modules/portal/taxi-port.js')
+const { setTutorPort } = await import('../src/modules/portal/tutor-port.js')
 const { resetRateMemory } = await import('../src/modules/portal/rate-limit.js')
 const { clearTenantKeyCache, createTenantKey, withTenant, encryptWithKey, getTenantKey } =
   await import('@petshop/db')
@@ -74,6 +75,7 @@ export async function closeHarness(): Promise<void> {
   setLedgerPort(null)
   const { setTaxiPort } = await import('../src/modules/portal/taxi-port.js')
   setTaxiPort(null)
+  setTutorPort(null)
   const { disconnectPrisma } = await import('@petshop/db')
   await Promise.all([ownerPrisma.$disconnect(), disconnectPrisma()])
 }
@@ -1169,6 +1171,167 @@ export async function fakeLedger(): Promise<LedgerDouble> {
       double.calls.push(paymentId)
       if (double.failWith) throw double.failWith
       return double.receipt
+    },
+  })
+
+  return double
+}
+
+// ─── Cenário da fatia 4 — a Central de Comunicação (MOD-PORTAL-10) ───────────
+
+export interface MessageOptions {
+  body: string
+  subject?: string
+  channel?: 'WHATSAPP' | 'EMAIL'
+  category?: 'TRANSACTIONAL' | 'OPERATIONAL' | 'MARKETING'
+  status?:
+    | 'QUEUED'
+    | 'SCHEDULED'
+    | 'SENDING'
+    | 'SENT'
+    | 'DELIVERED'
+    | 'READ'
+    | 'FAILED'
+    | 'DEAD'
+    | 'BLOCKED'
+    | 'CANCELLED'
+    | 'MERGED'
+  direction?: 'OUTBOUND' | 'INBOUND'
+  templateKey?: string
+  sentAt?: Date
+  blockReason?: 'NO_CONSENT' | 'SUPPRESSED' | 'NO_CHANNEL' | 'PET_DECEASED' | 'QUIET_HOURS_EXPIRED'
+  /** Corpo apagado pela retenção de 24 meses, com a linha de pé (AC-04 de MOD-CRM-10). */
+  purged?: boolean
+}
+
+/**
+ * Uma mensagem no histórico, cifrada com a **DEK do tenant**, como o messaging-service
+ * a grava.
+ *
+ * Cifrar de verdade aqui não é preciosismo: o que a rota do Portal faz de mais delicado
+ * é abrir a chave uma vez por página e decifrar corpo e assunto. Um texto em claro na
+ * fixture faria a suíte passar com um decifrador quebrado.
+ */
+export async function givenMessage(
+  fixture: TenantFixture,
+  tutorId: string,
+  options: MessageOptions,
+): Promise<string> {
+  const status = options.status ?? 'DELIVERED'
+  const enviada = ['SENT', 'DELIVERED', 'READ'].includes(status)
+
+  return withTenant(fixture.tenantId, async (tx) => {
+    const key = await getTenantKey(tx, fixture.tenantId)
+    const message = await tx.message.create({
+      data: {
+        tenantId: fixture.tenantId,
+        tutorId,
+        channel: options.channel ?? 'WHATSAPP',
+        direction: options.direction ?? 'OUTBOUND',
+        category: options.category ?? 'TRANSACTIONAL',
+        templateKey: options.templateKey ?? 'agendamento_confirmado',
+        toEncrypted: encryptWithKey('+5511987654321', key),
+        toHash: `hash-${randomUUID().slice(0, 8)}`,
+        ...(options.subject ? { subjectEncrypted: encryptWithKey(options.subject, key) } : {}),
+        // O expurgo esvazia a coluna e mantém a linha; a coluna é NOT NULL.
+        bodyEncrypted: options.purged ? '' : encryptWithKey(options.body, key),
+        status,
+        ...(options.blockReason ? { blockReason: options.blockReason } : {}),
+        dedupeKey: `dedupe-${randomUUID()}`,
+        ...(enviada ? { sentAt: options.sentAt ?? new Date() } : {}),
+      },
+      select: { id: true },
+    })
+    return message.id
+  })
+}
+
+export interface ConsentOptions {
+  channel: 'WHATSAPP' | 'EMAIL' | 'SMS' | 'TERMS' | 'IMAGE_USE'
+  granted: boolean
+  purpose?: 'TRANSACTIONAL' | 'MARKETING' | 'BOTH'
+  source?: 'STAFF_FORM' | 'PORTAL' | 'SITE' | 'WHATSAPP' | 'IMPORT'
+  createdAt?: Date
+}
+
+/**
+ * Uma transição de consentimento já gravada — o que a recepção registrou no balcão.
+ *
+ * `createdAt` vai **no próprio insert**, e não num UPDATE depois: `app_user` não tem
+ * grant de UPDATE em `tutor_consents`, e o append-only não é só o gatilho — é também a
+ * ausência da permissão. Um `$executeRaw` aqui volta `42501 permission denied`, que
+ * parece falha do teste e é a garantia funcionando.
+ *
+ * Controlar o instante importa porque a ordem entre transições é o que o AC-04
+ * exercita: duas linhas criadas no mesmo teste empatam em `now()`, e a "última" vira
+ * sorteio.
+ */
+export async function givenConsent(
+  fixture: TenantFixture,
+  tutorId: string,
+  options: ConsentOptions,
+): Promise<void> {
+  await withTenant(fixture.tenantId, async (tx) => {
+    await tx.tutorConsent.create({
+      data: {
+        tenantId: fixture.tenantId,
+        tutorId,
+        channel: options.channel,
+        granted: options.granted,
+        purpose: options.purpose ?? 'MARKETING',
+        source: options.source ?? 'STAFF_FORM',
+        version: '1.0',
+        ...(options.createdAt ? { createdAt: options.createdAt } : {}),
+      },
+      select: { id: true },
+    })
+  })
+}
+
+export interface TutorServiceDouble {
+  /** Cada chamada da porta, para o teste provar o que foi assinado e o que não foi. */
+  calls: {
+    tutorId: string
+    channel: 'WHATSAPP' | 'EMAIL'
+    granted: boolean
+    ipAddress?: string | undefined
+    userAgent?: string | undefined
+  }[]
+  /** Erro que a próxima gravação deve levantar — é como se exercita a tradução. */
+  failWith: AppError | null
+}
+
+/**
+ * Dublê da porta do tutor-service que **grava a transição de verdade**.
+ *
+ * Mesmo desenho do `fakeScheduling` e do `fakeTaxi`: o que se substitui é o que o
+ * serviço de domínio faz *além* da linha — derrubar cache, publicar evento, escrever a
+ * trilha —, e isso tem suíte própria lá. O efeito no banco continua real, e é dele que
+ * os testes de estado dependem: o que o Portal devolve depois de salvar sai da tabela,
+ * não da resposta da porta.
+ */
+export function fakeTutorService(fixture: TenantFixture): TutorServiceDouble {
+  const double: TutorServiceDouble = { calls: [], failWith: null }
+
+  setTutorPort({
+    async updateMarketingConsent(caller, tutorId, input) {
+      if (double.failWith) throw double.failWith
+      double.calls.push({
+        tutorId,
+        channel: input.channel,
+        granted: input.granted,
+        ipAddress: caller.ipAddress,
+        userAgent: caller.userAgent,
+      })
+
+      await givenConsent(fixture, tutorId, {
+        channel: input.channel,
+        granted: input.granted,
+        purpose: 'MARKETING',
+        source: 'PORTAL',
+      })
+
+      return { current: [], history: [] }
     },
   })
 

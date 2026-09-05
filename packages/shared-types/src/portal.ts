@@ -755,3 +755,133 @@ export const PortalReceiptResponseSchema = z.object({
   url: z.string().nullable(),
 })
 export type PortalReceiptResponse = z.infer<typeof PortalReceiptResponseSchema>
+
+// ─── MOD-PORTAL-10 — Central de Comunicação e Preferências ───────────────────
+
+/**
+ * Os únicos estados que o tutor vê (AC-02).
+ *
+ * A lista é curta e a razão de cada ausência é a mesma: **o tutor não é auditor da
+ * fila do petshop**. `QUEUED`, `SCHEDULED` e `SENDING` são mensagens que ainda não
+ * saíram — mostrá-las seria contar um lembrete antes de ele chegar. `FAILED` e `DEAD`
+ * são erro do provedor, e ler "não conseguimos falar com você" numa tela que a pessoa
+ * abriu justamente para ler o que o petshop mandou é ruído sobre um problema que não é
+ * dela. `BLOCKED` é o pior de todos: exporia a régua interna, dizendo quantas vezes o
+ * estabelecimento quis falar e a própria política o impediu.
+ *
+ * `MERGED` também fica de fora, e não é bloqueio: a mensagem **saiu**, dentro de outra
+ * (RN-08 do MOD-CRM). Listá-la mostraria duas linhas para um texto que chegou uma vez.
+ * A que absorveu está na lista, com o conteúdo inteiro.
+ */
+export const PORTAL_VISIBLE_MESSAGE_STATUSES = ['SENT', 'DELIVERED', 'READ'] as const
+
+/**
+ * O que nunca entra no histórico, mesmo tendo sido entregue.
+ *
+ * O código de acesso é credencial viva por dez minutos, e o Portal roda no celular de
+ * família que passa de mão em mão — a mesma razão pela qual o "Sair" existe no Início.
+ * Um código que ninguém usou continua valendo enquanto a tela o exibe.
+ */
+export const PORTAL_HIDDEN_TEMPLATE_KEYS = [PORTAL_TEMPLATE_KEYS.accessCode] as const
+
+/**
+ * Uma mensagem, como o tutor a relê (AC-01).
+ *
+ * **Só `sentAt`, e nenhuma outra data.** O modelo guarda entrega e leitura, e as duas
+ * ficam aqui: dizer a alguém a que horas ele leu a própria mensagem é devolver-lhe uma
+ * vigilância que ele não pediu, e não muda nada do que ele faz a seguir. O que a tela
+ * precisa é quando o petshop falou.
+ *
+ * `category` desce porque a mesma tela tem o interruptor de promoções logo abaixo: sem
+ * ela, quem desligou "novidades" não consegue reconhecer, na lista, qual mensagem vai
+ * parar de chegar e qual continua.
+ *
+ * O corpo pode vir como aviso de expurgo — a retenção de 24 meses apaga o texto e
+ * mantém a linha (AC-04 de MOD-CRM-10), e um histórico que estourasse ali seria um
+ * histórico que só funciona no ano corrente.
+ */
+export const PortalMessageSchema = z.object({
+  id: z.uuid(),
+  channel: PortalChannelSchema,
+  category: z.enum(['TRANSACTIONAL', 'OPERATIONAL', 'MARKETING']),
+  subject: z.string().nullable(),
+  body: z.string(),
+  sentAt: z.string(),
+})
+export type PortalMessage = z.infer<typeof PortalMessageSchema>
+
+/**
+ * Paginação por página, como o extrato e pelo mesmo motivo.
+ *
+ * Uma campanha enfileira centenas de mensagens no mesmo instante, e `sent_at` repete
+ * dentro do lote: um cursor por data pularia linhas ou as repetiria. O `total`
+ * acompanha para a tela saber quando parar de oferecer "ver mais".
+ */
+export const PortalMessagesQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict()
+export type PortalMessagesQuery = z.output<typeof PortalMessagesQuerySchema>
+
+export const PortalMessagesResponseSchema = z.object({
+  messages: z.array(PortalMessageSchema),
+  page: z.number().int(),
+  limit: z.number().int(),
+  total: z.number().int(),
+  timezone: z.string(),
+})
+export type PortalMessagesResponse = z.infer<typeof PortalMessagesResponseSchema>
+
+/**
+ * O consentimento de um canal, como o interruptor o mostra (AC-03).
+ *
+ * **Ausência de registro é "desligado"** (LGPD art. 8º: silêncio não é consentimento),
+ * e é por isso que a resposta traz sempre os dois canais em vez de só os decididos —
+ * uma lista com o que existe faria a tela inventar o estado do que falta.
+ *
+ * `since` é a data da última transição, e vale como prova para quem lê: "você desligou
+ * em 3 de setembro" responde sozinho a metade das reclamações de "continuo recebendo".
+ */
+export const PortalChannelPreferenceSchema = z.object({
+  channel: PortalChannelSchema,
+  granted: z.boolean(),
+  since: z.string().nullable(),
+})
+export type PortalChannelPreference = z.infer<typeof PortalChannelPreferenceSchema>
+
+/**
+ * O que o tutor controla, e o que ele não controla.
+ *
+ * `marketing` é a lista de interruptores. `operational` **não é lista nenhuma**: é a
+ * frase que explica por que confirmação de agendamento e aviso do motorista continuam
+ * chegando. Essas rodam por execução de contrato (RN-01 do MOD-CRM) e desligá-las seria
+ * o petshop deixar de avisar que a van está a caminho — dano ao próprio tutor.
+ * Oferecer um interruptor desses e recusar o clique seria pior que não oferecer.
+ */
+export const PortalPreferencesResponseSchema = z.object({
+  marketing: z.array(PortalChannelPreferenceSchema),
+  /** Os canais que o tutor tem cadastrados. Sem e-mail, o interruptor de e-mail some. */
+  availableChannels: z.array(PortalChannelSchema),
+})
+export type PortalPreferencesResponse = z.infer<typeof PortalPreferencesResponseSchema>
+
+/**
+ * Um clique é uma transição, e uma transição é uma linha nova (AC-04).
+ *
+ * Um canal por requisição, e não o par inteiro: mandar os dois faria o interruptor de
+ * e-mail gravar uma linha de WhatsApp toda vez que alguém tocasse em qualquer um, e a
+ * trilha jurídica passaria a registrar decisões que ninguém tomou.
+ *
+ * `purpose` não é campo: o Portal só decide `MARKETING`. Aceitá-lo do cliente
+ * permitiria a um pedido forjado revogar o consentimento transacional e cortar os
+ * avisos do próprio tutor.
+ */
+export const UpdatePortalPreferenceSchema = z
+  .object({
+    channel: PortalChannelSchema,
+    granted: z.boolean(),
+  })
+  .strict()
+export type UpdatePortalPreferenceInput = z.output<typeof UpdatePortalPreferenceSchema>

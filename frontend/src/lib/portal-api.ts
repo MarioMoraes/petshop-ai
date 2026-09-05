@@ -11,7 +11,9 @@ import type {
   PortalChallengeResponse,
   PortalContextResponse,
   PortalFinanceResponse,
+  PortalMessagesResponse,
   PortalPetDetail,
+  PortalPreferencesResponse,
   PortalPetSummary,
   PortalReceiptResponse,
   PortalStatementResponse,
@@ -20,6 +22,7 @@ import type {
   PortalTenantResponse,
   PortalTimelineResponse,
   UpdateOwnPetInput,
+  UpdatePortalPreferenceInput,
 } from '@petshop/shared-types'
 
 /**
@@ -334,4 +337,34 @@ export function readOwnStatement(
 
 export function readOwnReceipt(paymentId: string): Promise<PortalReceiptResponse> {
   return request({ path: `/portal/v1/finance/receipts/${paymentId}` })
+}
+
+// ─── MOD-PORTAL-10 — Central de Comunicação ──────────────────────────────────
+
+/**
+ * O histórico de mensagens, paginado por página como o extrato.
+ *
+ * Pelo mesmo motivo de lá: uma campanha enfileira centenas de mensagens no mesmo
+ * instante, e um cursor por data pularia ou repetiria linhas dentro do lote.
+ */
+export function readOwnMessages(
+  options: { page?: number; limit?: number } = {},
+): Promise<PortalMessagesResponse> {
+  const query = new URLSearchParams()
+  if (options.page) query.set('page', String(options.page))
+  if (options.limit) query.set('limit', String(options.limit))
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+
+  return request({ path: `/portal/v1/messages${suffix}` })
+}
+
+export function readOwnPreferences(): Promise<PortalPreferencesResponse> {
+  return request({ path: '/portal/v1/preferences' })
+}
+
+/** Um canal por chamada: cada clique é uma transição, e a trilha é append-only. */
+export function updateOwnPreference(
+  body: UpdatePortalPreferenceInput,
+): Promise<PortalPreferencesResponse> {
+  return request({ method: 'PATCH', path: '/portal/v1/preferences', body })
 }

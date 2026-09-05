@@ -5,11 +5,13 @@ import {
   PortalBookingSchema,
   PortalCancelSchema,
   PortalChallengeSchema,
+  PortalMessagesQuerySchema,
   PortalRescheduleSchema,
   PortalStatementQuerySchema,
   PortalTimelineQuerySchema,
   PortalVerifySchema,
   UpdateOwnPetSchema,
+  UpdatePortalPreferenceSchema,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import {
@@ -33,7 +35,9 @@ import {
 import { createBooking, listBookableServices, readAvailability } from './booking.js'
 import { readOwnFinance, readOwnReceipt, readOwnStatement } from './finance.js'
 import { readPortalContext, readPortalTenant, touchLastSeen } from './me.js'
+import { listOwnMessages } from './messages.js'
 import { listOwnPets, readOwnPet, updateOwnPet } from './pets.js'
+import { readOwnPreferences, updateOwnPreference } from './preferences.js'
 import { readTaxiOffer } from './taxi.js'
 import { readOwnPetTimeline } from './timeline.js'
 import { verifyChallenge } from './verify.js'
@@ -415,6 +419,74 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
         },
         tutorId,
         paymentId,
+      )
+    },
+  )
+
+  // ─── MOD-PORTAL-10 — Central de Comunicação e Preferências ─────────────────
+
+  /**
+   * AC-01 — o que o petshop me mandou.
+   *
+   * `crm:read_own` é permissão nova, e não um recorte de `crm:read`: aquela abre também
+   * o painel de entregas, com a fila e o que foi bloqueado por consentimento. O sufixo
+   * `_own` é o que faz `requireOwnScope` existir nesta rota.
+   */
+  app.get(
+    '/portal/v1/messages',
+    { preHandler: requirePermission('crm:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const query = parseInput(PortalMessagesQuerySchema, request.query)
+
+      return listOwnMessages(tenantId, tutorId, query)
+    },
+  )
+
+  /**
+   * AC-03 — as preferências de comunicação.
+   *
+   * Governadas por `tutor:read_own` e `tutor:update_own`, que o papel `TUTOR` já tinha:
+   * consentimento é dado da ficha dele, e não do módulo de mensageria. É por isso que a
+   * leitura da lista de mensagens e a desta pergunta passam por gates diferentes.
+   */
+  app.get(
+    '/portal/v1/preferences',
+    { preHandler: requirePermission('tutor:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      return readOwnPreferences(tenantId, tutorId)
+    },
+  )
+
+  /**
+   * AC-04 — ligar e desligar três vezes são três linhas, nenhuma alterada.
+   *
+   * `PATCH` e não `PUT`: o corpo carrega **um** canal, e o outro fica como estava. Um
+   * PUT com o par inteiro faria o interruptor de e-mail gravar uma transição de
+   * WhatsApp a cada toque, e a trilha jurídica registraria decisões que ninguém tomou.
+   */
+  app.patch(
+    '/portal/v1/preferences',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const input = parseInput(UpdatePortalPreferenceSchema, request.body)
+
+      return updateOwnPreference(
+        {
+          tenantId: auth.tenantId,
+          clerkUserId: auth.clerkUserId,
+          userId: auth.userId ?? undefined,
+          // A prova do consentimento é do tutor, não do contêiner do BFF.
+          ipAddress: request.ip,
+          userAgent: request.headers['user-agent'],
+        },
+        tutorId,
+        input,
       )
     },
   )

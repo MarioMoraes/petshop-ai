@@ -119,6 +119,16 @@ export const PERMISSIONS = {
    * corte entre elas é o mesmo que separa operar de configurar no resto do sistema.
    */
   'crm:read': 'Ver o histórico de mensagens e o painel de entregas',
+  /**
+   * MOD-PORTAL-10: o tutor relendo **as mensagens dele**, na Central de Comunicação.
+   *
+   * Separada de `crm:read` e não um recorte dela: `crm:read` abre também o painel de
+   * entregas, com a fila, as falhas do provedor e o que foi bloqueado por consentimento
+   * — a régua interna do petshop. O sufixo `_own` não é decoração: é ele que faz
+   * `requireOwnScope` injetar o recorte por tutor, e um handler que lê o recorte não
+   * compila sem ter passado pelo gate.
+   */
+  'crm:read_own': 'Ver as próprias mensagens recebidas',
   'crm:configure': 'Configurar templates, automações e janela de envio',
   /**
    * Disparo manual e reenvio. Separada de `crm:configure` porque configurar é decidir
@@ -346,6 +356,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'finance:read_own',
     'schedule:read_own',
     'schedule:write_own',
+    'crm:read_own',
   ],
 }
 

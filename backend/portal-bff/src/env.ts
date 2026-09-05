@@ -46,6 +46,16 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
   TAXIDOG_SERVICE_URL: z.string().url().default('http://localhost:3008'),
 
   /**
+   * O serviço de tutores, para **gravar** a preferência de comunicação (MOD-PORTAL-10).
+   *
+   * A leitura do consentimento é banco direto, como o resto do módulo. Esta URL existe
+   * só para o `PUT /v1/tutors/:id/consents`, que além da linha append-only derruba os
+   * caches da ficha e publica os eventos de consentimento. Ver `modules/portal/
+   * tutor-port.ts`.
+   */
+  TUTOR_SERVICE_URL: z.string().url().default('http://localhost:3003'),
+
+  /**
    * O bucket das fotos, só para **assinar** o endereço de leitura (`lib/photo-urls.ts`).
    *
    * Opcionais pela mesma razão do pet-service, e a consequência aqui é ainda mais
