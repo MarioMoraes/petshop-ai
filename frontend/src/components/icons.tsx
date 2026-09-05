@@ -486,6 +486,23 @@ export function GlobeIcon() {
   )
 }
 
+/**
+ * Tom: `icon-people`.
+ *
+ * O Portal do tutor: a mesma informação do balcão, no aparelho de quem paga a conta.
+ *
+ * Um telefone, e não um globo — o globo já é o site, que é a porta de quem **ainda não**
+ * é cliente. As duas superfícies olham para fora e não são a mesma coisa.
+ */
+export function SmartphoneIcon() {
+  return (
+    <svg {...BASE}>
+      <rect x="5" y="2" width="14" height="20" rx="2" />
+      <path d="M12 18h.01" />
+    </svg>
+  )
+}
+
 /** A vitrine de serviços e a galeria: o que o site mostra. */
 export function ImageIcon() {
   return (

@@ -1,6 +1,7 @@
 import { withTenant } from '@petshop/db'
 import {
   AvailabilityQuerySchema,
+  BookingSourcesQuerySchema,
   CancelAppointmentSchema,
   CheckoutSchema,
   CreateAppointmentSchema,
@@ -25,7 +26,7 @@ import { findAvailability } from './availability.js'
 import { createBooking } from './booking.js'
 import { resolveItemDuration } from './duration.js'
 import { getDayView } from './day-view.js'
-import { getMovement } from './movement.js'
+import { getBookingSources, getMovement } from './movement.js'
 import { getAppointment, listAppointments } from './queries.js'
 import { createRecurrence, endRecurrence } from './recurrence.js'
 import { loadTimezone } from './timezone.js'
@@ -317,6 +318,25 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
 
     return getMovement(actor, query.date ?? todayIn(timezone), query.days, timezone)
   })
+
+  /**
+   * A fatia do Portal nos agendamentos do período — o KPI que o PRD-mãe §11 escolheu
+   * para a fase do Portal.
+   *
+   * `tenant:configure`, e não o `schedule:read_all` da série acima. As duas leituras
+   * saem da mesma tabela e respondem a perguntas de gente diferente: a série é da
+   * recepção, que quer saber como está o dia; a proporção é de quem ligou o Portal e
+   * quer saber se ligá-lo valeu. O gate é o mesmo que liga e desliga o módulo.
+   */
+  app.get(
+    '/v1/agenda/reports/booking-sources',
+    { preHandler: requirePermission('tenant:configure') },
+    async (request) => {
+      const actor = actorFrom(request)
+      const query = parseInput(BookingSourcesQuerySchema, request.query)
+      return getBookingSources(actor.tenantId, query.days)
+    },
+  )
 
   // ─── Recorrência (MOD-AGENDA-05) ─────────────────────────────────────────
 

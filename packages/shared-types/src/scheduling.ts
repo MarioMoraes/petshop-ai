@@ -557,3 +557,30 @@ export const MovementResponseSchema = z.object({
 })
 export type MovementDay = z.infer<typeof MovementDaySchema>
 export type MovementResponse = z.infer<typeof MovementResponseSchema>
+
+// ─── Origem dos agendamentos (painel do Início) ──────────────────────────────
+
+export const BookingSourcesQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).default(30),
+})
+export type BookingSourcesQuery = z.output<typeof BookingSourcesQuerySchema>
+
+/**
+ * Quantos atendimentos o tutor marcou sozinho, contra o total do período.
+ *
+ * `portal ÷ total` é o **KPI que o PRD-mãe §11 escolheu** para medir a fase do Portal:
+ * agendamento marcado pelo tutor é ligação que a recepção não atendeu, e é essa hora
+ * devolvida que paga o módulo.
+ *
+ * Conta por **data de criação**, e não pela data do atendimento: a pergunta é por onde
+ * o pedido entrou, e um banho marcado hoje para o mês que vem já é self-service hoje.
+ * Pela mesma razão, o cancelado continua contando — ele foi marcado.
+ */
+export const BookingSourcesSchema = z.object({
+  days: z.number().int(),
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  total: z.number().int(),
+  portal: z.number().int(),
+})
+export type BookingSources = z.infer<typeof BookingSourcesSchema>

@@ -9,6 +9,7 @@ import {
   OnboardingStateSchema,
   PaginatedPetsSchema,
   PaginatedTutorsSchema,
+  PortalAdoptionSchema,
   AllergyCheckResultSchema,
   AllergySchema,
   AttendanceSchema,
@@ -47,6 +48,7 @@ import {
   CalendarBlockResponseSchema,
   DayViewSchema,
   MovementResponseSchema,
+  BookingSourcesSchema,
   AvailableTaxiDriverSchema,
   ClosedTaxiRideSchema,
   AutomationResponseSchema,
@@ -64,6 +66,7 @@ import {
   TaxiRideResponseSchema,
   TaxiRidesCreatedSchema,
   TaxiRouteSchema,
+  TaxiOperationReportSchema,
   TaxiSettingsSchema,
   TaxiVehicleResponseSchema,
   TaxiZoneResponseSchema,
@@ -620,6 +623,20 @@ export function createApiClient(options: ApiClientOptions) {
         schema: TutorOverviewSchema,
       }),
 
+    /**
+     * Adoção do Portal pela carteira: o funil de vínculo e quem voltou nos 30 dias.
+     *
+     * O terceiro número da faixa — a fatia de agendamentos vinda do Portal — sai de
+     * `getBookingSources`, no scheduling-service, que é quem tem a tabela. A tela
+     * compõe os dois.
+     */
+    getPortalAdoption: (query: { days?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/tutors/reports/portal-adoption${toQueryString(query)}`,
+        schema: PortalAdoptionSchema,
+      }),
+
     createTutor: (input: CreateTutorInput) =>
       request({ method: 'POST', path: '/v1/tutors', body: input, schema: TutorDetailSchema }),
 
@@ -1110,6 +1127,19 @@ export function createApiClient(options: ApiClientOptions) {
         schema: MovementResponseSchema,
       }),
 
+    /**
+     * A fatia do Portal nos agendamentos do período — o KPI do PRD-mãe §11.
+     *
+     * Conta por data de criação e inclui o cancelado: mede por onde o pedido entrou,
+     * não o trabalho que saiu. Gate `tenant:configure`, ao contrário do movimento.
+     */
+    getBookingSources: (query: { days?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/agenda/reports/booking-sources${toQueryString(query)}`,
+        schema: BookingSourcesSchema,
+      }),
+
     // ─── MOD-TAXI (PRD taxi_dog_07 §5) ────────────────────────────────────────
 
     getTaxiSettings: () =>
@@ -1276,6 +1306,20 @@ export function createApiClient(options: ApiClientOptions) {
      * A fila da triagem do Portal, para o sino de pendências. Só o contador e o dia
      * para onde ir — ver `PendingApprovalsSchema`.
      */
+    /**
+     * Como o leva-e-traz andou — a faixa do Taxi Dog no painel.
+     *
+     * Recusa com o erro de módulo desligado quando o Taxi está desligado (RN-22): o
+     * painel trata isso como "não apurado" e some com a faixa, em vez de anunciar 0%
+     * de aderência a quem não faz leva-e-traz.
+     */
+    getTaxiOperationReport: (query: { days?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/taxi/reports/operation${toQueryString(query)}`,
+        schema: TaxiOperationReportSchema,
+      }),
+
     countPendingApprovals: () =>
       request({
         method: 'GET',

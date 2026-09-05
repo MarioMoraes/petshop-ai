@@ -492,3 +492,41 @@ export const TUTOR_PHONE_HASH_NAMESPACE = 'tutor:phone'
  * o hash de um lado e não do outro nunca casa, e a falha é silenciosa.
  */
 export const TUTOR_EMAIL_HASH_NAMESPACE = 'tutor:email'
+
+// ─── Adoção do Portal (painel do Início) ─────────────────────────────────────
+
+export const PortalAdoptionQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).default(30),
+})
+export type PortalAdoptionQuery = z.output<typeof PortalAdoptionQuerySchema>
+
+/**
+ * O quanto o tutor entrou no Portal e voltou a ele.
+ *
+ * Os dois números explicam o KPI da fase quando ele decepciona: ninguém marca banho
+ * sozinho sem antes **conseguir entrar** (`linking`) e sem **voltar** (`tutors.active`).
+ * Uma taxa de agendamento online baixa com funil quebrado é problema de porta de
+ * entrada; com funil bom e retorno baixo, é problema da tela que ele encontrou lá
+ * dentro. São diagnósticos diferentes e custam a mesma consulta.
+ *
+ * Mora no tutor-service, e não no `portal-bff`, porque o Portal é a superfície do
+ * **cliente final**: o gateway mantém `/portal/v1` com allowlist e sessão próprias, e
+ * nenhum papel administrativo entra por lá (AC-04 de MOD-PORTAL-11). O número é do dono
+ * do petshop, então nasce do lado administrativo.
+ */
+export const PortalAdoptionSchema = z.object({
+  days: z.number().int(),
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  /** O funil de entrada: quantos pediram o código e quantos concluíram o vínculo. */
+  linking: z.object({
+    requested: z.number().int(),
+    completed: z.number().int(),
+  }),
+  /** `active` é quem abriu o Portal no período; `total`, a carteira ativa inteira. */
+  tutors: z.object({
+    active: z.number().int(),
+    total: z.number().int(),
+  }),
+})
+export type PortalAdoption = z.infer<typeof PortalAdoptionSchema>

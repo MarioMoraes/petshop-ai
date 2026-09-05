@@ -6,6 +6,7 @@ import {
   FailTaxiRideSchema,
   ListTaxiRidesQuerySchema,
   TaxiDayQuerySchema,
+  TaxiOperationReportQuerySchema,
   TaxiQuoteQuerySchema,
   TaxiStatusTransitionSchema,
   TaxiVehicleSchema,
@@ -26,6 +27,7 @@ import { getBoard, getDriverRoute } from './board.js'
 import { advanceRide, cancelRide, failRide } from './transitions.js'
 import { findAvailableDrivers } from './drivers.js'
 import { resolvePrice } from './pricing.js'
+import { taxiOperationReport } from './reports.js'
 import { createRides } from './rides.js'
 import { getRide, listRides, type RideScope } from './queries.js'
 import { assertEnabled, getSettings, readSettings, updateSettings } from './settings.js'
@@ -361,6 +363,26 @@ export async function registerTaxiRoutes(app: FastifyInstance): Promise<void> {
    * abriria a resposta com telefone e endereço decifrados a um filtro que viria do
    * cliente (§9).
    */
+  // ─── Relatório ─────────────────────────────────────────────────────────────
+
+  /**
+   * Como o leva-e-traz andou — a faixa do Taxi Dog no painel do Início.
+   *
+   * `taxi:configure`, e não o `taxi:operate` que abre o resto do módulo. Os três
+   * números falam de janela mal dimensionada e de frota pequena demais, que são as
+   * duas decisões de quem configura; para o motorista, seriam a nota da prova dele
+   * exposta na entrada.
+   */
+  app.get(
+    '/v1/taxi/reports/operation',
+    { preHandler: requirePermission('taxi:configure') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      const query = parseInput(TaxiOperationReportQuerySchema, request.query)
+      return taxiOperationReport(auth.tenantId, query.days)
+    },
+  )
+
   app.get(
     '/v1/taxi/my-route',
     { preHandler: requirePermission('taxi:operate') },

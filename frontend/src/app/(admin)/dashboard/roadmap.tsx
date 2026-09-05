@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react'
-import { HeartPulseIcon, UsersIcon, WalletIcon } from '@/components/icons'
+import {
+  HeartPulseIcon,
+  SmartphoneIcon,
+  UsersIcon,
+  VanIcon,
+  WalletIcon,
+} from '@/components/icons'
 import { Badge } from '@/components/ui'
 
 /**
@@ -9,6 +15,11 @@ import { Badge } from '@/components/ui'
  * período saíram daqui — hoje são cartões de verdade lá em cima. Um item que continua
  * nesta lista depois de existir transforma o painel em mentira, então tirar daqui é
  * parte de entregar o módulo.
+ *
+ * **E cresce**, quando um módulo entra trazendo indicador que o PRD nomeia e ninguém
+ * responde: o Taxi Dog e o Portal chegaram depois desta lista e ficaram de fora dela
+ * por um tempo, o que é o mesmo defeito ao contrário — o painel calado sobre metade do
+ * que o produto já faz.
  *
  * Estão aqui, visíveis e desligados, em vez de esperarem os módulos ficarem prontos,
  * por duas razões. A primeira é para o dono do petshop: um painel que mostra três
@@ -107,6 +118,62 @@ const PLANNED: PlannedBlock[] = [
       {
         label: 'Régua de cobrança',
         detail: 'Quem cobrar hoje e por qual canal. O saldo e a tag de inadimplente já existem; falta o MOD-CRM disparar.',
+      },
+    ],
+  },
+  {
+    module: 'MOD-TAXI',
+    title: 'Taxi Dog',
+    prd: 'taxi_dog_07.md',
+    icon: <VanIcon />,
+    /*
+     * `taxi:configure`, e não o `taxi:operate` que abre a tela do Taxi. Quem dirige a
+     * van executa a corrida; a largura da janela e o tamanho da frota são decisão de
+     * quem configura o módulo, e é a essa pessoa que estes três números servem.
+     */
+    permissions: ['taxi:configure'],
+    indicators: [
+      {
+        label: 'Aderência à janela',
+        detail: 'Quanto das corridas chegou dentro da janela prometida. O PRD chama de métrica principal do módulo, porque a janela é a promessa feita ao tutor — hoje ela só existe como linha de log, escrita por um job de varredura.',
+      },
+      {
+        label: 'Falhas por motivo',
+        detail: 'Sem espaço na van, endereço errado, ninguém em casa. Separar por motivo é o que distingue capacidade mal configurada de imprevisto da rua.',
+      },
+      {
+        label: 'Duração da perna por zona',
+        detail: 'Quanto tempo a van leva de verdade em cada zona. É o número que corrige a largura da janela padrão, que hoje é chute.',
+      },
+    ],
+  },
+  {
+    module: 'MOD-PORTAL',
+    title: 'Portal do tutor',
+    prd: 'portal_tutor_09.md',
+    icon: <SmartphoneIcon />,
+    /*
+     * `tenant:configure` é a permissão que liga e desliga o Portal. Adoção é a pergunta
+     * de quem tomou essa decisão e quer saber se ela valeu — não é assunto de balcão,
+     * onde o número só diria que o movimento veio por outro caminho.
+     */
+    permissions: ['tenant:configure'],
+    indicators: [
+      {
+        label: 'Agendamentos pelo Portal',
+        detail: 'Quantos o tutor marcou sozinho, contra os marcados no balcão. É o indicador que o PRD-mãe escolheu para medir a fase inteira.',
+      },
+      {
+        label: 'Funil de vinculação',
+        detail: 'Quantos pedem o código de acesso e quantos chegam ao fim. A distância entre os dois é o que diz se a porta de entrada está no lugar certo.',
+      },
+      {
+        label: 'Bloqueios do self-service',
+        detail: 'Pedido barrado por antecedência, crédito ou falta de vaga. Cada um é um tutor que tentou resolver sozinho e acabou ligando.',
+      },
+      {
+        label: 'Tutores ativos no Portal',
+        detail: 'Quem abriu o Portal nos últimos 30 dias. A data já é gravada a cada visita; falta somá-la — e é ela que diz para quem ainda vale gastar WhatsApp.',
       },
     ],
   },

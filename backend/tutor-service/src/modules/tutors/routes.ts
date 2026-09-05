@@ -7,6 +7,7 @@ import {
   CreateTutorSchema,
   ListTutorsQuerySchema,
   MergeTutorSchema,
+  PortalAdoptionQuerySchema,
   UpdateAddressSchema,
   UpdateConsentsSchema,
   UpdateTutorSchema,
@@ -24,6 +25,7 @@ import { assignTag, createTag, listTags, removeTag } from '../tags/service.js'
 import { findProbableDuplicates, toSearchKeys } from './dedupe.js'
 import { mergeTutors } from './merge.js'
 import { exportTutor, getTutorOverview } from './overview.js'
+import { portalAdoption } from './portal-adoption.js'
 import {
   anonymizeTutor,
   createTutor,
@@ -92,6 +94,27 @@ export async function registerTutorRoutes(app: FastifyInstance): Promise<void> {
   )
 
   // ─── Tags — antes de `/v1/tutors/:id` para o `tags` não virar um id ─────────
+
+  /**
+   * Adoção do Portal — a faixa do Portal no painel do Início.
+   *
+   * `tenant:configure` é a permissão que liga e desliga o Portal, e adoção é a
+   * pergunta de quem tomou essa decisão. Para o balcão o número não muda nada: quem
+   * atende continua atendendo quem ligou.
+   *
+   * Precisa vir **antes** de `/v1/tutors/:id` no arquivo? Não — o Fastify prefere o
+   * segmento estático ao parâmetro. Fica aqui, junto das outras rotas de coleção, por
+   * leitura.
+   */
+  app.get(
+    '/v1/tutors/reports/portal-adoption',
+    { preHandler: requirePermission('tenant:configure') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      const query = parseInput(PortalAdoptionQuerySchema, request.query)
+      return portalAdoption(auth.tenantId, query.days)
+    },
+  )
 
   app.get('/v1/tutors/tags', { preHandler: requirePermission('tutor:read') }, async (request) => {
     const auth = requireTenantContext(request)

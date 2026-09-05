@@ -1,5 +1,5 @@
 import { withTenant } from '@petshop/db'
-import type { MovementDay } from '@petshop/shared-types'
+import type { BookingSources, MovementDay } from '@petshop/shared-types'
 import type { ActorContext } from '../catalog/actor.js'
 import { addDays, zonedDate, zonedMidnight } from './timezone.js'
 
@@ -60,4 +60,34 @@ export async function getMovement(
   }
 
   return { timezone, days: [...buckets.values()] }
+}
+
+/**
+ * De onde vieram os agendamentos do período — o KPI do Portal no painel do Início.
+ *
+ * Difere de `getMovement` em três coisas, e nenhuma é detalhe. Conta por **data de
+ * criação**, não pela do atendimento: a pergunta é por onde o pedido entrou, e um banho
+ * marcado hoje para o mês que vem já é self-service hoje. **Inclui cancelado e
+ * remarcado**, que o movimento exclui: eles não são trabalho executado, mas foram
+ * pedidos, e é o pedido que se está medindo. E a janela é corrida — 30 dias para trás a
+ * partir de agora —, sem grade de dias, porque o número é uma proporção e não uma série.
+ */
+export async function getBookingSources(
+  tenantId: string,
+  days: number,
+  now: Date = new Date(),
+): Promise<BookingSources> {
+  const to = now
+  const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000)
+
+  const [total, portal] = await withTenant(tenantId, (tx) =>
+    Promise.all([
+      tx.appointment.count({ where: { createdAt: { gte: from, lt: to } } }),
+      tx.appointment.count({
+        where: { createdAt: { gte: from, lt: to }, source: 'PORTAL' },
+      }),
+    ]),
+  )
+
+  return { days, from: from.toISOString(), to: to.toISOString(), total, portal }
 }

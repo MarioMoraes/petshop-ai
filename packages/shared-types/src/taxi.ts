@@ -630,3 +630,48 @@ export const AvailableTaxiDriverSchema = z.object({
   remaining: z.number(),
 })
 export type AvailableTaxiDriver = z.infer<typeof AvailableTaxiDriverSchema>
+
+// ─── Relatório de operação (painel do Início) ────────────────────────────────
+
+export const TaxiOperationReportQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).default(30),
+})
+export type TaxiOperationReportQuery = z.output<typeof TaxiOperationReportQuerySchema>
+
+export const TaxiZoneLegSchema = z.object({
+  zoneId: z.string().nullable(),
+  /** "Fora de zona" quando a corrida foi cotada sem zona — o preço veio do padrão. */
+  zoneName: z.string(),
+  averageMinutes: z.number(),
+  rides: z.number().int(),
+})
+export type TaxiZoneLeg = z.infer<typeof TaxiZoneLegSchema>
+
+/**
+ * Como o leva-e-traz andou no período — os três números do painel do Início.
+ *
+ * A aderência é a **métrica principal do módulo** (§Métricas do PRD): a janela é a
+ * promessa feita ao tutor, e entregar fora dela é quebrar a promessa mesmo quando o pet
+ * chega em casa inteiro. Já existia como linha de log, escrita pelo job de varredura;
+ * aqui ela ganha endereço, porque número que só o log conhece ninguém olha.
+ *
+ * `adherenceRate` e `averageLegMinutes` são **nulos, e não zero**, quando não houve
+ * entrega no período: zero diria que todas atrasaram.
+ */
+export const TaxiOperationReportSchema = z.object({
+  days: z.number().int(),
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  delivered: z.number().int(),
+  onTime: z.number().int(),
+  adherenceRate: z.number().nullable(),
+  failed: z.number().int(),
+  /** Em ordem decrescente: o primeiro é o motivo que mais custou corrida. */
+  failuresByReason: z.array(
+    z.object({ reason: TaxiFailureReasonSchema, count: z.number().int() }),
+  ),
+  averageLegMinutes: z.number().nullable(),
+  /** Da zona mais lenta para a mais rápida — é a lenta que corrige a janela padrão. */
+  legsByZone: z.array(TaxiZoneLegSchema),
+})
+export type TaxiOperationReport = z.infer<typeof TaxiOperationReportSchema>
