@@ -94,6 +94,11 @@ export interface SentCode {
   code: string
 }
 
+/** O código do MOD-PORTAL-09, com o endereço para onde ele realmente saiu. */
+export interface SentContactCode extends SentCode {
+  address: string
+}
+
 /**
  * Dublê da porta de mensageria.
  *
@@ -101,13 +106,34 @@ export interface SentCode {
  * guarda só o hash, e o corpo da mensagem é cifrado com a DEK do tenant. Sem o dublê, o
  * caminho feliz do vínculo não teria como ser exercitado.
  */
-export function captureMessages(): { codes: SentCode[]; welcomes: string[] } {
+export function captureMessages(): {
+  codes: SentCode[]
+  contactCodes: SentContactCode[]
+  welcomes: string[]
+} {
   const codes: SentCode[] = []
+  const contactCodes: SentContactCode[] = []
   const welcomes: string[] = []
 
   setMessagingPort({
     async sendAccessCode(request) {
       codes.push({ tutorId: request.tutorId, channel: request.channel, code: request.code })
+      return true
+    },
+    /**
+     * O código da troca de contato, com o **destino** junto.
+     *
+     * O `address` é o que os testes do AC-02 precisam afirmar: um código que saísse para o
+     * contato antigo passaria por toda a suíte sem falhar nada, e teria destruído a única
+     * prova que a reverificação existe para produzir.
+     */
+    async sendContactCode(request) {
+      contactCodes.push({
+        tutorId: request.tutorId,
+        channel: request.channel,
+        address: request.address,
+        code: request.code,
+      })
       return true
     },
     async sendWelcome(request) {
@@ -116,7 +142,7 @@ export function captureMessages(): { codes: SentCode[]; welcomes: string[] } {
     },
   })
 
-  return { codes, welcomes }
+  return { codes, contactCodes, welcomes }
 }
 
 // ─── Cenário ─────────────────────────────────────────────────────────────────
@@ -1297,6 +1323,17 @@ export interface TutorServiceDouble {
     ipAddress?: string | undefined
     userAgent?: string | undefined
   }[]
+  /**
+   * As escritas de ficha do MOD-PORTAL-09, na ordem em que a porta as recebeu.
+   *
+   * Separadas das transições de consentimento porque respondem a outra pergunta: ali
+   * interessa **o que foi assinado**; aqui, **que a porta foi chamada** — e, nos testes de
+   * campo travado, que ela não foi.
+   */
+  writes: {
+    kind: 'profile' | 'contact' | 'address' | 'deletion' | 'export'
+    tutorId: string
+  }[]
   /** Erro que a próxima gravação deve levantar — é como se exercita a tradução. */
   failWith: AppError | null
 }
@@ -1311,7 +1348,7 @@ export interface TutorServiceDouble {
  * não da resposta da porta.
  */
 export function fakeTutorService(fixture: TenantFixture): TutorServiceDouble {
-  const double: TutorServiceDouble = { calls: [], failWith: null }
+  const double: TutorServiceDouble = { calls: [], writes: [], failWith: null }
 
   setTutorPort({
     async updateMarketingConsent(caller, tutorId, input) {
@@ -1332,6 +1369,224 @@ export function fakeTutorService(fixture: TenantFixture): TutorServiceDouble {
       })
 
       return { current: [], history: [] }
+    },
+
+    async updateOwnProfile(_caller, tutorId, patch) {
+      if (double.failWith) throw double.failWith
+      double.writes.push({ kind: 'profile', tutorId })
+
+      await withTenant(fixture.tenantId, async (tx) => {
+        await tx.tutor.update({
+          where: { id: tutorId },
+          data: {
+            ...(patch.socialName !== undefined ? { socialName: patch.socialName } : {}),
+            ...(patch.birthDate !== undefined
+              ? { birthDate: patch.birthDate ? new Date(patch.birthDate) : null }
+              : {}),
+          },
+        })
+      })
+    },
+
+    /**
+     * Grava o contato **e o hash de busca**, como o tutor-service faria.
+     *
+     * O hash não é detalhe do dublê: é por ele que o MOD-PORTAL-01 encontra a ficha, e um
+     * teste que gravasse só o valor cifrado passaria enquanto o produto real deixaria o
+     * tutor sem conseguir entrar com o telefone que acabou de cadastrar.
+     */
+    async applyContactChange(_caller, tutorId, patch) {
+      if (double.failWith) throw double.failWith
+      double.writes.push({ kind: 'contact', tutorId })
+
+      await withTenant(fixture.tenantId, async (tx) => {
+        const key = await getTenantKey(tx, fixture.tenantId)
+        await tx.tutor.update({
+          where: { id: tutorId },
+          data:
+            'email' in patch
+              ? {
+                  emailEncrypted: encryptWithKey(patch.email, key),
+                  emailHash: hashTutorEmail(patch.email),
+                }
+              : {
+                  phoneEncrypted: encryptWithKey(patch.phone, key),
+                  phoneHash: hashTutorPhone(patch.phone),
+                },
+        })
+      })
+    },
+
+    async addAddress(_caller, tutorId, input) {
+      if (double.failWith) throw double.failWith
+      double.writes.push({ kind: 'address', tutorId })
+
+      return withTenant(fixture.tenantId, async (tx) => {
+        const key = await getTenantKey(tx, fixture.tenantId)
+        const row = await tx.tutorAddress.create({
+          data: {
+            tenantId: fixture.tenantId,
+            tutorId,
+            label: input.label,
+            zipCode: input.zipCode,
+            streetEncrypted: encryptWithKey(input.street, key),
+            numberEncrypted: encryptWithKey(input.number, key),
+            ...(input.complement
+              ? { complementEncrypted: encryptWithKey(input.complement, key) }
+              : {}),
+            district: input.district,
+            city: input.city,
+            state: input.state,
+            ...(input.accessNotes ? { accessNotes: input.accessNotes } : {}),
+            isPrimary: input.isPrimary,
+          },
+        })
+
+        return {
+          id: row.id,
+          label: row.label,
+          zipCode: row.zipCode,
+          street: input.street,
+          number: input.number,
+          complement: input.complement ?? null,
+          district: row.district,
+          city: row.city,
+          state: row.state,
+          latitude: null,
+          longitude: null,
+          accessNotes: row.accessNotes,
+          isPrimary: row.isPrimary,
+        }
+      })
+    },
+
+    async updateAddress(_caller, tutorId, addressId, patch) {
+      if (double.failWith) throw double.failWith
+      double.writes.push({ kind: 'address', tutorId })
+
+      return withTenant(fixture.tenantId, async (tx) => {
+        const key = await getTenantKey(tx, fixture.tenantId)
+        const row = await tx.tutorAddress.update({
+          where: { id: addressId },
+          data: {
+            ...(patch.label !== undefined ? { label: patch.label } : {}),
+            ...(patch.zipCode !== undefined ? { zipCode: patch.zipCode } : {}),
+            ...(patch.street !== undefined
+              ? { streetEncrypted: encryptWithKey(patch.street, key) }
+              : {}),
+            ...(patch.number !== undefined
+              ? { numberEncrypted: encryptWithKey(patch.number, key) }
+              : {}),
+            ...(patch.district !== undefined ? { district: patch.district } : {}),
+            ...(patch.city !== undefined ? { city: patch.city } : {}),
+            ...(patch.state !== undefined ? { state: patch.state } : {}),
+            ...(patch.accessNotes !== undefined ? { accessNotes: patch.accessNotes } : {}),
+            ...(patch.isPrimary !== undefined ? { isPrimary: patch.isPrimary } : {}),
+          },
+        })
+
+        return {
+          id: row.id,
+          label: row.label,
+          zipCode: row.zipCode,
+          street: patch.street ?? '',
+          number: patch.number ?? '',
+          complement: null,
+          district: row.district,
+          city: row.city,
+          state: row.state,
+          latitude: null,
+          longitude: null,
+          accessNotes: row.accessNotes,
+          isPrimary: row.isPrimary,
+        }
+      })
+    },
+
+    /**
+     * Registra o pedido de exclusão como o `privacy.ts` do tutor-service registraria.
+     *
+     * Inclusive o 409 do segundo pedido em aberto: sem ele, o teste do AC-05 provaria só
+     * que a rota responde, e não que a fila da equipe conta uma decisão por ficha.
+     */
+    async requestDeletion(_caller, tutorId, input) {
+      if (double.failWith) throw double.failWith
+      double.writes.push({ kind: 'deletion', tutorId })
+
+      return withTenant(fixture.tenantId, async (tx) => {
+        const aberto = await tx.dataDeletionRequest.findFirst({
+          where: { tutorId, status: 'OPEN' },
+          select: { id: true },
+        })
+        if (aberto) {
+          throw new AppError('ERR_TUTOR_010', 'Esta ficha já tem um pedido de exclusão em análise')
+        }
+
+        const now = new Date()
+        const row = await tx.dataDeletionRequest.create({
+          data: {
+            tenantId: fixture.tenantId,
+            tutorId,
+            reason: input.reason ?? null,
+            dueAt: new Date(now.getTime() + 15 * 24 * 60 * 60_000),
+          },
+        })
+
+        return {
+          id: row.id,
+          tutorId,
+          tutorName: 'Maria Souza',
+          status: row.status,
+          reason: row.reason,
+          requestedAt: row.createdAt.toISOString(),
+          dueAt: row.dueAt.toISOString(),
+          respondedAt: null,
+          resolution: null,
+          balanceCents: 0,
+        }
+      })
+    },
+
+    /**
+     * A exportação do AC-04.
+     *
+     * O dublê devolve o essencial e **marca a chamada**: o que os testes precisam afirmar é
+     * que o Portal delegou ao tutor-service — é lá que a leitura vira `tutor.exported` na
+     * trilha, e é essa linha que prova o exercício do direito de acesso.
+     */
+    async exportOwnData(_caller, tutorId) {
+      if (double.failWith) throw double.failWith
+      double.writes.push({ kind: 'export', tutorId })
+
+      return withTenant(fixture.tenantId, async (tx) => {
+        const tutor = await tx.tutor.findFirstOrThrow({
+          where: { id: tutorId },
+          select: { id: true, fullName: true, status: true, createdAt: true },
+        })
+
+        return {
+          exportedAt: new Date().toISOString(),
+          tutor: {
+            id: tutor.id,
+            personType: 'PF' as const,
+            fullName: tutor.fullName,
+            socialName: null,
+            legalName: null,
+            cpf: null,
+            cnpj: null,
+            phone: null,
+            phoneAlt: null,
+            email: null,
+            birthDate: null,
+            notes: null,
+            status: tutor.status,
+            createdAt: tutor.createdAt.toISOString(),
+          },
+          addresses: [],
+          consents: [],
+          tags: [],
+        }
+      })
     },
   })
 

@@ -143,6 +143,22 @@ export const EnqueueMessageSchema = z.object({
    * precisa furá-la usa `OPERATIONAL`, e isso é decisão do texto, não de quem o dispara.
    */
   urgent: z.boolean().default(false),
+  /**
+   * Manda para **este** endereço, e não para o que está na ficha do tutor.
+   *
+   * Existe por um caso só, e é o que justifica a exceção: o MOD-PORTAL-09 precisa provar
+   * que o tutor possui o telefone ou o e-mail **novo**, e um código enviado ao contato
+   * antigo não prova nada. O endereço ainda não está gravado em lugar nenhum quando a
+   * mensagem sai — se estivesse, a prova viria depois do fato que ela deveria autorizar.
+   *
+   * O que impede isto de virar "mandar mensagem para qualquer um": o serviço só o honra
+   * com `channel` explícito e **nunca** para texto de categoria `MARKETING`. A lista de
+   * supressão continua valendo, porque ela é do endereço e não da ficha — quem pediu
+   * para não receber e-mail nosso não passa a receber por estar digitando o próprio
+   * endereço numa tela nossa. O consentimento de marketing, esse, não se aplica: o que
+   * atravessa aqui é execução de contrato, e o tutor acabou de pedir.
+   */
+  overrideAddress: z.string().min(3).max(160).optional(),
 })
 export type EnqueueMessageInput = z.output<typeof EnqueueMessageSchema>
 

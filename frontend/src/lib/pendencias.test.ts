@@ -7,7 +7,13 @@ import { montarPendencias } from './pendencias'
  * que não há inadimplente nenhum.
  */
 describe('montarPendencias', () => {
-  const nada = { aprovacoes: null, leads: null, mensagens: null, inadimplentes: null }
+  const nada = {
+    aprovacoes: null,
+    exclusoes: null,
+    leads: null,
+    mensagens: null,
+    inadimplentes: null,
+  }
 
   it('não mostra linha para contagem zero — ausência de trabalho não é aviso', () => {
     expect(montarPendencias({ ...nada, leads: 0, mensagens: 0, inadimplentes: 0 })).toEqual([])
@@ -26,14 +32,21 @@ describe('montarPendencias', () => {
   it('conta cada fonte na sua própria linha, na ordem do fluxo de trabalho', () => {
     const linhas = montarPendencias({
       aprovacoes: { count: 4, nextDate: '2026-09-10' },
+      exclusoes: 1,
       leads: 3,
       mensagens: 2,
       inadimplentes: 1,
     })
-    // A triagem do Portal abre a lista: é a única com prazo — o horário reservado
-    // expira em 24h e leva o cliente junto.
+    /**
+     * As duas com prazo abrem a lista, na ordem em que apertam.
+     *
+     * A triagem do Portal primeiro: o horário reservado expira em 24h e leva o cliente
+     * junto. O pedido de exclusão logo depois: o prazo dele é de quinze dias, mas é de
+     * **lei** — contato do site e inadimplente esperam sem estragar.
+     */
     expect(linhas.map((l) => l.key)).toEqual([
       'aprovacoes',
+      'exclusoes',
       'leads',
       'mensagens',
       'inadimplentes',
@@ -72,12 +85,16 @@ describe('montarPendencias', () => {
   it('aponta cada linha para a tela que resolve a pendência, já filtrada', () => {
     const linhas = montarPendencias({
       aprovacoes: { count: 1, nextDate: '2026-09-10' },
+      exclusoes: 1,
       leads: 1,
       mensagens: 1,
       inadimplentes: 1,
     })
     expect(linhas.map((l) => l.href)).toEqual([
       '/agenda/dia?date=2026-09-10',
+      // A aba já selecionada: sem o `?aba=`, o clique cairia em "Dados" e o contador
+      // teria prometido um destino para entregar outro.
+      '/configuracoes?aba=privacidade',
       '/site/contatos?status=NEW',
       '/crm?status=DEAD',
       '/tutores?tag=INADIMPLENTE',

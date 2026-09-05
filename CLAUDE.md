@@ -23,6 +23,8 @@ antes de propor uma alternativa visual.
 
 A referência viva é `frontend/src/app/(admin)/tutores/tutor-form.tsx`.
 
-`src/app` tem dois raízes: `(admin)`, com o `ClerkProvider` e as telas de equipe, e
-`(site)`, que serve a página pública do petshop sem carregar identidade nenhuma. O grupo
-entre parênteses não vira segmento de URL.
+`src/app` tem **três** raízes: `(admin)`, com o `ClerkProvider` e as telas de equipe;
+`(site)`, que serve a página pública do petshop sem carregar identidade nenhuma; e
+`(portal)`, a superfície do cliente final, com o `ClerkProvider` da **mesma** instância do
+Admin — o que separa as duas sessões é a resolução do papel, e não o provedor de
+identidade. O grupo entre parênteses não vira segmento de URL.

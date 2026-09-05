@@ -147,7 +147,9 @@ model Tenant {
   sitePhotos SitePhoto[]
   siteLeads  SiteLead[]
 
-  portalChallenges PortalLinkChallenge[]
+  portalChallenges     PortalLinkChallenge[]
+  portalContactChanges PortalContactChange[]
+  deletionRequests     DataDeletionRequest[]
 
   @@index([status])
   @@map("tenants")
@@ -552,7 +554,9 @@ model Tutor {
   ledgerAccounts LedgerAccount[]
   messages       Message[]
 
-  portalChallenges PortalLinkChallenge[]
+  portalChallenges     PortalLinkChallenge[]
+  portalContactChanges PortalContactChange[]
+  deletionRequests     DataDeletionRequest[]
 
   mergedInto Tutor?  @relation("TutorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom Tutor[] @relation("TutorMerge")
@@ -3020,4 +3024,112 @@ model PortalLinkChallenge {
 
   @@index([tenantId, identifierHash, createdAt(sort: Desc)], map: "idx_portal_challenges_tenant_identifier")
   @@map("portal_link_challenges")
+}
+
+/// O campo de contato cuja troca exige prova de posse (MOD-PORTAL-09, AC-02).
+enum PortalContactField {
+  PHONE
+  EMAIL
+}
+
+/// A troca de telefone ou e-mail que ainda não aconteceu.
+///
+/// **Tabela própria, e não uma variante de `portal_link_challenges`.** As duas mandam um
+/// código de seis dígitos e param por aí. O desafio de vínculo é construído inteiro em
+/// torno da resposta uniforme do RN-04 — ele grava linha para identificador que não casa
+/// com ficha nenhuma, justamente para que o silêncio não denuncie quem é cliente. Aqui
+/// não há nada a esconder: quem pede já está autenticado e já é dono da ficha. Juntar as
+/// duas obrigaria cada consulta a lembrar de qual `purpose` está lendo, e o dia em que
+/// alguém esquecesse, um desafio de troca responderia como desafio de acesso.
+///
+/// O valor pendente é **cifrado**, e não hasheado como o identificador do vínculo: ele
+/// precisa ser lido de volta para virar o telefone da ficha quando o código confere. O
+/// hash ao lado existe para outra pergunta — se este contato já é de outra ficha —, e é
+/// o mesmo `hashSearchable` que o tutor-service grava, senão a comparação nunca casaria.
+model PortalContactChange {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  /// Sempre presente, ao contrário do desafio de vínculo: aqui se sabe de quem é.
+  tutorId  String @map("tutor_id") @db.Uuid
+
+  field   PortalContactField
+  /// Por onde o código saiu. Decorre de `field`, e fica gravado porque é o que
+  /// aconteceu — o mapa pode mudar, a linha antiga não.
+  channel PortalChannel
+
+  /// O valor novo, com a DEK do tenant. Só vira contato da ficha depois do código.
+  pendingValueEncrypted String @map("pending_value_encrypted")
+  /// `hashSearchable('tutor:phone' | 'tutor:email', …)` — para a checagem de duplicata.
+  pendingValueHash      String @map("pending_value_hash")
+
+  /// HMAC do código, com o id da linha no namespace, como no desafio de vínculo.
+  codeHash String @map("code_hash")
+
+  attempts Int     @default(0) @db.SmallInt
+  blocked  Boolean @default(false)
+
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+
+  ipAddress String?  @map("ip_address") @db.Inet
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tutor  Tutor  @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, tutorId, createdAt(sort: Desc)], map: "idx_portal_contact_changes_tutor")
+  @@map("portal_contact_changes")
+}
+
+enum DataDeletionRequestStatus {
+  OPEN
+  DONE
+  REJECTED
+}
+
+/// O pedido de exclusão de dados do titular (LGPD art. 18, V; AC-05 de MOD-PORTAL-09).
+///
+/// **É pedido, e não execução.** A anonimização do MOD-SEC apaga a ficha de alguém que
+/// pode ter débito aberto e nota fiscal com prazo de guarda — a decisão precisa de gente,
+/// e o que o Portal faz é registrar e cobrar o prazo.
+///
+/// A linha existe porque registrar num log não é encaminhar: o pedido só chega à equipe
+/// se houver fila que alguém veja, e é ela que o sino da topbar conta. `due_at` é gravado
+/// no pedido em vez de calculado na leitura para que o prazo não mude se a regra mudar —
+/// o que foi prometido ao titular naquele dia foi aquilo.
+///
+/// `ip_address` e `user_agent` são **prova** de quem pediu, pela mesma razão de
+/// `tutor_consents`: um pedido de exclusão contestado depois precisa mostrar de onde veio.
+model DataDeletionRequest {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  tutorId  String @map("tutor_id") @db.Uuid
+
+  status DataDeletionRequestStatus @default(OPEN)
+
+  /// O que o titular escreveu, sem obrigação de escrever nada. Em claro, como
+  /// `tutors.notes`: é texto de trabalho da equipe, e cifrá-lo esconderia da fila o que
+  /// a fila existe para ler.
+  reason String?
+
+  /// Quinze dias a partir do pedido (art. 19, II), congelado na criação.
+  dueAt DateTime @map("due_at") @db.Timestamptz(6)
+
+  respondedAt DateTime? @map("responded_at") @db.Timestamptz(6)
+  respondedBy String?   @map("responded_by") @db.Uuid
+  /// O que a equipe respondeu. O titular lê esta frase no Portal.
+  resolution  String?
+
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tutor  Tutor  @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, dueAt], map: "idx_deletion_requests_tenant_status")
+  @@index([tutorId, createdAt(sort: Desc)], map: "idx_deletion_requests_tutor")
+  @@map("data_deletion_requests")
 }

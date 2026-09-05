@@ -80,6 +80,13 @@ export function blockedByConsent(detail: string): AppError {
   return new AppError('ERR_TUTOR_009', detail)
 }
 
+/** AC-05 de MOD-PORTAL-09: a ficha já tem um pedido de exclusão esperando decisão. */
+export function deletionRequestPending(
+  detail = 'Esta ficha já tem um pedido de exclusão em análise',
+): AppError {
+  return new AppError('ERR_TUTOR_010', detail)
+}
+
 export function registerErrorHandler(app: FastifyInstance): void {
   registerKitErrorHandler(app, { logger, validationError, notFound })
 }

@@ -17,13 +17,25 @@ export async function carregarPendencias(me: MeResponse): Promise<ContagemPenden
   const agora = new Date()
   const desde = new Date(agora.getTime() - JANELA_HORAS * 60 * 60 * 1000)
 
-  const [aprovacoes, leads, mensagens, inadimplentes] = await Promise.all([
+  const [aprovacoes, exclusoes, leads, mensagens, inadimplentes] = await Promise.all([
     /*
      * `schedule:read_all` e não `schedule:write_all`: quem só lê a agenda ainda
      * precisa saber que há pedido parado — é a recepção que vai chamar quem aprova.
      */
     pode('schedule:read_all')
       ? api.countPendingApprovals().catch(() => null)
+      : Promise.resolve(null),
+
+    /*
+     * `tutor:delete` e não `tutor:read`: a fila é uma lista de decisões sobre apagar
+     * cadastro, e o gate do serviço é o mesmo da anonimização. Mostrá-la a quem não pode
+     * decidir produziria uma pendência que a pessoa vê e não resolve.
+     */
+    pode('tutor:delete')
+      ? api
+          .countDeletionRequests()
+          .then((r) => r.total)
+          .catch(() => null)
       : Promise.resolve(null),
 
     pode('site:read_leads')
@@ -60,5 +72,5 @@ export async function carregarPendencias(me: MeResponse): Promise<ContagemPenden
       : Promise.resolve(null),
   ])
 
-  return { aprovacoes, leads, mensagens, inadimplentes }
+  return { aprovacoes, exclusoes, leads, mensagens, inadimplentes }
 }

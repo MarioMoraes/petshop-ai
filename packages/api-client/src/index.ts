@@ -5,6 +5,9 @@ import {
   CheckDuplicatesResultSchema,
   CoatSchema,
   ConsentsResponseSchema,
+  DeletionRequestCountSchema,
+  DeletionRequestListResponseSchema,
+  DeletionRequestResponseSchema,
   MeResponseSchema,
   OnboardingStateSchema,
   PaginatedPetsSchema,
@@ -164,6 +167,9 @@ import {
   type AddressInput,
   type AddressResponse,
   type AnonymizeTutorInput,
+  type CreateDeletionRequestInput,
+  type DeletionRequestListQuery,
+  type ResolveDeletionRequestInput,
   type Breed,
   type CepLookup,
   type Coat,
@@ -656,6 +662,46 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'POST',
         path: `/v1/tutors/${targetId}/merge`,
         body: input,
+      }),
+
+    // ─── Pedidos de exclusão de dados (LGPD art. 18, V) ────────────────────
+
+    /**
+     * A fila da equipe. Gate `tutor:delete` no serviço, o mesmo da anonimização.
+     *
+     * **Responder um pedido não apaga a ficha**: quem anonimiza continua sendo
+     * `anonymizeTutor`, com as travas de débito aberto e agenda futura que ele tem.
+     */
+    listDeletionRequests: (query: Partial<DeletionRequestListQuery> = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/tutors/deletion-requests${toQueryString(query)}`,
+        schema: DeletionRequestListResponseSchema,
+      }),
+
+    /** Só o número, para o sino. Ler pela listagem traria nome e saldo de cada ficha. */
+    countDeletionRequests: () =>
+      request({
+        method: 'GET',
+        path: '/v1/tutors/deletion-requests/count',
+        schema: DeletionRequestCountSchema,
+      }),
+
+    resolveDeletionRequest: (id: string, input: ResolveDeletionRequestInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/tutors/deletion-requests/${id}/resolve`,
+        body: input,
+        schema: DeletionRequestResponseSchema,
+      }),
+
+    /** O balcão registra o pedido que o tutor fez por telefone. Gate `tutor:update`. */
+    requestTutorDeletion: (id: string, input: CreateDeletionRequestInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/tutors/${id}/deletion-request`,
+        body: input,
+        schema: DeletionRequestResponseSchema,
       }),
 
     checkDuplicates: (input: CheckDuplicatesInput) =>

@@ -6,10 +6,12 @@ import {
   BrandingSchema,
   BusinessHoursSchema,
   CreateBreedSchema,
+  ResolveDeletionRequestSchema,
   UpdateTenantSchema,
   UpdateTenantSettingsSchema,
   type Breed,
   type CepLookup,
+  type DeletionRequestResponse,
   type ManagedBreed,
   type TenantResponse,
   type TenantSettings,
@@ -238,6 +240,35 @@ export async function deleteBreedAction(breedId: string): Promise<ActionResult<n
     await serverApi().deleteBreed(breedId)
     revalidateCatalog()
     return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Pedidos de exclusão de dados (LGPD art. 18, V) ──────────────────────────
+
+/**
+ * A resposta da equipe ao titular (AC-05 de MOD-PORTAL-09).
+ *
+ * **Não anonimiza nada.** Marcar como atendido registra o desfecho e a frase que o tutor
+ * vai ler no Portal; apagar a ficha continua sendo a ação própria, com as travas de débito
+ * aberto e agenda futura que ela tem. Ligar as duas faria um clique nesta fila apagar o
+ * cadastro de quem deve dinheiro ao petshop e tem nota fiscal em prazo de guarda.
+ */
+export async function resolveDeletionRequestAction(
+  requestId: string,
+  input: unknown,
+): Promise<ActionResult<DeletionRequestResponse>> {
+  const parsed = ResolveDeletionRequestSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const pedido = await serverApi().resolveDeletionRequest(requestId, parsed.data)
+    // O sino da topbar conta esta fila, e ele é resolvido no servidor a cada navegação:
+    // sem revalidar, o número continuaria contando o pedido que acabou de ser respondido.
+    revalidatePath('/configuracoes')
+    revalidatePath('/dashboard')
+    return { ok: true, data: pedido }
   } catch (error) {
     return toFailure(error)
   }

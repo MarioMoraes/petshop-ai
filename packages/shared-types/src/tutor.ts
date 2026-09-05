@@ -530,3 +530,89 @@ export const PortalAdoptionSchema = z.object({
   }),
 })
 export type PortalAdoption = z.infer<typeof PortalAdoptionSchema>
+
+// ─── Pedido de exclusão de dados (LGPD art. 18, V) ───────────────────────────
+
+/**
+ * O estado de um pedido do titular.
+ *
+ * Três, e não quatro: não existe "em andamento". A equipe ou concluiu a anonimização ou
+ * recusou com um motivo, e um estado intermediário só serviria para dizer que alguém
+ * abriu a tela — o prazo do art. 19 corre igual, e a fila mediria trabalho pela intenção
+ * em vez de pelo resultado.
+ */
+export const DeletionRequestStatusSchema = z.enum(['OPEN', 'DONE', 'REJECTED'])
+export type DeletionRequestStatus = z.infer<typeof DeletionRequestStatusSchema>
+
+/**
+ * O pedido, como a fila da equipe o vê.
+ *
+ * `tutorName` desce junto porque a tela é uma lista de decisões sobre pessoas, e um id
+ * não decide nada — sem o nome, cada linha exigiria abrir a ficha para saber de quem se
+ * trata. `balanceCents` desce pelo mesmo motivo, e é o dado que muda a resposta: uma
+ * ficha com débito aberto não pode ser anonimizada, e quem decide precisa ver isso na
+ * própria linha em vez de descobrir depois de prometer.
+ */
+export const DeletionRequestResponseSchema = z.object({
+  id: z.uuid(),
+  tutorId: z.uuid(),
+  tutorName: z.string(),
+  status: DeletionRequestStatusSchema,
+  reason: z.string().nullable(),
+  requestedAt: z.iso.datetime(),
+  dueAt: z.iso.datetime(),
+  respondedAt: z.iso.datetime().nullable(),
+  resolution: z.string().nullable(),
+  /** Negativo é dívida, como em todo o sistema (RN-02 do MOD-LEDGER). */
+  balanceCents: z.number().int(),
+})
+export type DeletionRequestResponse = z.infer<typeof DeletionRequestResponseSchema>
+
+/** Só o número de pedidos em aberto, para o sino da topbar. */
+export const DeletionRequestCountSchema = z.object({
+  total: z.number().int(),
+})
+export type DeletionRequestCount = z.infer<typeof DeletionRequestCountSchema>
+
+export const DeletionRequestListQuerySchema = z.object({
+  status: DeletionRequestStatusSchema.optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+})
+export type DeletionRequestListQuery = z.output<typeof DeletionRequestListQuerySchema>
+
+export const DeletionRequestListResponseSchema = z.object({
+  items: z.array(DeletionRequestResponseSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  limit: z.number().int(),
+})
+export type DeletionRequestListResponse = z.infer<typeof DeletionRequestListResponseSchema>
+
+/** O que o titular manda ao pedir. A justificativa é opcional — a lei não a exige. */
+export const CreateDeletionRequestSchema = z
+  .object({
+    reason: z.string().max(500).optional(),
+  })
+  .strict()
+export type CreateDeletionRequestInput = z.output<typeof CreateDeletionRequestSchema>
+
+/**
+ * A resposta da equipe.
+ *
+ * `resolution` é **obrigatório nos dois desfechos**, e não só na recusa. O titular lê
+ * esta frase no Portal: um "concluído" sem palavra nenhuma deixa quem pediu sem saber o
+ * que sobrou da ficha dele — e a obrigação de informar (art. 18, §6º) não distingue
+ * entre atender e negar.
+ *
+ * **Marcar `DONE` aqui não anonimiza nada.** A anonimização continua sendo o
+ * `POST /v1/tutors/:id/anonymize`, com as suas próprias travas de histórico financeiro.
+ * Separar as duas é o que impede um clique na fila de apagar uma ficha com débito aberto.
+ */
+export const ResolveDeletionRequestSchema = z
+  .object({
+    outcome: z.enum(['DONE', 'REJECTED']),
+    resolution: z.string().min(3).max(1000),
+  })
+  .strict()
+export type ResolveDeletionRequestInput = z.output<typeof ResolveDeletionRequestSchema>

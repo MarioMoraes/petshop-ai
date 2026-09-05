@@ -10,6 +10,7 @@ import { recordAudit } from '../../lib/audit.js'
 import { publishEvent } from '../../lib/events.js'
 import { logger } from '../../lib/logger.js'
 import {
+  invalid,
   invalidTransition,
   messagingDisabled,
   notFound,
@@ -19,7 +20,7 @@ import { tenantOptions, type ActorContext } from './actor.js'
 import { openCipher, type MessageCipher } from './crypto.js'
 import { dispatchTenant } from './dispatch.js'
 import { render } from './render.js'
-import { resolveDelivery } from './recipient.js'
+import { resolveDelivery, resolveOverrideDelivery } from './recipient.js'
 import { resolveTemplate } from './templates.js'
 import { loadSettings } from './settings.js'
 import { nextOpening } from './window.js'
@@ -151,6 +152,33 @@ export async function enqueueMessage(
   }
   const category: MessageCategory = definition.category
 
+  /**
+   * As duas guardas do destino imposto (ver `resolveOverrideDelivery`).
+   *
+   * Ficam aqui, antes da transação, porque são erro **do chamador** e não estado do
+   * tenant: quem pediu para mandar promoção a um endereço fora da ficha errou o pedido,
+   * e a resposta certa é 422 e não uma mensagem `BLOCKED` que ninguém vai investigar.
+   *
+   * `MARKETING` é a linha que não se cruza. Sem ela, este campo seria um caminho para
+   * enviar oferta a qualquer endereço digitado, sem consentimento e sem ficha — o
+   * contrário exato do que o MOD-CRM defende.
+   *
+   * **Hoje essa primeira guarda não tem como disparar**, e é de propósito que ela exista
+   * assim mesmo: o catálogo de `messaging-seed.ts` ainda não tem nenhum texto
+   * `MARKETING` — eles chegam com a fatia 3 do MOD-CRM (campanhas, aniversário, régua de
+   * cobrança) —, e `findTemplateDefinition` recusa o que não está nele. No dia em que o
+   * primeiro chegar, a guarda passa a valer sozinha. Escrevê-la depois exigiria alguém
+   * lembrar deste arquivo enquanto escreve outro.
+   */
+  if (input.overrideAddress) {
+    if (category === 'MARKETING') {
+      throw invalid('Texto de marketing não pode ser enviado para um contato fora da ficha')
+    }
+    if (input.channel === 'AUTO') {
+      throw invalid('Informe o canal ao enviar para um contato fora da ficha')
+    }
+  }
+
   // Explícito pela mesma razão do `dispatch.ts`: as duas saídas — já existia, ou
   // acabou de nascer — não têm os mesmos campos, e a união inferida os tornaria todos
   // opcionais.
@@ -183,12 +211,20 @@ export async function enqueueMessage(
       if (existing) return { id: existing.id, status: existing.status, duplicate: true }
 
       const cipher = await openCipher(tx, actor.tenantId)
-      const decision = await resolveDelivery(tx, cipher, {
-        tenantId: actor.tenantId,
-        tutorId: input.tutorId,
-        preference: input.channel === 'AUTO' ? settings.defaultChannel : input.channel,
-        category,
-      })
+      const decision = input.overrideAddress
+        ? await resolveOverrideDelivery(tx, {
+            tenantId: actor.tenantId,
+            // O `input.channel !== 'AUTO'` já foi exigido acima; o `as` só convence o
+            // compilador do que a guarda garantiu.
+            channel: input.channel as MessageChannel,
+            address: input.overrideAddress,
+          })
+        : await resolveDelivery(tx, cipher, {
+            tenantId: actor.tenantId,
+            tutorId: input.tutorId,
+            preference: input.channel === 'AUTO' ? settings.defaultChannel : input.channel,
+            category,
+          })
 
       const channel: MessageChannel = decision.ok ? decision.delivery.channel : decision.channel
       const address = decision.ok ? decision.delivery.address : ''
@@ -230,9 +266,15 @@ export async function enqueueMessage(
        * Portal exige. Absorver um código de seis dígitos dentro de outro texto o
        * entrega no meio de um lembrete de banho — quando entrega; a irmã pode estar
        * agendada para depois de ele expirar.
+       *
+       * `overrideAddress` sai pelo motivo mais duro dos dois: a irmã está endereçada ao
+       * contato **da ficha**, e este texto vai para outro. Agrupar mandaria o código do
+       * telefone novo para o telefone antigo, que é a única entrega capaz de aprovar a
+       * troca sem prova nenhuma. Hoje nenhum chamador chega aqui — o único texto que usa
+       * o campo é `urgent` —, e a guarda existe para o segundo.
        */
       const absorbedBy =
-        blocked || input.urgent
+        blocked || input.urgent || input.overrideAddress
           ? null
           : await absorbIntoRecent(tx, cipher, {
               tenantId: actor.tenantId,

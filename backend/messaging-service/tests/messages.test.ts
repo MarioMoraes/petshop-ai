@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { withTenant } from '@petshop/db'
+import { hashSearchable, withTenant } from '@petshop/db'
 import {
   asAdmin,
   asReceptionist,
@@ -297,5 +297,87 @@ describe('permissões (§9)', () => {
 
     expect(response.statusCode).toBe(403)
     expect(response.json().code).toBe('ERR_CRM_012')
+  })
+})
+
+/**
+ * O destino imposto (`overrideAddress`) — MOD-PORTAL-09, AC-02.
+ *
+ * O campo existe por um caso só: provar que o tutor possui o telefone ou o e-mail
+ * **novo**, que ainda não está na ficha. O risco que ele cria é evidente — um caminho
+ * para mandar mensagem a qualquer endereço digitado —, e o que o contém são as guardas
+ * exercitadas aqui.
+ */
+describe('destino imposto pelo chamador', () => {
+  it('manda para o endereço pedido, e não para o da ficha', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture, { email: 'antigo@exemplo.com' })
+
+    const response = await enqueue(tutorId, {
+      templateKey: 'portal_codigo_contato',
+      channel: 'EMAIL',
+      overrideAddress: 'novo@exemplo.com',
+      variables: { 'portal.codigo': '123456' },
+      urgent: true,
+      dedupeKey: `contato:${tutorId}`,
+    })
+
+    expect(response.statusCode).toBe(202)
+    const message = await withTenant(fixture.tenantId, (tx) =>
+      tx.message.findUniqueOrThrow({ where: { id: response.json().id } }),
+    )
+
+    /**
+     * A asserção que justifica o campo inteiro.
+     *
+     * Se a cascata comum tivesse resolvido o destino, o código sairia para o contato
+     * antigo — provando a posse justamente do endereço que está sendo trocado, e
+     * aprovando a troca com prova nenhuma.
+     */
+    expect(message.status).not.toBe('BLOCKED')
+    expect(message.toHash).toBe(hashSearchable('messaging:email', 'novo@exemplo.com'))
+  })
+
+  it('recusa o destino imposto sem canal explícito', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture)
+
+    const response = await enqueue(tutorId, {
+      templateKey: 'portal_codigo_contato',
+      overrideAddress: 'novo@exemplo.com',
+      variables: { 'portal.codigo': '123456' },
+      dedupeKey: `contato:${tutorId}`,
+    })
+
+    // Sem canal, `AUTO` escolheria pela ficha — e cairia no contato antigo.
+    expect(response.statusCode).toBe(422)
+  })
+
+  it('respeita a supressão: quem pediu para não receber continua sem receber', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture)
+    await callApi({
+      ...asAdmin(fixture),
+      method: 'POST',
+      url: '/v1/messaging/suppressions',
+      payload: { channel: 'EMAIL', address: 'novo@exemplo.com', reason: 'HARD_BOUNCE' },
+    })
+
+    const response = await enqueue(tutorId, {
+      templateKey: 'portal_codigo_contato',
+      channel: 'EMAIL',
+      overrideAddress: 'novo@exemplo.com',
+      variables: { 'portal.codigo': '123456' },
+      urgent: true,
+      dedupeKey: `contato:${tutorId}`,
+    })
+
+    // A supressão é do endereço, não da ficha: ninguém volta a receber por alguém ter
+    // digitado o endereço dele numa tela nossa.
+    const message = await withTenant(fixture.tenantId, (tx) =>
+      tx.message.findUniqueOrThrow({ where: { id: response.json().id } }),
+    )
+    expect(message.status).toBe('BLOCKED')
+    expect(message.blockReason).toBe('SUPPRESSED')
   })
 })

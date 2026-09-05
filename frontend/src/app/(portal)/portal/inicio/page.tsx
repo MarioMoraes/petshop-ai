@@ -82,6 +82,14 @@ export default async function PortalInicioPage() {
           <Link href="/portal/mensagens" className="btn btn-ghost w-full">
             Mensagens
           </Link>
+          {/*
+            "Meus dados" é o último da lista, e não por ordem de chegada: é o que se abre
+            quando alguma coisa está errada, e não o que se vem fazer. Marcar horário
+            continua no topo.
+          */}
+          <Link href="/portal/dados" className="btn btn-ghost w-full">
+            Meus dados
+          </Link>
 
           {/*
             O "Sair" fecha a lista, no mesmo botão fantasma dos outros.

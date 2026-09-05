@@ -4,13 +4,19 @@ import {
   PortalAvailabilityQuerySchema,
   PortalBookingSchema,
   PortalCancelSchema,
+  PortalAddressInputSchema,
   PortalChallengeSchema,
+  PortalContactChangeSchema,
+  PortalContactVerifySchema,
+  PortalDeletionRequestInputSchema,
   PortalMessagesQuerySchema,
   PortalRescheduleSchema,
   PortalStatementQuerySchema,
   PortalTimelineQuerySchema,
   PortalVerifySchema,
   UpdateOwnPetSchema,
+  UpdateOwnTutorSchema,
+  UpdatePortalAddressSchema,
   UpdatePortalPreferenceSchema,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
@@ -34,11 +40,20 @@ import {
 } from './appointments.js'
 import { createBooking, listBookableServices, readAvailability } from './booking.js'
 import { readOwnFinance, readOwnReceipt, readOwnStatement } from './finance.js'
+import { requestContactChange, verifyContactChange } from './contact-change.js'
 import { readPortalContext, readPortalTenant, touchLastSeen } from './me.js'
+import {
+  addOwnAddress,
+  readOwnData,
+  requestOwnDeletion,
+  updateOwnAddress,
+  updateOwnProfile,
+} from './me-data.js'
 import { listOwnMessages } from './messages.js'
 import { listOwnPets, readOwnPet, updateOwnPet } from './pets.js'
 import { readOwnPreferences, updateOwnPreference } from './preferences.js'
 import { readTaxiOffer } from './taxi.js'
+import { getTutorPort, type TutorCaller } from './tutor-port.js'
 import { readOwnPetTimeline } from './timeline.js'
 import { verifyChallenge } from './verify.js'
 
@@ -83,6 +98,25 @@ function callerOf(request: FastifyRequest): SchedulingCaller {
     tenantId: auth.tenantId,
     clerkUserId: auth.clerkUserId,
     userId: auth.userId ?? undefined,
+  }
+}
+
+/**
+ * Quem o BFF diz ser ao **escrever** na ficha, pela porta do tutor-service.
+ *
+ * Difere de `callerOf` em duas coisas, e as duas são prova e não log: o IP e o user agent
+ * viajam junto, porque `tutor_consents` e `data_deletion_requests` os guardam como
+ * evidência de quem consentiu e de quem pediu. Sem eles, a linha registraria o endereço do
+ * contêiner do BFF — uma prova que aponta para nós mesmos.
+ */
+function tutorCallerOf(request: FastifyRequest): TutorCaller {
+  const auth = requireTenantContext(request)
+  return {
+    tenantId: auth.tenantId,
+    clerkUserId: auth.clerkUserId,
+    userId: auth.userId ?? undefined,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'],
   }
 }
 
@@ -420,6 +454,148 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
         tutorId,
         paymentId,
       )
+    },
+  )
+
+  // ─── MOD-PORTAL-09 — Meus Dados ────────────────────────────────────────────
+
+  /**
+   * A ficha, como o titular a vê.
+   *
+   * `tutor:read_own`, a mesma permissão das preferências: é a ficha do tutor, e não um
+   * módulo à parte. O recorte do que desce está em `me-data.ts`.
+   */
+  app.get(
+    '/portal/v1/me/data',
+    { preHandler: requirePermission('tutor:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      return readOwnData(tenantId, tutorId)
+    },
+  )
+
+  /**
+   * AC-01 e AC-03 — o que o tutor muda sozinho.
+   *
+   * O 422 de CPF, de nome civil, de telefone e de e-mail nasce do `UpdateOwnTutorSchema`,
+   * aqui no `parseInput`: o schema é `.strict()` e declara dois campos. É o mesmo desenho
+   * dos campos travados do MOD-PORTAL-03 — a trava é o contrato, não uma checagem que a
+   * próxima rota possa esquecer de repetir.
+   */
+  app.patch(
+    '/portal/v1/me/data',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request) => {
+      const { tutorId } = requireOwnScope(request)
+      const patch = parseInput(UpdateOwnTutorSchema, request.body)
+      return updateOwnProfile(tutorCallerOf(request), tutorId, patch)
+    },
+  )
+
+  app.post(
+    '/portal/v1/me/addresses',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request, reply) => {
+      const { tutorId } = requireOwnScope(request)
+      const input = parseInput(PortalAddressInputSchema, request.body)
+      const data = await addOwnAddress(tutorCallerOf(request), tutorId, input)
+      return reply.status(201).send(data)
+    },
+  )
+
+  /** AC-01 — mudar de casa. O endereço novo não altera corrida de taxi já criada. */
+  app.patch(
+    '/portal/v1/me/addresses/:addressId',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request) => {
+      const { tutorId } = requireOwnScope(request)
+      const { addressId } = request.params as { addressId: string }
+      const patch = parseInput(UpdatePortalAddressSchema, request.body)
+      return updateOwnAddress(tutorCallerOf(request), tutorId, addressId, patch)
+    },
+  )
+
+  /**
+   * AC-02 — pedir o código que confirma um telefone ou e-mail novo.
+   *
+   * **202, e não 201.** O que a rota promete é que o código saiu, e o envio é assíncrono:
+   * um 201 diria que existe um recurso pronto para consultar, e o único recurso é um
+   * desafio que a pessoa nem sabe se recebeu.
+   */
+  app.post(
+    '/portal/v1/me/contact',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request, reply) => {
+      const { tutorId } = requireOwnScope(request)
+      const input = parseInput(PortalContactChangeSchema, request.body)
+
+      const response = await requestContactChange({
+        actor: actorOf(request),
+        caller: tutorCallerOf(request),
+        tutorId,
+        input,
+      })
+      return reply.status(202).send(response)
+    },
+  )
+
+  /** AC-02 — o código confere: só agora o contato entra na ficha. */
+  app.post(
+    '/portal/v1/me/contact/verify',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request) => {
+      const { tutorId } = requireOwnScope(request)
+      const input = parseInput(PortalContactVerifySchema, request.body)
+
+      return verifyContactChange({
+        actor: actorOf(request),
+        caller: tutorCallerOf(request),
+        tutorId,
+        input,
+      })
+    },
+  )
+
+  /**
+   * AC-04 — baixar os próprios dados (LGPD art. 18, direito de acesso).
+   *
+   * **É o primeiro autoatendimento desse direito no sistema.** O
+   * `GET /v1/tutors/:id/export` existe desde o MOD-TUTOR, mas dependia de alguém da equipe
+   * rodá-lo a pedido; aqui o titular o alcança sozinho, escopado à própria ficha.
+   *
+   * Passa pela porta, e não por consulta ao banco, porque a exportação **audita a própria
+   * leitura** (`tutor.exported`) — e é essa linha que prova, depois, que o direito foi
+   * exercido e quando.
+   */
+  app.get(
+    '/portal/v1/me/export',
+    { preHandler: requirePermission('tutor:read_own') },
+    async (request) => {
+      const { tutorId } = requireOwnScope(request)
+      return getTutorPort().exportOwnData(tutorCallerOf(request), tutorId)
+    },
+  )
+
+  /**
+   * AC-05 — o pedido de exclusão dos dados (LGPD art. 18, V).
+   *
+   * **Registra, não executa.** A anonimização apaga a ficha de quem pode ter débito aberto
+   * e obrigação fiscal de guarda, e a decisão é de gente. O que esta rota garante é que o
+   * pedido chega a uma fila que alguém vê, com o prazo do art. 19 correndo à vista.
+   *
+   * `tutor:update_own` e não uma permissão de exclusão: o titular não está apagando nada,
+   * está escrevendo um pedido na própria ficha.
+   */
+  app.post(
+    '/portal/v1/me/deletion-request',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request, reply) => {
+      const { tutorId } = requireOwnScope(request)
+      const input = parseInput(PortalDeletionRequestInputSchema, request.body ?? {})
+
+      const data = await requestOwnDeletion(tutorCallerOf(request), tutorId, input)
+      return reply.status(201).send(data)
     },
   )
 

@@ -95,6 +95,19 @@ export function invalidState(detail: string): AppError {
  * O BFF **não inventa resposta**: sem o scheduling não há disponibilidade, e mostrar
  * uma lista vazia diria ao tutor que o petshop não tem horário nenhum.
  */
+/**
+ * AC-02 de MOD-PORTAL-09: o contato novo já é de outra ficha deste petshop.
+ *
+ * A mensagem **não diz de quem**, nem confirma que a outra ficha existe. Confirmar
+ * devolveria ao Portal o poder de oráculo que o RN-04 tirou dele na porta de entrada — e
+ * desta vez consultável em lote, por quem já tem sessão válida.
+ */
+export function contactInUse(
+  detail = 'Este contato já está em uso em outro cadastro. Fale com o estabelecimento.',
+): AppError {
+  return new AppError('ERR_PORTAL_012', detail)
+}
+
 export function upstreamUnavailable(
   detail = 'Não foi possível concluir agora. Tente novamente em instantes.',
 ): AppError {

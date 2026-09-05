@@ -100,3 +100,39 @@ export async function resolveDelivery(
 
   return { ok: false, reason, channel: blockedChannel }
 }
+
+/**
+ * O destino imposto pelo chamador (MOD-PORTAL-09, AC-02).
+ *
+ * A cascata acima responde "para onde mandar" perguntando à ficha. Esta função existe
+ * para o caso em que a ficha ainda **não sabe** o endereço: o tutor está provando que
+ * possui um telefone ou um e-mail novo, e mandar o código para o contato antigo provaria
+ * a posse do contato que ele quer trocar.
+ *
+ * Três das quatro perguntas continuam valendo, e a que sai é nomeada de propósito:
+ *
+ * - **canal de pé no tenant?** Sim, continua. Um WhatsApp não pareado não entrega código
+ *   nenhum, e a mensagem nasceria `BLOCKED` com o motivo certo.
+ * - **endereço suprimido?** Sim, continua. A supressão é do endereço, não da ficha: quem
+ *   pediu para não receber nada nosso não volta a receber por alguém ter digitado o
+ *   endereço dele numa tela nossa.
+ * - **consentimento?** **Não se aplica**, e é a única dispensa. Consentimento é do
+ *   titular da ficha, e este endereço ainda não é dela — a linha de `tutor_consents` que
+ *   o cobriria não existe. O que autoriza o envio é a categoria: `MARKETING` nunca chega
+ *   aqui (o chamador é recusado antes), e o que sobra é execução de contrato a pedido
+ *   explícito de quem está do outro lado do formulário.
+ */
+export async function resolveOverrideDelivery(
+  tx: TenantTransaction,
+  options: { tenantId: string; channel: MessageChannel; address: string },
+): Promise<DeliveryDecision> {
+  if (!(await channelAvailable(options.channel, options.tenantId))) {
+    return { ok: false, reason: 'NO_CHANNEL', channel: options.channel }
+  }
+
+  if (await isSuppressed(tx, options.channel, options.address)) {
+    return { ok: false, reason: 'SUPPRESSED', channel: options.channel }
+  }
+
+  return { ok: true, delivery: { channel: options.channel, address: options.address } }
+}

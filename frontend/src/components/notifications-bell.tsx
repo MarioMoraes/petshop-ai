@@ -3,7 +3,14 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import type { Pendencia, PendenciaKey } from '@/lib/pendencias'
-import { BellIcon, CalendarIcon, GlobeIcon, WalletIcon, type IconTone } from './icons'
+import {
+  BellIcon,
+  CalendarIcon,
+  GlobeIcon,
+  ShieldCheckIcon,
+  WalletIcon,
+  type IconTone,
+} from './icons'
 
 /**
  * O sino de pendências, ao lado do avatar.
@@ -26,6 +33,9 @@ const ICONES: Record<PendenciaKey, { icon: React.ReactNode; tone: IconTone }> = 
   // O mesmo tom que o item de menu correspondente: o ícone é do domínio, não da
   // tela, e o olho liga o aviso ao lugar onde ele se resolve.
   aprovacoes: { icon: <CalendarIcon />, tone: 'icon-time' },
+  // `icon-system`, o tom de Configurações: é para lá que a linha aponta, e o pedido de
+  // exclusão é decisão sobre a base de cadastro — não atendimento de um tutor.
+  exclusoes: { icon: <ShieldCheckIcon />, tone: 'icon-system' },
   leads: { icon: <GlobeIcon />, tone: 'icon-metric' },
   mensagens: { icon: <BellIcon />, tone: 'icon-brand' },
   inadimplentes: { icon: <WalletIcon />, tone: 'icon-money' },

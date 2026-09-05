@@ -28,6 +28,23 @@ export interface AccessCodeRequest {
   dedupeKey: string
 }
 
+/**
+ * O código que confirma um contato **novo** (MOD-PORTAL-09, AC-02).
+ *
+ * `address` é o que distingue este pedido do anterior: o destino ainda não está na ficha,
+ * e mandar o código para o contato antigo provaria a posse justamente do contato que o
+ * tutor quer trocar. É o único uso de `overrideAddress` no sistema — as guardas que o
+ * contêm estão em `messages.ts` do messaging-service.
+ */
+export interface ContactCodeRequest {
+  tenantId: string
+  tutorId: string
+  channel: PortalChannel
+  address: string
+  code: string
+  dedupeKey: string
+}
+
 export interface WelcomeRequest {
   tenantId: string
   tutorId: string
@@ -37,6 +54,7 @@ export interface WelcomeRequest {
 
 export interface PortalMessagingPort {
   sendAccessCode(request: AccessCodeRequest): Promise<boolean>
+  sendContactCode(request: ContactCodeRequest): Promise<boolean>
   sendWelcome(request: WelcomeRequest): Promise<boolean>
 }
 
@@ -104,6 +122,20 @@ function createHttpPort(): PortalMessagingPort {
         tutorId: request.tutorId,
         templateKey: 'portal_codigo_acesso',
         channel: request.channel,
+        dedupeKey: request.dedupeKey,
+        variables: { 'portal.codigo': request.code },
+        urgent: true,
+      })
+    },
+
+    sendContactCode(request) {
+      return enqueue(request.tenantId, {
+        tutorId: request.tutorId,
+        templateKey: 'portal_codigo_contato',
+        // Explícito, e não `AUTO`: o messaging-service recusa destino imposto sem canal,
+        // porque escolher o canal sozinho o faria cair para o contato **da ficha**.
+        channel: request.channel,
+        overrideAddress: request.address,
         dedupeKey: request.dedupeKey,
         variables: { 'portal.codigo': request.code },
         urgent: true,

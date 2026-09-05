@@ -8,6 +8,7 @@ import {
   formatPhoneBR,
   type Branding,
   type BusinessHours,
+  type DeletionRequestResponse,
   type Species,
   type TenantAddress,
   type TenantResponse,
@@ -32,6 +33,7 @@ import {
   type ActionResult,
 } from './actions'
 import { BreedCatalog } from './breed-catalog'
+import { Privacidade } from './privacidade'
 
 /**
  * Configurações do estabelecimento (MOD-IDENT-08, parcial).
@@ -76,6 +78,16 @@ const TABS = [
 /** MOD-PET-03: a lista de raças é configuração do estabelecimento, não do atendimento. */
 const CATALOG_TAB = { id: 'racas', label: 'Raças' }
 
+/**
+ * MOD-PORTAL-09: a fila de pedidos de exclusão de dados.
+ *
+ * Aqui e não numa tela própria porque é configuração do estabelecimento — decisão sobre a
+ * base de cadastro, não operação de balcão. E porque é rara: uma entrada de menu que fica
+ * vazia meses a fio custa mais atenção, todo dia, do que a fila custa quando enche. Quem
+ * avisa que ela encheu é o sino da topbar.
+ */
+const PRIVACY_TAB = { id: 'privacidade', label: 'Privacidade' }
+
 export interface SettingsFormProps {
   tenant: TenantResponse
   settings: TenantSettings
@@ -87,6 +99,19 @@ export interface SettingsFormProps {
   canEdit: boolean
   /** `pet:manage_catalog`: só o administrador mexe no catálogo de raças. */
   canManageCatalog: boolean
+  /**
+   * A fila de exclusão. Vazia quando o perfil não tem `tutor:delete` — e nesse caso a aba
+   * também não é desenhada, porque ela é uma lista de decisões que a pessoa não pode tomar.
+   */
+  deletionRequests: DeletionRequestResponse[]
+  canResolveDeletions: boolean
+  /**
+   * A aba que abre, quando a URL a nomeia.
+   *
+   * O sino da topbar aponta para `/configuracoes?aba=privacidade`, e sem isto o clique
+   * cairia na aba "Dados" — o contador prometeria um destino e entregaria outro.
+   */
+  abaInicial?: string
 }
 
 function toMinutes(time: string): number {
@@ -111,8 +136,11 @@ export function SettingsForm({
   hostSuffix,
   canEdit,
   canManageCatalog,
+  deletionRequests,
+  canResolveDeletions,
+  abaInicial,
 }: SettingsFormProps) {
-  const [active, setActive] = useState('dados')
+  const [active, setActive] = useState(abaInicial ?? 'dados')
   const [state, setState] = useState<SaveState>(IDLE)
   const [, startTransition] = useTransition()
 
@@ -151,7 +179,11 @@ export function SettingsForm({
       )}
 
       <Tabs
-        tabs={canManageCatalog ? [...TABS, CATALOG_TAB] : TABS}
+        tabs={[
+          ...TABS,
+          ...(canManageCatalog ? [CATALOG_TAB] : []),
+          ...(canResolveDeletions ? [PRIVACY_TAB] : []),
+        ]}
         active={active}
         onSelect={selectTab}
       />
@@ -175,6 +207,8 @@ export function SettingsForm({
           na própria linha, e não tem um "Salvar" no rodapé como as outras.
         */}
         {active === 'racas' && <BreedCatalog species={species} canManage={canManageCatalog} />}
+        {/* Também sem o `shared`: cada pedido é respondido na própria linha. */}
+        {active === 'privacidade' && <Privacidade pedidos={deletionRequests} />}
       </div>
     </div>
   )

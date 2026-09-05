@@ -241,6 +241,33 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         '{{portal.link}}',
     },
   },
+  {
+    key: 'portal_codigo_contato',
+    label: 'Código para confirmar contato novo',
+    /** `OPERATIONAL` pelo mesmo motivo do código de acesso: dez minutos não esperam a manhã. */
+    category: 'OPERATIONAL',
+    variables: [...BASE_VARIABLES, 'portal.codigo'],
+    subject: 'Confirme este contato: {{portal.codigo}}',
+    /**
+     * **O texto diz o que está acontecendo, e não "bem-vindo de volta".**
+     *
+     * Este código sai para um endereço que ainda não está em ficha nenhuma, e quem o
+     * recebe pode ser alguém que nunca ouviu falar do petshop — um dígito trocado basta.
+     * Para essa pessoa, "seu código de acesso" é um susto sem explicação; saber que
+     * alguém tentou cadastrar o contato dela, e que ignorar encerra o assunto, é o que
+     * transforma a mensagem em aviso em vez de isca.
+     */
+    body: {
+      WHATSAPP:
+        '{{portal.codigo}} é o código para confirmar este contato no {{petshop.nome}}.\n\n' +
+        'Ele vale por 10 minutos. Se não foi você quem pediu, ignore esta mensagem — ' +
+        'sem o código nada é alterado.',
+      EMAIL:
+        'Alguém pediu para usar este e-mail no cadastro do {{petshop.nome}}.\n\n' +
+        'Para confirmar, use o código {{portal.codigo}}. Ele vale por 10 minutos.\n\n' +
+        'Se não foi você, ignore esta mensagem: sem o código nada é alterado.',
+    },
+  },
 ]
 
 const BY_KEY = new Map(MESSAGE_TEMPLATES.map((template) => [template.key, template]))

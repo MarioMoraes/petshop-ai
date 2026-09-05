@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { SITE_VISIBLE_TENANT_STATUSES } from './site.js'
+import { CEPSchema, UFSchema } from './tutor.js'
 import { TaxiLegSchema, TaxiRideStatusSchema } from './taxi.js'
 
 /**
@@ -140,6 +141,15 @@ export type PortalTenantResponse = z.infer<typeof PortalTenantResponseSchema>
 export const PORTAL_TEMPLATE_KEYS = {
   accessCode: 'portal_codigo_acesso',
   welcome: 'portal_boas_vindas',
+  /**
+   * MOD-PORTAL-09, AC-02 — o código que confirma um contato **novo**.
+   *
+   * Texto próprio, e não o do acesso: este código sai para um endereço que ainda não
+   * está na ficha, e quem o recebe pode não ter pedido nada. "Seu código de acesso"
+   * chegando a um número alheio não explica nada a quem o lê; dizer que alguém tentou
+   * cadastrar aquele contato no petshop, sim.
+   */
+  contactCode: 'portal_codigo_contato',
 } as const
 
 /**
@@ -782,7 +792,10 @@ export const PORTAL_VISIBLE_MESSAGE_STATUSES = ['SENT', 'DELIVERED', 'READ'] as 
  * família que passa de mão em mão — a mesma razão pela qual o "Sair" existe no Início.
  * Um código que ninguém usou continua valendo enquanto a tela o exibe.
  */
-export const PORTAL_HIDDEN_TEMPLATE_KEYS = [PORTAL_TEMPLATE_KEYS.accessCode] as const
+export const PORTAL_HIDDEN_TEMPLATE_KEYS = [
+  PORTAL_TEMPLATE_KEYS.accessCode,
+  PORTAL_TEMPLATE_KEYS.contactCode,
+] as const
 
 /**
  * Uma mensagem, como o tutor a relê (AC-01).
@@ -885,3 +898,217 @@ export const UpdatePortalPreferenceSchema = z
   })
   .strict()
 export type UpdatePortalPreferenceInput = z.output<typeof UpdatePortalPreferenceSchema>
+
+// ─── MOD-PORTAL-09 — Meus Dados ──────────────────────────────────────────────
+
+/**
+ * Prazo legal de resposta a um pedido do titular (LGPD art. 19, II).
+ *
+ * Quinze dias, e o número mora aqui porque duas telas o mostram: o Portal promete a
+ * data ao tutor, e a fila da equipe usa a mesma para dizer o que está atrasado. Se cada
+ * uma calculasse a sua, a equipe descobriria o vencimento depois do titular.
+ */
+export const PORTAL_DELETION_RESPONSE_DAYS = 15
+
+/** Validade do código que confirma um contato novo (AC-02). */
+export const PORTAL_CONTACT_CHANGE_TTL_MIN = 10
+
+/**
+ * O que a ficha do tutor mostra a ele mesmo.
+ *
+ * **O que não está aqui também é decisão.** `notes` fica de fora: é a anotação que a
+ * recepção faz *sobre* o cliente ("chega sempre atrasado", "prefere a Ana"), e devolvê-la
+ * ao titular transformaria um caderno de trabalho em correspondência. O saldo e as tags
+ * moram no Financeiro; `dataCompleteness` e as datas de vínculo são telemetria nossa.
+ *
+ * CPF e CNPJ descem **mascarados**, como no balcão: o tutor os reconhece sem que a
+ * resposta carregue o documento inteiro para dentro do navegador dele.
+ */
+export const PortalProfileSchema = z.object({
+  fullName: z.string(),
+  socialName: z.string().nullable(),
+  /** O que o Portal chama de "como prefere ser chamado" — RN-14 do MOD-TUTOR. */
+  displayName: z.string(),
+  cpfMasked: z.string().nullable(),
+  cnpjMasked: z.string().nullable(),
+  phoneMasked: z.string(),
+  email: z.string().nullable(),
+  birthDate: z.string().nullable(),
+})
+export type PortalProfile = z.infer<typeof PortalProfileSchema>
+
+/**
+ * Um endereço do tutor, como ele o vê.
+ *
+ * **Sem latitude e longitude**, ao contrário do `AddressResponse` do Admin. A
+ * geocodificação existe para roteirizar a van (MOD-TAXI) e não é dado que o titular
+ * tenha pedido nem que o ajude a conferir a rua: descê-la só ampliaria a superfície.
+ */
+export const PortalAddressSchema = z.object({
+  id: z.uuid(),
+  label: z.string(),
+  zipCode: z.string(),
+  street: z.string(),
+  number: z.string(),
+  complement: z.string().nullable(),
+  district: z.string(),
+  city: z.string(),
+  state: z.string(),
+  accessNotes: z.string().nullable(),
+  isPrimary: z.boolean(),
+})
+export type PortalAddress = z.infer<typeof PortalAddressSchema>
+
+/**
+ * Um pedido de exclusão, como o tutor o acompanha (AC-05).
+ *
+ * A tela precisa dos três: que existe, quando vence o prazo e o que a equipe respondeu.
+ * Sem o retorno, o tutor que teve o pedido recusado ficaria olhando para "em análise"
+ * para sempre, e voltaria a pedir.
+ */
+export const PortalDeletionRequestSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(['OPEN', 'DONE', 'REJECTED']),
+  requestedAt: z.string(),
+  /** O prazo do art. 19. Continua exibido depois de respondido, como registro. */
+  dueAt: z.string(),
+  respondedAt: z.string().nullable(),
+  /** O que a equipe escreveu ao recusar ou ao concluir. */
+  resolution: z.string().nullable(),
+})
+export type PortalDeletionRequest = z.infer<typeof PortalDeletionRequestSchema>
+
+export const PortalMeDataResponseSchema = z.object({
+  profile: PortalProfileSchema,
+  addresses: z.array(PortalAddressSchema),
+  /**
+   * A troca de contato que está esperando código, quando há uma.
+   *
+   * Recarregar a página no meio da verificação é o caso comum — o tutor sai do
+   * navegador para ler a mensagem e volta. Sem este campo ele voltaria para um
+   * formulário vazio, e o desafio aberto viraria um fantasma que só expira.
+   */
+  pendingContact: z
+    .object({
+      id: z.uuid(),
+      field: z.enum(['PHONE', 'EMAIL']),
+      maskedTarget: z.string(),
+      expiresAt: z.string(),
+    })
+    .nullable(),
+  /** O pedido de exclusão em análise, ou o último respondido. */
+  deletionRequest: PortalDeletionRequestSchema.nullable(),
+})
+export type PortalMeDataResponse = z.infer<typeof PortalMeDataResponseSchema>
+
+/**
+ * O que o tutor edita sozinho na própria ficha (AC-01 e AC-03).
+ *
+ * A lista é curta, e o motivo é o mesmo do MOD-PORTAL-03: **o que identifica ou precifica
+ * não se corrige sem alguém do outro lado.** CPF e CNPJ são chave de deduplicação e de
+ * identificação fiscal (AC-03). `fullName` acompanha os dois — é a outra metade da
+ * identidade conferida no balcão, e uma ficha em nome de outra pessoa é o mesmo dano do
+ * CPF trocado, sem o dígito verificador para denunciá-lo. Telefone e e-mail têm caminho
+ * próprio, com reverificação, e por isso também não cabem aqui.
+ *
+ * Sobram o nome social — que é como a pessoa quer ser chamada, e ninguém decide isso por
+ * ela — e a data de nascimento. `.strict()` é o que devolve 422 a quem mandar o resto: a
+ * trava é o contrato, e não uma checagem que a próxima rota de escrita possa esquecer.
+ */
+export const UpdateOwnTutorSchema = z
+  .object({
+    socialName: z.string().max(120).nullable(),
+    birthDate: z.iso.date().nullable(),
+  })
+  .strict()
+  .partial()
+export type UpdateOwnTutorInput = z.output<typeof UpdateOwnTutorSchema>
+
+/**
+ * Endereço, pelo Portal.
+ *
+ * Os mesmos campos e as mesmas regras do balcão, menos latitude e longitude: quem
+ * geocodifica é o MOD-TAXI, e aceitar coordenadas do cliente deixaria o tutor mover o
+ * ponto de coleta da van para qualquer lugar do mapa sem mudar uma letra do endereço.
+ */
+export const PortalAddressInputSchema = z
+  .object({
+    label: z.string().max(40).default('Casa'),
+    zipCode: CEPSchema,
+    street: z.string().min(3).max(160),
+    number: z.string().max(20),
+    complement: z.string().max(80).optional(),
+    district: z.string().max(80),
+    city: z.string().max(80),
+    state: UFSchema,
+    accessNotes: z.string().max(300).optional(),
+    isPrimary: z.boolean().default(false),
+  })
+  .strict()
+export type PortalAddressInput = z.output<typeof PortalAddressInputSchema>
+
+export const UpdatePortalAddressSchema = PortalAddressInputSchema.partial()
+export type UpdatePortalAddressInput = z.output<typeof UpdatePortalAddressSchema>
+
+/** O campo de contato que a reverificação protege (AC-02). */
+export const PortalContactFieldSchema = z.enum(['PHONE', 'EMAIL'])
+export type PortalContactField = z.infer<typeof PortalContactFieldSchema>
+
+/**
+ * O canal decorre do campo, e não de um seletor.
+ *
+ * Confirmar um telefone novo por e-mail provaria a posse do e-mail antigo, que é
+ * exatamente o que a reverificação **não** quer saber. O código tem de chegar ao
+ * endereço que está sendo cadastrado, ou não prova nada.
+ */
+export function portalChannelOfField(field: PortalContactField): PortalChannel {
+  return field === 'EMAIL' ? 'EMAIL' : 'WHATSAPP'
+}
+
+export const PortalContactChangeSchema = z
+  .object({
+    field: PortalContactFieldSchema,
+    /** Validado por campo no serviço: telefone vira E.164, e-mail é normalizado. */
+    value: z.string().trim().min(5).max(160),
+  })
+  .strict()
+export type PortalContactChangeInput = z.output<typeof PortalContactChangeSchema>
+
+/**
+ * A resposta do pedido de troca.
+ *
+ * **`maskedTarget` sai do que o tutor digitou**, como no desafio de acesso, e aqui é até
+ * mais direto: o valor ainda não está gravado em lugar nenhum. Mascarar mesmo assim é o
+ * que impede um ombro na fila do mercado de ler o número inteiro na tela.
+ */
+export const PortalContactChangeResponseSchema = z.object({
+  changeId: z.uuid(),
+  field: PortalContactFieldSchema,
+  channel: PortalChannelSchema,
+  maskedTarget: z.string(),
+  expiresInMin: z.number().int(),
+})
+export type PortalContactChangeResponse = z.infer<typeof PortalContactChangeResponseSchema>
+
+export const PortalContactVerifySchema = z
+  .object({
+    changeId: z.uuid(),
+    code: z.string().regex(/^\d{6}$/),
+  })
+  .strict()
+export type PortalContactVerifyInput = z.output<typeof PortalContactVerifySchema>
+
+/**
+ * O pedido de exclusão (AC-05).
+ *
+ * `reason` é opcional porque o titular **não deve satisfação**: a LGPD não condiciona o
+ * pedido a justificativa, e exigir uma seria um obstáculo travestido de formulário. O
+ * campo existe porque quem escreve costuma dizer o que resolveria o caso sem apagar
+ * nada ("parem de me mandar promoção"), e a equipe responde melhor sabendo disso.
+ */
+export const PortalDeletionRequestInputSchema = z
+  .object({
+    reason: z.string().max(500).optional(),
+  })
+  .strict()
+export type PortalDeletionRequestInput = z.output<typeof PortalDeletionRequestInputSchema>

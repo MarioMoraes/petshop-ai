@@ -19,7 +19,12 @@ import type { Route } from 'next'
  * client) importe os tipos daqui sem arrastar `server-only` junto.
  */
 
-export type PendenciaKey = 'aprovacoes' | 'leads' | 'mensagens' | 'inadimplentes'
+export type PendenciaKey =
+  | 'aprovacoes'
+  | 'exclusoes'
+  | 'leads'
+  | 'mensagens'
+  | 'inadimplentes'
 
 export interface Pendencia {
   key: PendenciaKey
@@ -49,6 +54,14 @@ export interface ContagemPendencias {
    * vazia na metade das vezes.
    */
   aprovacoes: { count: number; nextDate: string | null } | null
+  /**
+   * Pedidos de exclusão de dados esperando decisão (MOD-PORTAL-09, AC-05).
+   *
+   * A fonte com o prazo mais duro das cinco, e a única com prazo **legal**: o art. 19 da
+   * LGPD dá quinze dias para responder o titular. As outras esperam sem estragar; esta
+   * vence.
+   */
+  exclusoes: number | null
   leads: number | null
   mensagens: number | null
   inadimplentes: number | null
@@ -90,6 +103,27 @@ export function montarPendencias(contagem: ContagemPendencias): Pendencia[] {
       titulo: plural(count, 'horário pedido pelo site', 'horários pedidos pelo site'),
       detalhe: 'aguardando sua confirmação',
       href: nextDate ? `/agenda/dia?date=${nextDate}` : '/agenda/dia',
+    })
+  }
+
+  /**
+   * Logo depois das aprovações, e antes de tudo o mais.
+   *
+   * É a segunda pendência com prazo, e o dela é de lei — quinze dias contados do pedido.
+   * Um contato do site esperando três dias é atendimento ruim; um pedido de exclusão
+   * esperando dezesseis é infração.
+   */
+  if (contagem.exclusoes) {
+    linhas.push({
+      key: 'exclusoes',
+      count: contagem.exclusoes,
+      titulo: plural(
+        contagem.exclusoes,
+        'pedido de exclusão de dados',
+        'pedidos de exclusão de dados',
+      ),
+      detalhe: 'aguardando resposta da equipe',
+      href: '/configuracoes?aba=privacidade',
     })
   }
 

@@ -31,6 +31,15 @@ export const TUTOR_ERRORS = {
   ERR_TUTOR_007: { status: 422, title: 'Unificação inválida' },
   ERR_TUTOR_008: { status: 502, title: 'Serviço de CEP indisponível' },
   ERR_TUTOR_009: { status: 403, title: 'Comunicação bloqueada por consentimento' },
+  /**
+   * AC-05 de MOD-PORTAL-09 — esta ficha já tem um pedido de exclusão em análise.
+   *
+   * O segundo pedido não vira linha nova: a fila da equipe conta trabalho pendente, e o
+   * titular ansioso que clicasse três vezes viraria três pendências para uma decisão só.
+   * Mora no catálogo do tutor, e não no do Portal, porque quem recusa é o dono da tabela
+   * — o balcão registra o mesmo pedido pelo mesmo caminho quando o tutor liga.
+   */
+  ERR_TUTOR_010: { status: 409, title: 'Já existe um pedido de exclusão em análise' },
 } as const
 
 export type TutorErrorCode = keyof typeof TUTOR_ERRORS
@@ -197,6 +206,15 @@ export const PORTAL_ERRORS = {
    * dizer "não deu" para o que é, na verdade, "tem certeza?".
    */
   ERR_PORTAL_011: { status: 409, title: 'Cancelamento tardio exige confirmação' },
+  /**
+   * AC-02 de MOD-PORTAL-09 — o contato novo já é de outra ficha deste petshop.
+   *
+   * 409 e não 422: o valor é válido, e o problema não está nele. Ainda assim a resposta
+   * **não** diz de quem é a outra ficha, nem que ela existe: a mensagem manda procurar o
+   * petshop. Confirmar "este telefone já é de alguém aqui" daria ao Portal o mesmo poder
+   * de oráculo que o RN-04 tirou dele na porta de entrada.
+   */
+  ERR_PORTAL_012: { status: 409, title: 'Contato já usado por outra ficha' },
 } as const
 
 export type PortalErrorCode = keyof typeof PORTAL_ERRORS

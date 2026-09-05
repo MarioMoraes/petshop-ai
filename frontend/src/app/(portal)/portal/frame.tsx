@@ -41,7 +41,12 @@ export function PortalFrame({
    * de um 404 que só aparece em produção. Mesma escolha do `NavItem` do `AppShell`.
    */
   voltar?: {
-    href: '/portal/inicio' | '/portal/pets' | '/portal/agendamentos' | '/portal/mensagens'
+    href:
+      | '/portal/inicio'
+      | '/portal/pets'
+      | '/portal/agendamentos'
+      | '/portal/mensagens'
+      | '/portal/dados'
     label: string
   }
   /** Um botão à direita do título — a edição da ficha, por exemplo. */

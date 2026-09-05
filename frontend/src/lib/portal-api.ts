@@ -4,13 +4,19 @@ import { headers } from 'next/headers'
 import { resolveHost } from '@/lib/host'
 import { appDomain } from '@/lib/domain'
 import type {
+  PortalAddressInput,
   PortalAppointmentDetail,
   PortalAppointmentsResponse,
   PortalAvailabilityResponse,
   PortalBookingServicesResponse,
   PortalChallengeResponse,
+  PortalContactChangeInput,
+  PortalContactChangeResponse,
+  PortalContactVerifyInput,
   PortalContextResponse,
+  PortalDeletionRequestInput,
   PortalFinanceResponse,
+  PortalMeDataResponse,
   PortalMessagesResponse,
   PortalPetDetail,
   PortalPreferencesResponse,
@@ -21,7 +27,10 @@ import type {
   PortalTaxiRide,
   PortalTenantResponse,
   PortalTimelineResponse,
+  TutorExport,
   UpdateOwnPetInput,
+  UpdateOwnTutorInput,
+  UpdatePortalAddressInput,
   UpdatePortalPreferenceInput,
 } from '@petshop/shared-types'
 
@@ -367,4 +376,63 @@ export function updateOwnPreference(
   body: UpdatePortalPreferenceInput,
 ): Promise<PortalPreferencesResponse> {
   return request({ method: 'PATCH', path: '/portal/v1/preferences', body })
+}
+
+// ─── MOD-PORTAL-09 — Meus Dados ──────────────────────────────────────────────
+
+export function readOwnData(): Promise<PortalMeDataResponse> {
+  return request({ path: '/portal/v1/me/data' })
+}
+
+/**
+ * Os dois campos que o tutor muda sozinho.
+ *
+ * As rotas de escrita desta seção devolvem **a ficha inteira relida**, e não o recurso
+ * que mudou: a tela é uma só, e uma resposta parcial a obrigaria a um segundo `GET` para
+ * saber o que exibir. É a mesma escolha do interruptor de preferências.
+ */
+export function updateOwnProfile(body: UpdateOwnTutorInput): Promise<PortalMeDataResponse> {
+  return request({ method: 'PATCH', path: '/portal/v1/me/data', body })
+}
+
+export function addOwnAddress(body: PortalAddressInput): Promise<PortalMeDataResponse> {
+  return request({ method: 'POST', path: '/portal/v1/me/addresses', body })
+}
+
+export function updateOwnAddress(
+  addressId: string,
+  body: UpdatePortalAddressInput,
+): Promise<PortalMeDataResponse> {
+  return request({ method: 'PATCH', path: `/portal/v1/me/addresses/${addressId}`, body })
+}
+
+/** Pede o código que confirma um telefone ou e-mail novo. Ele sai para o valor novo. */
+export function requestContactChange(
+  body: PortalContactChangeInput,
+): Promise<PortalContactChangeResponse> {
+  return request({ method: 'POST', path: '/portal/v1/me/contact', body })
+}
+
+export function verifyContactChange(
+  body: PortalContactVerifyInput,
+): Promise<PortalMeDataResponse> {
+  return request({ method: 'POST', path: '/portal/v1/me/contact/verify', body })
+}
+
+/**
+ * A exportação dos próprios dados (AC-04 — LGPD art. 18, direito de acesso).
+ *
+ * Traz **mais** do que `readOwnData` mostra na tela, as anotações da recepção inclusive: a
+ * tela é recorte de trabalho, a exportação é o direito. Cada chamada vira `tutor.exported`
+ * na trilha do tutor-service, que é a prova de que o direito foi exercido.
+ */
+export function exportOwnData(): Promise<TutorExport> {
+  return request({ path: '/portal/v1/me/export' })
+}
+
+/** Registra o pedido de exclusão. Encaminha à equipe; não apaga nada. */
+export function requestOwnDeletion(
+  body: PortalDeletionRequestInput,
+): Promise<PortalMeDataResponse> {
+  return request({ method: 'POST', path: '/portal/v1/me/deletion-request', body })
 }

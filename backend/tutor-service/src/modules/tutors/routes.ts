@@ -3,11 +3,14 @@ import {
   AssignTagSchema,
   AddressInputSchema,
   CheckDuplicatesSchema,
+  CreateDeletionRequestSchema,
   CreateTagSchema,
   CreateTutorSchema,
+  DeletionRequestListQuerySchema,
   ListTutorsQuerySchema,
   MergeTutorSchema,
   PortalAdoptionQuerySchema,
+  ResolveDeletionRequestSchema,
   UpdateAddressSchema,
   UpdateConsentsSchema,
   UpdateTutorSchema,
@@ -26,6 +29,12 @@ import { findProbableDuplicates, toSearchKeys } from './dedupe.js'
 import { mergeTutors } from './merge.js'
 import { exportTutor, getTutorOverview } from './overview.js'
 import { portalAdoption } from './portal-adoption.js'
+import {
+  countOpenDeletionRequests,
+  listDeletionRequests,
+  requestDeletion,
+  resolveDeletionRequest,
+} from './privacy.js'
 import {
   anonymizeTutor,
   createTutor,
@@ -233,6 +242,67 @@ export async function registerTutorRoutes(app: FastifyInstance): Promise<void> {
     async (request) => {
       const input = parseInput(MergeTutorSchema, request.body)
       return mergeTutors(actorOf(request), request.params.id, input)
+    },
+  )
+
+  // ─── Pedidos de exclusão de dados (LGPD art. 18, V) ────────────────────────
+  //
+  // As rotas de fila vêm **antes** das de `:id` por clareza, não por necessidade: o
+  // roteador do Fastify já prefere segmento literal a parâmetro, como `/v1/tutors/tags`
+  // já demonstrava. Ler na ordem em que o roteador resolve poupa a dúvida.
+
+  /**
+   * A fila da equipe.
+   *
+   * Gate `tutor:delete`, o mesmo da anonimização, e não `tutor:read`. A fila é uma lista
+   * de decisões sobre apagar cadastro, e mostrá-la a quem não pode tomá-las produziria
+   * uma pendência que a pessoa vê e não resolve — o sino da topbar contaria trabalho
+   * alheio para a recepção inteira.
+   */
+  app.get(
+    '/v1/tutors/deletion-requests',
+    { preHandler: requirePermission('tutor:delete', 'Somente o administrador trata pedidos de exclusão') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      const query = parseInput(DeletionRequestListQuerySchema, request.query)
+      return listDeletionRequests(auth.tenantId, query)
+    },
+  )
+
+  /** Só o número, para o sino. Ver o motivo em `privacy.ts`. */
+  app.get(
+    '/v1/tutors/deletion-requests/count',
+    { preHandler: requirePermission('tutor:delete') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      return countOpenDeletionRequests(auth.tenantId)
+    },
+  )
+
+  app.post<{ Params: { requestId: string } }>(
+    '/v1/tutors/deletion-requests/:requestId/resolve',
+    { preHandler: requirePermission('tutor:delete', 'Somente o administrador responde pedidos de exclusão') },
+    async (request) => {
+      const input = parseInput(ResolveDeletionRequestSchema, request.body)
+      return resolveDeletionRequest(actorOf(request), request.params.requestId, input)
+    },
+  )
+
+  /**
+   * Registrar o pedido — pelo Portal ou pelo balcão.
+   *
+   * Gate `tutor:update`, e não `tutor:delete`: **pedir não é apagar.** Quem edita a ficha
+   * registra o pedido que o tutor fez por telefone, e a decisão continua sendo de quem
+   * tem `tutor:delete`. É também a permissão que o `tutor-port.ts` do `portal-bff` já
+   * assina, o que evita uma segunda elevação para a mesma superfície.
+   */
+  app.post<{ Params: TutorParams }>(
+    '/v1/tutors/:id/deletion-request',
+    { preHandler: requirePermission('tutor:update') },
+    async (request, reply) => {
+      const input = parseInput(CreateDeletionRequestSchema, request.body ?? {})
+      const created = await requestDeletion(actorOf(request), request.params.id, input)
+      return reply.status(201).send(created)
     },
   )
 
