@@ -52,6 +52,8 @@ const baseUrl =
 
 const TENANT_SLUG_HEADER = 'x-petshop-tenant-slug'
 const REQUEST_TIMEOUT_MS = 15_000
+/** O PDF nasce num Chromium de verdade; 15s é pouco para um Gotenberg recém-subido. */
+const DOCUMENT_TIMEOUT_MS = 30_000
 
 /**
  * O petshop deste endereço.
@@ -428,6 +430,85 @@ export function verifyContactChange(
  */
 export function exportOwnData(): Promise<TutorExport> {
   return request({ path: '/portal/v1/me/export' })
+}
+
+export interface PortalDownload {
+  bytes: Uint8Array
+  contentType: string
+  filename: string
+}
+
+/**
+ * A mesma exportação, **em PDF** — a folha que o tutor consegue ler.
+ *
+ * Não passa pelo `request` porque ele termina em `response.json()`: o corpo aqui são bytes
+ * de PDF, e parseá-los como JSON quebraria antes de qualquer coisa. O caminho de erro
+ * continua sendo o mesmo — o BFF responde `application/problem+json` também quando a rota
+ * pedida devolveria documento, e é dele que sai a frase que a tela mostra.
+ *
+ * Devolve `Uint8Array`, e não `Blob`: quem chama é um route handler do Next, no servidor,
+ * que vai repassar os bytes adiante. Mesmo desenho do `download()` do `api-client` do
+ * Admin; separado dele porque este cliente manda o slug do petshop no header e aquele não.
+ */
+export async function downloadOwnDataPdf(): Promise<PortalDownload> {
+  const slug = await portalSlug()
+  if (!slug) {
+    throw new PortalError(404, 'ERR_PORTAL_001', 'Estabelecimento não encontrado')
+  }
+
+  const session = await auth()
+  const token =
+    (await session.getToken({ template: 'petshop' }).catch(() => null)) ??
+    (await session.getToken())
+
+  const controller = new AbortController()
+  // Teto maior que o das telas: quem gera a folha é o Gotenberg, e um Chromium frio
+  // leva alguns segundos a mais do que uma consulta.
+  const timeout = setTimeout(() => controller.abort(), DOCUMENT_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(`${baseUrl}/portal/v1/me/export/pdf`, {
+      headers: {
+        [TENANT_SLUG_HEADER]: slug,
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      const problema = (await response.json().catch(() => null)) as {
+        code?: string
+        detail?: string
+      } | null
+
+      throw new PortalError(
+        response.status,
+        problema?.code ?? 'ERR_PORTAL_010',
+        problema?.detail ?? 'Não foi possível gerar o documento agora.',
+      )
+    }
+
+    return {
+      bytes: new Uint8Array(await response.arrayBuffer()),
+      contentType: response.headers.get('content-type') ?? 'application/pdf',
+      filename: filenameFrom(response.headers.get('content-disposition')) ?? 'meus-dados.pdf',
+    }
+  } catch (error) {
+    if (error instanceof PortalError) throw error
+    if (controller.signal.aborted) {
+      throw new PortalError(504, 'ERR_PORTAL_010', 'O documento demorou demais para ser gerado.')
+    }
+    throw new PortalError(502, 'ERR_PORTAL_010', 'Não foi possível falar com o sistema.')
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+/** O nome que o serviço escolheu — é ele quem sabe a data da exportação. */
+function filenameFrom(header: string | null): string | null {
+  const match = header?.match(/filename="?([^"';]+)"?/i)
+  return match?.[1] ?? null
 }
 
 /** Registra o pedido de exclusão. Encaminha à equipe; não apaga nada. */

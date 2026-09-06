@@ -131,8 +131,8 @@ export function MeusDados({
       <Card>
         <p className="section-eyebrow">Uma cópia dos seus dados</p>
         <p className="hint mt-2">
-          Baixe tudo o que o {tenantName} tem sobre você e seus pets, num arquivo só. É um
-          direito seu, e não precisa de pedido nem de espera.
+          Baixe tudo o que o {tenantName} tem sobre você, num documento só. É um direito
+          seu, e não precisa de pedido nem de espera.
         </p>
         {/*
           `<a download>` e não botão com Server Action: o arquivo é montado pela rota
@@ -140,8 +140,23 @@ export function MeusDados({
           navegador salvar. Uma ação não tem como entregar arquivo ao disco.
         */}
         <a href="/portal/dados/exportar" download className="btn btn-ghost mt-4 w-full">
-          Baixar meus dados
+          Baixar em PDF
         </a>
+        {/*
+          O JSON continua existindo, e de propósito — mas em segundo plano.
+
+          Ele é o formato "estruturado e de leitura por máquina" do art. 19 da LGPD: o
+          arquivo que outro petshop conseguiria importar, e o que serve se um dia a folha
+          for contestada. Só que quem clica aqui quase nunca é uma máquina, e oferecer os
+          dois com o mesmo peso faria a pessoa escolher no escuro entre um documento que
+          ela lê e um que ela não lê. Fica de link, com o nome do formato à vista.
+        */}
+        <p className="hint mt-3 text-center">
+          Prefere o arquivo para outro sistema?{' '}
+          <a href="/portal/dados/exportar?formato=json" download className="underline">
+            Baixar em JSON
+          </a>
+        </p>
       </Card>
 
       <Exclusao pedido={dados.deletionRequest} tenantName={tenantName} onPedido={setDados} />

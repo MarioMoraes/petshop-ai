@@ -1,3 +1,4 @@
+import { PdfUnavailableError } from '@petshop/pdf'
 import { AppError } from '@petshop/shared-types'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -5,10 +6,12 @@ import {
   callApi,
   captureMessages,
   closeHarness,
+  fakePdf,
   fakeTutorService,
   givenTutor,
   givenTenant,
   resetDatabase,
+  type PdfDouble,
   type SentContactCode,
   type TenantFixture,
   type TutorServiceDouble,
@@ -35,12 +38,14 @@ import {
 let fixture: TenantFixture
 let tutorService: TutorServiceDouble
 let contactCodes: SentContactCode[]
+let pdf: PdfDouble
 
 beforeEach(async () => {
   await resetDatabase()
   fixture = await givenTenant()
   tutorService = fakeTutorService(fixture)
   contactCodes = captureMessages().contactCodes
+  pdf = fakePdf()
 })
 
 afterAll(async () => {
@@ -503,6 +508,89 @@ describe('GET /portal/v1/me/export', () => {
      * acesso foi exercido e quando. Uma consulta ao banco daqui produziria o mesmo JSON
      * sem prova nenhuma, e o teste passaria igual.
      */
+    expect(tutorService.writes).toEqual([{ kind: 'export', tutorId }])
+  })
+})
+
+
+/**
+ * A mesma exportação, em papel.
+ *
+ * O que estes testes guardam não é o PDF — é **a folha**: que ela sai pelo caminho que
+ * audita a leitura, que o que estava no JSON continua lá dentro, e que campo livre de
+ * cadastro não vira execução dentro do Chromium do Gotenberg.
+ */
+describe('GET /portal/v1/me/export/pdf', () => {
+  it('AC-04: devolve o documento pelo mesmo caminho que audita a leitura', async () => {
+    const tutorId = await givenTutor(fixture, { name: 'Maria Souza' })
+
+    const response = await callApi({
+      method: 'GET',
+      url: '/portal/v1/me/export/pdf',
+      ...asTutor(fixture, tutorId),
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('application/pdf')
+    expect(response.headers['content-disposition']).toMatch(
+      /attachment; filename="meus-dados-\d{4}-\d{2}-\d{2}\.pdf"/,
+    )
+    // Dado pessoal não fica no cache de ninguém.
+    expect(response.headers['cache-control']).toBe('no-store')
+
+    // Delegado ao tutor-service, como o JSON: é lá que a leitura vira `tutor.exported`.
+    expect(tutorService.writes).toEqual([{ kind: 'export', tutorId }])
+  })
+
+  it('a folha leva o que o titular tem direito de ler, anotação da recepção inclusive', async () => {
+    const tutorId = await givenTutor(fixture, {
+      name: 'Maria Souza',
+      notes: 'Prefere a Ana. Sempre atrasa 10 minutos.',
+    })
+
+    await callApi({
+      method: 'GET',
+      url: '/portal/v1/me/export/pdf',
+      ...asTutor(fixture, tutorId),
+    })
+
+    const folha = pdf.htmls[0] ?? ''
+    expect(folha).toContain('Maria Souza')
+    expect(folha).toContain('Prefere a Ana')
+    // O nome do petshop responde pelo tratamento: uma folha de dados pessoais sem
+    // controlador identificado não serve a quem a recebe.
+    expect(folha).toContain('Petshop do João')
+  })
+
+  it('campo livre do cadastro não vira execução dentro do Gotenberg', async () => {
+    const tutorId = await givenTutor(fixture, {
+      name: 'Maria Souza',
+      notes: '<script>alert(1)</script>',
+    })
+
+    await callApi({
+      method: 'GET',
+      url: '/portal/v1/me/export/pdf',
+      ...asTutor(fixture, tutorId),
+    })
+
+    const folha = pdf.htmls[0] ?? ''
+    expect(folha).not.toContain('<script>alert(1)</script>')
+    expect(folha).toContain('&lt;script&gt;')
+  })
+
+  it('Gotenberg fora do ar vira 502, e não 500', async () => {
+    const tutorId = await givenTutor(fixture)
+    pdf.failWith = new PdfUnavailableError('Gotenberg respondeu 503')
+
+    const response = await callApi({
+      method: 'GET',
+      url: '/portal/v1/me/export/pdf',
+      ...asTutor(fixture, tutorId),
+    })
+
+    expect(response.statusCode).toBe(502)
+    // A exportação chegou a ser lida: o que faltou foi o papel.
     expect(tutorService.writes).toEqual([{ kind: 'export', tutorId }])
   })
 })

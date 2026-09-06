@@ -49,6 +49,7 @@ import {
   updateOwnAddress,
   updateOwnProfile,
 } from './me-data.js'
+import { exportOwnDataPdf } from './me-export.js'
 import { listOwnMessages } from './messages.js'
 import { listOwnPets, readOwnPet, updateOwnPet } from './pets.js'
 import { readOwnPreferences, updateOwnPreference } from './preferences.js'
@@ -574,6 +575,37 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     async (request) => {
       const { tutorId } = requireOwnScope(request)
       return getTutorPort().exportOwnData(tutorCallerOf(request), tutorId)
+    },
+  )
+
+  /**
+   * AC-04, a mesma exportação **em papel**.
+   *
+   * O JSON acima continua sendo a portabilidade do art. 19 — formato estruturado, de
+   * leitura por máquina, o arquivo que outro fornecedor importa. Esta rota existe porque
+   * quem clica no Portal é gente: um JSON aberto no celular é ilegível para quem pediu
+   * "meus dados", e um direito que a pessoa não consegue ler é meio direito.
+   *
+   * Não é `Accept: application/pdf` na rota de cima: o navegador do tutor chega aqui por
+   * um `<a href download>`, e um link não escolhe header. O sufixo é o que o link sabe
+   * dizer.
+   *
+   * Mesma permissão, mesma porta, mesma trilha — muda a embalagem, não o direito.
+   */
+  app.get(
+    '/portal/v1/me/export/pdf',
+    { preHandler: requirePermission('tutor:read_own') },
+    async (request, reply) => {
+      const { tutorId } = requireOwnScope(request)
+      const documento = await exportOwnDataPdf(tutorCallerOf(request), tutorId)
+
+      return reply
+        .type('application/pdf')
+        .header('content-disposition', `attachment; filename="${documento.filename}"`)
+        // A folha é o cadastro inteiro do titular, com documento e endereço em claro.
+        // Nem o navegador nem nenhum intermediário tem por que guardar uma cópia.
+        .header('cache-control', 'no-store')
+        .send(documento.pdf)
     },
   )
 

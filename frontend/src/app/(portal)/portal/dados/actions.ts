@@ -43,19 +43,19 @@ async function tentar<T>(acao: () => Promise<T>, queda: string): Promise<Resulta
   }
 }
 
-export function salvarPerfil(
+export async function salvarPerfil(
   input: UpdateOwnTutorInput,
 ): Promise<Resultado<PortalMeDataResponse>> {
   return tentar(() => updateOwnProfile(input), 'Não foi possível salvar agora.')
 }
 
-export function salvarEndereco(
+export async function salvarEndereco(
   input: PortalAddressInput,
 ): Promise<Resultado<PortalMeDataResponse>> {
   return tentar(() => addOwnAddress(input), 'Não foi possível salvar o endereço agora.')
 }
 
-export function corrigirEndereco(
+export async function corrigirEndereco(
   addressId: string,
   input: UpdatePortalAddressInput,
 ): Promise<Resultado<PortalMeDataResponse>> {
@@ -66,19 +66,19 @@ export function corrigirEndereco(
 }
 
 /** Pede o código. Ele sai para o contato **novo** — é o que a verificação prova. */
-export function pedirCodigoContato(
+export async function pedirCodigoContato(
   input: PortalContactChangeInput,
 ): Promise<Resultado<PortalContactChangeResponse>> {
   return tentar(() => requestContactChange(input), 'Não foi possível enviar o código agora.')
 }
 
-export function confirmarContato(
+export async function confirmarContato(
   input: PortalContactVerifyInput,
 ): Promise<Resultado<PortalMeDataResponse>> {
   return tentar(() => verifyContactChange(input), 'Não foi possível confirmar agora.')
 }
 
-export function pedirExclusao(
+export async function pedirExclusao(
   input: PortalDeletionRequestInput,
 ): Promise<Resultado<PortalMeDataResponse>> {
   return tentar(() => requestOwnDeletion(input), 'Não foi possível registrar o pedido agora.')

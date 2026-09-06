@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { CSSProperties, ReactNode } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import type { MeResponse, PermissionKey } from '@petshop/shared-types'
+import { serverApi } from '@/lib/api'
 import { montarPendencias } from '@/lib/pendencias'
 import { carregarPendencias } from '@/lib/pendencias.server'
 import { Atmosphere } from './atmosphere'
@@ -18,6 +19,7 @@ import {
   UsersIcon,
   VanIcon,
   WalletIcon,
+  WaveIcon,
   type IconTone,
 } from './icons'
 import { TenantSwitcher } from './tenant-switcher'
@@ -209,10 +211,27 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
     (item) => !item.requires || me.permissions.includes(item.requires),
   )
 
-  // A moldura é servidor: as pendências chegam ao sino como props já resolvidas, e o
-  // browser nunca fala com o gateway. Cada fonte falha para `null` por conta própria
-  // (ver `lib/pendencias.ts`), então isto não tem como derrubar a tela.
-  const pendencias = montarPendencias(await carregarPendencias(me))
+  /*
+   * As duas leituras da moldura, juntas.
+   *
+   * A moldura é servidor: as pendências chegam ao sino como props já resolvidas, e o
+   * browser nunca fala com o gateway. Cada fonte falha para `null` por conta própria
+   * (ver `lib/pendencias.ts`), então isto não tem como derrubar a tela.
+   *
+   * O fuso da saudação é o do estabelecimento, e não o do servidor: um petshop em Rio
+   * Branco seria cumprimentado com "boa tarde" às 9h locais porque o Node roda em UTC.
+   * Falha para `null` pela mesma regra do sino — a saudação cai no fuso padrão, e nenhuma
+   * tela do Admin cai junto com as Configurações. Quem não tem `tenant:read_settings`
+   * recebe 403 e passa por este mesmo caminho.
+   */
+  const [pendenciasBrutas, settings] = await Promise.all([
+    carregarPendencias(me),
+    serverApi()
+      .getSettings()
+      .catch(() => null),
+  ])
+  const pendencias = montarPendencias(pendenciasBrutas)
+  const timezone = settings?.timezone ?? 'America/Sao_Paulo'
 
   // Só quem está em TRIAL conta dias de teste. `trialEndsAt` não é zerado quando o
   // estabelecimento assina — a data fica no cadastro como registro do que foi o
@@ -238,12 +257,14 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-line bg-surface/85 px-4 py-3 backdrop-blur sm:px-8">
           {/*
-           * À esquerda, o que é da conta: o prazo do teste e, para quem trabalha em
-           * mais de um estabelecimento, o seletor. O nome do petshop saiu daqui — ele
-           * agora é a marca no topo da lateral, e repeti-lo na faixa era dizer duas
-           * vezes a mesma coisa a dois palmos de distância.
+           * À esquerda, a saudação — em toda tela, não só no Início — e o que é da
+           * conta: o prazo do teste e, para quem trabalha em mais de um estabelecimento,
+           * o seletor. O nome do petshop saiu daqui — ele agora é a marca no topo da
+           * lateral, e repeti-lo na faixa era dizer duas vezes a mesma coisa a dois
+           * palmos de distância.
            */}
           <div className="flex min-w-0 items-center gap-3">
+            <Saudacao name={me.user.fullName} timezone={timezone} asTitle={active === 'inicio'} />
             <TenantSwitcher
               memberships={me.memberships}
               currentSlug={me.currentTenant?.slug ?? null}
@@ -327,6 +348,79 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
       </div>
     </div>
   )
+}
+
+/**
+ * A saudação, no canto esquerdo da faixa.
+ *
+ * **Fixa em todo o Admin, e não só no Início.** Ela nasceu como título do painel, e o
+ * usuário pediu que ficasse: uma faixa que cumprimenta pelo primeiro nome é o que separa
+ * um sistema de trabalho de um formulário de repartição, e ela some justamente nas telas
+ * onde a pessoa passa o dia.
+ *
+ * **`<h1>` só no Início.** As demais telas já têm o seu, desenhado pelo `PageHeader`, e
+ * dois `<h1>` na mesma página deixam o leitor de tela sem saber onde ele está. No Início
+ * não há `PageHeader` — a saudação **é** o título, e é ela que herda a marcação.
+ *
+ * `truncate` no texto e não no bloco: o recorte precisa cair na frase, senão o aceno é a
+ * primeira coisa que a faixa estreita corta.
+ */
+function Saudacao({
+  name,
+  timezone,
+  asTitle,
+}: {
+  name: string
+  timezone: string
+  /** Início: aqui a saudação é o título da página. */
+  asTitle: boolean
+}) {
+  const Tag = asTitle ? 'h1' : 'p'
+
+  return (
+    <Tag className="flex min-w-0 items-center gap-2 text-[21px] leading-8 font-semibold">
+      <span className="truncate">
+        {greetingFor(timezone)}, {firstNameOf(name)}.
+      </span>
+      {/*
+        O aceno é decoração, não informação: `aria-hidden` no traçado (herdado de `BASE`)
+        mantém o leitor de tela lendo só a frase. A inclinação e os arcos de movimento do
+        traçado são o que fazem a mão aberta ler como aceno em vez de "pare"; o acento é a
+        única cor quente do sistema, e uma saudação é o lugar dela.
+
+        19px, e não os 20 do resto do conjunto: o ícone acompanha o tamanho da frase ao
+        lado — texto que muda de tamanho sozinho desproporciona o ícone.
+      */}
+      <span className="inline-flex shrink-0 rotate-12 text-accent">
+        <WaveIcon size={19} />
+      </span>
+    </Tag>
+  )
+}
+
+/**
+ * Saudação pelo fuso do estabelecimento, não pelo do servidor.
+ *
+ * O petshop de Rio Branco abre às 8h locais; renderizar "boa tarde" porque o Node roda em
+ * UTC seria errado de um jeito que o dono nota todo dia.
+ */
+function greetingFor(timezone: string): string {
+  const hour = Number(
+    new Intl.DateTimeFormat('pt-BR', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: timezone,
+    }).format(new Date()),
+  )
+
+  if (hour < 12) return 'Bom dia'
+  if (hour < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+/** Só o primeiro nome: é assim que se cumprimenta alguém no balcão. */
+function firstNameOf(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] ?? fullName
 }
 
 /**

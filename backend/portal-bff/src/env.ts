@@ -68,6 +68,15 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
   R2_BUCKET: z.string().default('petshop-media'),
   /** R2 ignora região, mas o assinador SigV4 do SDK exige uma. */
   R2_REGION: z.string().default('auto'),
+
+  /**
+   * O Gotenberg, para imprimir a cópia dos dados do titular (AC-04 de MOD-PORTAL-09).
+   *
+   * Opcional pela mesma razão do R2: um ambiente sem ele sobe inteiro, e o que falha é
+   * só o botão de baixar em PDF — que ainda tem o JSON ao lado. Exigi-lo na subida
+   * trancaria o Portal por causa de um documento.
+   */
+  GOTENBERG_URL: z.string().optional(),
 })
 
 export type Env = ReturnType<typeof loadEnv>

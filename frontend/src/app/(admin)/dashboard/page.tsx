@@ -17,7 +17,6 @@ import {
   UsersIcon,
   VanIcon,
   WalletIcon,
-  WaveIcon,
   type IconTone,
 } from '@/components/icons'
 import { serverApi } from '@/lib/api'
@@ -238,34 +237,6 @@ export default async function DashboardPage() {
   return (
     <AppShell active="inicio" me={me} atmosphere>
       <div className="mx-auto max-w-5xl">
-        {/*
-          A saudação é o título da página.
-
-          O nome do estabelecimento vinha aqui em 45px e saiu: ele já está na topbar,
-          no seletor de estabelecimento, e repeti-lo logo abaixo fazia o Início abrir
-          dizendo duas vezes onde a pessoa está antes de dizer qualquer coisa que ela
-          possa usar. Sem ele, quem herda o `<h1>` é a saudação — que é o que a tela
-          realmente diz ao abrir.
-        */}
-        {/* 24px é valor arbitrário: fica entre `text-2xl` (24px) e o `leading` da
-            escala, e o par 24/36 mantém a proporção que a saudação tinha em 22/32. */}
-        <h1 className="flex items-center gap-2 text-[24px] leading-9 font-semibold">
-          {greetingFor(timezone)}, {firstNameOf(me.user.fullName)}.
-          {/*
-            O aceno é decoração, não informação: `aria-hidden` no traçado (herdado de
-            `BASE`) mantém o leitor de tela lendo só a frase. A inclinação e os arcos de
-            movimento do traçado são o que fazem a mão aberta ler como aceno em vez de
-            "pare"; o acento é a única cor quente do sistema, e uma saudação é o lugar
-            dela.
-
-            22px, e não os 20 do resto do conjunto: o ícone acompanha o tamanho da
-            frase ao lado — texto que cresce sozinho deixa o ícone pequeno demais.
-          */}
-          <span className="inline-flex rotate-12 text-accent">
-            <WaveIcon size={22} />
-          </span>
-        </h1>
-
         {(movement !== null || fluxo.length > 0) && (
           <StatSection
             title="Movimento"
@@ -328,7 +299,9 @@ function StatSection({
   lead?: ReactNode
 }) {
   return (
-    <section className="mt-8">
+    // `first:mt-0`: com a saudação na topbar, a primeira faixa encosta no `pt` do
+    // conteúdo — somar a margem daria ao Início um vão de abertura sem nada dentro.
+    <section className="mt-8 first:mt-0">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-medium uppercase tracking-[0.06em] text-subtle">{title}</h2>
         {note && <p className="hint">{note}</p>}
@@ -585,27 +558,3 @@ function petsPerTutor(
   })
 }
 
-/**
- * Saudação pelo fuso do estabelecimento, não pelo do servidor.
- *
- * O petshop de Rio Branco abre às 8h locais; renderizar "boa tarde" porque o Node
- * roda em UTC seria errado de um jeito que o dono nota todo dia.
- */
-function greetingFor(timezone: string): string {
-  const hour = Number(
-    new Intl.DateTimeFormat('pt-BR', {
-      hour: 'numeric',
-      hour12: false,
-      timeZone: timezone,
-    }).format(new Date()),
-  )
-
-  if (hour < 12) return 'Bom dia'
-  if (hour < 18) return 'Boa tarde'
-  return 'Boa noite'
-}
-
-/** Só o primeiro nome: é assim que se cumprimenta alguém no balcão. */
-function firstNameOf(fullName: string): string {
-  return fullName.trim().split(/\s+/)[0] ?? fullName
-}

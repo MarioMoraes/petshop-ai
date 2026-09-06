@@ -51,6 +51,7 @@ const { setMessagingPort } = await import('../src/modules/portal/messaging-port.
 const { setSchedulingPort } = await import('../src/modules/portal/scheduling-port.js')
 const { setTaxiPort } = await import('../src/modules/portal/taxi-port.js')
 const { setTutorPort } = await import('../src/modules/portal/tutor-port.js')
+const { setPdfPort } = await import('../src/lib/pdf.js')
 const { resetRateMemory } = await import('../src/modules/portal/rate-limit.js')
 const { clearTenantKeyCache, createTenantKey, withTenant, encryptWithKey, getTenantKey } =
   await import('@petshop/db')
@@ -207,6 +208,8 @@ export interface TutorOptions {
   email?: string
   portalUserId?: string
   anonymized?: boolean
+  /** A anotação da recepção. Fica fora da tela e **entra** na exportação do AC-04. */
+  notes?: string
 }
 
 /**
@@ -237,6 +240,7 @@ export async function givenTutor(
           : {}),
         ...(options.portalUserId ? { portalUserId: options.portalUserId } : {}),
         ...(options.anonymized ? { anonymizedAt: new Date() } : {}),
+        ...(options.notes ? { notes: options.notes } : {}),
       },
       select: { id: true },
     })
@@ -1338,6 +1342,35 @@ export interface TutorServiceDouble {
   failWith: AppError | null
 }
 
+export interface PdfDouble {
+  /** O HTML que foi mandado imprimir, na ordem. É o que os testes de folha leem. */
+  htmls: string[]
+  /** Falha do Gotenberg a simular na próxima impressão. */
+  failWith: Error | null
+}
+
+/**
+ * Dublê do Gotenberg.
+ *
+ * A suíte roda com `DISABLE_EVENTS`, e sem este dublê **toda** impressão já falharia por
+ * falta de configuração — o que esconderia o defeito de verdade: o HTML que sai errado.
+ * O que se guarda aqui é o documento antes de virar papel, porque é nele que se pode
+ * afirmar o que o titular vai ler.
+ */
+export function fakePdf(): PdfDouble {
+  const double: PdfDouble = { htmls: [], failWith: null }
+
+  setPdfPort({
+    async render(html) {
+      if (double.failWith) throw double.failWith
+      double.htmls.push(html)
+      return Buffer.from('%PDF-1.4 folha de mentira')
+    },
+  })
+
+  return double
+}
+
 /**
  * Dublê da porta do tutor-service que **grava a transição de verdade**.
  *
@@ -1561,7 +1594,7 @@ export function fakeTutorService(fixture: TenantFixture): TutorServiceDouble {
       return withTenant(fixture.tenantId, async (tx) => {
         const tutor = await tx.tutor.findFirstOrThrow({
           where: { id: tutorId },
-          select: { id: true, fullName: true, status: true, createdAt: true },
+          select: { id: true, fullName: true, status: true, createdAt: true, notes: true },
         })
 
         return {
@@ -1578,7 +1611,7 @@ export function fakeTutorService(fixture: TenantFixture): TutorServiceDouble {
             phoneAlt: null,
             email: null,
             birthDate: null,
-            notes: null,
+            notes: tutor.notes,
             status: tutor.status,
             createdAt: tutor.createdAt.toISOString(),
           },

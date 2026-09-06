@@ -408,6 +408,9 @@ importers:
       '@petshop/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@petshop/pdf':
+        specifier: workspace:*
+        version: link:../../packages/pdf
       '@petshop/service-auth':
         specifier: workspace:*
         version: link:../../packages/service-auth
