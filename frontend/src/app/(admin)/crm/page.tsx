@@ -96,6 +96,9 @@ export default async function CrmPage({ searchParams }: PageProps) {
         }
         actions={
           <>
+            <Link href="/crm/campanhas" className="btn btn-ghost">
+              Campanhas
+            </Link>
             <Link href="/crm/textos" className="btn btn-ghost">
               Textos
             </Link>

@@ -102,6 +102,12 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   'MessagingSettings',
   'MessagingSuppression',
   'Automation',
+  // MOD-CRM fatia 3: campanhas. As três carregam `tenant_id` próprio, inclusive a de
+  // execução — a alternativa seria isolá-la pela FK da campanha-mãe, o que faria a
+  // política do banco depender de um JOIN e a guarda de aplicação não cobrir a tabela.
+  'Campaign',
+  'CampaignRun',
+  'CampaignTarget',
   // A conexão de WhatsApp é do tenant como qualquer outra configuração dele. O webhook
   // do provedor chega sem contexto, mas quem resolve o tenant pelo hash do token é
   // `platform.ts`, no escopo sancionado — a gravação volta para `withTenant()`.

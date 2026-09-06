@@ -1,5 +1,6 @@
 import type { TenantTransaction } from '@petshop/db'
 import { DEFAULT_TIMEZONE } from '@petshop/shared-types'
+import { formatList } from './tutor-vars.js'
 
 /**
  * As variáveis de um agendamento, prontas para o template.
@@ -76,12 +77,6 @@ export async function loadAppointmentVariables(
       'agendamento.profissional': appointment.professional.displayName,
     },
   }
-}
-
-/** "Thor", "Thor e Mel", "Thor, Mel e Bidu" — como se escreve, não como se itera. */
-function formatList(names: string[]): string {
-  if (names.length === 1) return names[0]!
-  return `${names.slice(0, -1).join(', ')} e ${names.at(-1)}`
 }
 
 function formatDate(instant: Date, timeZone: string): string {

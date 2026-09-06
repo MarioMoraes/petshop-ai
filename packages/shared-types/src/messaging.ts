@@ -67,6 +67,14 @@ export const MessageBlockReasonSchema = z.enum([
   'NO_CHANNEL',
   'PET_DECEASED',
   'QUIET_HOURS_EXPIRED',
+  /**
+   * O tutor já recebeu a sua mensagem de marketing da semana (`marketingWeeklyCap`).
+   *
+   * Não é bloqueio do tutor nem do endereço, e por isso o texto do rótulo não manda o
+   * admin consertar nada: é uma decisão do próprio petshop, tomada na configuração, e a
+   * linha existe para que a campanha possa dizer por que aquela pessoa ficou de fora.
+   */
+  'WEEKLY_CAP',
 ])
 export type MessageBlockReason = z.infer<typeof MessageBlockReasonSchema>
 
@@ -219,6 +227,20 @@ const messagingSettingsShape = {
   marketingWeekdaysOnly: z.boolean().default(true),
   dailyCap: z.number().int().min(0).max(10_000).default(500),
   perMinuteCap: z.number().int().min(1).max(60).default(20),
+  /**
+   * Quantas mensagens de MARKETING um mesmo tutor pode receber em sete dias.
+   *
+   * Decisão do dono do produto (questao 5 do §11 do PRD): uma por semana. O teto diário
+   * acima protege o **número** do petshop; este protege **o tutor**, que é quem cansa.
+   * Um cliente com três pets, taxi e débito pode entrar em quatro seleções na mesma
+   * semana sem que nenhum teto de tenant perceba — a RN-08 agrupa cinco minutos, o que
+   * nada faz contra o acúmulo ao longo de dias.
+   *
+   * `0` desliga o teto. Transacional e operacional nunca contam: lembrete e aviso de
+   * taxi são execução de contrato, e represar um deles por causa de uma oferta seria
+   * inverter exatamente a prioridade que o módulo defende.
+   */
+  marketingWeeklyCap: z.number().int().min(0).max(20).default(1),
   defaultChannel: MessageChannelPrefSchema.default('AUTO'),
   retentionMonths: z.number().int().min(6).max(60).default(24),
   senderName: z.string().max(60).nullish(),
@@ -266,6 +288,7 @@ export const MESSAGING_SETTINGS_DEFAULTS = {
   marketingWeekdaysOnly: true,
   dailyCap: 500,
   perMinuteCap: 20,
+  marketingWeeklyCap: 1,
   defaultChannel: 'AUTO',
   retentionMonths: 24,
 } as const
@@ -313,6 +336,62 @@ export const AutomationConfigSchema = z.discriminatedUnion('key', [
   z.strictObject({
     key: z.literal('taxi_failed'),
   }),
+
+  /**
+   * As da fatia 3. Todas têm `sendHour` porque todas são **varredura diária** e não
+   * reação a evento: existe uma hora do dia em que elas acontecem, e essa hora é do
+   * petshop. Nove da manhã por padrão — depois de abrir, antes do movimento.
+   */
+  z.strictObject({
+    key: z.literal('birthday_pet'),
+    sendHour: z.number().int().min(0).max(23).default(9),
+    /**
+     * AC-03 de MOD-CRM-06. Padrão **false**: parabenizar por uma data que o próprio
+     * cadastro marca como estimada expõe o petshop a errar na cara do cliente.
+     */
+    includeEstimated: z.boolean().default(false),
+  }),
+  z.strictObject({
+    key: z.literal('birthday_tutor'),
+    sendHour: z.number().int().min(0).max(23).default(9),
+  }),
+  z.strictObject({
+    key: z.literal('inactive_campaign'),
+    sendHour: z.number().int().min(0).max(23).default(10),
+    /** O mesmo limite que já governa a tag INATIVO do MOD-TUTOR. */
+    inactiveDays: z.number().int().min(30).max(730).default(90),
+    /** AC-02: quantos dias antes de a mesma pessoa poder ser convidada de novo. */
+    cooldownDays: z.number().int().min(7).max(365).default(60),
+  }),
+  z.strictObject({
+    key: z.literal('dunning'),
+    sendHour: z.number().int().min(0).max(23).default(9),
+    /**
+     * A régua, em dias de atraso. Cada degrau tem texto próprio (AC-02 de MOD-CRM-08),
+     * e é por isso que `steps` carrega o `templateKey` em vez de a automação ter um só:
+     * "você tem um valor em aberto" e "precisamos regularizar" não são o mesmo recado, e
+     * mandá-los na mesma redação é o que faz a régua inteira soar automática.
+     */
+    steps: z
+      .array(
+        z.strictObject({
+          days: z.number().int().min(1).max(365),
+          templateKey: z.string().min(1).max(60),
+        }),
+      )
+      .min(1)
+      .max(6)
+      .default([
+        { days: 3, templateKey: 'dunning_soft' },
+        { days: 10, templateKey: 'dunning_firm' },
+        { days: 30, templateKey: 'dunning_final' },
+      ]),
+    /**
+     * AC-04: abaixo disso não se cobra. R$ 20 — o custo social de cobrar troco é maior
+     * que o troco.
+     */
+    minDebtCents: z.number().int().min(0).max(1_000_000).default(2000),
+  }),
 ])
 export type AutomationConfig = z.output<typeof AutomationConfigSchema>
 
@@ -325,6 +404,10 @@ export const AUTOMATION_KEYS = [
   'taxi_arrived',
   'taxi_delivered',
   'taxi_failed',
+  'birthday_pet',
+  'birthday_tutor',
+  'inactive_campaign',
+  'dunning',
 ] as const
 
 /**
@@ -457,6 +540,7 @@ export const MessagingSettingsResponseSchema = z.object({
   marketingWeekdaysOnly: z.boolean(),
   dailyCap: z.number().int(),
   perMinuteCap: z.number().int(),
+  marketingWeeklyCap: z.number().int(),
   defaultChannel: MessageChannelPrefSchema,
   retentionMonths: z.number().int(),
   senderName: z.string().nullable(),
@@ -543,6 +627,7 @@ export const MESSAGE_BLOCK_REASON_LABELS: Record<MessageBlockReason, string> = {
   NO_CHANNEL: 'Tutor sem telefone ou e-mail utilizável',
   PET_DECEASED: 'Pet falecido',
   QUIET_HOURS_EXPIRED: 'A janela de envio passou antes de a mensagem sair',
+  WEEKLY_CAP: 'O tutor já recebeu a mensagem de marketing da semana',
 }
 
 /**

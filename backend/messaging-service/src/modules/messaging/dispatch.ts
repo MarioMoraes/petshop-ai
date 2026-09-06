@@ -7,6 +7,7 @@ import { loadEnv } from '../../env.js'
 import { openCipher } from './crypto.js'
 import { portFor } from './ports/registry.js'
 import { allows, loadConsents } from './consent.js'
+import { marketingCapReached } from './frequency.js'
 import { isSuppressed, suppress } from './suppressions.js'
 import { loadSettings } from './settings.js'
 import { markBanned, warmupStartedAt } from './whatsapp.js'
@@ -18,9 +19,11 @@ import { tenantToday } from './window.js'
  * Duas coisas que ele faz e que parecem redundantes até se olhar o intervalo entre
  * enfileirar e enviar:
  *
- * - **Revalida consentimento e supressão** (RN-03). Uma mensagem pode esperar doze
- *   horas na fila, e nesse tempo o tutor pode ter pedido para parar no balcão. Checar
- *   só na entrada é checar no momento errado.
+ * - **Revalida antes de despachar** (RN-03). Uma mensagem pode esperar doze horas na
+ *   fila, e nesse tempo o tutor pode ter pedido para parar no balcão, o pet pode ter
+ *   morrido e a dívida pode ter sido paga. Checar só na entrada é checar no momento
+ *   errado — e das quatro revalidações a mais cara de errar é a do óbito, que é o AC-02
+ *   de MOD-CRM-06.
  * - **Cobra o teto no despacho, não na criação.** Um teto cobrado ao enfileirar
  *   recusaria a mensagem; cobrado aqui, ele apenas adia — que é o comportamento que a
  *   RN-05 pede.
@@ -112,6 +115,8 @@ type Outcome = 'sent' | 'failed' | 'blocked' | 'throttled'
 
 interface PreparedMessage {
   tutorId: string
+  petId: string | null
+  originType: string | null
   channel: 'WHATSAPP' | 'EMAIL'
   category: 'TRANSACTIONAL' | 'OPERATIONAL' | 'MARKETING'
   attempts: number
@@ -138,8 +143,14 @@ async function dispatchOne(
   // enviar — e deixar a inferência unir os dois literais transforma cada campo em
   // opcional, o que esconde justamente o caso que precisa ficar visível.
   type Prepared =
-    | { block: 'NO_CONSENT' | 'SUPPRESSED' | 'NO_CHANNEL'; message: PreparedMessage }
-    | { block?: undefined; message: PreparedMessage; to: string; body: string; subject: string | null }
+    | {
+        kind: 'block'
+        block: 'NO_CONSENT' | 'SUPPRESSED' | 'NO_CHANNEL' | 'PET_DECEASED' | 'WEEKLY_CAP'
+        message: PreparedMessage
+      }
+    /** Pagou entre a fila e o envio: não é bloqueio, é assunto encerrado (AC-03 de MOD-CRM-08). */
+    | { kind: 'cancel'; message: PreparedMessage }
+    | { kind: 'send'; message: PreparedMessage; to: string; body: string; subject: string | null }
 
   const prepared: Prepared = await withTenant(tenantId, async (tx) => {
     const message = await tx.message.findUniqueOrThrow({ where: { id: messageId } })
@@ -154,16 +165,81 @@ async function dispatchOne(
     // RN-03: o mundo pode ter mudado desde o enfileiramento.
     const consents = await loadConsents(tx, message.tutorId)
     if (!allows(consents, message.channel, message.category)) {
-      return { block: 'NO_CONSENT' as const, message }
+      return { kind: 'block' as const, block: 'NO_CONSENT' as const, message }
     }
     if (!to || (await isSuppressed(tx, message.channel, to))) {
-      return { block: to ? ('SUPPRESSED' as const) : ('NO_CHANNEL' as const), message }
+      return { kind: 'block' as const, block: to ? ('SUPPRESSED' as const) : ('NO_CHANNEL' as const), message }
     }
 
-    return { message, to, body, subject }
+    /**
+     * AC-02 de MOD-CRM-06 — **a falha mais cara que este módulo pode cometer**.
+     *
+     * Os jobs já filtram pet falecido na seleção, e mesmo assim a pergunta é refeita
+     * aqui. A janela entre as duas é real: o aniversário é enfileirado às nove, o tutor
+     * comunica o óbito às dez no balcão, a mensagem estava represada pelo teto diário e
+     * sai à noite. Uma felicitação a quem enterrou o cão naquela manhã não é um defeito
+     * que se conserta pedindo desculpa.
+     *
+     * A checagem é por `pet_id` e não por categoria: vale para o aniversário, para o
+     * lembrete do agendamento que ninguém cancelou e para qualquer texto futuro que
+     * nomeie um animal.
+     */
+    if (message.petId) {
+      const pet = await tx.pet.findUnique({
+        where: { id: message.petId },
+        select: { status: true },
+      })
+      if (pet?.status === 'DECEASED') {
+        return { kind: 'block' as const, block: 'PET_DECEASED' as const, message }
+      }
+    }
+
+    /**
+     * AC-03 de MOD-CRM-08 — pagou entre a fila e o envio.
+     *
+     * `LEDGER_ENTRY` é a marca da régua de cobrança, e é o que permite fazer esta
+     * pergunta sem o motor precisar saber o que é uma régua. Saldo não negativo quer
+     * dizer que a dívida que motivou o aviso não existe mais, e o desfecho é
+     * `CANCELLED`, não `BLOCKED`: não houve impedimento nenhum — o motivo do envio é que
+     * deixou de existir.
+     *
+     * Cobrar quem acabou de pagar destrói a confiança de que a régua inteira depende.
+     */
+    if (message.originType === 'LEDGER_ENTRY') {
+      const tutor = await tx.tutor.findUnique({
+        where: { id: message.tutorId },
+        select: { balanceCents: true },
+      })
+      if ((tutor?.balanceCents ?? 0) >= 0) return { kind: 'cancel' as const, message }
+    }
+
+    /**
+     * O teto semanal, revalidado. `excludeMessageId` porque esta mensagem já está
+     * gravada e contaria contra si mesma.
+     */
+    if (
+      message.category === 'MARKETING' &&
+      (await marketingCapReached(tx, {
+        tutorId: message.tutorId,
+        cap: settings.marketingWeeklyCap,
+        now,
+        excludeMessageId: messageId,
+      }))
+    ) {
+      return { kind: 'block' as const, block: 'WEEKLY_CAP' as const, message }
+    }
+
+    return { kind: 'send' as const, message, to, body, subject }
   })
 
-  if (prepared.block) {
+  if (prepared.kind === 'cancel') {
+    await withTenant(tenantId, (tx) =>
+      tx.message.update({ where: { id: messageId }, data: { status: 'CANCELLED' } }),
+    )
+    return 'blocked'
+  }
+
+  if (prepared.kind === 'block') {
     await withTenant(tenantId, (tx) =>
       tx.message.update({
         where: { id: messageId },

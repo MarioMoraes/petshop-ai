@@ -67,20 +67,30 @@ export interface FakeMessaging {
   requests: EnqueueRequest[]
   /** Faz o próximo enfileiramento falhar, como o messaging fora do ar. */
   failNext(): void
+  /** Faz o próximo enfileiramento voltar bloqueado, com o motivo informado. */
+  blockNext(reason: string): void
 }
 
 export function installFakeMessagingPort(): FakeMessaging {
   const requests: EnqueueRequest[] = []
   let fail = false
+  let block: string | null = null
 
   setMessagingPort({
     async enqueue(request) {
       if (fail) {
         fail = false
-        return false
+        return null
       }
       requests.push(request)
-      return true
+
+      if (block) {
+        const reason = block
+        block = null
+        return { messageId: randomUUID(), status: 'BLOCKED', blockReason: reason }
+      }
+
+      return { messageId: randomUUID(), status: 'QUEUED', blockReason: null }
     },
   })
 
@@ -88,6 +98,9 @@ export function installFakeMessagingPort(): FakeMessaging {
     requests,
     failNext() {
       fail = true
+    },
+    blockNext(reason: string) {
+      block = reason
     },
   }
 }
@@ -285,6 +298,187 @@ export async function givenTaxiRide(
     })
     return ride.id
   })
+}
+
+// ─── Cenário da fatia 3 ──────────────────────────────────────────────────────
+
+export interface TutorFixture {
+  tutorId: string
+  petId: string
+}
+
+/**
+ * Um tutor com um pet, consentimento de marketing e contato.
+ *
+ * O consentimento é `BOTH` por padrão porque **ausência de registro não é
+ * consentimento** (LGPD art. 8º, AC-03 de MOD-CRM-04): sem a linha, todo teste de
+ * campanha veria o alvo pulado com `NO_CONSENT` e nenhum deles provaria nada. Quem quiser
+ * o caso contrário passa `marketing: false`.
+ */
+export async function givenTutorWithPet(
+  fixture: TenantFixture,
+  options: {
+    name?: string
+    tutorBirthDate?: string
+    petBirthDate?: string
+    petBirthPrecision?: 'EXACT' | 'ESTIMATED' | 'UNKNOWN'
+    petStatus?: 'ACTIVE' | 'DECEASED'
+    marketing?: boolean
+    balanceCents?: number
+    lastAttendanceDaysAgo?: number
+    withContact?: boolean
+  } = {},
+): Promise<TutorFixture> {
+  const suffix = randomUUID().slice(0, 8)
+  const withContact = options.withContact ?? true
+
+  return withTenant(fixture.tenantId, async (tx) => {
+    const tutor = await tx.tutor.create({
+      data: {
+        tenantId: fixture.tenantId,
+        fullName: options.name ?? `Tutor ${suffix}`,
+        // `phone_encrypted` é NOT NULL no schema. Um tutor "sem contato" é o que tem o
+        // campo **vazio** — é assim que a cascata de `recipient.ts` o enxerga, e um
+        // fixture que omitisse a coluna nem gravaria.
+        phoneEncrypted: await encryptForTenant(
+          tx,
+          fixture.tenantId,
+          withContact ? '+5511987654321' : '',
+        ),
+        phoneHash: `phone-${suffix}`,
+        ...(withContact
+          ? {
+              emailEncrypted: await encryptForTenant(tx, fixture.tenantId, `t-${suffix}@x.com`),
+              emailHash: `email-${suffix}`,
+            }
+          : {}),
+        ...(options.tutorBirthDate ? { birthDate: new Date(`${options.tutorBirthDate}T00:00:00Z`) } : {}),
+        balanceCents: options.balanceCents ?? 0,
+        ...(options.lastAttendanceDaysAgo !== undefined
+          ? {
+              lastAttendanceAt: new Date(
+                Date.now() - options.lastAttendanceDaysAgo * 24 * 3_600_000,
+              ),
+            }
+          : {}),
+      },
+      select: { id: true },
+    })
+
+    if (options.marketing !== false) {
+      await tx.tutorConsent.create({
+        data: {
+          tenantId: fixture.tenantId,
+          tutorId: tutor.id,
+          channel: 'WHATSAPP',
+          purpose: 'BOTH',
+          granted: true,
+          version: '1.0',
+          source: 'STAFF_FORM',
+        },
+      })
+    }
+
+    const [species, size] = await Promise.all([
+      ownerPrisma.species.findFirstOrThrow({ where: { key: 'DOG', tenantId: null } }),
+      ownerPrisma.size.findFirstOrThrow({ where: { key: 'LARGE', tenantId: null } }),
+    ])
+
+    const pet = await tx.pet.create({
+      data: {
+        tenantId: fixture.tenantId,
+        name: `Rex ${suffix}`,
+        speciesId: species.id,
+        sizeId: size.id,
+        status: options.petStatus ?? 'ACTIVE',
+        ...(options.petBirthDate
+          ? {
+              birthDate: new Date(`${options.petBirthDate}T00:00:00Z`),
+              birthDatePrecision: options.petBirthPrecision ?? 'EXACT',
+            }
+          : {}),
+      },
+      select: { id: true },
+    })
+
+    await tx.petTutor.create({
+      data: { tenantId: fixture.tenantId, petId: pet.id, tutorId: tutor.id, role: 'PRIMARY' },
+    })
+
+    return { tutorId: tutor.id, petId: pet.id }
+  })
+}
+
+/**
+ * Um débito em aberto, com a idade pedida.
+ *
+ * `occurred_at` é o que envelhece a dívida (RN-23), e é sobre ele que a régua conta os
+ * dias — a mesma leitura do relatório de contas a receber.
+ */
+export async function givenOpenDebt(
+  fixture: TenantFixture,
+  tutorId: string,
+  options: { amountCents: number; daysAgo: number },
+): Promise<string> {
+  return withTenant(fixture.tenantId, async (tx) => {
+    const account =
+      (await tx.ledgerAccount.findFirst({ where: { tutorId }, select: { id: true } })) ??
+      (await tx.ledgerAccount.create({
+        data: { tenantId: fixture.tenantId, tutorId },
+        select: { id: true },
+      }))
+
+    const occurredAt = new Date(Date.now() - options.daysAgo * 24 * 3_600_000)
+    const entry = await tx.ledgerEntry.create({
+      data: {
+        tenantId: fixture.tenantId,
+        accountId: account.id,
+        tutorId,
+        direction: 'DEBIT',
+        amountCents: BigInt(options.amountCents),
+        balanceAfterCents: BigInt(-options.amountCents),
+        category: 'SERVICE',
+        description: 'Banho',
+        sourceType: 'MANUAL',
+        occurredAt,
+      },
+      select: { id: true },
+    })
+
+    // O denormalizado é escrito por consumidor de evento em produção; no teste, à mão.
+    await tx.tutor.update({
+      where: { id: tutorId },
+      data: { balanceCents: { decrement: options.amountCents } },
+    })
+
+    return entry.id
+  })
+}
+
+/** Liga uma automação da fatia 3 — todas nascem desligadas. */
+export async function enableAutomation(
+  fixture: TenantFixture,
+  key: string,
+  config: Record<string, unknown> = {},
+): Promise<void> {
+  await withTenant(fixture.tenantId, (tx) =>
+    tx.automation.upsert({
+      where: { tenantId_key: { tenantId: fixture.tenantId, key } },
+      update: { enabled: true, config },
+      create: { tenantId: fixture.tenantId, key, enabled: true, config },
+    }),
+  )
+}
+
+/** Liga o mecanismo de saída. Sem ele o motor recusa todo enfileiramento (RN-13). */
+export async function enableMessaging(fixture: TenantFixture): Promise<void> {
+  await withTenant(fixture.tenantId, (tx) =>
+    tx.messagingSettings.upsert({
+      where: { tenantId: fixture.tenantId },
+      update: { enabled: true },
+      create: { tenantId: fixture.tenantId, enabled: true },
+    }),
+  )
 }
 
 /** Liga o Taxi Dog. Sem isto as automações de corrida somem da listagem (AC-04). */

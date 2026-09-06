@@ -143,6 +143,9 @@ model Tenant {
   messageTemplates      MessageTemplate[]
   messagingSuppressions MessagingSuppression[]
   automations           Automation[]
+  campaigns             Campaign[]
+  campaignRuns          CampaignRun[]
+  campaignTargets       CampaignTarget[]
 
   sitePhotos SitePhoto[]
   siteLeads  SiteLead[]
@@ -553,6 +556,8 @@ model Tutor {
   attendances    Attendance[]
   ledgerAccounts LedgerAccount[]
   messages       Message[]
+
+  campaignTargets CampaignTarget[]
 
   portalChallenges     PortalLinkChallenge[]
   portalContactChanges PortalContactChange[]
@@ -2541,6 +2546,9 @@ enum MessageBlockReason {
   NO_CHANNEL
   PET_DECEASED
   QUIET_HOURS_EXPIRED
+  /// O tutor já recebeu a mensagem de marketing da semana
+  /// (`messaging_settings.marketing_weekly_cap`).
+  WEEKLY_CAP
 }
 
 enum MessageOriginType {
@@ -2715,6 +2723,10 @@ model MessagingSettings {
   dailyCap     Int @default(500) @map("daily_cap")
   perMinuteCap Int @default(20) @map("per_minute_cap") @db.SmallInt
 
+  /// Quantas mensagens de MARKETING um mesmo tutor recebe em sete dias. O teto acima
+  /// protege o número do petshop; este protege o tutor. `0` desliga.
+  marketingWeeklyCap Int @default(1) @map("marketing_weekly_cap") @db.SmallInt
+
   defaultChannel  String @default("AUTO") @map("default_channel") @db.VarChar(10)
   retentionMonths Int    @default(24) @map("retention_months") @db.SmallInt
 
@@ -2779,6 +2791,127 @@ model Automation {
 
   @@unique([tenantId, key], map: "idx_automations_key")
   @@map("automations")
+}
+
+enum CampaignType {
+  INACTIVE
+  BIRTHDAY
+  DUNNING
+  MANUAL
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  DONE
+  CANCELLED
+  FAILED
+}
+
+enum CampaignTargetStatus {
+  SENT
+  SKIPPED
+  FAILED
+}
+
+enum CampaignSkipReason {
+  NO_CONSENT
+  ALREADY_TARGETED
+  HAS_DEBT
+  PET_DECEASED
+  NO_CHANNEL
+  SUPPRESSED
+  WEEKLY_CAP
+  ENQUEUE_FAILED
+}
+
+/// Uma campanha é **quem receber**, não o que enviar (MOD-CRM-07 e MOD-CRM-12).
+///
+/// O texto continua vindo do catálogo; o que a campanha acrescenta é o segmento, o
+/// agendamento e a prestação de contas. `segment` é um filtro reproduzível em JSON e
+/// **nunca** uma lista congelada de tutores: uma lista montada na segunda e disparada na
+/// quinta convida de volta quem já voltou na terça.
+model Campaign {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  name   String         @db.VarChar(120)
+  type   CampaignType
+  status CampaignStatus @default(DRAFT)
+
+  templateKey String @map("template_key") @db.VarChar(60)
+  channel     String @default("AUTO") @db.VarChar(10)
+
+  /// Validado por `CampaignSegmentSchema`. Objeto vazio = todo tutor ativo.
+  segment Json @default("{}")
+
+  scheduledFor DateTime? @map("scheduled_for") @db.Timestamptz(6)
+
+  /// Disparo em massa tem autor. Nulo quando quem criou foi o job — a campanha de
+  /// reativação nasce da automação, não de uma pessoa.
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs   CampaignRun[]
+
+  @@index([tenantId, status, createdAt(sort: Desc)])
+  @@map("campaigns")
+}
+
+/// Uma execução da campanha. Uma campanha manual costuma ter uma; a de reativação tem
+/// uma por passada do job, e é a série delas que mostra se a régua está funcionando.
+model CampaignRun {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String @map("tenant_id") @db.Uuid
+  campaignId String @map("campaign_id") @db.Uuid
+
+  startedAt  DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  targeted Int @default(0)
+  sent     Int @default(0)
+  skipped  Int @default(0)
+  failed   Int @default(0)
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaign Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  targets  CampaignTarget[]
+
+  @@index([campaignId, startedAt(sort: Desc)])
+  @@map("campaign_runs")
+}
+
+/// Quem entrou na mira, e o que aconteceu com essa pessoa.
+///
+/// A linha é gravada **mesmo quando nada é enviado** — é ela que responde pelos pulados
+/// da prévia, e é sobre ela que a carência da campanha de inativos consulta (AC-02 de
+/// MOD-CRM-07): sem registrar quem foi pulado e quem recebeu, "não repetir em 60 dias"
+/// não teria onde olhar.
+model CampaignTarget {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  runId    String @map("run_id") @db.Uuid
+  tutorId  String @map("tutor_id") @db.Uuid
+
+  status     CampaignTargetStatus
+  skipReason CampaignSkipReason?  @map("skip_reason")
+
+  /// FK "solta" para `messages` de propósito: a retenção do MOD-CRM expurga mensagem
+  /// antiga, e uma FK real levaria o histórico da campanha junto.
+  messageId String? @map("message_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  run    CampaignRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  tutor  Tutor       @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([runId, status], map: "idx_campaign_targets_run")
+  @@index([tutorId, createdAt(sort: Desc)], map: "idx_campaign_targets_tutor")
+  @@map("campaign_targets")
 }
 
 enum WhatsappInstanceStatus {

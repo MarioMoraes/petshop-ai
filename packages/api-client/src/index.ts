@@ -55,6 +55,10 @@ import {
   AvailableTaxiDriverSchema,
   ClosedTaxiRideSchema,
   AutomationResponseSchema,
+  CampaignPreviewSchema,
+  CampaignRunSummarySchema,
+  CampaignSummarySchema,
+  CampaignTargetRowSchema,
   MessageStatsSchema,
   MessageSummarySchema,
   MessagingSettingsResponseSchema,
@@ -108,7 +112,10 @@ import {
   type SiteLeadPatch,
   type SiteLeadStatus,
   type SitePhotoPatch,
+  type CreateCampaignInput,
+  type RunCampaignInput,
   type UpdateAutomationInput,
+  type UpdateCampaignInput,
   type UpdateMessagingSettingsInput,
   type UpsertMessageTemplateInput,
   type OnboardingState,
@@ -1821,6 +1828,83 @@ export function createApiClient(options: ApiClientOptions) {
         path: `/v1/crm/automations/${key}`,
         body: input,
         schema: AutomationResponseSchema,
+      }),
+
+    // ─── MOD-CRM fatia 3 — campanhas ───────────────────────────────────────
+
+    listCampaigns: () =>
+      request({
+        method: 'GET',
+        path: '/v1/crm/campaigns',
+        schema: z.object({ data: z.array(CampaignSummarySchema) }),
+      }),
+
+    getCampaign: (id: string) =>
+      request({ method: 'GET', path: `/v1/crm/campaigns/${id}`, schema: CampaignSummarySchema }),
+
+    createCampaign: (input: CreateCampaignInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/crm/campaigns',
+        body: input,
+        schema: CampaignSummarySchema,
+      }),
+
+    updateCampaign: (id: string, input: UpdateCampaignInput) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/crm/campaigns/${id}`,
+        body: input,
+        schema: CampaignSummarySchema,
+      }),
+
+    /**
+     * A prévia é `POST` mesmo sem gravar nada.
+     *
+     * O segmento é resolvido no instante da chamada, e um `GET` seria cacheado pelo
+     * navegador — a segunda prévia devolveria a primeira, que é exatamente a mentira que
+     * a confirmação de contagem existe para impedir.
+     */
+    previewCampaign: (id: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/crm/campaigns/${id}/preview`,
+        schema: CampaignPreviewSchema,
+      }),
+
+    runCampaign: (id: string, input: RunCampaignInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/crm/campaigns/${id}/run`,
+        body: input,
+        schema: z.object({
+          runId: z.uuid(),
+          targeted: z.number().int(),
+          sent: z.number().int(),
+          skipped: z.number().int(),
+          failed: z.number().int(),
+        }),
+      }),
+
+    cancelCampaign: (id: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/crm/campaigns/${id}/cancel`,
+        schema: z.object({ cancelledMessages: z.number().int() }),
+      }),
+
+    listCampaignRuns: (id: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/crm/campaigns/${id}/runs`,
+        schema: z.object({ data: z.array(CampaignRunSummarySchema) }),
+      }),
+
+    listCampaignTargets: (runId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/crm/runs/${runId}/targets`,
+        schema: z.object({ data: z.array(CampaignTargetRowSchema) }),
       }),
 
     // ─── MOD-SITE — o site do estabelecimento ──────────────────────────────

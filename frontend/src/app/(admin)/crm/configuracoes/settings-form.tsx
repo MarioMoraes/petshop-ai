@@ -235,6 +235,117 @@ function Automations({
                  * o conhece é 422. Renderizar o campo para todas seria oferecer um
                  * ajuste que o servidor recusa.
                  */}
+                {'sendHour' in automation.config && (
+                  <Field
+                    label="Hora do envio"
+                    htmlFor={`hora-${automation.key}`}
+                    hint="No fuso do estabelecimento"
+                  >
+                    <input
+                      id={`hora-${automation.key}`}
+                      type="number"
+                      className="field"
+                      min={0}
+                      max={23}
+                      defaultValue={Number(automation.config.sendHour ?? 9)}
+                      disabled={pending}
+                      onBlur={(event) => {
+                        const value = Number(event.target.value)
+                        if (value === Number(automation.config.sendHour)) return
+                        save(automation.key, { config: { sendHour: value } }, automation.label)
+                      }}
+                    />
+                  </Field>
+                )}
+
+                {'inactiveDays' in automation.config && (
+                  <Field
+                    label="Considerar inativo depois de"
+                    htmlFor={`inativo-${automation.key}`}
+                    hint="Dias sem atendimento"
+                  >
+                    <input
+                      id={`inativo-${automation.key}`}
+                      type="number"
+                      className="field"
+                      min={30}
+                      max={730}
+                      defaultValue={Number(automation.config.inactiveDays ?? 90)}
+                      disabled={pending}
+                      onBlur={(event) => {
+                        const value = Number(event.target.value)
+                        if (value === Number(automation.config.inactiveDays)) return
+                        save(automation.key, { config: { inactiveDays: value } }, automation.label)
+                      }}
+                    />
+                  </Field>
+                )}
+
+                {'cooldownDays' in automation.config && (
+                  <Field
+                    label="Não repetir antes de"
+                    htmlFor={`carencia-${automation.key}`}
+                    hint="Dias entre um convite e o seguinte para a mesma pessoa"
+                  >
+                    <input
+                      id={`carencia-${automation.key}`}
+                      type="number"
+                      className="field"
+                      min={7}
+                      max={365}
+                      defaultValue={Number(automation.config.cooldownDays ?? 60)}
+                      disabled={pending}
+                      onBlur={(event) => {
+                        const value = Number(event.target.value)
+                        if (value === Number(automation.config.cooldownDays)) return
+                        save(automation.key, { config: { cooldownDays: value } }, automation.label)
+                      }}
+                    />
+                  </Field>
+                )}
+
+                {'minDebtCents' in automation.config && (
+                  <Field
+                    label="Não cobrar abaixo de"
+                    htmlFor={`piso-${automation.key}`}
+                    hint="Em reais. Cobrar troco custa mais que o troco"
+                  >
+                    <input
+                      id={`piso-${automation.key}`}
+                      type="number"
+                      className="field"
+                      min={0}
+                      step={1}
+                      defaultValue={Math.round(Number(automation.config.minDebtCents ?? 2000) / 100)}
+                      disabled={pending}
+                      onBlur={(event) => {
+                        const cents = Math.round(Number(event.target.value) * 100)
+                        if (cents === Number(automation.config.minDebtCents)) return
+                        save(automation.key, { config: { minDebtCents: cents } }, automation.label)
+                      }}
+                    />
+                  </Field>
+                )}
+
+                {'includeEstimated' in automation.config && (
+                  <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                    <input
+                      className="check"
+                      type="checkbox"
+                      defaultChecked={automation.config.includeEstimated === true}
+                      disabled={pending}
+                      onChange={(event) =>
+                        save(
+                          automation.key,
+                          { config: { includeEstimated: event.target.checked } },
+                          automation.label,
+                        )
+                      }
+                    />
+                    Incluir data de nascimento estimada
+                  </label>
+                )}
+
                 {'leadHours' in automation.config && (
                   <Field
                     label="Antecedência"
@@ -352,6 +463,27 @@ function EngineSettings({
             onBlur={(event) =>
               Number(event.target.value) !== settings.dailyCap &&
               save({ dailyCap: Number(event.target.value) }, 'Teto diário')
+            }
+          />
+        </Field>
+
+        <Field
+          label="Máximo de promoções por tutor"
+          htmlFor="marketingWeeklyCap"
+          hint="Por semana, somando todas as campanhas. Lembrete e leva-e-traz não contam. 0 desliga"
+          error={fieldErrors.marketingWeeklyCap}
+        >
+          <input
+            id="marketingWeeklyCap"
+            type="number"
+            className="field"
+            min={0}
+            max={20}
+            defaultValue={settings.marketingWeeklyCap}
+            disabled={pending}
+            onBlur={(event) =>
+              Number(event.target.value) !== settings.marketingWeeklyCap &&
+              save({ marketingWeeklyCap: Number(event.target.value) }, 'Teto por tutor')
             }
           />
         </Field>

@@ -31,6 +31,8 @@ export interface ResolvedSettings {
   marketingWeekdaysOnly: boolean
   dailyCap: number
   perMinuteCap: number
+  /** `0` desliga o teto semanal de marketing por tutor. */
+  marketingWeeklyCap: number
   defaultChannel: MessageChannelPref
   retentionMonths: number
   senderName: string | null
@@ -68,6 +70,7 @@ export async function loadSettings(
       marketingWeekdaysOnly: MESSAGING_SETTINGS_DEFAULTS.marketingWeekdaysOnly,
       dailyCap: MESSAGING_SETTINGS_DEFAULTS.dailyCap,
       perMinuteCap: MESSAGING_SETTINGS_DEFAULTS.perMinuteCap,
+      marketingWeeklyCap: MESSAGING_SETTINGS_DEFAULTS.marketingWeeklyCap,
       defaultChannel: MESSAGING_SETTINGS_DEFAULTS.defaultChannel,
       retentionMonths: MESSAGING_SETTINGS_DEFAULTS.retentionMonths,
       senderName: null,
@@ -83,6 +86,7 @@ export async function loadSettings(
     marketingWeekdaysOnly: row.marketingWeekdaysOnly,
     dailyCap: row.dailyCap,
     perMinuteCap: row.perMinuteCap,
+    marketingWeeklyCap: row.marketingWeeklyCap,
     defaultChannel: row.defaultChannel as MessageChannelPref,
     retentionMonths: row.retentionMonths,
     senderName: row.senderName,
@@ -109,6 +113,7 @@ export function toApi(settings: ResolvedSettings) {
     marketingWeekdaysOnly: settings.marketingWeekdaysOnly,
     dailyCap: settings.dailyCap,
     perMinuteCap: settings.perMinuteCap,
+    marketingWeeklyCap: settings.marketingWeeklyCap,
     defaultChannel: settings.defaultChannel,
     retentionMonths: settings.retentionMonths,
     senderName: settings.senderName,
@@ -131,6 +136,7 @@ export async function updateSettings(
   }
   if (input.dailyCap !== undefined) data.dailyCap = input.dailyCap
   if (input.perMinuteCap !== undefined) data.perMinuteCap = input.perMinuteCap
+  if (input.marketingWeeklyCap !== undefined) data.marketingWeeklyCap = input.marketingWeeklyCap
   if (input.defaultChannel !== undefined) data.defaultChannel = input.defaultChannel
   if (input.retentionMonths !== undefined) data.retentionMonths = input.retentionMonths
   if (input.senderName !== undefined) data.senderName = input.senderName ?? null

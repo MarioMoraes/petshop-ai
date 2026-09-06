@@ -115,6 +115,55 @@ const DEFAULTS: Record<
     label: 'Coleta frustrada',
     description: 'Avisa o tutor quando não foi possível buscar o pet, e por quê.',
   },
+
+  // As quatro da fatia 3 nascem **desligadas**, sem exceção.
+  //
+  // As três primeiras são MARKETING, e mandar promoção sem alguém ter decidido mandar é
+  // o erro que custa o consentimento de toda a base. A quarta é cobrança — e cobrar por
+  // mensagem automática é decisão de quem responde pelo caixa, não um padrão que o
+  // cliente descobre pelo celular do inadimplente.
+  birthday_pet: {
+    enabled: false,
+    channel: 'AUTO',
+    templateKey: 'birthday_pet',
+    config: { sendHour: 9, includeEstimated: false },
+    label: 'Aniversário do pet',
+    description: 'Felicita o tutor no aniversário do pet. Nunca sai para pet falecido.',
+  },
+  birthday_tutor: {
+    enabled: false,
+    channel: 'AUTO',
+    templateKey: 'birthday_tutor',
+    config: { sendHour: 9 },
+    label: 'Aniversário do tutor',
+    description: 'Felicita o tutor no aniversário dele.',
+  },
+  inactive_campaign: {
+    enabled: false,
+    channel: 'AUTO',
+    templateKey: 'winback',
+    config: { sendHour: 10, inactiveDays: 90, cooldownDays: 60 },
+    label: 'Convite de volta',
+    description:
+      'Convida de volta quem não aparece há um tempo. Não convida quem tem valor em aberto.',
+  },
+  dunning: {
+    enabled: false,
+    channel: 'AUTO',
+    templateKey: 'dunning_soft',
+    config: {
+      sendHour: 9,
+      steps: [
+        { days: 3, templateKey: 'dunning_soft' },
+        { days: 10, templateKey: 'dunning_firm' },
+        { days: 30, templateKey: 'dunning_final' },
+      ],
+      minDebtCents: 2000,
+    },
+    label: 'Régua de cobrança',
+    description:
+      'Avisa quem tem valor em aberto, em degraus. Pagar em qualquer ponto interrompe a régua.',
+  },
 }
 
 export async function resolveAutomation(

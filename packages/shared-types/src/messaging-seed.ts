@@ -44,6 +44,17 @@ const BASE_VARIABLES = [
  */
 const TAXI_VARIABLES = [...BASE_VARIABLES, 'pets.lista', 'taxi.janela', 'taxi.motivo'] as const
 
+/**
+ * As da régua de cobrança. `financeiro.valor_devido` já vem formatado em reais pelo
+ * chamador — o template não faz conta, e um número em centavos escapando para o corpo
+ * da mensagem é o erro mais caro que este catálogo pode cometer.
+ */
+const DUNNING_VARIABLES = [
+  ...BASE_VARIABLES,
+  'financeiro.valor_devido',
+  'financeiro.dias_atraso',
+] as const
+
 const APPOINTMENT_VARIABLES = [
   ...BASE_VARIABLES,
   'pets.lista',
@@ -266,6 +277,191 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'Alguém pediu para usar este e-mail no cadastro do {{petshop.nome}}.\n\n' +
         'Para confirmar, use o código {{portal.codigo}}. Ele vale por 10 minutos.\n\n' +
         'Se não foi você, ignore esta mensagem: sem o código nada é alterado.',
+    },
+  },
+
+  /**
+   * Os de MARKETING — os primeiros do catálogo (fatia 3 do MOD-CRM).
+   *
+   * Até aqui todo texto era execução de contrato: lembrete, confirmação, taxi, código.
+   * Estes quatro exigem consentimento vigente para o canal, contam no teto diário do
+   * tenant e no teto semanal do tutor, e não saem no domingo enquanto
+   * `marketing_weekdays_only` for verdadeiro. É a categoria que decide tudo isso, não o
+   * texto — e é por isso que ela está aqui e não numa configuração à parte.
+   */
+  {
+    key: 'birthday_pet',
+    label: 'Aniversário do pet',
+    category: 'MARKETING',
+    variables: [...BASE_VARIABLES, 'pet.nome'],
+    subject: 'Feliz aniversário, {{pet.nome}}',
+    /**
+     * **A mensagem não leva benefício nenhum.**
+     *
+     * Foi decisão do dono do produto (questão 1 do §11 do PRD), e ela é o que mantém o
+     * texto honesto: não existe cupom no sistema, e o MOD-LEDGER tem crédito e pacote —
+     * nenhum dos dois é desconto condicional. Prometer aqui um "presente" que a
+     * recepção teria de improvisar no balcão transforma a felicitação em constrangimento
+     * para quem atende.
+     */
+    body: {
+      WHATSAPP:
+        'Hoje é aniversário do {{pet.nome}}. Toda a equipe do {{petshop.nome}} deseja um ' +
+        'dia muito feliz.\n\n' +
+        'Se quiser comemorar com um banho, fale com a gente pelo {{petshop.telefone}}.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Hoje é aniversário do {{pet.nome}}. Toda a equipe do {{petshop.nome}} deseja um ' +
+        'dia muito feliz para ele e para você.\n\n' +
+        'Se quiser comemorar com um banho, fale com a gente pelo {{petshop.telefone}}.',
+    },
+  },
+  {
+    key: 'birthday_tutor',
+    label: 'Aniversário do tutor',
+    category: 'MARKETING',
+    /**
+     * **Sem `pets.lista`, de propósito.**
+     *
+     * A primeira redação citava os pets, e ela quebra em dois casos que não são raros:
+     * o tutor que ainda não cadastrou nenhum e o que perdeu o único. A variável
+     * renderizaria vazio e a frase sairia como "a equipe — e o — deseja", ou pior,
+     * lembraria a pessoa da ausência no dia do aniversário dela.
+     */
+    variables: BASE_VARIABLES,
+    subject: 'Feliz aniversário, {{tutor.primeiro_nome}}',
+    body: {
+      WHATSAPP:
+        'Feliz aniversário, {{tutor.primeiro_nome}}. A equipe do {{petshop.nome}} deseja ' +
+        'um ótimo dia.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Feliz aniversário. A equipe do {{petshop.nome}} deseja um ótimo dia para você.',
+    },
+  },
+  {
+    key: 'winback',
+    label: 'Convite de volta',
+    category: 'MARKETING',
+    variables: [...BASE_VARIABLES, 'pets.lista'],
+    subject: 'Sentimos falta do {{pets.lista}}',
+    /**
+     * O texto **não pergunta por que sumiu**. Quem não volta há três meses trocou de
+     * petshop, se mudou ou perdeu o pet — e a única dessas três respostas que a
+     * mensagem pode provocar sem custo é nenhuma delas.
+     */
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, faz um tempo que o {{pets.lista}} não aparece por aqui.\n\n' +
+        'A porta do {{petshop.nome}} continua aberta. Para marcar um horário, fale com a ' +
+        'gente pelo {{petshop.telefone}}.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Faz um tempo que o {{pets.lista}} não aparece por aqui, e a gente queria dizer ' +
+        'que a porta do {{petshop.nome}} continua aberta.\n\n' +
+        'Para marcar um horário, fale com a gente pelo {{petshop.telefone}}.',
+    },
+  },
+  {
+    key: 'campaign_broadcast',
+    label: 'Campanha (texto livre)',
+    category: 'MARKETING',
+    variables: [...BASE_VARIABLES, 'pets.lista'],
+    subject: 'Recado do {{petshop.nome}}',
+    /**
+     * O único template do catálogo que **espera ser reescrito**.
+     *
+     * A campanha manual (MOD-CRM-12) precisa de um texto por disparo, e o modelo de
+     * templates é por chave, não por campanha. O padrão aqui é um recado genérico o
+     * bastante para não envergonhar quem esquecer de trocá-lo, e vazio o bastante para
+     * ninguém confundi-lo com uma mensagem pronta.
+     */
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, temos uma novidade no {{petshop.nome}}.\n\n' +
+        'Fale com a gente pelo {{petshop.telefone}} para saber mais.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Temos uma novidade no {{petshop.nome}}. Fale com a gente pelo ' +
+        '{{petshop.telefone}} para saber mais.',
+    },
+  },
+
+  /**
+   * Os três degraus da régua (MOD-CRM-08).
+   *
+   * `TRANSACTIONAL`, e não `MARKETING`: cobrar dívida é execução de contrato, e exigir
+   * consentimento de marketing para avisar alguém do próprio débito faria o
+   * inadimplente que revogou promoções ficar invisível para a cobrança.
+   *
+   * Nenhum dos três tem **link de pagamento**, e é decisão de produto, não esquecimento:
+   * a v1 não tem gateway (decisão 5 do dossiê), e o pagamento é registrado à mão no
+   * balcão. Prometer um link que não existe é o caminho mais rápido para o tutor achar
+   * que a mensagem é golpe.
+   */
+  {
+    key: 'dunning_soft',
+    label: 'Cobrança — primeiro aviso',
+    category: 'TRANSACTIONAL',
+    variables: DUNNING_VARIABLES,
+    subject: 'Você tem um valor em aberto no {{petshop.nome}}',
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, consta um valor em aberto de {{financeiro.valor_devido}} ' +
+        'na sua conta do {{petshop.nome}}.\n\n' +
+        'Se já tiver pago, é só ignorar. Para regularizar, fale com a gente pelo ' +
+        '{{petshop.telefone}}.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Consta um valor em aberto de {{financeiro.valor_devido}} na sua conta do ' +
+        '{{petshop.nome}}.\n\n' +
+        'Se já tiver pago, é só ignorar esta mensagem. Para regularizar, fale com a gente ' +
+        'pelo {{petshop.telefone}}.',
+    },
+  },
+  {
+    key: 'dunning_firm',
+    label: 'Cobrança — segundo aviso',
+    category: 'TRANSACTIONAL',
+    variables: DUNNING_VARIABLES,
+    subject: 'Sobre o valor em aberto no {{petshop.nome}}',
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, o valor de {{financeiro.valor_devido}} na sua conta do ' +
+        '{{petshop.nome}} está em aberto há {{financeiro.dias_atraso}} dias.\n\n' +
+        'Fale com a gente pelo {{petshop.telefone}} para combinarmos a melhor forma de ' +
+        'regularizar.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'O valor de {{financeiro.valor_devido}} na sua conta do {{petshop.nome}} está em ' +
+        'aberto há {{financeiro.dias_atraso}} dias.\n\n' +
+        'Fale com a gente pelo {{petshop.telefone}} para combinarmos a melhor forma de ' +
+        'regularizar.',
+    },
+  },
+  {
+    key: 'dunning_final',
+    label: 'Cobrança — último aviso',
+    category: 'TRANSACTIONAL',
+    variables: DUNNING_VARIABLES,
+    subject: 'Precisamos regularizar sua conta no {{petshop.nome}}',
+    /**
+     * O último degrau **não ameaça**. Não há protesto, negativação nem suspensão
+     * automática neste sistema, e escrever o que não se vai fazer só ensina o cliente a
+     * não levar a régua a sério na próxima vez.
+     */
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, o valor de {{financeiro.valor_devido}} continua em ' +
+        'aberto há {{financeiro.dias_atraso}} dias no {{petshop.nome}}.\n\n' +
+        'Precisamos regularizar para seguir atendendo. Fale com a gente pelo ' +
+        '{{petshop.telefone}}.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'O valor de {{financeiro.valor_devido}} continua em aberto há ' +
+        '{{financeiro.dias_atraso}} dias no {{petshop.nome}}.\n\n' +
+        'Precisamos regularizar para seguir atendendo. Fale com a gente pelo ' +
+        '{{petshop.telefone}}.',
     },
   },
 ]

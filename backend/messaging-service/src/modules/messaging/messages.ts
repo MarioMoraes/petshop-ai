@@ -2,6 +2,7 @@ import { hashSearchable, withTenant, type TenantTransaction } from '@petshop/db'
 import {
   findTemplateDefinition,
   type EnqueueMessageInput,
+  type MessageBlockReason,
   type MessageCategory,
   type MessageChannel,
   type MessageOriginType,
@@ -20,6 +21,7 @@ import { tenantOptions, type ActorContext } from './actor.js'
 import { openCipher, type MessageCipher } from './crypto.js'
 import { dispatchTenant } from './dispatch.js'
 import { render } from './render.js'
+import { marketingCapReached } from './frequency.js'
 import { resolveDelivery, resolveOverrideDelivery } from './recipient.js'
 import { resolveTemplate } from './templates.js'
 import { loadSettings } from './settings.js'
@@ -54,6 +56,15 @@ export interface EnqueueResult {
   status: string
   /** `true` quando o `dedupeKey` já existia — o chamador recebe 200, não 201. */
   duplicate: boolean
+  /**
+   * Por que não vai sair, quando `status` é `BLOCKED`.
+   *
+   * Existe para a campanha: ela precisa registrar em `campaign_targets` **por que**
+   * aquela pessoa ficou de fora, e sem este campo teria de refazer, do lado dela, as
+   * mesmas quatro perguntas que a cascata de `recipient.ts` acabou de responder — com a
+   * garantia de as duas divergirem no primeiro motivo novo.
+   */
+  blockReason: MessageBlockReason | null
 }
 
 /**
@@ -163,12 +174,10 @@ export async function enqueueMessage(
    * enviar oferta a qualquer endereço digitado, sem consentimento e sem ficha — o
    * contrário exato do que o MOD-CRM defende.
    *
-   * **Hoje essa primeira guarda não tem como disparar**, e é de propósito que ela exista
-   * assim mesmo: o catálogo de `messaging-seed.ts` ainda não tem nenhum texto
-   * `MARKETING` — eles chegam com a fatia 3 do MOD-CRM (campanhas, aniversário, régua de
-   * cobrança) —, e `findTemplateDefinition` recusa o que não está nele. No dia em que o
-   * primeiro chegar, a guarda passa a valer sozinha. Escrevê-la depois exigiria alguém
-   * lembrar deste arquivo enquanto escreve outro.
+   * Ela foi escrita antes de existir texto de `MARKETING` no catálogo, quando não tinha
+   * como disparar. Desde a fatia 3 do MOD-CRM tem: aniversário, convite de volta e
+   * campanha entraram em `messaging-seed.ts`, e a guarda passou a valer sozinha, sem
+   * ninguém precisar lembrar deste arquivo enquanto escrevia o outro.
    */
   if (input.overrideAddress) {
     if (category === 'MARKETING') {
@@ -183,13 +192,13 @@ export async function enqueueMessage(
   // acabou de nascer — não têm os mesmos campos, e a união inferida os tornaria todos
   // opcionais.
   type Enqueued =
-    | { id: string; status: string; duplicate: true }
+    | { id: string; status: string; duplicate: true; blockReason: MessageBlockReason | null }
     | {
         id: string
         status: string
         duplicate: false
         channel: MessageChannel
-        blockReason: string | null
+        blockReason: MessageBlockReason | null
         scheduledFor: Date | null
       }
 
@@ -206,9 +215,16 @@ export async function enqueueMessage(
 
       const existing = await tx.message.findUnique({
         where: { tenantId_dedupeKey: { tenantId: actor.tenantId, dedupeKey: input.dedupeKey } },
-        select: { id: true, status: true },
+        select: { id: true, status: true, blockReason: true },
       })
-      if (existing) return { id: existing.id, status: existing.status, duplicate: true }
+      if (existing) {
+        return {
+          id: existing.id,
+          status: existing.status,
+          duplicate: true,
+          blockReason: existing.blockReason,
+        }
+      }
 
       const cipher = await openCipher(tx, actor.tenantId)
       const decision = input.overrideAddress
@@ -225,6 +241,27 @@ export async function enqueueMessage(
             preference: input.channel === 'AUTO' ? settings.defaultChannel : input.channel,
             category,
           })
+
+      /**
+       * O teto semanal do tutor, cobrado **aqui** e não no despacho.
+       *
+       * É a diferença entre este teto e o diário do tenant, e ela é deliberada. O teto
+       * diário **adia**: a mensagem cabe amanhã, e o petshop quer que caiba. Este
+       * **recusa**: a oferta que não coube nesta semana não vira a oferta da semana que
+       * vem — quando chegar lá haverá outra campanha, e a antiga sairia atrasada,
+       * competindo com a nova pela mesma cota.
+       *
+       * O resultado é uma linha `BLOCKED` com o motivo, que é o que permite à campanha
+       * dizer por que aquela pessoa ficou de fora em vez de simplesmente não aparecer.
+       */
+      const overWeeklyCap =
+        decision.ok &&
+        category === 'MARKETING' &&
+        (await marketingCapReached(tx, {
+          tutorId: input.tutorId,
+          cap: settings.marketingWeeklyCap,
+          now,
+        }))
 
       const channel: MessageChannel = decision.ok ? decision.delivery.channel : decision.channel
       const address = decision.ok ? decision.delivery.address : ''
@@ -257,7 +294,12 @@ export async function enqueueMessage(
       })
       const scheduledFor = opening ?? input.scheduledFor ?? null
 
-      const blocked = !decision.ok
+      const blocked = !decision.ok || overWeeklyCap
+      const blockReason: MessageBlockReason | null = !decision.ok
+        ? decision.reason
+        : overWeeklyCap
+          ? 'WEEKLY_CAP'
+          : null
 
       /**
        * RN-08: cabe dentro de uma mensagem que ainda não saiu?
@@ -305,7 +347,7 @@ export async function enqueueMessage(
               : scheduledFor
                 ? 'SCHEDULED'
                 : 'QUEUED',
-          blockReason: blocked ? decision.reason : null,
+          blockReason,
           dedupeKey: input.dedupeKey,
           originType: input.originType ?? null,
           originId: input.originId ?? null,
@@ -323,7 +365,7 @@ export async function enqueueMessage(
         status: created.status,
         duplicate: false,
         channel,
-        blockReason: blocked ? decision.reason : null,
+        blockReason,
         scheduledFor: blocked ? null : scheduledFor,
       }
     },
@@ -373,7 +415,12 @@ export async function enqueueMessage(
     })
   }
 
-  return { id: result.id, status: result.status, duplicate: result.duplicate }
+  return {
+    id: result.id,
+    status: result.status,
+    duplicate: result.duplicate,
+    blockReason: result.blockReason,
+  }
 }
 
 /**

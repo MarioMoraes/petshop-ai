@@ -115,10 +115,10 @@ const PLANNED: PlannedBlock[] = [
         label: 'Opt-in de WhatsApp',
         detail: 'Teto de alcance de qualquer campanha: sem consentimento não há mensagem.',
       },
-      {
-        label: 'Régua de cobrança',
-        detail: 'Quem cobrar hoje e por qual canal. O saldo e a tag de inadimplente já existem; falta o MOD-CRM disparar.',
-      },
+      // "Régua de cobrança" saiu daqui na fatia 3 do MOD-CRM (2026-09-06): ela existe,
+      // é configurável em /crm/configuracoes e o resultado de cada disparo aparece no
+      // painel de mensagens. Item que continua nesta lista depois de existir transforma
+      // o Início em mentira.
     ],
   },
   {
