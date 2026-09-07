@@ -219,6 +219,27 @@ export const PORTAL_ERRORS = {
 
 export type PortalErrorCode = keyof typeof PORTAL_ERRORS
 
+/**
+ * PRD documentos_pdf_11 §5.
+ *
+ * `ERR_DOC_005` generaliza o `ERR_LEDGER_013`, que nasceu antes deste módulo e fica no
+ * catálogo por compatibilidade com o que o Portal já trata. Rota nova emite o novo.
+ */
+export const DOCUMENT_ERRORS = {
+  ERR_DOC_001: { status: 404, title: 'Documento não encontrado' },
+  /** Tenant sem endereço público, sujeito incompleto — falta dado para imprimir. */
+  ERR_DOC_002: { status: 422, title: 'Dados insuficientes para emitir o documento' },
+  ERR_DOC_003: { status: 403, title: 'Permissão insuficiente sobre o documento' },
+  /** Documento `ISSUED` ou versão de termo publicada: os dois são imutáveis (RN-03). */
+  ERR_DOC_004: { status: 409, title: 'Documento imutável' },
+  ERR_DOC_005: { status: 503, title: 'Geração de documento indisponível' },
+  ERR_DOC_006: { status: 409, title: 'Termo já aceito nesta versão' },
+  ERR_DOC_007: { status: 422, title: 'Versão de termo inexistente ou não publicada' },
+  ERR_DOC_008: { status: 409, title: 'Numeração de documento indisponível' },
+} as const
+
+export type DocumentErrorCode = keyof typeof DOCUMENT_ERRORS
+
 export const ERROR_CATALOG = {
   ...IDENTITY_ERRORS,
   ...TUTOR_ERRORS,
@@ -229,6 +250,7 @@ export const ERROR_CATALOG = {
   ...CRM_ERRORS,
   ...SITE_ERRORS,
   ...PORTAL_ERRORS,
+  ...DOCUMENT_ERRORS,
 } as const
 
 export type ErrorCode = keyof typeof ERROR_CATALOG

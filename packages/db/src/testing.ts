@@ -137,7 +137,8 @@ const BUSINESS_TABLES = [
   'automations',
   // MOD-LEDGER-08 — o recibo aponta para o pagamento, então vem antes dele.
   'receipts',
-  'receipt_counters',
+  'documents',
+  'document_counters',
   // MOD-LEDGER — na frente de tudo: referencia tutores, pets e serviços.
   // A ordem interna também importa: `package_credit_usages` e `payment_allocations`
   // apontam para lançamentos e pagamentos, que apontam para a conta.

@@ -15,6 +15,7 @@
     "@aws-sdk/client-s3": "^3.1116.0",
     "@aws-sdk/s3-request-presigner": "^3.1116.0",
     "@petshop/db": "workspace:*",
+    "@petshop/documents": "workspace:*",
     "@petshop/job-scheduler": "workspace:*",
     "@petshop/pdf": "workspace:*",
     "@petshop/service-auth": "workspace:*",

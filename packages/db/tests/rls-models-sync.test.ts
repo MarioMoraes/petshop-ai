@@ -60,15 +60,29 @@ function readSchema(): { modelToTable: Map<string, string>; modelsWithTenantId: 
   return { modelToTable, modelsWithTenantId }
 }
 
-/** Tabelas que alguma migration colocou sob RLS. */
+/**
+ * Tabelas que o banco protege com RLS **ao fim da história**.
+ *
+ * Não é a união dos `ENABLE`: uma migration posterior pode derrubar a tabela, e foi o
+ * que aconteceu com `receipt_counters` quando a numeração virou `document_counters` na
+ * fatia 1 do MOD-DOC. Somar só os `ENABLE` deixaria o teste cobrando guard para uma
+ * tabela que não existe mais.
+ *
+ * Daí a ordem: os diretórios são lidos **ordenados**, porque o prefixo do nome é o
+ * carimbo de tempo, e é ele que define o que veio antes.
+ */
 function readRlsTablesFromMigrations(): Set<string> {
   const tables = new Set<string>()
 
-  for (const entry of readdirSync(migrationsDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue
+  const entries = readdirSync(migrationsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+
+  for (const name of entries) {
     let sql: string
     try {
-      sql = readFileSync(join(migrationsDir, entry.name, 'migration.sql'), 'utf8')
+      sql = readFileSync(join(migrationsDir, name, 'migration.sql'), 'utf8')
     } catch {
       continue
     }
@@ -76,6 +90,11 @@ function readRlsTablesFromMigrations(): Set<string> {
       /ALTER\s+TABLE\s+(?:ONLY\s+)?"?([A-Za-z_][A-Za-z0-9_]*)"?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi,
     )) {
       if (match[1]) tables.add(match[1])
+    }
+    for (const match of sql.matchAll(
+      /DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?"?([A-Za-z_][A-Za-z0-9_]*)"?/gi,
+    )) {
+      if (match[1]) tables.delete(match[1])
     }
   }
 

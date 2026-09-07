@@ -4,7 +4,7 @@
 **Arquivo:** 11/15
 **Prioridade:** P1
 **Fase de Implementação:** Fase 6 — Documentos e Notificações
-**Serviço Backend:** nenhum serviço novo — `packages/pdf` (motor) sobre o Gotenberg já no compose (porta 3030). A emissão fica distribuída entre `medical-record-service` (3005), `billing-ledger-service` (3007), `tutor-service` (3003) e `portal-bff` (3020)
+**Serviço Backend:** nenhum serviço novo — `packages/pdf` (mecanismo do Gotenberg, já no compose na porta 3030) e `packages/documents` (registro, numeração, molde e armazenamento). A emissão fica distribuída entre `medical-record-service` (3005), `billing-ledger-service` (3007), `tutor-service` (3003) e `portal-bff` (3020)
 **Tabelas Principais:** `documents`, `document_counters`, `prescriptions`, `term_versions` (novas); `receipts`, `professionals`, `tutor_consents` (alteradas)
 **Data:** 2026-09-07
 **Status:** Draft
@@ -27,7 +27,7 @@
 
 | ID | Nome | Descrição | Must/Should/Nice |
 |---|---|---|---|
-| MOD-DOC-01 | Motor de documento | `packages/pdf` ganha o modelo base: cabeçalho do tenant, rodapé, CSS único e paginação | Must Have |
+| MOD-DOC-01 | Motor de documento | O modelo base: cabeçalho do tenant, rodapé, CSS único e paginação | Must Have |
 | MOD-DOC-02 | Registro e arquivamento | Tabela `documents`, objeto no R2, checksum e retenção; o recibo passa a apontar para ela | Must Have |
 | MOD-DOC-03 | Numeração | Série sequencial por tenant, ano e tipo; generaliza o `receipt_counters` do MOD-LEDGER | Must Have |
 | MOD-DOC-04 | Receituário veterinário | `prescriptions`, itens estruturados, CRMV em snapshot, PDF imutável (fecha MOD-PRONT-07) | Must Have |
@@ -47,6 +47,8 @@
 ### [MOD-DOC-01] — Motor de Documento
 
 > **Decisão de arquitetura (2026-09-07): pacote com registro comum, não `document-service:3012`.** O SPEC §57 desenha um serviço dedicado. Ele não nasce, pelo mesmo motivo que a porta 3011 do MOD-NOTIF não nasceu: um serviço central de documentos obriga cada serviço de domínio a mandar, por HTTP, o payload clínico e financeiro que ele já tem em mãos, para receber de volta um arquivo. O que é comum entre documentos — falar com o Gotenberg, degradar quando ele não responde, o cabeçalho do tenant, o registro do que foi emitido — cabe num pacote e numa tabela. O que não é comum — saber o que é uma prescrição — continua no serviço que sabe. O `packages/pdf` já dizia isso no próprio cabeçalho desde o MOD-LEDGER; esta decisão é a confirmação dele, não uma novidade.
+
+> **Como ficou, na implementação da fatia 1:** são **dois** pacotes, e não um. O `@petshop/pdf` continua sendo "HTML vira PDF, e nada mais" — sem dependência de banco, como nasceu. O `@petshop/documents` é o novo, e guarda o registro, a numeração, o molde de página e o armazenamento; depende dos dois. Concentrar tudo em `@petshop/pdf` obrigaria o pacote mais simples do repositório a passar a depender do Prisma e do SDK da S3.
 
 **AC-01 (Happy Path — cabeçalho e rodapé comuns)**
 - **Dado** um tenant com nome, logo, endereço público e telefone preenchidos
@@ -82,7 +84,7 @@
 **AC-02 (Happy Path — download)**
 - **Dado** um documento `ISSUED` e um usuário com permissão sobre ele
 - **Quando** pede o arquivo
-- **Então** recebe **302** para uma URL assinada com TTL de 5 minutos, e o acesso entra na trilha de auditoria com quem pediu e de onde
+- **Então** recebe **302** para uma URL assinada com TTL de 15 minutos — o mesmo que o recibo já usava desde o MOD-LEDGER —, e o acesso entra na trilha de auditoria com quem pediu e de onde
 
 **AC-03 (Cenário negativo — documento de outro tenant ou de outro tutor)**
 - **Dado** um identificador de documento que não pertence ao tenant do contexto, ou que pertence ao tenant mas não ao tutor autenticado no Portal
@@ -539,7 +541,7 @@ Não há coluna de estado: o estado é **derivado** das linhas append-only, como
 | # | Cenário | Comportamento Esperado | Módulos Afetados |
 |---|---|---|---|
 | RN-01 | O que se arquiva | Só documento com valor legal: recibo, receituário, termo aceito, autorização de imagem. Extrato e relatório são regerados | MOD-LEDGER, MOD-PORTAL |
-| RN-02 | Como se entrega | Arquivado desce por URL assinada de 5 min; regerado desce em bytes com `Content-Disposition` | MOD-PORTAL |
+| RN-02 | Como se entrega | Arquivado desce por URL assinada de 15 min; regerado desce em bytes com `Content-Disposition` | MOD-PORTAL |
 | RN-03 | Imutabilidade | Documento `ISSUED` nunca é regerado nem sobrescrito. Correção é documento novo, com o anterior cancelado e visível | MOD-PRONT, MOD-LEDGER |
 | RN-04 | Numeração não recicla | Número de documento cancelado não volta para a série | MOD-LEDGER |
 | RN-05 | Prescrição exige CRMV | Sem `professionals.crmv`, `403 ERR_PRONT_009`. É a RN-10 do MOD-PRONT, finalmente aplicável | MOD-PRONT, MOD-IDENT |

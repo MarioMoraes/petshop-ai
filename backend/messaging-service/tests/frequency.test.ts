@@ -32,7 +32,7 @@ beforeEach(async () => {
 afterAll(closeHarness)
 
 function actor(tenantId: string) {
-  return { tenantId, actorUserId: null }
+  return { tenantId, actorUserId: undefined }
 }
 
 async function enqueueMarketing(
@@ -47,6 +47,9 @@ async function enqueueMarketing(
     channel: 'EMAIL',
     dedupeKey,
     variables: {},
+    urgent: false,
+    // `extra` é `Record<string, unknown>` de propósito — cada teste sobrescreve um campo
+    // diferente. É o único ponto do arquivo em que a conversão se justifica.
     ...extra,
   } as Parameters<typeof enqueueMessage>[1])
 }
@@ -81,7 +84,8 @@ describe('teto semanal de marketing', () => {
       channel: 'EMAIL',
       dedupeKey: 'lembrete-1',
       variables: {},
-    } as Parameters<typeof enqueueMessage>[1])
+      urgent: false,
+    })
 
     expect(reminder.blockReason).toBeNull()
   })
@@ -171,7 +175,8 @@ describe('revalidação no despacho (RN-03)', () => {
       channel: 'EMAIL',
       dedupeKey: 'aniversario-1',
       variables: { 'pet.nome': 'Rex' },
-    } as Parameters<typeof enqueueMessage>[1])
+      urgent: false,
+    })
     expect(message.blockReason).toBeNull()
 
     // O tutor comunica o óbito no balcão, horas depois.
@@ -206,7 +211,8 @@ describe('revalidação no despacho (RN-03)', () => {
       originType: 'LEDGER_ENTRY',
       originId: '00000000-0000-4000-8000-000000000001',
       variables: { 'financeiro.valor_devido': 'R$ 80,00', 'financeiro.dias_atraso': '3' },
-    } as Parameters<typeof enqueueMessage>[1])
+      urgent: false,
+    })
 
     // Pagou no balcão às 07h40, antes de a mensagem das 08h sair.
     await withTenant(fixture.tenantId, (tx) =>
@@ -240,7 +246,8 @@ describe('revalidação no despacho (RN-03)', () => {
       originType: 'LEDGER_ENTRY',
       originId: '00000000-0000-4000-8000-000000000001',
       variables: { 'financeiro.valor_devido': 'R$ 80,00', 'financeiro.dias_atraso': '3' },
-    } as Parameters<typeof enqueueMessage>[1])
+      urgent: false,
+    })
 
     const summary = await dispatchTenant(fixture.tenantId, { jitter: false })
 
@@ -262,7 +269,8 @@ describe('destino imposto', () => {
         dedupeKey: 'promo-fora-da-ficha',
         overrideAddress: 'outro@exemplo.com',
         variables: {},
-      } as Parameters<typeof enqueueMessage>[1]),
+        urgent: false,
+      }),
     ).rejects.toMatchObject({ code: 'ERR_CRM_003' })
   })
 })

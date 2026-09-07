@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { withTenant } from '@petshop/db'
+import { allocateNumber } from '@petshop/documents'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PdfUnavailableError, setPdfPort } from '../src/lib/pdf.js'
 import { StorageUnavailableError, setStoragePort } from '../src/lib/storage.js'
 import { recordPayment, reversePayment } from '../src/modules/ledger/payments.js'
 import { renderReceiptHtml } from '../src/modules/ledger/receipt-template.js'
-import { allocateNumber, retryPendingReceipts } from '../src/modules/ledger/receipts.js'
+import { retryPendingReceipts } from '../src/modules/ledger/receipts.js'
 import {
   actorOf,
   asAdmin,
@@ -94,6 +95,17 @@ async function receiptOf(paymentId: string) {
   )
 }
 
+/** O documento por trás do recibo: é ele que guarda arquivo, tentativas e erro. */
+async function documentOf(paymentId: string) {
+  return withTenant(tenant.tenantId, async (tx) => {
+    const receipt = await tx.receipt.findFirstOrThrow({
+      where: { paymentId },
+      select: { documentId: true },
+    })
+    return tx.document.findFirstOrThrow({ where: { id: receipt.documentId! } })
+  })
+}
+
 describe('RN-21 — numeração sequencial por tenant e ano', () => {
   it('o primeiro recibo do ano é 000001 e o próximo é 000002', async () => {
     const primeiro = await pay(1000)
@@ -131,10 +143,10 @@ describe('RN-21 — numeração sequencial por tenant e ano', () => {
 
   it('a sequência recomeça a cada ano', async () => {
     const numero2025 = await withTenant(tenant.tenantId, (tx) =>
-      allocateNumber(tx, tenant.tenantId, 2025),
+      allocateNumber(tx, tenant.tenantId, 'RECEIPT', 2025),
     )
     const numero2026 = await withTenant(tenant.tenantId, (tx) =>
-      allocateNumber(tx, tenant.tenantId, 2026),
+      allocateNumber(tx, tenant.tenantId, 'RECEIPT', 2026),
     )
 
     expect(numero2025).toBe('2025/000001')
@@ -144,7 +156,7 @@ describe('RN-21 — numeração sequencial por tenant e ano', () => {
   it('dez alocações simultâneas produzem dez números distintos', async () => {
     const numeros = await Promise.all(
       Array.from({ length: 10 }, () =>
-        withTenant(tenant.tenantId, (tx) => allocateNumber(tx, tenant.tenantId, 2026)),
+        withTenant(tenant.tenantId, (tx) => allocateNumber(tx, tenant.tenantId, 'RECEIPT', 2026)),
       ),
     )
 
@@ -171,8 +183,11 @@ describe('emissão', () => {
 
     expect(receipt.status).toBe('ISSUED')
     expect(receipt.issuedAt).not.toBeNull()
-    expect(receipt.storageKey).toBe(`tenants/${tenant.tenantId}/receipts/${receipt.id}.pdf`)
-    expect(storage.objects.get(receipt.storageKey!)?.toString()).toContain('%PDF')
+    const documento = await documentOf(payment.paymentId)
+    expect(documento.status).toBe('ISSUED')
+    expect(documento.storageKey).toBe(`tenants/${tenant.tenantId}/documents/${documento.id}.pdf`)
+    expect(documento.checksum).toMatch(/^[0-9a-f]{64}$/)
+    expect(storage.objects.get(documento.storageKey!)?.toString()).toContain('%PDF')
   })
 
   it('a rota devolve número, status e URL assinada — não o PDF em stream', async () => {
@@ -248,8 +263,10 @@ describe('degradação — o comprovante falha, o pagamento não', () => {
     expect(payment.paymentId).toBeTruthy()
     expect(receipt.status).toBe('PENDING')
     expect(receipt.number).toBeTruthy()
-    expect(receipt.lastError).toContain('Gotenberg')
-    expect(receipt.attempts).toBe(1)
+    const documento = await documentOf(payment.paymentId)
+    expect(documento.status).toBe('PENDING')
+    expect(documento.lastError).toContain('Gotenberg')
+    expect(documento.attempts).toBe(1)
   })
 
   it('bucket fora do ar também só deixa pendente', async () => {
@@ -290,6 +307,27 @@ describe('degradação — o comprovante falha, o pagamento não', () => {
     await pay()
     expect((await retryPendingReceipts()).issued).toBe(0)
   })
+
+  it('recibo pendente com documento já emitido é reconciliado sem gerar segundo PDF', async () => {
+    // A divergência: o processo morreu entre arquivar o documento e marcar o recibo.
+    // Sem a guarda de imutabilidade, a segunda passada sobrescreveria o arquivo que o
+    // tutor já recebeu; sem esta reconciliação, o recibo ficaria pendurado para sempre.
+    const payment = await pay()
+    await withTenant(tenant.tenantId, (tx) =>
+      tx.receipt.updateMany({
+        where: { paymentId: payment.paymentId },
+        data: { status: 'PENDING', issuedAt: null },
+      }),
+    )
+    expect(pdf.calls).toHaveLength(1)
+
+    const result = await retryPendingReceipts()
+
+    expect(result.issued).toBe(1)
+    expect((await receiptOf(payment.paymentId)).status).toBe('ISSUED')
+    // O arquivo é o mesmo: nenhuma segunda renderização.
+    expect(pdf.calls).toHaveLength(1)
+  })
 })
 
 describe('ciclo de vida', () => {
@@ -304,8 +342,10 @@ describe('ciclo de vida', () => {
     expect(depois.status).toBe('CANCELLED')
     expect(depois.cancelledAt).not.toBeNull()
     // Retenção contábil vale para o comprovante também: o que muda é o status.
-    expect(depois.storageKey).toBe(antes.storageKey)
-    expect(storage.objects.has(antes.storageKey!)).toBe(true)
+    const documento = await documentOf(payment.paymentId)
+    expect(documento.status).toBe('CANCELLED')
+    expect(documento.storageKey).not.toBeNull()
+    expect(storage.objects.has(documento.storageKey!)).toBe(true)
   })
 
   it('emitir de novo um recibo já emitido não gera segundo PDF', async () => {
@@ -356,7 +396,16 @@ describe('o que o papel diz', () => {
   it('escapa campo livre — o Gotenberg roda um Chromium de verdade', () => {
     const html = renderReceiptHtml({
       number: '2026/000001',
-      tenantName: 'Petshop <b>Teste</b>',
+      issuer: {
+        name: 'Petshop <b>Teste</b>',
+        legalName: null,
+        cnpj: null,
+        address: null,
+        phone: '(11) 99999-0000',
+        logoUrl: null,
+        primaryColor: null,
+      },
+      timezone: 'America/Sao_Paulo',
       tutorName: '<script>alert(1)</script>',
       amountCents: 1000,
       method: 'CASH',
@@ -376,7 +425,16 @@ describe('o que o papel diz', () => {
   it('o saldo aparece em português, não como número com sinal', () => {
     const base = {
       number: '2026/000001',
-      tenantName: 'Petshop',
+      issuer: {
+        name: 'Petshop',
+        legalName: null,
+        cnpj: null,
+        address: null,
+        phone: '(11) 99999-0000',
+        logoUrl: null,
+        primaryColor: null,
+      },
+      timezone: 'America/Sao_Paulo',
       tutorName: 'Maria',
       amountCents: 1000,
       method: 'CASH' as const,

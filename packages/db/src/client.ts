@@ -85,7 +85,11 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   'BillingSettings',
   'LedgerIdempotencyKey',
   'Receipt',
-  'ReceiptCounter',
+  // MOD-DOC: o registro de todo documento com valor legal. `DocumentCounter` entra
+  // junto — a série é por tenant, e um contador legível fora do contexto contaria
+  // quantos documentos o vizinho emitiu.
+  'Document',
+  'DocumentCounter',
   // MOD-TAXI: o leva-e-traz. `TaxiRideStatusLog` entra junto porque carrega
   // `tenant_id` próprio — a trilha de uma corrida é tão do tenant quanto a corrida.
   'TaxiRide',

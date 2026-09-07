@@ -1,16 +1,16 @@
 /**
  * `@petshop/pdf` — HTML vira PDF, e nada mais.
  *
- * O PRD chama isto de MOD-DOC e o desenha como `document-service` com integração
- * Gotenberg. Aqui ele é um pacote, porque hoje existe **um** tipo de documento (o
- * recibo) e um serviço inteiro para ele seria estrutura sem conteúdo. O que este
- * pacote guarda é a parte que não muda entre documentos — falar com o Gotenberg,
- * degradar quando ele não responde. O template e o armazenamento continuam no serviço
- * que sabe o que está imprimindo.
+ * O PRD chama isto de MOD-DOC e o SPEC o desenha como `document-service:3012`. O
+ * serviço não nasce (PRD documentos_pdf_11 §MOD-DOC-01): um serviço central obrigaria
+ * cada serviço de domínio a mandar por HTTP o payload clínico e financeiro que ele já
+ * tem em mãos, para receber de volta um arquivo.
  *
- * Quando o receituário do MOD-PRONT chegar, ele reusa isto sem duplicar nada; se um
- * dia houver documentos o bastante para justificar um serviço, este pacote é o miolo
- * dele.
+ * A fronteira, desde a fatia 1 do MOD-DOC, é esta: **aqui mora o mecanismo** — falar com
+ * o Gotenberg e degradar quando ele não responde. O registro, a numeração, o
+ * armazenamento e o molde comum moram em `@petshop/documents`, que depende deste
+ * pacote. O template de cada documento continua no serviço que sabe o que está
+ * imprimindo.
  *
  * Como o `service-kit`, tudo aqui é **fábrica**: um pacote não pode chamar o `loadEnv()`
  * de um serviço, então o serviço passa `getUrl`/`isDisabled` e instancia no seu
@@ -34,6 +34,18 @@ export interface PdfOptions {
   marginLeft?: number
   marginRight?: number
   landscape?: boolean
+  /**
+   * Cabeçalho e rodapé de página, no formato que o Chromium do Gotenberg entende:
+   * documentos HTML próprios, onde `.pageNumber` e `.totalPages` são preenchidos por
+   * ele. É a única forma de ter paginação `n/N` — CSS de contador de página não
+   * funciona no Chromium headless, e um "página 1 de 3" calculado na aplicação exigiria
+   * saber a altura do conteúdo antes de renderizá-lo.
+   *
+   * Ficam dentro da margem: com rodapé, `marginBottom` precisa reservar espaço, senão o
+   * Gotenberg o desenha por cima do texto.
+   */
+  headerHtml?: string
+  footerHtml?: string
 }
 
 export interface PdfPort {
@@ -63,7 +75,7 @@ export interface PdfRenderer {
 }
 
 /** A4 em polegadas, com margem de 0,6" — cabe em qualquer impressora de balcão. */
-const A4: Required<Omit<PdfOptions, 'landscape'>> = {
+const A4: Required<Omit<PdfOptions, 'landscape' | 'headerHtml' | 'footerHtml'>> = {
   paperWidth: 8.27,
   paperHeight: 11.69,
   marginTop: 0.6,
@@ -86,10 +98,19 @@ export function createPdfRenderer(config: PdfConfig): PdfRenderer {
         throw new PdfUnavailableError('Geração de PDF não configurada neste ambiente')
       }
 
-      const merged = { ...A4, ...options }
+      const { headerHtml, footerHtml, ...page } = options
+      const merged = { ...A4, ...page }
       const form = new FormData()
       // O Gotenberg exige que o arquivo principal se chame `index.html`.
       form.append('files', new Blob([html], { type: 'text/html' }), 'index.html')
+      // E que cabeçalho e rodapé cheguem com estes nomes exatos — outro qualquer é
+      // tratado como recurso do documento e nunca aparece na página.
+      if (headerHtml) {
+        form.append('files', new Blob([headerHtml], { type: 'text/html' }), 'header.html')
+      }
+      if (footerHtml) {
+        form.append('files', new Blob([footerHtml], { type: 'text/html' }), 'footer.html')
+      }
       for (const [key, value] of Object.entries(merged)) {
         form.append(key, String(value))
       }

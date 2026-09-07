@@ -154,6 +154,8 @@ model Tenant {
   portalContactChanges PortalContactChange[]
   deletionRequests     DataDeletionRequest[]
 
+  documents Document[]
+
   @@index([status])
   @@map("tenants")
 }
@@ -2211,8 +2213,14 @@ model Receipt {
   /// transação do pagamento — recibo cancelado **não** devolve o número.
   number String @db.VarChar(20)
 
-  /// Chave do objeto no R2. O §4 previa `document_id` apontando para o MOD-DOC; sem a
-  /// tabela `documents`, um UUID para o nada seria pior que o endereço real do arquivo.
+  /// O registro em `documents`, que passou a ser o dono do arquivo (MOD-DOC-02).
+  documentId String? @unique @map("document_id") @db.Uuid
+
+  /// Chave do objeto no R2, de quando o recibo guardava o próprio arquivo.
+  ///
+  /// **Não é mais escrita.** Fica como leitura de reserva durante a janela de
+  /// convivência do AC-04 de MOD-DOC-02, e cai numa segunda migration — derrubá-la
+  /// junto com o backfill tiraria o caminho de volta.
   storageKey String? @map("storage_key")
 
   status ReceiptStatus @default(PENDING)
@@ -2229,23 +2237,10 @@ model Receipt {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  payment  Payment   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  document Document? @relation(fields: [documentId], references: [id], onDelete: Restrict)
 
   @@map("receipts")
-}
-
-/// Contador de recibo por tenant e ano (RN-21).
-///
-/// Uma `CREATE SEQUENCE` do Postgres é global e não sabe de tenant; criar uma por
-/// tenant exigiria DDL em tempo de execução. `INSERT … ON CONFLICT DO UPDATE …
-/// RETURNING` é atômico numa instrução e cabe na transação do pagamento.
-model ReceiptCounter {
-  tenantId   String @map("tenant_id") @db.Uuid
-  year       Int
-  lastNumber Int    @default(0) @map("last_number")
-
-  @@id([tenantId, year])
-  @@map("receipt_counters")
 }
 
 // ─── MOD-TAXI — leva-e-traz (PRD taxi_dog_07 §4) ─────────────────────────────
@@ -3265,4 +3260,94 @@ model DataDeletionRequest {
   @@index([tenantId, status, dueAt], map: "idx_deletion_requests_tenant_status")
   @@index([tutorId, createdAt(sort: Desc)], map: "idx_deletion_requests_tutor")
   @@map("data_deletion_requests")
+}
+
+// ─── MOD-DOC — documentos formais (PRD documentos_pdf_11 §4) ─────────────────
+
+enum DocumentKind {
+  RECEIPT
+  PRESCRIPTION
+  TERM_ACCEPTANCE
+  IMAGE_CONSENT
+}
+
+enum DocumentStatus {
+  PENDING
+  ISSUED
+  FAILED
+  CANCELLED
+}
+
+/// O registro de todo documento com valor legal emitido pelo sistema.
+///
+/// **O que entra aqui é o que precisa bater, byte a byte, com o papel entregue.**
+/// Extrato e relatório ficam de fora de propósito (RN-01): descrevem o estado atual e
+/// são regerados a cada pedido — um extrato guardado é um extrato errado uma semana
+/// depois.
+///
+/// A tabela é o dono do arquivo. `receipts` guarda número, status e reprocesso do
+/// recibo e aponta para cá; era o `document_id` que o schema do MOD-LEDGER já previa e
+/// não tinha para onde apontar.
+model Document {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  kind   DocumentKind
+  /// Série do §MOD-DOC-03. `2026/000123` no recibo, `RX-2026/000004` no resto.
+  number String       @db.VarChar(24)
+
+  /// Sujeito. Nulo em documento sem titular — e é por `tutor_id` que o Portal filtra,
+  /// nunca por tipo, para que um tipo novo não vaze por esquecimento (AC-03 de
+  /// MOD-DOC-10).
+  tutorId String? @map("tutor_id") @db.Uuid
+  petId   String? @map("pet_id") @db.Uuid
+
+  /// Chave no R2. Nula enquanto `PENDING`.
+  storageKey String? @map("storage_key")
+  /// SHA-256 do arquivo. É a base do código de conferência do MOD-DOC-12.
+  checksum   String? @db.Char(64)
+  sizeBytes  Int?    @map("size_bytes")
+
+  status DocumentStatus @default(PENDING)
+
+  issuedAt       DateTime? @map("issued_at") @db.Timestamptz(6)
+  /// Fim da guarda obrigatória: cinco anos (RN-17). Nem o pedido de exclusão do art. 18
+  /// apaga documento emitido — ele anonimiza o cadastro.
+  retentionUntil DateTime? @map("retention_until") @db.Date
+
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
+
+  /// Última falha, para o job de reprocesso não ser cego.
+  lastError String? @map("last_error")
+  attempts  Int     @default(0)
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receipt Receipt?
+
+  @@unique([tenantId, kind, number], map: "idx_documents_number")
+  @@index([tenantId, kind, issuedAt(sort: Desc)], map: "idx_documents_tenant_kind")
+  @@index([tenantId, tutorId, issuedAt(sort: Desc)], map: "idx_documents_tenant_tutor")
+  @@map("documents")
+}
+
+/// Contador por tenant, tipo e ano (RN-16).
+///
+/// Uma `CREATE SEQUENCE` do Postgres é global e não sabe de tenant; criar uma por
+/// tenant exigiria DDL em tempo de execução. `INSERT … ON CONFLICT DO UPDATE …
+/// RETURNING` é atômico numa instrução e cabe na transação que originou o documento.
+///
+/// Herdeira de `receipt_counters`, com o `last_number` de cada tenant preservado: a
+/// série do recibo já emitida não é renumerada.
+model DocumentCounter {
+  tenantId   String       @map("tenant_id") @db.Uuid
+  kind       DocumentKind
+  year       Int
+  lastNumber Int          @default(0) @map("last_number")
+
+  @@id([tenantId, kind, year])
+  @@map("document_counters")
 }

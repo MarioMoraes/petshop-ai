@@ -1,19 +1,21 @@
 import { getMaintenancePrisma, withTenant, type TenantTransaction } from '@petshop/db'
-import type { PaymentMethod } from '@petshop/shared-types'
+import {
+  cancelDocument,
+  createPendingDocument,
+  issueDocument,
+  type DocumentAddress,
+  type DocumentIssuer,
+} from '@petshop/documents'
+import { DOCUMENT_MAX_ATTEMPTS, type PaymentMethod } from '@petshop/shared-types'
 import { recordAudit } from '../../lib/audit.js'
 import { notFound } from '../../lib/errors.js'
 import { publishEvent } from '../../lib/events.js'
 import { logger, recordMetric } from '../../lib/logger.js'
-import { PdfUnavailableError, isPdfConfigured, renderPdf } from '../../lib/pdf.js'
-import {
-  RECEIPT_URL_TTL_SECONDS,
-  StorageUnavailableError,
-  getStorage,
-  receiptKey,
-} from '../../lib/storage.js'
+import { isPdfConfigured, renderPdf } from '../../lib/pdf.js'
+import { RECEIPT_URL_TTL_SECONDS, documentStorage, getStorage } from '../../lib/storage.js'
 import type { ActorContext } from './actor.js'
 import { tenantOptions } from './actor.js'
-import { renderReceiptHtml, type ReceiptAllocationLine } from './receipt-template.js'
+import { RECEIPT_TITLE, renderReceiptHtml, type ReceiptAllocationLine } from './receipt-template.js'
 import { loadSettings } from './settings.js'
 
 /**
@@ -30,52 +32,37 @@ import { loadSettings } from './settings.js'
  */
 
 /**
- * RN-21 — número sequencial por tenant e ano.
- *
- * `INSERT … ON CONFLICT DO UPDATE … RETURNING` numa instrução só: dois pagamentos
- * simultâneos no mesmo balcão pegam números diferentes sem precisar de trava explícita,
- * porque o Postgres serializa a atualização da mesma linha.
- *
- * Uma `CREATE SEQUENCE` seria o caminho óbvio e não serve: sequence é global, e uma por
- * tenant exigiria DDL em tempo de execução.
- */
-export async function allocateNumber(
-  tx: TenantTransaction,
-  tenantId: string,
-  year: number,
-): Promise<string> {
-  const rows = await tx.$queryRaw<{ last_number: number }[]>`
-    INSERT INTO receipt_counters (tenant_id, year, last_number)
-    VALUES (${tenantId}::uuid, ${year}, 1)
-    ON CONFLICT (tenant_id, year) DO UPDATE
-       SET last_number = receipt_counters.last_number + 1
-    RETURNING last_number
-  `
-
-  const sequential = rows[0]?.last_number ?? 1
-  return `${year}/${String(sequential).padStart(6, '0')}`
-}
-
-/**
  * Cria o recibo pendente. Roda **dentro** da transação do pagamento.
  *
- * O número é consumido aqui e não volta: recibo cancelado mantém o seu (RN-21), porque
- * um buraco na sequência é uma pergunta que o contador sabe responder e um número
- * reaproveitado é um documento duplicado que ele não sabe.
+ * O número é consumido aqui e não volta: recibo cancelado mantém o seu (RN-04 do
+ * MOD-DOC), porque um buraco na sequência é uma pergunta que o contador sabe responder e
+ * um número reaproveitado é um documento duplicado que ele não sabe.
+ *
+ * Desde a fatia 1 do MOD-DOC nascem **duas** linhas: o `document`, que é o dono do
+ * arquivo e da série, e o `receipt`, que guarda o que só o recibo tem — o vínculo com o
+ * pagamento e o estado `SENT`, que o documento não conhece porque entrega é fato da
+ * mensagem.
  */
 export async function createPendingReceipt(
   tx: TenantTransaction,
   tenantId: string,
   input: { paymentId: string; tutorId: string; receivedAt: Date },
 ): Promise<{ id: string; number: string }> {
-  const number = await allocateNumber(tx, tenantId, input.receivedAt.getUTCFullYear())
+  const document = await createPendingDocument(tx, tenantId, {
+    kind: 'RECEIPT',
+    tutorId: input.tutorId,
+    // O ano da série é o do **fato**, não o de agora: pagamento lançado em 2 de janeiro
+    // com data de 31 de dezembro é recibo do ano que fechou.
+    reference: input.receivedAt,
+  })
 
   const receipt = await tx.receipt.create({
     data: {
       tenantId,
       tutorId: input.tutorId,
       paymentId: input.paymentId,
-      number,
+      number: document.number,
+      documentId: document.id,
     },
     select: { id: true, number: true },
   })
@@ -89,15 +76,18 @@ interface ReceiptRow {
   tutorId: string
   paymentId: string
   status: string
-  storageKey: string | null
+  documentId: string | null
 }
 
 /**
  * Gera o PDF, arquiva e marca `ISSUED`.
  *
- * Idempotente: recibo já emitido volta como está. Falha de Gotenberg ou de bucket é
- * gravada em `last_error` e o recibo **continua pendente** — o job tenta de novo.
+ * Idempotente: recibo já emitido volta como está. Falha de Gotenberg ou de bucket fica
+ * em `documents.last_error` e o recibo **continua pendente** — o job tenta de novo.
  * Lançar daqui derrubaria o `POST /v1/payments` por causa de um comprovante.
+ *
+ * A mecânica de renderizar, arquivar e marcar mora em `@petshop/documents` desde a
+ * fatia 1 do MOD-DOC; o que fica aqui é o que só o ledger sabe — o que o papel mostra.
  */
 export async function issueReceipt(
   actor: ActorContext,
@@ -112,7 +102,7 @@ export async function issueReceipt(
         tutorId: true,
         paymentId: true,
         status: true,
-        storageKey: true,
+        documentId: true,
       },
     })
     if (!receipt) throw notFound('Recibo não encontrado')
@@ -123,69 +113,71 @@ export async function issueReceipt(
 
   if (!data.payload) return { status: data.receipt.status, issued: false }
 
-  try {
-    const pdf = await renderPdf(renderReceiptHtml(data.payload))
-    const key = receiptKey(actor.tenantId, receiptId)
-    await getStorage().put(key, pdf, 'application/pdf')
-
-    await withTenant(
-      actor.tenantId,
-      async (tx) => {
-        await tx.receipt.update({
-          where: { id: receiptId },
-          data: {
-            status: 'ISSUED',
-            storageKey: key,
-            issuedAt: new Date(),
-            lastError: null,
-            attempts: { increment: 1 },
-          },
-        })
-        await recordAudit(tx, {
-          tenantId: actor.tenantId,
-          actorUserId: actor.actorUserId ?? null,
-          action: 'ledger.receipt_issued',
-          entity: 'receipt',
-          entityId: receiptId,
-          after: { number: data.receipt.number, paymentId: data.receipt.paymentId },
-        })
-      },
-      tenantOptions(actor),
-    )
-
-    await publishEvent('recibo.emitido', {
-      tenantId: actor.tenantId,
-      receiptId,
-      paymentId: data.receipt.paymentId,
-      tutorId: data.receipt.tutorId,
-      number: data.receipt.number,
-    })
-    recordMetric({
-      metric: 'receipt_issued_total',
-      tenantId: actor.tenantId,
-      value: 1,
-      unit: 'count',
-    })
-
-    return { status: 'ISSUED', issued: true }
-  } catch (error) {
-    const expected = error instanceof PdfUnavailableError || error instanceof StorageUnavailableError
-    const message = error instanceof Error ? error.message : String(error)
-
-    await withTenant(actor.tenantId, (tx) =>
-      tx.receipt.update({
-        where: { id: receiptId },
-        data: { lastError: message.slice(0, 500), attempts: { increment: 1 } },
-      }),
-    ).catch(() => undefined)
-
-    // Infra fora do ar é esperado e vira `warn`; o resto é bug e vira `error`.
-    logger[expected ? 'warn' : 'error'](
-      { err: error, receiptId, number: data.receipt.number },
-      'recibo continua pendente',
-    )
-    return { status: 'PENDING', issued: false }
+  // Recibo criado antes do MOD-DOC não tem documento: o backfill da migration só
+  // alcançou os que tinham tenant vivo. Sem ele não há onde arquivar, e insistir a cada
+  // dez minutos seria ruído — o recibo fica como está.
+  const documentId = data.receipt.documentId
+  if (!documentId) {
+    logger.warn({ receiptId, number: data.receipt.number }, 'recibo sem documento associado')
+    return { status: data.receipt.status, issued: false }
   }
+
+  const outcome = await issueDocument(
+    {
+      renderPdf,
+      storage: documentStorage,
+      logger,
+      tenantOptions: tenantOptions(actor),
+    },
+    {
+      tenantId: actor.tenantId,
+      documentId,
+      kind: 'RECEIPT',
+      html: renderReceiptHtml(data.payload),
+      title: RECEIPT_TITLE,
+      number: data.receipt.number,
+    },
+  )
+
+  // `issued` é falso também quando o arquivo **já existia** — o processo morreu entre
+  // arquivar e atualizar o recibo. O que decide daqui para baixo é o estado do
+  // documento, não o de quem acabou de renderizar.
+  if (outcome.status !== 'ISSUED') return { status: outcome.status, issued: false }
+
+  await withTenant(
+    actor.tenantId,
+    async (tx) => {
+      await tx.receipt.update({
+        where: { id: receiptId },
+        data: { status: 'ISSUED', issuedAt: new Date(), lastError: null },
+      })
+      await recordAudit(tx, {
+        tenantId: actor.tenantId,
+        actorUserId: actor.actorUserId ?? null,
+        action: 'ledger.receipt_issued',
+        entity: 'receipt',
+        entityId: receiptId,
+        after: { number: data.receipt.number, paymentId: data.receipt.paymentId },
+      })
+    },
+    tenantOptions(actor),
+  )
+
+  await publishEvent('recibo.emitido', {
+    tenantId: actor.tenantId,
+    receiptId,
+    paymentId: data.receipt.paymentId,
+    tutorId: data.receipt.tutorId,
+    number: data.receipt.number,
+  })
+  recordMetric({
+    metric: 'receipt_issued_total',
+    tenantId: actor.tenantId,
+    value: 1,
+    unit: 'count',
+  })
+
+  return { status: 'ISSUED', issued: true }
 }
 
 /** Junta o que o papel mostra. Uma consulta por relação, dentro da mesma transação. */
@@ -201,8 +193,12 @@ async function collectData(tx: TenantTransaction, tenantId: string, receipt: Rec
     },
   })
 
-  const [tenant, tutor, settings] = await Promise.all([
-    tx.tenant.findFirstOrThrow({ where: { id: tenantId }, select: { name: true } }),
+  const [tenant, settings, tutor, billing] = await Promise.all([
+    tx.tenant.findFirstOrThrow({
+      where: { id: tenantId },
+      select: { name: true, legalName: true },
+    }),
+    tx.tenantSettings.findUnique({ where: { tenantId } }),
     // RN-14 reserva o nome civil a documentos fiscais — e o RN-20 é explícito em que
     // este não é um. Quem tem nome social é chamado por ele no próprio comprovante.
     tx.tutor.findFirstOrThrow({
@@ -220,7 +216,8 @@ async function collectData(tx: TenantTransaction, tenantId: string, receipt: Rec
 
   return {
     number: receipt.number,
-    tenantName: tenant.name,
+    issuer: buildIssuer(tenant, settings),
+    timezone: settings?.timezone ?? 'America/Sao_Paulo',
     tutorName: tutor.socialName ?? tutor.fullName,
     amountCents: Number(payment.amountCents),
     method: payment.method as PaymentMethod,
@@ -229,7 +226,68 @@ async function collectData(tx: TenantTransaction, tenantId: string, receipt: Rec
     allocations,
     creditCents: Number(payment.amountCents) - Number(payment.allocatedCents),
     balanceAfterCents: Number(payment.entry.balanceAfterCents),
-    footerText: settings.receiptFooterText,
+    footerText: billing.receiptFooterText,
+  }
+}
+
+interface BrandingJson {
+  logoUrl?: string | null
+  primaryColor?: string | null
+}
+
+/**
+ * Quem emitiu, para o cabeçalho comum do MOD-DOC.
+ *
+ * O endereço **não é cifrado** — é comercial, e o MOD-SITE existe para publicá-lo. O do
+ * tutor continua cifrado porque é residencial.
+ *
+ * O CNPJ fica de fora por ora: `tenants.cnpj_encrypted` exige a DEK do tenant, e o
+ * recibo nunca o mostrou. Entra junto com a discussão de NFS-e (questão 2 do §11).
+ */
+function buildIssuer(
+  tenant: { name: string; legalName: string | null },
+  settings: {
+    addressZip: string | null
+    addressStreet: string | null
+    addressNumber: string | null
+    addressComplement: string | null
+    addressDistrict: string | null
+    addressCity: string | null
+    addressState: string | null
+    publicPhone: string | null
+    branding: unknown
+  } | null,
+): DocumentIssuer {
+  const branding = (settings?.branding ?? {}) as BrandingJson
+
+  // O CHECK `tenant_settings_address_complete` garante tudo ou nada; a checagem de um
+  // campo basta, e o resto do `&&` é o que convence o TypeScript.
+  const address: DocumentAddress | null =
+    settings?.addressStreet &&
+    settings.addressZip &&
+    settings.addressNumber &&
+    settings.addressDistrict &&
+    settings.addressCity &&
+    settings.addressState
+      ? {
+          zip: settings.addressZip,
+          street: settings.addressStreet,
+          number: settings.addressNumber,
+          complement: settings.addressComplement,
+          district: settings.addressDistrict,
+          city: settings.addressCity,
+          state: settings.addressState,
+        }
+      : null
+
+  return {
+    name: tenant.name,
+    legalName: tenant.legalName,
+    cnpj: null,
+    address,
+    phone: settings?.publicPhone ?? null,
+    logoUrl: branding.logoUrl ?? null,
+    primaryColor: branding.primaryColor ?? null,
   }
 }
 
@@ -245,10 +303,20 @@ export async function cancelReceipt(
   tenantId: string,
   paymentId: string,
 ): Promise<void> {
-  await tx.receipt.updateMany({
+  const alvos = await tx.receipt.findMany({
     where: { tenantId, paymentId, status: { in: ['PENDING', 'ISSUED', 'SENT'] } },
+    select: { id: true, documentId: true },
+  })
+  if (alvos.length === 0) return
+
+  await tx.receipt.updateMany({
+    where: { id: { in: alvos.map((alvo) => alvo.id) } },
     data: { status: 'CANCELLED', cancelledAt: new Date() },
   })
+
+  for (const alvo of alvos) {
+    if (alvo.documentId) await cancelDocument(tx, alvo.documentId)
+  }
 }
 
 export interface ReceiptView {
@@ -277,10 +345,11 @@ export async function getReceiptForPayment(
     receipt = await loadByPayment(actor.tenantId, paymentId)
   }
 
+  const storageKey = receipt.document?.storageKey ?? receipt.storageKey
   let url: string | null = null
-  if (receipt.storageKey) {
+  if (storageKey) {
     try {
-      url = await getStorage().signedUrl(receipt.storageKey, RECEIPT_URL_TTL_SECONDS)
+      url = await getStorage().signedUrl(storageKey, RECEIPT_URL_TTL_SECONDS)
     } catch (error) {
       // Recibo sem endereço ainda diz o número e o status — mais útil que um 502.
       logger.error({ err: error, receiptId: receipt.id }, 'falha ao assinar URL do recibo')
@@ -304,8 +373,11 @@ async function loadByPayment(tenantId: string, paymentId: string) {
         id: true,
         number: true,
         status: true,
-        storageKey: true,
         issuedAt: true,
+        // A coluna do recibo é leitura de reserva: para de ser escrita nesta fatia e
+        // cobre os recibos anteriores ao backfill, que não têm documento (MOD-DOC-02).
+        storageKey: true,
+        document: { select: { storageKey: true } },
       },
     })
     if (!receipt) throw notFound('Recibo não encontrado para este pagamento')
@@ -318,24 +390,29 @@ interface PendingRow {
   tenant_id: string
 }
 
-/** Quantas vezes insistir antes de deixar para o operador. */
-const MAX_RECEIPT_ATTEMPTS = 10
-
 /**
  * Job de reprocesso: os recibos que o Gotenberg não conseguiu gerar na hora.
  *
- * O teto de tentativas existe para um recibo cronicamente quebrado — HTML que derruba o
- * Chromium, bucket sem permissão — não consumir a janela do job para sempre. Passando
- * dele, `last_error` fica no banco à espera de alguém.
+ * A varredura junta as duas tabelas de propósito. `attempts` e `last_error` moram no
+ * **documento** desde a fatia 1 do MOD-DOC, e é dele que sai o orçamento de tentativas;
+ * mas o que precisa ficar em pé é o **recibo**, e ele pode estar pendente com o documento
+ * já emitido — o processo morreu entre arquivar e atualizar. Varrer só documentos
+ * pendentes deixaria esse recibo pendurado para sempre.
+ *
+ * O teto de tentativas existe para um documento cronicamente quebrado — HTML que derruba
+ * o Chromium, bucket sem permissão — não consumir a janela do job para sempre. Passando
+ * dele, o documento vai a `FAILED` e `last_error` fica à espera de alguém.
  */
 export async function retryPendingReceipts(now: Date = new Date()): Promise<{ issued: number }> {
   const rows = await getMaintenancePrisma().$queryRaw<PendingRow[]>`
-    SELECT id, tenant_id
-      FROM receipts
-     WHERE status = 'PENDING'
-       AND attempts < ${MAX_RECEIPT_ATTEMPTS}
-       AND created_at <= ${now}
-     ORDER BY created_at ASC
+    SELECT r.id, r.tenant_id
+      FROM receipts r
+      JOIN documents d ON d.id = r.document_id
+     WHERE r.status = 'PENDING'
+       AND d.status IN ('PENDING', 'ISSUED')
+       AND d.attempts < ${DOCUMENT_MAX_ATTEMPTS}
+       AND r.created_at <= ${now}
+     ORDER BY r.created_at ASC
      LIMIT 200
   `
 

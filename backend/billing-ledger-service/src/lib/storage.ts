@@ -1,102 +1,43 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { createDocumentStorage } from '@petshop/documents'
 import { loadEnv } from '../env.js'
 import { logger } from './logger.js'
 
 /**
- * Armazenamento dos recibos — R2 pela API S3, como as fotos do MOD-PET.
+ * Armazenamento de documento — R2 pela API S3, como as fotos do MOD-PET.
  *
- * Só `put` e `signedUrl`: recibo não se apaga. A retenção contábil de 5 anos (§9) vale
- * também para o comprovante, e um recibo cancelado continua existindo — o que muda é o
+ * A implementação mudou de casa na fatia 1 do MOD-DOC: o mecanismo mora em
+ * `@petshop/documents` e o que fica aqui é de onde vêm as credenciais. Mesma forma do
+ * `lib/pdf.ts`, e pela mesma razão — um pacote não pode chamar o `loadEnv()` de um
+ * serviço.
+ *
+ * Só `put` e `signedUrl`: documento não se apaga. A guarda de cinco anos vale também
+ * para o comprovante, e um recibo cancelado continua existindo — o que muda é o
  * `status`, não o arquivo.
  */
 
-export interface ReceiptStoragePort {
-  put(key: string, body: Buffer, contentType: string): Promise<void>
-  signedUrl(key: string, expiresInSeconds: number): Promise<string>
-}
+const storage = createDocumentStorage({
+  endpoint: () => loadEnv().R2_ENDPOINT,
+  region: () => loadEnv().R2_REGION,
+  bucket: () => loadEnv().R2_BUCKET,
+  accessKeyId: () => loadEnv().R2_ACCESS_KEY_ID,
+  secretAccessKey: () => loadEnv().R2_SECRET_ACCESS_KEY,
+  logger,
+})
 
-/** Erro de infraestrutura do storage. Deixa o recibo pendente, não derruba o pagamento. */
-export class StorageUnavailableError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options)
-    this.name = 'StorageUnavailableError'
-  }
-}
-
-let port: ReceiptStoragePort | null = null
-let client: S3Client | null = null
+export const documentStorage = storage
+export const getStorage = storage.get
 
 /** Injeta outra implementação — é o que a suíte usa. `null` volta ao real. */
-export function setStoragePort(next: ReceiptStoragePort | null): void {
-  port = next
-}
+export const setStoragePort = storage.setPort
 
-function s3(): S3Client {
-  const env = loadEnv()
-  if (!env.R2_ENDPOINT || !env.R2_ACCESS_KEY_ID || !env.R2_SECRET_ACCESS_KEY) {
-    throw new StorageUnavailableError('Storage de documentos não configurado neste ambiente')
-  }
-  client ??= new S3Client({
-    region: env.R2_REGION,
-    endpoint: env.R2_ENDPOINT,
-    credentials: {
-      accessKeyId: env.R2_ACCESS_KEY_ID,
-      secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-    },
-    // R2 não faz bucket como subdomínio do endpoint da conta.
-    forcePathStyle: true,
-  })
-  return client
-}
-
-const r2Port: ReceiptStoragePort = {
-  async put(key, body, contentType) {
-    const env = loadEnv()
-    try {
-      await s3().send(
-        new PutObjectCommand({
-          Bucket: env.R2_BUCKET,
-          Key: key,
-          Body: body,
-          ContentType: contentType,
-        }),
-      )
-    } catch (error) {
-      if (error instanceof StorageUnavailableError) throw error
-      logger.error({ err: error, key }, 'falha ao gravar recibo no storage')
-      throw new StorageUnavailableError('Falha ao arquivar o recibo', { cause: error })
-    }
-  },
-
-  async signedUrl(key, expiresInSeconds) {
-    const env = loadEnv()
-    try {
-      // Assinatura é cálculo local: não há ida ao R2 aqui.
-      return await getSignedUrl(s3(), new GetObjectCommand({ Bucket: env.R2_BUCKET, Key: key }), {
-        expiresIn: expiresInSeconds,
-      })
-    } catch (error) {
-      if (error instanceof StorageUnavailableError) throw error
-      logger.error({ err: error, key }, 'falha ao assinar URL do recibo')
-      throw new StorageUnavailableError('Falha ao gerar o endereço do recibo', { cause: error })
-    }
-  },
-}
-
-export function getStorage(): ReceiptStoragePort {
-  return port ?? r2Port
-}
-
-/** `tenants/{tenantId}/receipts/{receiptId}.pdf`. */
-export function receiptKey(tenantId: string, receiptId: string): string {
-  return `tenants/${tenantId}/receipts/${receiptId}.pdf`
-}
+export { StorageUnavailableError, documentKey } from '@petshop/documents'
 
 /**
  * Validade da URL assinada.
  *
  * Quinze minutos: o recibo é aberto na hora, do balcão ou do e-mail. Um endereço que
- * vale um dia é um endereço que circula em grupo de WhatsApp.
+ * vale um dia é um endereço que circula em grupo de WhatsApp. O valor virou
+ * `DOCUMENT_URL_TTL_SECONDS` em `shared-types`; este nome fica porque o MOD-LEDGER o
+ * usa em três lugares.
  */
-export const RECEIPT_URL_TTL_SECONDS = 900
+export { DOCUMENT_URL_TTL_SECONDS as RECEIPT_URL_TTL_SECONDS } from '@petshop/shared-types'

@@ -1,5 +1,6 @@
 export * from './br-documents.js'
 export * from './crm.js'
+export * from './document.js'
 export * from './errors.js'
 export * from './events.js'
 export * from './identity.js'
