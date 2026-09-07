@@ -88,7 +88,22 @@ describe('MOD-TUTOR-04 — consentimento', () => {
   })
 
   it('AC-04: aceite de termos em versão antiga vira PENDING_RENEWAL', async () => {
-    await putConsents([{ channel: 'TERMS', granted: true, version: '0.9', purpose: 'BOTH' }])
+    /**
+     * A versão antiga não se escreve mais à mão: desde o MOD-DOC-06 toda linha é
+     * conferida contra `term_versions`, e o que envelhece um aceite é o tenant
+     * **publicar** o texto seguinte.
+     */
+    await callApi({
+      ...asAdmin(tenant),
+      method: 'POST',
+      url: '/v1/terms',
+      payload: {
+        kind: 'TERMS',
+        version: '2.0',
+        title: 'Termos de uso e privacidade',
+        body: '## Objeto\n\nRedação nova dos termos de uso, publicada pelo estabelecimento.',
+      },
+    })
 
     const response = await callApi({
       ...asAdmin(tenant),

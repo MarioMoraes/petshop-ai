@@ -4,11 +4,13 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  CURRENT_TERMS_VERSION,
+  TERM_KIND_LABELS,
   type ConsentChannel,
   type ConsentsResponse,
   type PetResponse,
   type Tag,
+  type TermKind,
+  type TermVersionView,
   type TutorOverview,
 } from '@petshop/shared-types'
 import type {
@@ -19,13 +21,19 @@ import type {
   Statement,
 } from '@petshop/shared-types'
 import { PetAvatar } from '@/components/pet-avatar'
-import { Badge, Card, DataRow, FormError, Tabs } from '@/components/ui'
+import { Modal } from '@/components/modal'
+import { DocumentIcon } from '@/components/icons'
+import { Alert, Badge, Card, DataRow, FormError, Tabs } from '@/components/ui'
+import { TextoDoTermo } from '@/components/term-text'
 import { ComunicacaoTab } from './comunicacao-tab'
 import { FinanceiroTab } from './financeiro-tab'
 import {
+  acceptTermAction,
   anonymizeTutorAction,
   assignTagAction,
   deleteTutorAction,
+  getCurrentTermAction,
+  getTutorDocumentAction,
   reactivateTutorAction,
   removeTagAction,
   updateConsentsAction,
@@ -292,8 +300,12 @@ const CHANNEL_LABELS: Record<ConsentChannel, string> = {
   EMAIL: 'E-mail',
   SMS: 'SMS',
   TERMS: 'Termos de uso',
+  SERVICE_LIABILITY: 'Termo de responsabilidade',
   IMAGE_USE: 'Uso de imagem',
 }
+
+/** Os dois termos que a recepção apresenta e que rendem papel (MOD-DOC-07 e 08). */
+const TERMOS_COM_PAPEL: TermKind[] = ['SERVICE_LIABILITY', 'IMAGE_USE']
 
 function ConsentimentosTab({
   tutorId,
@@ -316,7 +328,8 @@ function ConsentimentosTab({
             granted,
             purpose: channel === 'TERMS' ? 'BOTH' : 'MARKETING',
             source: 'STAFF_FORM',
-            version: CURRENT_TERMS_VERSION,
+            // A versão não vai daqui: quem sabe qual termo está vigente é o servidor,
+            // que lê o que o estabelecimento publicou (MOD-DOC-06).
           },
         ],
       })
@@ -368,6 +381,19 @@ function ConsentimentosTab({
         </dl>
       </Card>
 
+      <Card className="space-y-1">
+        <h3 className="font-semibold">Termos e autorizações</h3>
+        <p className="hint pb-2">
+          Apresente o texto ao tutor e registre o aceite. O papel do aceite fica arquivado
+          com data, hora e origem — é ele que prova o que foi apresentado.
+        </p>
+        <div className="flex flex-col gap-3 pt-1">
+          {TERMOS_COM_PAPEL.map((kind) => (
+            <TermoLinha key={kind} tutorId={tutorId} kind={kind} consents={consents} />
+          ))}
+        </div>
+      </Card>
+
       <Card>
         <h3 className="font-semibold">Histórico</h3>
         <p className="hint mt-1 pb-2">
@@ -380,14 +406,172 @@ function ConsentimentosTab({
               <span className={record.granted ? 'text-success' : 'text-danger'}>
                 {record.granted ? 'autorizado' : 'revogado'}
               </span>
-              <span className="hint ml-auto">
+              <span className="hint ml-auto flex items-center gap-2">
                 {formatDateTime(record.createdAt)} · {record.source} · v{record.version}
+                {record.documentId && (
+                  <BaixarPapel tutorId={tutorId} documentId={record.documentId} />
+                )}
               </span>
             </li>
           ))}
         </ul>
       </Card>
     </div>
+  )
+}
+
+/**
+ * Um termo, o estado dele e o botão que colhe o aceite (MOD-DOC-07 e 08).
+ *
+ * O texto **não** vem carregado com a página: são dois documentos longos que quase nunca
+ * são abertos, e trazê-los em toda visita à ficha custaria mais que buscá-los no clique.
+ * O que a linha mostra sem pedir nada é o que decide a ação — aceito, pendente de
+ * renovação ou nunca apresentado.
+ */
+function TermoLinha({
+  tutorId,
+  kind,
+  consents,
+}: {
+  tutorId: string
+  kind: TermKind
+  consents: ConsentsResponse
+}) {
+  const router = useRouter()
+  const [termo, setTermo] = useState<TermVersionView | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  const estado = consents.current.find((item) => item.channel === kind)
+  const aceito = estado?.state === 'GRANTED'
+  const pendente = estado?.state === 'PENDING_RENEWAL'
+
+  function apresentar() {
+    setErro(null)
+    startTransition(async () => {
+      const resultado = await getCurrentTermAction(kind)
+      if (resultado.ok) setTermo(resultado.data)
+      else setErro(resultado.message)
+    })
+  }
+
+  function registrar() {
+    setErro(null)
+    startTransition(async () => {
+      const resultado = await acceptTermAction(tutorId, kind)
+      if (!resultado.ok) {
+        setErro(resultado.message)
+        return
+      }
+      setTermo(null)
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="rounded-xl border border-line p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium">{TERM_KIND_LABELS[kind]}</p>
+          <p className="hint">
+            {aceito
+              ? `Aceito na versão ${estado?.version}`
+              : pendente
+                ? `Aceitou a versão ${estado?.version}; o estabelecimento já publicou outra`
+                : estado
+                  ? 'Revogado'
+                  : 'Nunca apresentado'}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className={aceito ? 'btn btn-ghost h-9' : 'btn btn-primary h-9'}
+          onClick={apresentar}
+          disabled={pending}
+        >
+          {aceito ? 'Ler o termo' : 'Apresentar e aceitar'}
+        </button>
+      </div>
+
+      {erro && (
+        <p className="mt-3 text-sm text-danger" role="status">
+          {erro}
+        </p>
+      )}
+
+      <Modal
+        open={termo !== null}
+        onClose={() => setTermo(null)}
+        busy={pending}
+        icon={<DocumentIcon />}
+        tone="icon-people"
+        eyebrow="Consentimento"
+        title={termo?.title ?? ''}
+        subtitle={termo ? `Versão ${termo.version}` : ''}
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setTermo(null)}
+              disabled={pending}
+            >
+              Fechar
+            </button>
+            {!aceito && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={registrar}
+                disabled={pending}
+              >
+                {pending ? 'Registrando…' : 'O tutor aceitou'}
+              </button>
+            )}
+          </>
+        }
+      >
+        <div className="flex flex-col gap-5">
+          {!aceito && (
+            <Alert
+              tone="accent"
+              icon={<DocumentIcon />}
+              title="Leia o texto com o tutor antes de registrar"
+              role="status"
+            >
+              O aceite é gravado com data, hora, endereço de origem e identificação do
+              dispositivo. É essa a prova, e ela vale pelo que foi apresentado agora.
+            </Alert>
+          )}
+          {termo && <TextoDoTermo body={termo.body} />}
+        </div>
+      </Modal>
+    </div>
+  )
+}
+
+/**
+ * O papel de um aceite.
+ *
+ * A URL assinada dura quinze minutos e é pedida **no clique**, nunca na listagem: emiti-la
+ * é o que a trilha de auditoria registra como download, e assinar dez arquivos que
+ * ninguém abriu afogaria as linhas que importam.
+ */
+function BaixarPapel({ tutorId, documentId }: { tutorId: string; documentId: string }) {
+  const [pending, startTransition] = useTransition()
+
+  function abrir() {
+    startTransition(async () => {
+      const resultado = await getTutorDocumentAction(tutorId, documentId)
+      if (resultado.ok && resultado.data.url) window.open(resultado.data.url, '_blank')
+    })
+  }
+
+  return (
+    <button type="button" className="underline" onClick={abrir} disabled={pending}>
+      {pending ? 'abrindo…' : 'papel'}
+    </button>
   )
 }
 

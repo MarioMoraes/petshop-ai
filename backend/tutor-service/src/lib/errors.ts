@@ -87,6 +87,42 @@ export function deletionRequestPending(
   return new AppError('ERR_TUTOR_010', detail)
 }
 
+// ─── Documentos (MOD-DOC fatia 3) ────────────────────────────────────────────
+//
+// O catálogo `ERR_DOC_*` é do módulo de documentos e atravessa serviços: o mesmo código
+// sai daqui, do prontuário e do financeiro. Traduzi-lo para um `ERR_TUTOR_*` faria a
+// mesma falha ter dois nomes conforme a porta por onde entrou.
+
+/** Falta dado do estabelecimento para imprimir (AC-02 de MOD-DOC-01). */
+export function documentDataMissing(detail: string): AppError {
+  return new AppError('ERR_DOC_002', detail)
+}
+
+/**
+ * Versão publicada é imutável (AC-04 de MOD-DOC-06).
+ *
+ * Republicar um número que já existe é o caminho por onde alguém tentaria corrigir o
+ * texto que outra pessoa já aceitou.
+ */
+export function termVersionImmutable(detail: string): AppError {
+  return new AppError('ERR_DOC_004', detail)
+}
+
+/** AC-03 de MOD-DOC-07: aceite repetido na mesma versão não vira linha nova. */
+export function termAlreadyAccepted(detail: string): AppError {
+  return new AppError('ERR_DOC_006', detail)
+}
+
+/**
+ * AC-03 de MOD-DOC-06: o aceite cita uma versão que não existe.
+ *
+ * Prova de aceite sem documento aceito é o defeito que este módulo veio corrigir; não
+ * se recria ele por outro caminho.
+ */
+export function termVersionUnknown(detail: string): AppError {
+  return new AppError('ERR_DOC_007', detail)
+}
+
 export function registerErrorHandler(app: FastifyInstance): void {
   registerKitErrorHandler(app, { logger, validationError, notFound })
 }

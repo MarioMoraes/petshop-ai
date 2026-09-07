@@ -1,7 +1,6 @@
 import { signServiceHeaders } from '@petshop/service-auth'
 import {
   AppError,
-  CURRENT_TERMS_VERSION,
   ERROR_CATALOG,
   type AddressResponse,
   type ConsentsResponse,
@@ -200,7 +199,9 @@ function createHttpPort(): TutorPort {
               granted: input.granted,
               purpose: 'MARKETING',
               source: 'PORTAL',
-              version: CURRENT_TERMS_VERSION,
+              // A versão não vai daqui: quem sabe qual termo o estabelecimento tem
+              // publicado é o tutor-service (MOD-DOC-06). Mandar a constante do código
+              // gravaria `1.0` numa base que já está na `2.0`.
             },
           ],
         },

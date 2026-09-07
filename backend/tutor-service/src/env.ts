@@ -22,6 +22,23 @@ export const { loadEnv, resetEnvCache } = defineEnv('tutor-service', {
 
   /** Desliga o lookup externo de CEP; os testes injetam a porta. */
   DISABLE_CEP_LOOKUP: z.coerce.boolean().default(false),
+
+  /**
+   * O papel do aceite de termo (MOD-DOC-07 e 08).
+   *
+   * As duas pontas são **opcionais de propósito**, como no financeiro e no prontuário:
+   * sem Gotenberg ou sem bucket, o aceite continua sendo registrado — que é o que tem
+   * valor jurídico — e só o arquivo fica pendente, esperando o job de reprocesso.
+   * Exigi-las na subida derrubaria o cadastro inteiro num ambiente que ainda não
+   * configurou impressão de documento.
+   */
+  GOTENBERG_URL: z.string().optional(),
+  R2_ENDPOINT: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().default('petshop-media'),
+  /** R2 ignora região, mas o assinador SigV4 do SDK exige uma. */
+  R2_REGION: z.string().default('auto'),
 })
 
 export type Env = ReturnType<typeof loadEnv>

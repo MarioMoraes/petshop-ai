@@ -1,8 +1,8 @@
 import { withTenant, type TenantTransaction, type Tutor } from '@petshop/db'
 import {
-  CURRENT_TERMS_VERSION,
   TUTOR_ROUTING_KEYS,
   maskPhone,
+  termKindForChannel,
   type AnonymizeTutorInput,
   type CreateTutorInput,
   type ListTutorsQuery,
@@ -32,9 +32,10 @@ import {
 } from '../../lib/redis.js'
 import { createAddressIn } from '../addresses/service.js'
 import { recordConsentsIn } from '../consents/service.js'
+import { currentTermVersions } from '../terms/service.js'
 import { hashCnpj, hashCpf, hashPhone, hashTutorEmail, openCipher } from './crypto.js'
 import { findExactDocumentMatch, findProbableDuplicates, toSearchKeys } from './dedupe.js'
-import { toTutorDetail, toTutorResponse, type TutorRow } from './mapper.js'
+import { toTutorDetail, toTutorResponse, type TermVersionMap, type TutorRow } from './mapper.js'
 import { searchTutorIds } from './search.js'
 
 /**
@@ -95,7 +96,13 @@ export async function listTutors(
 
 export async function getTutor(tenantId: string, tutorId: string): Promise<TutorDetail> {
   const cached = await cacheGet<TutorDetail>(CACHE_KEYS.tutor(tenantId, tutorId))
+  // A ficha inteira continua cacheada, e com ela o estado de consentimento derivado da
+  // vigência de hoje. Publicar um termo novo leva até `CACHE_TTL_SECONDS.tutor` para
+  // aparecer aqui; a aba de consentimento, que é onde a decisão é tomada, deriva o
+  // estado a cada leitura.
   if (cached) return cached
+
+  const termVersions = await currentTermVersions(tenantId)
 
   const detail = await withTenant(tenantId, async (tx) => {
     const row = await tx.tutor.findFirst({
@@ -110,7 +117,7 @@ export async function getTutor(tenantId: string, tutorId: string): Promise<Tutor
       openCipher(tx, tenantId),
     ])
 
-    return toTutorDetail(row, cipher, addresses, consents)
+    return toTutorDetail(row, cipher, addresses, consents, termVersions)
   })
 
   await cacheSet(CACHE_KEYS.tutor(tenantId, tutorId), detail, CACHE_TTL_SECONDS.tutor)
@@ -162,6 +169,10 @@ export async function createTutor(
   actor: ActorContext,
   input: CreateTutorInput,
 ): Promise<TutorDetail> {
+  // Fora da transação: a resolução da versão vigente é leitura cacheada e não precisa
+  // segurar a transação que cria o tutor.
+  const termVersions = await currentTermVersions(actor.tenantId)
+
   const detail = await withTenant(
     actor.tenantId,
     async (tx) => {
@@ -219,7 +230,7 @@ export async function createTutor(
       await recordConsentsIn(tx, {
         tenantId: actor.tenantId,
         tutorId: created.id,
-        transitions: consentTransitionsFrom(input),
+        transitions: consentTransitionsFrom(input, termVersions),
         ipAddress: actor.ipAddress ?? null,
         userAgent: actor.userAgent ?? null,
       })
@@ -253,7 +264,7 @@ export async function createTutor(
         tx.tutorConsent.findMany({ where: { tutorId: created.id }, orderBy: { createdAt: 'asc' } }),
       ])
 
-      return toTutorDetail(created, cipher, addresses, consents)
+      return toTutorDetail(created, cipher, addresses, consents, termVersions)
     },
     actor.actorUserId ? { userId: actor.actorUserId } : {},
   )
@@ -287,6 +298,8 @@ export async function updateTutor(
 ): Promise<TutorDetail> {
   const changedFields = Object.keys(patch).filter((key) => key !== 'duplicateAcknowledged')
   if (changedFields.length === 0) return getTutor(actor.tenantId, tutorId)
+
+  const termVersions = await currentTermVersions(actor.tenantId)
 
   const { detail, phoneHashes } = await withTenant(
     actor.tenantId,
@@ -380,7 +393,7 @@ export async function updateTutor(
       ])
 
       return {
-        detail: toTutorDetail(withCompleteness, cipher, addresses, consents),
+        detail: toTutorDetail(withCompleteness, cipher, addresses, consents, termVersions),
         phoneHashes: [before.phoneHash, withCompleteness.phoneHash],
       }
     },
@@ -755,7 +768,18 @@ export function completenessOf(input: {
   return input.hasDocument && input.hasAddress ? 'COMPLETE' : 'PARTIAL'
 }
 
-function consentTransitionsFrom(input: CreateTutorInput) {
+/**
+ * Os quatro consentimentos do formulário de cadastro.
+ *
+ * A versão de cada um é a **vigente do tenant** (MOD-DOC-06), e não mais a constante do
+ * código: os três primeiros citam o termo de uso, o quarto cita a autorização de imagem,
+ * e os dois podem estar em números diferentes.
+ *
+ * O visto de imagem grava a prova e **não** emite papel: emitir documento no cadastro
+ * exigiria o endereço completo do estabelecimento e derrubaria o cadastro de quem ainda
+ * não o preencheu. O papel sai depois, pela aba de consentimento (MOD-DOC-08).
+ */
+function consentTransitionsFrom(input: CreateTutorInput, versions: TermVersionMap) {
   return [
     { channel: 'TERMS' as const, granted: true, purpose: 'BOTH' as const },
     { channel: 'WHATSAPP' as const, granted: input.consents.whatsapp, purpose: 'MARKETING' as const },
@@ -764,7 +788,7 @@ function consentTransitionsFrom(input: CreateTutorInput) {
   ].map((transition) => ({
     ...transition,
     source: 'STAFF_FORM' as const,
-    version: CURRENT_TERMS_VERSION,
+    version: versions[termKindForChannel(transition.channel)],
   }))
 }
 

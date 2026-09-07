@@ -1,7 +1,7 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
-  CURRENT_TERMS_VERSION,
   TUTOR_ROUTING_KEYS,
+  termKindForChannel,
   type ConsentChannel,
   type ConsentPurpose,
   type ConsentRecord,
@@ -15,6 +15,7 @@ import { blockedByConsent, notFound } from '../../lib/errors.js'
 import { publishEvent } from '../../lib/events.js'
 import { recordMetric } from '../../lib/logger.js'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet, invalidateTutor } from '../../lib/redis.js'
+import { assertTermVersionExists, currentTermVersions } from '../terms/service.js'
 import { currentConsentState } from '../tutors/mapper.js'
 import { assertWritable, type ActorContext } from '../tutors/service.js'
 
@@ -43,63 +44,98 @@ export interface RecordConsentsParams {
   userAgent?: string | null
 }
 
-/** Grava dentro de uma transação já aberta — usado na criação do tutor. */
+/**
+ * Grava dentro de uma transação já aberta — usado na criação do tutor.
+ *
+ * Desde o MOD-DOC-06, **toda** linha tem a versão conferida contra `term_versions`
+ * (AC-03): prova de aceite sem documento aceito é o defeito que aquele módulo veio
+ * corrigir, e não se recria ele por um caminho lateral. A versão que falta no payload é
+ * resolvida aqui, pela vigente do tenant — o cliente não a manda, e não deve mandar.
+ */
 export async function recordConsentsIn(
   tx: TenantTransaction,
   params: RecordConsentsParams,
 ): Promise<void> {
   if (params.transitions.length === 0) return
 
-  await tx.tutorConsent.createMany({
-    data: params.transitions.map((transition) => ({
-      tenantId: params.tenantId,
-      tutorId: params.tutorId,
-      channel: transition.channel,
-      granted: transition.granted,
-      purpose: transition.purpose ?? 'MARKETING',
-      source: transition.source ?? 'STAFF_FORM',
-      version: transition.version ?? CURRENT_TERMS_VERSION,
-      ipAddress: params.ipAddress ?? null,
-      userAgent: params.userAgent ?? null,
-    })),
-  })
+  const vigentes = await currentTermVersions(params.tenantId)
+
+  const linhas = await Promise.all(
+    params.transitions.map(async (transition) => {
+      const kind = termKindForChannel(transition.channel)
+      const version = transition.version ?? vigentes[kind]
+      await assertTermVersionExists(tx, kind, version)
+
+      return {
+        tenantId: params.tenantId,
+        tutorId: params.tutorId,
+        channel: transition.channel,
+        granted: transition.granted,
+        purpose: transition.purpose ?? 'MARKETING',
+        source: transition.source ?? 'STAFF_FORM',
+        version,
+        ipAddress: params.ipAddress ?? null,
+        userAgent: params.userAgent ?? null,
+      }
+    }),
+  )
+
+  await tx.tutorConsent.createMany({ data: linhas })
 }
 
+/**
+ * O estado atual e o histórico inteiro (AC-03), nada sobrescrito.
+ *
+ * **O cache guarda só o histórico**, e o estado é derivado a cada leitura. O histórico é
+ * imutável — a tabela é append-only —, mas a vigência não: publicar um termo novo muda o
+ * estado de quem aceitou o antigo para `PENDING_RENEWAL` sem tocar em nenhuma linha de
+ * consentimento. Guardar o estado pronto exigiria invalidar a chave de cada tutor da
+ * base a cada publicação.
+ */
 export async function getConsents(
   tenantId: string,
   tutorId: string,
 ): Promise<ConsentsResponse> {
-  const cached = await cacheGet<ConsentsResponse>(CACHE_KEYS.consents(tenantId, tutorId))
-  if (cached) return cached
+  const versions = await currentTermVersions(tenantId)
+  const cached = await cacheGet<ConsentRecord[]>(CACHE_KEYS.consents(tenantId, tutorId))
 
-  const response = await withTenant(tenantId, async (tx) => {
-    const tutor = await tx.tutor.findFirst({
-      where: { id: tutorId, deletedAt: null },
-      select: { id: true },
-    })
-    if (!tutor) throw notFound()
+  const history =
+    cached ??
+    (await withTenant(tenantId, async (tx) => {
+      const tutor = await tx.tutor.findFirst({
+        where: { id: tutorId, deletedAt: null },
+        select: { id: true },
+      })
+      if (!tutor) throw notFound()
 
-    const rows = await tx.tutorConsent.findMany({
-      where: { tutorId },
-      orderBy: { createdAt: 'asc' },
-    })
+      const rows = await tx.tutorConsent.findMany({
+        where: { tutorId },
+        orderBy: { createdAt: 'asc' },
+      })
 
-    // AC-03: o estado atual **e** o histórico inteiro, nada sobrescrito.
-    const history: ConsentRecord[] = rows.map((row) => ({
-      id: row.id,
-      channel: row.channel,
-      granted: row.granted,
-      purpose: row.purpose,
-      version: row.version,
-      source: row.source,
-      createdAt: row.createdAt.toISOString(),
+      return rows.map((row) => ({
+        id: row.id,
+        channel: row.channel,
+        granted: row.granted,
+        purpose: row.purpose,
+        version: row.version,
+        source: row.source,
+        documentId: row.documentId,
+        createdAt: row.createdAt.toISOString(),
+      })) satisfies ConsentRecord[]
     }))
 
-    return { current: currentConsentState(rows), history }
-  })
+  if (!cached) {
+    await cacheSet(CACHE_KEYS.consents(tenantId, tutorId), history, CACHE_TTL_SECONDS.consents)
+  }
 
-  await cacheSet(CACHE_KEYS.consents(tenantId, tutorId), response, CACHE_TTL_SECONDS.consents)
-  return response
+  return {
+    current: currentConsentState(
+      history.map((record) => ({ ...record, createdAt: new Date(record.createdAt) })),
+      versions,
+    ),
+    history,
+  }
 }
 
 export async function updateConsents(
@@ -140,6 +176,10 @@ export async function updateConsents(
 
   await invalidateTutor(actor.tenantId, tutorId)
 
+  // A mesma resolução que a gravação fez: o evento precisa dizer qual texto valia, e
+  // quem sabe isso é o tenant, não o cliente que omitiu o campo.
+  const vigentes = await currentTermVersions(actor.tenantId)
+
   for (const transition of input.transitions) {
     await publishEvent(
       transition.granted
@@ -150,7 +190,7 @@ export async function updateConsents(
         tutorId,
         channel: transition.channel,
         purpose: transition.purpose,
-        version: transition.version,
+        version: transition.version ?? vigentes[termKindForChannel(transition.channel)],
       },
     )
   }
@@ -205,6 +245,7 @@ function channelLabel(channel: ConsentChannel): string {
     EMAIL: 'e-mail',
     SMS: 'SMS',
     TERMS: 'termos de uso',
+    SERVICE_LIABILITY: 'termo de responsabilidade',
     IMAGE_USE: 'uso de imagem',
   }
   return labels[channel]

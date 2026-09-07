@@ -6,6 +6,7 @@ import {
   BrandingSchema,
   BusinessHoursSchema,
   CreateBreedSchema,
+  PublishTermVersionSchema,
   ResolveDeletionRequestSchema,
   UpdateTenantSchema,
   UpdateTenantSettingsSchema,
@@ -15,6 +16,7 @@ import {
   type ManagedBreed,
   type TenantResponse,
   type TenantSettings,
+  type TermVersionView,
 } from '@petshop/shared-types'
 import { z } from 'zod'
 import { serverApi } from '@/lib/api'
@@ -255,6 +257,28 @@ export async function deleteBreedAction(breedId: string): Promise<ActionResult<n
  * aberto e agenda futura que ela tem. Ligar as duas faria um clique nesta fila apagar o
  * cadastro de quem deve dinheiro ao petshop e tem nota fiscal em prazo de guarda.
  */
+/**
+ * Publica uma versão de termo (MOD-DOC-06).
+ *
+ * Não existe ação de editar, e a ausência é a regra: republicar um número já publicado
+ * volta como 409 `ERR_DOC_004`, porque alguém já aceitou aquele texto. O caminho é
+ * publicar a versão seguinte.
+ */
+export async function publishTermVersionAction(
+  input: unknown,
+): Promise<ActionResult<TermVersionView>> {
+  const parsed = PublishTermVersionSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const version = await serverApi().publishTermVersion(parsed.data)
+    revalidatePath('/configuracoes')
+    return { ok: true, data: version }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
 export async function resolveDeletionRequestAction(
   requestId: string,
   input: unknown,

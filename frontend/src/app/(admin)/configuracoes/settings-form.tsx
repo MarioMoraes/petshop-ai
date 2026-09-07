@@ -13,6 +13,7 @@ import {
   type TenantAddress,
   type TenantResponse,
   type TenantSettings,
+  type TermVersionView,
   type Weekday,
 } from '@petshop/shared-types'
 import { Badge, Card, Choice, Field, FormError, SectionHead, Tabs } from '@/components/ui'
@@ -33,6 +34,7 @@ import {
   type ActionResult,
 } from './actions'
 import { BreedCatalog } from './breed-catalog'
+import { Documentos } from './documentos'
 import { Privacidade } from './privacidade'
 
 /**
@@ -88,6 +90,15 @@ const CATALOG_TAB = { id: 'racas', label: 'Raças' }
  */
 const PRIVACY_TAB = { id: 'privacidade', label: 'Privacidade' }
 
+/**
+ * MOD-DOC-06: os termos que o cliente aceita.
+ *
+ * Aqui, e não numa tela própria, pelo mesmo motivo da aba de privacidade: é decisão sobre
+ * o estabelecimento, tomada uma vez por ano. A aba abre para quem lê as configurações;
+ * publicar continua sendo `tenant:configure`.
+ */
+const DOCUMENTS_TAB = { id: 'documentos', label: 'Documentos' }
+
 export interface SettingsFormProps {
   tenant: TenantResponse
   settings: TenantSettings
@@ -105,6 +116,8 @@ export interface SettingsFormProps {
    */
   deletionRequests: DeletionRequestResponse[]
   canResolveDeletions: boolean
+  /** As versões de termo publicadas (MOD-DOC-06). */
+  termVersions: TermVersionView[]
   /**
    * A aba que abre, quando a URL a nomeia.
    *
@@ -138,6 +151,7 @@ export function SettingsForm({
   canManageCatalog,
   deletionRequests,
   canResolveDeletions,
+  termVersions,
   abaInicial,
 }: SettingsFormProps) {
   const [active, setActive] = useState(abaInicial ?? 'dados')
@@ -181,6 +195,7 @@ export function SettingsForm({
       <Tabs
         tabs={[
           ...TABS,
+          DOCUMENTS_TAB,
           ...(canManageCatalog ? [CATALOG_TAB] : []),
           ...(canResolveDeletions ? [PRIVACY_TAB] : []),
         ]}
@@ -207,6 +222,8 @@ export function SettingsForm({
           na própria linha, e não tem um "Salvar" no rodapé como as outras.
         */}
         {active === 'racas' && <BreedCatalog species={species} canManage={canManageCatalog} />}
+        {/* Sem o `shared`: publicar termo é uma ação própria, num diálogo próprio. */}
+        {active === 'documentos' && <Documentos versions={termVersions} canEdit={canEdit} />}
         {/* Também sem o `shared`: cada pedido é respondido na própria linha. */}
         {active === 'privacidade' && <Privacidade pedidos={deletionRequests} />}
       </div>

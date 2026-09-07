@@ -105,6 +105,7 @@ export async function exportTutor(actor: ActorContext, tutorId: string): Promise
           purpose: consent.purpose,
           version: consent.version,
           source: consent.source,
+          documentId: consent.documentId,
           createdAt: consent.createdAt.toISOString(),
         })),
         tags: row.tagAssignments.map(({ tag }) => ({

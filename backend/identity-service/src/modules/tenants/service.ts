@@ -15,12 +15,15 @@ import {
   AppError,
   DEFAULT_BRANDING,
   DEFAULT_BUSINESS_HOURS,
+  DEFAULT_TERM_VERSION,
   IDENTITY_ROUTING_KEYS,
   ONBOARDING_LAST_STEP,
+  PLATFORM_TERM_SEEDS,
   SEED_SERVICES,
   isReservedSlug,
   isValidSlug,
   slugSuggestions,
+  TERM_KINDS,
   type CreateTenantInput,
   type SlugAvailability,
   type TenantResponse,
@@ -344,6 +347,8 @@ async function registerProvisioningFailure(
  * retentado (AC-03).
  */
 async function seedTenantDomain(tx: TenantTransaction, tenantId: string): Promise<void> {
+  await seedPlatformTerms(tx, tenantId)
+
   // Os portes são catálogo global; o seed dos serviços os referencia por chave, e o
   // UUID só é resolvido aqui.
   const sizes = await tx.size.findMany({
@@ -384,6 +389,34 @@ async function seedTenantDomain(tx: TenantTransaction, tenantId: string): Promis
       },
     })
   }
+}
+
+/**
+ * As três versões `1.0` dos termos da plataforma (AC-02 de MOD-DOC-06).
+ *
+ * Roda dentro da transação do provisionamento porque um estabelecimento sem termo
+ * nenhum não consegue cadastrar o primeiro tutor: desde o MOD-DOC-06 toda linha de
+ * `tutor_consents` tem a versão conferida contra `term_versions`, e prova de aceite sem
+ * documento aceito é justamente o defeito que aquele módulo veio corrigir.
+ *
+ * `1.0` é o mesmo número que o parque anterior já gravava, e é por isso que ele vale
+ * retroativamente. **Mudar o texto de `PLATFORM_TERM_SEEDS` exige subir o número do
+ * seed**: o que já foi semeado é texto publicado, e publicado não se reescreve — dois
+ * tenants com `1.0` diferentes é a mesma falsificação, distribuída no tempo.
+ *
+ * `published_by` fica nulo de propósito: quem publicou foi a plataforma, não uma pessoa.
+ */
+async function seedPlatformTerms(tx: TenantTransaction, tenantId: string): Promise<void> {
+  await tx.termVersion.createMany({
+    data: TERM_KINDS.map((kind) => ({
+      tenantId,
+      kind,
+      version: DEFAULT_TERM_VERSION,
+      title: PLATFORM_TERM_SEEDS[kind].title,
+      body: PLATFORM_TERM_SEEDS[kind].body,
+    })),
+    skipDuplicates: true,
+  })
 }
 
 // ─── Leitura ─────────────────────────────────────────────────────────────────

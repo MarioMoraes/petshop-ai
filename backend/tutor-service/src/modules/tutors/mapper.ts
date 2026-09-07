@@ -1,11 +1,14 @@
 import type { Tutor, TutorAddress, TutorConsent, TutorTag } from '@petshop/db'
 import {
-  CURRENT_TERMS_VERSION,
   maskCNPJ,
   maskCPF,
   maskPhone,
+  termKindForChannel,
   type AddressResponse,
+  type ConsentChannel,
+  type ConsentPurpose,
   type ConsentStatus,
+  type TermKind,
   type TutorDetail,
   type TutorResponse,
 } from '@petshop/shared-types'
@@ -91,12 +94,27 @@ export function toTutorDetail(
   cipher: TutorCipher,
   addresses: TutorAddress[],
   consents: TutorConsent[],
+  currentVersions: TermVersionMap,
 ): TutorDetail {
   return {
     ...toTutorResponse(row, cipher),
     addresses: addresses.map((address) => toAddressResponse(address, cipher)),
-    consents: currentConsentState(consents),
+    consents: currentConsentState(consents, currentVersions),
   }
+}
+
+/**
+ * O que é "a versão vigente", por tipo de termo. Vem de `term_versions` (MOD-DOC-06).
+ */
+export type TermVersionMap = Record<TermKind, string>
+
+/** O que a derivação de estado precisa de uma linha de consentimento. */
+export interface ConsentTransitionRow {
+  channel: ConsentChannel
+  granted: boolean
+  purpose: ConsentPurpose
+  version: string
+  createdAt: Date
 }
 
 /**
@@ -105,24 +123,38 @@ export function toTutorDetail(
  * `tutor_consents` só cresce; o "estado" é a transição mais recente de cada canal.
  * Calcular em vez de guardar é o que torna impossível o estado divergir da prova.
  *
- * AC-04 de MOD-TUTOR-04: um aceite de termos numa versão anterior à vigente não é
- * revogação — é `PENDING_RENEWAL`. O tutor continua recebendo comunicação
- * transacional e para de receber marketing até reaceitar.
+ * AC-04 de MOD-TUTOR-04: um aceite numa versão anterior à vigente não é revogação — é
+ * `PENDING_RENEWAL`. O tutor continua recebendo comunicação transacional e para de
+ * receber marketing até reaceitar.
+ *
+ * A vigência era comparada com uma constante do código; desde o MOD-DOC-06 ela vem do
+ * termo que o **tenant** publicou. E vale só para os três canais que descrevem um texto:
+ * `WHATSAPP`, `EMAIL` e `SMS` continuam julgados apenas por `granted`, porque senão
+ * publicar um termo de uso novo derrubaria, em silêncio, o marketing de toda a base.
  */
-export function currentConsentState(consents: TutorConsent[]): ConsentStatus[] {
-  const latest = new Map<string, TutorConsent>()
+export function currentConsentState(
+  consents: ConsentTransitionRow[],
+  currentVersions: TermVersionMap,
+): ConsentStatus[] {
+  const latest = new Map<string, ConsentTransitionRow>()
   for (const consent of consents) {
     const current = latest.get(consent.channel)
     if (!current || consent.createdAt > current.createdAt) latest.set(consent.channel, consent)
   }
 
   return [...latest.values()].map((consent) => {
-    const staleTerms =
-      consent.channel === 'TERMS' && consent.granted && consent.version !== CURRENT_TERMS_VERSION
+    const isTerm =
+      consent.channel === 'TERMS' ||
+      consent.channel === 'SERVICE_LIABILITY' ||
+      consent.channel === 'IMAGE_USE'
+    const stale =
+      isTerm &&
+      consent.granted &&
+      consent.version !== currentVersions[termKindForChannel(consent.channel)]
 
     return {
       channel: consent.channel,
-      state: staleTerms
+      state: stale
         ? ('PENDING_RENEWAL' as const)
         : consent.granted
           ? ('GRANTED' as const)

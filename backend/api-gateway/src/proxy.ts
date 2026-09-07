@@ -135,7 +135,12 @@ const IDENTITY_PREFIXES = [
   '/v1/sessions',
 ]
 
-const TUTOR_PREFIXES = ['/v1/tutors']
+/**
+ * `/v1/terms` entra junto (MOD-DOC-06): o texto do termo é publicado nas Configurações,
+ * mas quem o valida, apresenta e registra o aceite é o serviço que guarda a prova —
+ * `tutor_consents`. O `document-service:3012` do SPEC continua não nascendo.
+ */
+const TUTOR_PREFIXES = ['/v1/tutors', '/v1/terms']
 
 // O catálogo de domínio (MOD-PET-03) mora no pet-service: espécie, raça, porte e
 // pelagem só existem para serem referenciados por um pet.

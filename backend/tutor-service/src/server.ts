@@ -1,6 +1,7 @@
 import { disconnectPrisma } from '@petshop/db'
 import { buildApp } from './app.js'
 import { loadEnv } from './env.js'
+import { startJobs, stopJobs } from './jobs/schedule.js'
 import { closeEvents } from './lib/events.js'
 import { logger } from './lib/logger.js'
 import { closeRedis } from './lib/redis.js'
@@ -13,6 +14,7 @@ async function main() {
   const app = await buildApp()
 
   await startTutorConsumers()
+  startJobs()
 
   await app.listen({ port: env.TUTOR_SERVICE_PORT, host: '0.0.0.0' })
   logger.info({ port: env.TUTOR_SERVICE_PORT }, 'tutor-service no ar')
@@ -20,6 +22,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'encerrando tutor-service')
     await stopTutorConsumers()
+    await stopJobs()
     await app.close()
     await Promise.all([closeEvents(), closeRedis(), disconnectPrisma()])
     process.exit(0)

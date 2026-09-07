@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { ApiError } from '@petshop/api-client'
 import {
+  AcceptTermSchema,
   AddressInputSchema,
   AnonymizeTutorSchema,
   CreateTutorSchema,
@@ -10,7 +11,11 @@ import {
   UpdateTutorSchema,
   type CepLookup,
   type CheckDuplicatesResult,
+  type DocumentView,
   type DuplicateCandidate,
+  type TermAcceptanceView,
+  type TermKind,
+  type TermVersionView,
   type TutorDetail,
 } from '@petshop/shared-types'
 import { z } from 'zod'
@@ -209,6 +214,57 @@ export async function updateConsentsAction(
     await serverApi().updateConsents(tutorId, parsed.data)
     revalidatePath(`/tutores/${tutorId}`)
     return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Termos e autorizações (MOD-DOC-07 e 08) ─────────────────────────────────
+
+/** O texto vigente, para a tela apresentar antes de colher o aceite. */
+export async function getCurrentTermAction(
+  kind: TermKind,
+): Promise<ActionResult<TermVersionView>> {
+  try {
+    return { ok: true, data: await serverApi().getCurrentTerm(kind) }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Registra o aceite e emite o papel.
+ *
+ * O IP e o user-agent que viram prova são os que o gateway encaminha, e não os do
+ * servidor do Next: a ação chama a API como qualquer outra tela, e o `serverApi` já
+ * repassa os cabeçalhos de origem.
+ */
+export async function acceptTermAction(
+  tutorId: string,
+  kind: TermKind,
+): Promise<ActionResult<TermAcceptanceView>> {
+  const parsed = AcceptTermSchema.safeParse({ kind })
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const acceptance = await serverApi().acceptTerm(tutorId, parsed.data)
+    revalidatePath(`/tutores/${tutorId}`)
+    return { ok: true, data: acceptance }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * A URL assinada de 15 minutos do papel — e pedi-la **é** o download: esta chamada entra
+ * na trilha de auditoria do tenant. Por isso ela sai daqui, do clique, e não da listagem.
+ */
+export async function getTutorDocumentAction(
+  tutorId: string,
+  documentId: string,
+): Promise<ActionResult<DocumentView>> {
+  try {
+    return { ok: true, data: await serverApi().getTutorDocument(tutorId, documentId) }
   } catch (error) {
     return toFailure(error)
   }

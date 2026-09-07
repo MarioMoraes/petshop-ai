@@ -39,7 +39,7 @@ export default async function ConfiguracoesPage({
    */
   const canResolveDeletions = me.permissions.includes('tutor:delete')
 
-  const [tenant, settings, species, deletion] = await Promise.all([
+  const [tenant, settings, species, deletion, terms] = await Promise.all([
     serverApi().getTenant(),
     serverApi().getSettings(),
     // A aba de raças só existe para quem pode mexer nela; sem a permissão, nem a
@@ -52,6 +52,12 @@ export default async function ConfiguracoesPage({
           // fora do ar não pode derrubar as Configurações inteiras junto com ela.
           .catch(() => ({ items: [], total: 0, page: 1, limit: 50 }))
       : Promise.resolve({ items: [], total: 0, page: 1, limit: 50 }),
+    // A aba de documentos abre para quem lê as configurações; publicar continua sendo
+    // `tenant:configure`. Como a fila de exclusão, um serviço fora do ar não pode
+    // derrubar a tela inteira junto com a aba.
+    serverApi()
+      .listTermVersions()
+      .catch(() => ({ versions: [] })),
   ])
 
   const { aba } = await searchParams
@@ -75,6 +81,7 @@ export default async function ConfiguracoesPage({
             canManageCatalog={canManageCatalog}
             deletionRequests={deletion.items}
             canResolveDeletions={canResolveDeletions}
+            termVersions={terms.versions}
             abaInicial={aba}
           />
         </div>

@@ -78,7 +78,20 @@ export type TutorStatus = z.infer<typeof TutorStatusSchema>
 export const DataCompletenessSchema = z.enum(['COMPLETE', 'PARTIAL'])
 export type DataCompleteness = z.infer<typeof DataCompletenessSchema>
 
-export const ConsentChannelSchema = z.enum(['WHATSAPP', 'EMAIL', 'SMS', 'TERMS', 'IMAGE_USE'])
+/**
+ * O canal do consentimento. Os três primeiros são meio de contato; os três últimos são
+ * texto que se aceita — a palavra "canal" já vinha esticada desde o MOD-TUTOR, e
+ * `SERVICE_LIABILITY` (MOD-DOC-07) entra ao lado de `TERMS` e `IMAGE_USE` pelo mesmo
+ * motivo: a prova do aceite é a mesma linha append-only, com IP, user-agent e versão.
+ */
+export const ConsentChannelSchema = z.enum([
+  'WHATSAPP',
+  'EMAIL',
+  'SMS',
+  'TERMS',
+  'SERVICE_LIABILITY',
+  'IMAGE_USE',
+])
 export type ConsentChannel = z.infer<typeof ConsentChannelSchema>
 
 export const ConsentPurposeSchema = z.enum(['TRANSACTIONAL', 'MARKETING', 'BOTH'])
@@ -97,11 +110,16 @@ export const ConsentStateSchema = z.enum([
 export type ConsentState = z.infer<typeof ConsentStateSchema>
 
 /**
- * Versão corrente dos termos. Subir esta constante coloca todo mundo que aceitou a
- * versão anterior em `PENDING_RENEWAL` (AC-04 de MOD-TUTOR-04).
+ * A versão de termo usada quando o chamador não diz qual.
  *
- * TODO(MOD-SEC): virar configuração por tenant quando o tenant puder publicar o
- * próprio termo de uso.
+ * Era a versão corrente cravada no código, com um `TODO(MOD-SEC)` pedindo que virasse
+ * configuração por tenant. O MOD-DOC-06 fez isso: o texto e o número agora moram em
+ * `term_versions`, e quem decide o que é "corrente" é a última versão publicada pelo
+ * tenant. A constante fica porque é o número que a plataforma semeia — e é por ele que
+ * todo consentimento já gravado continua válido (AC-02 de MOD-DOC-06).
+ *
+ * Ver `DEFAULT_TERM_VERSION` em `terms.ts`: são o mesmo número, e este é o apelido que
+ * o MOD-TUTOR já usava.
  */
 export const CURRENT_TERMS_VERSION = '1.0'
 
@@ -171,18 +189,25 @@ export const ConsentsInputSchema = z.object({
 })
 export type ConsentsInput = z.output<typeof ConsentsInputSchema>
 
-/** Uma transição de consentimento (PUT /v1/tutors/:id/consents). */
+/**
+ * Uma transição de consentimento (PUT /v1/tutors/:id/consents).
+ *
+ * A versão **não tem padrão** desde o MOD-DOC-06. Ela tinha, e o padrão era a constante
+ * do código: um tenant que publicasse a `2.0` continuaria gravando `1.0` em toda
+ * mudança de preferência, porque o cliente não manda o campo. Quem resolve a versão
+ * vigente é o servidor, que é quem sabe qual termo o tenant publicou.
+ */
 export const ConsentTransitionSchema = z.object({
   channel: ConsentChannelSchema,
   granted: z.boolean(),
   purpose: ConsentPurposeSchema.default('MARKETING'),
   source: ConsentSourceSchema.default('STAFF_FORM'),
-  version: z.string().max(20).default(CURRENT_TERMS_VERSION),
+  version: z.string().max(20).optional(),
 })
 export type ConsentTransitionInput = z.output<typeof ConsentTransitionSchema>
 
 export const UpdateConsentsSchema = z.object({
-  transitions: z.array(ConsentTransitionSchema).min(1).max(5),
+  transitions: z.array(ConsentTransitionSchema).min(1).max(6),
 })
 export type UpdateConsentsInput = z.output<typeof UpdateConsentsSchema>
 
@@ -193,6 +218,8 @@ export const ConsentRecordSchema = z.object({
   purpose: ConsentPurposeSchema,
   version: z.string(),
   source: ConsentSourceSchema,
+  /** O papel do aceite (MOD-DOC-07 e 08). Nulo quando a transição não arquiva nada. */
+  documentId: z.uuid().nullable(),
   createdAt: z.iso.datetime(),
 })
 export type ConsentRecord = z.infer<typeof ConsentRecordSchema>

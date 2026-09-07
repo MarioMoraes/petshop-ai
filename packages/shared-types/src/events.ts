@@ -5,6 +5,7 @@
 
 import type { Plan, TenantStatus } from './identity.js'
 import type { RoleKey } from './permissions.js'
+import type { TermKind } from './terms.js'
 import type { ConsentChannel, ConsentPurpose } from './tutor.js'
 
 export const EVENTS_EXCHANGE = 'petshop.events'
@@ -146,6 +147,8 @@ export const TUTOR_ROUTING_KEYS = {
   tutorAnonimizado: 'tutor.anonimizado',
   tutorTagAplicada: 'tutor.tag.aplicada',
   tutorTagRemovida: 'tutor.tag.removida',
+  /** MOD-DOC-07 e 08: o aceite de um termo, com o papel que o arquiva. */
+  tutorTermoAceito: 'tutor.termo.aceito',
 } as const
 
 export type TutorRoutingKey = (typeof TUTOR_ROUTING_KEYS)[keyof typeof TUTOR_ROUTING_KEYS]
@@ -187,6 +190,23 @@ export interface TutorConsentimentoEvent extends BaseEvent {
   version: string
 }
 
+/**
+ * Um termo foi aceito (MOD-DOC-07 e 08).
+ *
+ * É irmão de `tutor.consentimento.concedido` e não substituto dele: o consentimento diz
+ * que o tutor autorizou, e este diz **qual texto** ele viu e que papel foi arquivado.
+ * Quem escuta é o MOD-NOTIF, que manda o PDF ao tutor, e a auditoria.
+ *
+ * `documentId` é nulo no aceite de `TERMS`, que não arquiva papel.
+ */
+export interface TutorTermoAceitoEvent extends BaseEvent {
+  tenantId: string
+  tutorId: string
+  kind: TermKind
+  version: string
+  documentId: string | null
+}
+
 export interface TutorMescladoEvent extends BaseEvent {
   tenantId: string
   sourceId: string
@@ -222,6 +242,7 @@ export interface TutorEventMap {
   'tutor.anonimizado': TutorAnonimizadoEvent
   'tutor.tag.aplicada': TutorTagEvent
   'tutor.tag.removida': TutorTagEvent
+  'tutor.termo.aceito': TutorTermoAceitoEvent
 }
 
 // ─── MOD-PET ─────────────────────────────────────────────────────────────────

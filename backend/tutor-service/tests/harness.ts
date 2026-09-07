@@ -4,7 +4,14 @@ import { fileURLToPath } from 'node:url'
 import { config } from 'dotenv'
 import type { FastifyInstance } from 'fastify'
 import { signServiceHeaders, type ServiceAuthContext } from '@petshop/service-auth'
-import { PERMISSION_KEYS, type PermissionKey, type RoleKey } from '@petshop/shared-types'
+import {
+  DEFAULT_TERM_VERSION,
+  PERMISSION_KEYS,
+  PLATFORM_TERM_SEEDS,
+  TERM_KINDS,
+  type PermissionKey,
+  type RoleKey,
+} from '@petshop/shared-types'
 
 /**
  * Harness dos testes de integração.
@@ -141,7 +148,47 @@ export async function givenTenant(name = 'Petshop Teste'): Promise<TenantFixture
 
   await withTenant(tenantId, (tx) => createTenantKey(tx, tenantId))
 
+  /**
+   * As três versões `1.0` da plataforma, como o provisionamento semeia (MOD-DOC-06).
+   *
+   * Sem elas nenhum tutor é criado: desde o MOD-DOC-06 toda linha de `tutor_consents`
+   * tem a versão conferida contra `term_versions`. O fixture repete o que o
+   * `seedTenantDomain` do identity-service faz, porque o tenant daqui nasce por INSERT
+   * e não pelo provisionamento.
+   */
+  await ownerPrisma.termVersion.createMany({
+    data: TERM_KINDS.map((kind) => ({
+      tenantId,
+      kind,
+      version: DEFAULT_TERM_VERSION,
+      title: PLATFORM_TERM_SEEDS[kind].title,
+      body: PLATFORM_TERM_SEEDS[kind].body,
+    })),
+  })
+
   return { tenantId, userId: user.id, clerkUserId: user.clerkUserId }
+}
+
+/**
+ * O endereço público do estabelecimento — sem ele, nenhum documento é emitido (AC-02
+ * de MOD-DOC-01). Fica fora do `givenTenant` de propósito: é justamente o cenário do
+ * tenant incompleto que um dos testes exercita.
+ */
+export async function givenIssuerSettings(fixture: TenantFixture): Promise<void> {
+  await ownerPrisma.tenantSettings.create({
+    data: {
+      tenantId: fixture.tenantId,
+      branding: { primaryColor: '#2f6f5a' },
+      businessHours: {},
+      addressZip: '01310100',
+      addressStreet: 'Avenida Paulista',
+      addressNumber: '1000',
+      addressDistrict: 'Bela Vista',
+      addressCity: 'São Paulo',
+      addressState: 'SP',
+      publicPhone: '11 3000-0000',
+    },
+  })
 }
 
 // ─── Requisições autenticadas ────────────────────────────────────────────────

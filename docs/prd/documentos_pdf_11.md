@@ -193,6 +193,16 @@
 
 > **Decisão de produto (2026-09-07): o texto do termo passa a ser dado, não constante.** Hoje `CURRENT_TERMS_VERSION = '1.0'` mora em `packages/shared-types` com um `TODO(MOD-SEC)` pedindo exatamente isto. Subir a constante joga todo mundo em `PENDING_RENEWAL` (AC-04 do MOD-TUTOR-04) — comportamento correto que continua valendo, com uma diferença: agora há um texto por trás da versão.
 
+> **Como ficou, na implementação da fatia 3:** **não existe rascunho nem edição**, e por
+> isso o AC-04 toma a forma de uma recusa de INSERT: republicar um número que já existe
+> devolve 409 `ERR_DOC_004`, com a orientação de subir a versão. Uma rota de PATCH que
+> recusasse sempre seria uma porta construída para ficar trancada.
+>
+> A **vigência** é a data de publicação mais recente, e não uma coluna `current` — uma
+> coluna diria "vigente" em duas linhas no dia em que alguém esquecesse de desmarcar a
+> anterior. E a validação de versão passou a valer para **toda** escrita em
+> `tutor_consents`, inclusive a do cadastro: era por lá que o defeito entraria de volta.
+
 **AC-01 (Happy Path — publicar versão)**
 - **Dado** um tenant que quer usar o próprio termo de responsabilidade
 - **Quando** o admin publica o texto em Configurações → Documentos
@@ -218,6 +228,22 @@
 ### [MOD-DOC-07] — Termo de Responsabilidade
 
 > **Decisão de produto (2026-09-07): aceite eletrônico registrado.** Não há assinatura desenhada em tela nem digitalização de papel. A prova é a que `tutor_consents` já guarda desde o MOD-TUTOR: versão do termo, IP, user-agent, origem e carimbo de tempo, numa tabela **append-only por grant** — nem `app_user` nem `app_maintenance` têm UPDATE ou DELETE nela. Isso vale mais, juridicamente, que um rabisco num tablet, funciona igual no balcão e no Portal, e não exige comprar hardware para cada recepção. O canal `SERVICE_LIABILITY` entra no enum `ConsentChannel`, ao lado de `TERMS` e `IMAGE_USE`, que já esticavam a palavra "canal" pelo mesmo motivo.
+
+> **Como ficou, na implementação da fatia 3:** três decisões que o PRD não previa.
+>
+> 1. **O aceite é do tutor, e o papel nomeia os animais dele no dia.** `tutor_consents` é
+>    append-only e não tem coluna de pet; pendurar o aceite no animal exigiria uma tabela
+>    nova para dizer o que a prova já diz. O texto fala em "o animal identificado nesta
+>    folha", então a folha lista os pets vinculados no momento do aceite — um pet que
+>    chega depois entra na folha seguinte.
+> 2. **O visto do cadastro grava a prova sem emitir papel.** Emitir documento durante a
+>    criação do tutor exigiria o endereço completo do estabelecimento e derrubaria o
+>    cadastro de quem ainda não o preencheu (AC-02 de MOD-DOC-01). Quando a prova já
+>    existe e o papel não, a rota de aceite emite só o papel e devolve **200** em vez de
+>    201 — o 409 do AC-03 vale para quem já tem os dois.
+> 3. **O aceite pelo Portal (AC-02) fica com a fatia seguinte**, junto do MOD-DOC-10: o
+>    serviço já aceita `source = PORTAL` e a porta do BFF já repassa IP e user-agent, mas
+>    a tela do cliente entra com "Meus documentos".
 
 **AC-01 (Happy Path — no balcão)**
 - **Dado** um tutor no check-in de um serviço que exige termo
