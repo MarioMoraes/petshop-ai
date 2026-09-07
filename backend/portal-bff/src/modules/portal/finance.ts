@@ -420,6 +420,43 @@ export async function readOwnReceipt(
 }
 
 /**
+ * AC-02 de MOD-DOC-09 — o extrato do próprio tutor, em papel.
+ *
+ * O `tutorId` vem do `ownScope` do `service-kit`, nunca do corpo nem da URL: o filtro de
+ * titularidade é injetado antes de a rota existir, e não conferido dentro dela. É o que
+ * o AC pede em letra, e é o que impede que uma rota nova esqueça a checagem.
+ *
+ * A trilha registra o acesso, como no recibo: o extrato lista o que o tutor deve e a
+ * quem, e é dado de conta corrente.
+ */
+export async function downloadOwnStatementPdf(
+  caller: LedgerCaller,
+  actor: { actorUserId?: string | null; ipAddress?: string | undefined; userAgent?: string | undefined },
+  tutorId: string,
+): Promise<{ bytes: Buffer; filename: string }> {
+  const documento = await getLedgerPort().statementPdf(caller, tutorId)
+
+  await withTenant(caller.tenantId, (tx) =>
+    recordAudit(tx, {
+      tenantId: caller.tenantId,
+      actorUserId: actor.actorUserId ?? null,
+      action: 'portal.statement_downloaded',
+      entity: 'tutor',
+      entityId: tutorId,
+      after: { filename: documento.filename },
+      ipAddress: actor.ipAddress ?? null,
+      userAgent: actor.userAgent ?? null,
+    }),
+  ).catch((error: unknown) => {
+    // A folha já foi montada; falhar a resposta por causa da trilha faria o tutor perder
+    // o extrato por um problema que não é dele. Fica o log.
+    logger.error({ err: error, tutorId }, 'falha ao registrar o download do extrato')
+  })
+
+  return documento
+}
+
+/**
  * O pagamento é **deste** tutor?
  *
  * Precede toda ida ao ledger pelo recibo. O recorte é `tutorId` na consulta e a

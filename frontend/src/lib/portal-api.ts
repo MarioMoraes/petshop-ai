@@ -15,6 +15,7 @@ import type {
   PortalContactVerifyInput,
   PortalContextResponse,
   PortalDeletionRequestInput,
+  PortalDocumentsResponse,
   PortalFinanceResponse,
   PortalMeDataResponse,
   PortalMessagesResponse,
@@ -22,6 +23,8 @@ import type {
   PortalPreferencesResponse,
   PortalPetSummary,
   PortalReceiptResponse,
+  PortalTermsResponse,
+  TermKind,
   PortalStatementResponse,
   PortalTaxiOffer,
   PortalTaxiRide,
@@ -108,9 +111,16 @@ async function request<T>(options: RequestOptions): Promise<T> {
     throw new PortalError(404, 'ERR_PORTAL_001', 'Estabelecimento não encontrado')
   }
 
+  /**
+   * `content-type` **só quando há corpo**.
+   *
+   * Anunciar JSON e não mandar nada faz o Fastify recusar a requisição antes de qualquer
+   * rota — e um POST sem corpo é o formato certo para uma ação que não carrega dado
+   * nenhum, como o aceite de um termo.
+   */
   const requestHeaders: Record<string, string> = {
-    'content-type': 'application/json',
     [TENANT_SLUG_HEADER]: slug,
+    ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
   }
 
   if (!options.anonymous) {
@@ -450,7 +460,21 @@ export interface PortalDownload {
  * que vai repassar os bytes adiante. Mesmo desenho do `download()` do `api-client` do
  * Admin; separado dele porque este cliente manda o slug do petshop no header e aquele não.
  */
-export async function downloadOwnDataPdf(): Promise<PortalDownload> {
+export function downloadOwnDataPdf(): Promise<PortalDownload> {
+  return downloadPdf('/portal/v1/me/export/pdf', 'meus-dados.pdf')
+}
+
+/**
+ * O extrato da conta em papel (AC-02 de MOD-DOC-09).
+ *
+ * Bytes, como a exportação e ao contrário do recibo: o extrato não está no bucket — ele
+ * descreve o presente, e um arquivo guardado hoje contradiz o sistema amanhã.
+ */
+export function downloadOwnStatementPdf(): Promise<PortalDownload> {
+  return downloadPdf('/portal/v1/finance/statement/pdf', 'extrato.pdf')
+}
+
+async function downloadPdf(path: string, fallbackFilename: string): Promise<PortalDownload> {
   const slug = await portalSlug()
   if (!slug) {
     throw new PortalError(404, 'ERR_PORTAL_001', 'Estabelecimento não encontrado')
@@ -467,7 +491,7 @@ export async function downloadOwnDataPdf(): Promise<PortalDownload> {
   const timeout = setTimeout(() => controller.abort(), DOCUMENT_TIMEOUT_MS)
 
   try {
-    const response = await fetch(`${baseUrl}/portal/v1/me/export/pdf`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       headers: {
         [TENANT_SLUG_HEADER]: slug,
         ...(token ? { authorization: `Bearer ${token}` } : {}),
@@ -492,7 +516,7 @@ export async function downloadOwnDataPdf(): Promise<PortalDownload> {
     return {
       bytes: new Uint8Array(await response.arrayBuffer()),
       contentType: response.headers.get('content-type') ?? 'application/pdf',
-      filename: filenameFrom(response.headers.get('content-disposition')) ?? 'meus-dados.pdf',
+      filename: filenameFrom(response.headers.get('content-disposition')) ?? fallbackFilename,
     }
   } catch (error) {
     if (error instanceof PortalError) throw error
@@ -509,6 +533,29 @@ export async function downloadOwnDataPdf(): Promise<PortalDownload> {
 function filenameFrom(header: string | null): string | null {
   const match = header?.match(/filename="?([^"';]+)"?/i)
   return match?.[1] ?? null
+}
+
+// ─── MOD-DOC-10 — Meus Documentos e os termos ────────────────────────────────
+
+export function listOwnDocuments(): Promise<PortalDocumentsResponse> {
+  return request({ path: '/portal/v1/documents' })
+}
+
+/**
+ * O endereço assinado de um documento — e pedi-lo **é** o download, que a trilha do
+ * estabelecimento registra. Por isso ele é buscado no clique, e não com a lista.
+ */
+export function readOwnDocument(documentId: string): Promise<{ url: string | null; number: string }> {
+  return request({ path: `/portal/v1/documents/${documentId}` })
+}
+
+export function listOwnTerms(): Promise<PortalTermsResponse> {
+  return request({ path: '/portal/v1/terms' })
+}
+
+/** Registra o aceite do termo. Quem grava a prova é o tutor-service. */
+export function acceptOwnTerm(kind: TermKind): Promise<void> {
+  return request({ method: 'POST', path: `/portal/v1/terms/${kind}/accept` })
 }
 
 /** Registra o pedido de exclusão. Encaminha à equipe; não apaga nada. */

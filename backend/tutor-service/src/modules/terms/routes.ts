@@ -92,7 +92,7 @@ export async function registerTermRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requirePermission('tutor:update') },
     async (request, reply) => {
       const input = parseInput(AcceptTermSchema, request.body)
-      const result = await acceptTerm(actorOf(request), request.params.id, input)
+      const result = await acceptTerm(actorOf(request), request.params.id, input, input.source)
       return reply.status(result.created ? 201 : 200).send(result.acceptance)
     },
   )

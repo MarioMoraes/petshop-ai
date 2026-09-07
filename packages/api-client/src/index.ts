@@ -1759,6 +1759,18 @@ export function createApiClient(options: ApiClientOptions) {
         schema: ReceiptsByDayReportSchema,
       }),
 
+    /**
+     * O extrato da conta de um tutor, em papel (MOD-DOC-09).
+     *
+     * Bytes, e não URL assinada como o recibo: o extrato não é arquivado, porque
+     * descreve o presente — um arquivo guardado hoje contradiz o sistema amanhã.
+     */
+    downloadStatementPdf: (tutorId: string, query: { from?: string; to?: string } = {}) =>
+      download(
+        `/v1/ledger/accounts/${tutorId}/statement/pdf${toQueryString(query)}`,
+        'extrato.pdf',
+      ),
+
     downloadAccountsReceivablePdf: (query: { asOf?: string; minOverdueDays?: number } = {}) =>
       download(
         `/v1/ledger/reports/accounts-receivable/pdf${toQueryString(query)}`,

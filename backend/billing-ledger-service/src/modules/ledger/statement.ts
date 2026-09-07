@@ -1,7 +1,9 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
-import type { StatementQuery } from '@petshop/shared-types'
+import { loadIssuer } from '@petshop/documents'
+import type { EntryCategory, StatementQuery } from '@petshop/shared-types'
 import type { ActorContext } from './actor.js'
 import { accountSummary } from './entries.js'
+import type { StatementDocumentData } from './statement-template.js'
 
 /**
  * Extrato (MOD-LEDGER-06) — a tela mais consultada do módulo.
@@ -196,4 +198,99 @@ async function periodTotals(
        AND (${to}::timestamptz   IS NULL OR occurred_at <= ${to}::timestamptz)
   `
   return { debits: Number(rows[0]?.debits ?? 0), credits: Number(rows[0]?.credits ?? 0) }
+}
+
+// ─── O extrato em papel (MOD-DOC-09) ─────────────────────────────────────────
+
+/**
+ * Teto de linhas da folha.
+ *
+ * Quinhentos lançamentos são umas quinze páginas — muito além do que alguém lê, e já
+ * perto do que o Chromium leva um tempo desconfortável para paginar. Passando disso, a
+ * folha diz quantas ficaram de fora e sugere um intervalo menor: entregar meio extrato
+ * em silêncio seria o defeito de verdade.
+ */
+export const STATEMENT_PDF_MAX_LINES = 500
+
+export interface StatementPeriod {
+  from?: string | undefined
+  to?: string | undefined
+}
+
+function periodLabel(period: StatementPeriod): string {
+  const dia = (iso: string) => iso.split('-').reverse().join('/')
+
+  if (period.from && period.to) return `${dia(period.from)} a ${dia(period.to)}`
+  if (period.from) return `desde ${dia(period.from)}`
+  if (period.to) return `até ${dia(period.to)}`
+  return 'todo o histórico'
+}
+
+/**
+ * Os dados da folha, montados a partir do mesmo extrato que a tela mostra.
+ *
+ * Não há caminho de dados próprio, e é o ponto: um PDF que somasse por conta própria
+ * poderia discordar da tela que o originou — e discordar em dinheiro, com o tutor
+ * segurando o papel.
+ */
+export async function statementDocument(
+  actor: ActorContext,
+  tutorId: string,
+  period: StatementPeriod,
+): Promise<StatementDocumentData> {
+  const statement = await getStatement(actor, tutorId, {
+    ...(period.from ? { from: period.from } : {}),
+    ...(period.to ? { to: period.to } : {}),
+    page: 1,
+    limit: STATEMENT_PDF_MAX_LINES,
+  })
+
+  const { issuer, timezone, tutorName } = await withTenant(actor.tenantId, async (tx) => {
+    const [emissor, tutor] = await Promise.all([
+      loadIssuer(tx, actor.tenantId),
+      // RN-14 reserva o nome civil a documento fiscal, e este não é um: quem tem nome
+      // social é chamado por ele no próprio extrato, como no recibo.
+      tx.tutor.findFirstOrThrow({
+        where: { id: tutorId },
+        select: { fullName: true, socialName: true },
+      }),
+    ])
+
+    return {
+      issuer: emissor.issuer,
+      timezone: emissor.timezone,
+      tutorName: tutor.socialName ?? tutor.fullName,
+    }
+  })
+
+  return {
+    issuer,
+    timezone,
+    tutorName,
+    periodLabel: periodLabel(period),
+    openingBalanceCents: statement.summary.openingBalanceCents,
+    closingBalanceCents: statement.summary.closingBalanceCents,
+    totalDebitsCents: statement.summary.totalDebitsCents,
+    totalCreditsCents: statement.summary.totalCreditsCents,
+    // O extrato vem do mais recente para o mais antigo, como a tela; a folha mantém a
+    // mesma ordem para que quem confere uma contra a outra não precise ler ao contrário.
+    lines: statement.rows.map((row) => ({
+      occurredAt: row.occurred_at,
+      description: row.description,
+      category: row.category as EntryCategory,
+      signedAmountCents: Number(row.signed_amount_cents),
+      balanceAfterCents: Number(row.balance_after_cents),
+      status: row.status,
+    })),
+    totalLines: statement.total,
+    issuedAt: new Date(),
+  }
+}
+
+/** O nome do arquivo, que é o que torna a pasta de downloads legível depois de três. */
+export function statementFilename(period: StatementPeriod): string {
+  if (period.from && period.to) return `extrato-${period.from}-a-${period.to}.pdf`
+  if (period.from) return `extrato-desde-${period.from}.pdf`
+  if (period.to) return `extrato-ate-${period.to}.pdf`
+  return `extrato-${new Date().toISOString().slice(0, 10)}.pdf`
 }

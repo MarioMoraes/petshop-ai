@@ -766,6 +766,57 @@ export const PortalReceiptResponseSchema = z.object({
 })
 export type PortalReceiptResponse = z.infer<typeof PortalReceiptResponseSchema>
 
+// ─── MOD-DOC-10 — Meus Documentos ────────────────────────────────────────────
+
+/**
+ * Um documento na lista do Portal.
+ *
+ * **A lista é filtrada por titularidade, não por tipo** (AC-03). Documento interno do
+ * estabelecimento — os dois relatórios de cobrança, por exemplo — não tem `tutor_id` e
+ * por isso nem chega perto desta consulta. Filtrar por tipo faria um tipo novo vazar no
+ * dia em que alguém esquecesse de acrescentá-lo à lista de exclusão.
+ *
+ * `ready` em vez do `status` cru: o tutor não precisa saber que existe um job de
+ * reprocesso, precisa saber se dá para baixar agora. `PENDING` vira "em preparo" na
+ * tela, e não um link morto.
+ */
+export const PortalDocumentSchema = z.object({
+  id: z.uuid(),
+  kind: z.enum(['RECEIPT', 'PRESCRIPTION', 'TERM_ACCEPTANCE', 'IMAGE_CONSENT']),
+  number: z.string(),
+  issuedAt: z.string().nullable(),
+  /** O pet a que o documento se refere, quando há um. É o que separa dois receituários. */
+  petName: z.string().nullable(),
+  ready: z.boolean(),
+})
+export type PortalDocument = z.infer<typeof PortalDocumentSchema>
+
+export const PortalDocumentsResponseSchema = z.object({
+  documents: z.array(PortalDocumentSchema),
+})
+export type PortalDocumentsResponse = z.infer<typeof PortalDocumentsResponseSchema>
+
+/**
+ * O termo, como o Portal o apresenta antes do aceite (AC-02 de MOD-DOC-07).
+ *
+ * `accepted` e `acceptedVersion` são o que decide a tela: quem já aceitou a versão
+ * vigente lê o texto; quem não aceitou, ou aceitou uma versão anterior, vê o botão.
+ */
+export const PortalTermSchema = z.object({
+  kind: z.enum(['TERMS', 'SERVICE_LIABILITY', 'IMAGE_USE']),
+  title: z.string(),
+  version: z.string(),
+  body: z.string(),
+  accepted: z.boolean(),
+  acceptedVersion: z.string().nullable(),
+})
+export type PortalTerm = z.infer<typeof PortalTermSchema>
+
+export const PortalTermsResponseSchema = z.object({
+  terms: z.array(PortalTermSchema),
+})
+export type PortalTermsResponse = z.infer<typeof PortalTermsResponseSchema>
+
 // ─── MOD-PORTAL-10 — Central de Comunicação e Preferências ───────────────────
 
 /**

@@ -293,6 +293,20 @@
 
 ### [MOD-DOC-09] — Extrato em PDF
 
+> **Como ficou, na implementação da fatia 4:** a folha usa o **molde comum** de
+> `@petshop/documents`, como o recibo, e não o molde denso dos relatórios do
+> MOD-COBRANCA: ela vai para a mão do tutor, e o cabeçalho de quem emitiu é o que lhe dá
+> valor de comprovante de conta. Foi o primeiro documento **sem número de série** — o
+> campo virou opcional no molde, porque prometer uma série a um papel que ninguém arquiva
+> seria prometer um arquivo que não existe.
+>
+> Duas diferenças em relação ao recibo, e as duas seguem do AC-04: o extrato **desce em
+> bytes** nas duas superfícies (não há objeto no bucket cujo endereço se pudesse assinar)
+> e **endereço incompleto não impede a emissão** — recusar a quem quer conferir a própria
+> conta porque o petshop não preencheu o CEP seria punir o tutor por um cadastro que não é
+> dele. O teto é de 500 lançamentos por folha, e a própria folha diz quantos ficaram de
+> fora.
+
 **AC-01 (Happy Path — Admin)**
 - **Dado** um tutor com movimento no período
 - **Quando** o atendente pede o extrato em PDF de um intervalo
@@ -321,6 +335,21 @@
 ---
 
 ### [MOD-DOC-10] — Entrega ao Tutor
+
+> **Como ficou, na implementação da fatia 4:** o Portal **lê `documents` direto** e assina
+> a URL ele mesmo, em vez de perguntar por HTTP a três serviços diferentes o endereço de
+> um arquivo cuja chave ele acabou de ler sob RLS. Assinar é cálculo local, e não escrita:
+> `lib/document-urls.ts` é o gêmeo somente-leitura do `photo-urls.ts` e **não tem `put`**
+> — quem grava documento continua sendo o serviço que sabe montá-lo, com o contador de
+> tentativas e o job de reprocesso dele.
+>
+> O documento `PENDING` **entra na lista sem link**, em vez de sumir: quem acabou de pagar
+> precisa ver que o recibo está a caminho. O `CANCELLED` sai — é papel sem efeito.
+>
+> Aqui também se fechou o AC-02 de MOD-DOC-07: o aceite pelo Portal entra pela porta que
+> assina escrita (`tutor-port.ts`), com `source = PORTAL` fixado nela — como o `purpose` do
+> consentimento —, e o IP e o user-agent do tutor viajam nos headers, porque é deles que a
+> prova é feita.
 
 **AC-01 (Happy Path — Meus Documentos)**
 - **Dado** um tutor com recibos, um receituário e um termo aceito
@@ -365,6 +394,13 @@
 - **Dado** um documento que falhou 10 vezes
 - **Quando** o job o encontra
 - **Então** vai a `FAILED`, sai da fila, e a pendência aparece no **sino da topbar** — que passa a ter seis fontes. Falha silenciosa em documento com valor legal é a pior categoria de falha silenciosa
+
+> **O que continua em aberto ao fim do módulo (2026-09-07):** a ida a `FAILED` e a saída
+> da fila estão implementadas desde a fatia 1; a **sexta fonte do sino, não**. Falta a ela
+> um destino: o sino aponta para a tela onde a pendência se resolve, e no Admin não existe
+> tela de documentos — recibo, receituário e termo são vistos cada um dentro do seu
+> assunto. Uma linha no sino sem para onde levar é pior que nenhuma. O caminho, quando for
+> a hora: uma tela de documentos do estabelecimento, e a contagem por trás dela.
 
 ---
 

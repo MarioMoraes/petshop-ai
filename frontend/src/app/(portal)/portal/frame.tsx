@@ -46,6 +46,7 @@ export function PortalFrame({
       | '/portal/pets'
       | '/portal/agendamentos'
       | '/portal/mensagens'
+      | '/portal/documentos'
       | '/portal/dados'
     label: string
   }

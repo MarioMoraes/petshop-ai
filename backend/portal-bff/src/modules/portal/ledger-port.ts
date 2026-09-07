@@ -40,11 +40,41 @@ export interface LedgerCaller {
   userId?: string | undefined
 }
 
+/** Um documento que desce em bytes, porque não existe arquivo a assinar. */
+export interface LedgerDownload {
+  bytes: Buffer
+  filename: string
+}
+
 export interface LedgerPort {
   receipt(caller: LedgerCaller, paymentId: string): Promise<PortalReceiptResponse>
+  /**
+   * O extrato em papel (AC-02 de MOD-DOC-09).
+   *
+   * Bytes, e não URL assinada, porque o extrato **não é arquivado** (AC-04): não há
+   * objeto no bucket cujo endereço se pudesse assinar. É a mesma razão pela qual a
+   * exportação de dados do MOD-PORTAL-09 também desce em bytes.
+   *
+   * A folha é montada pelo ledger, que é quem sabe somar dinheiro. Refazer a soma aqui
+   * criaria um extrato que pode discordar do que a tela mostrou — em dinheiro, com o
+   * tutor segurando o papel.
+   */
+  statementPdf(caller: LedgerCaller, tutorId: string): Promise<LedgerDownload>
 }
 
 const REQUEST_TIMEOUT_MS = 15_000
+
+/**
+ * Teto do documento montado na hora.
+ *
+ * Vinte e cinco segundos, e não os quinze das outras chamadas: quem monta a folha é o
+ * Gotenberg, e um Chromium **frio** leva mais de doze segundos para a primeira página do
+ * dia. Com o teto curto, o primeiro tutor a pedir o extrato pela manhã recebia 502 — e o
+ * segundo, que pegava o navegador quente, recebia o PDF. Fica abaixo do teto de trinta
+ * segundos do cliente do Next, para que a falha tenha a mensagem daqui, e não um timeout
+ * anônimo lá.
+ */
+const DOCUMENT_TIMEOUT_MS = 25_000
 
 /** O mínimo. Ler o recibo é leitura financeira; nada além disso é assinado. */
 const READ_PERMISSIONS: PermissionKey[] = ['finance:read']
@@ -123,7 +153,66 @@ function createHttpPort(): LedgerPort {
         url: receipt.url,
       }
     },
+
+    async statementPdf(caller, tutorId) {
+      const env = loadEnv()
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), DOCUMENT_TIMEOUT_MS)
+
+      let response: Response
+      try {
+        const headers = signServiceHeaders(
+          {
+            clerkUserId: caller.clerkUserId,
+            ...(caller.userId ? { userId: caller.userId } : {}),
+            tenantId: caller.tenantId,
+            permissions: [...READ_PERMISSIONS],
+          },
+          env.INTERNAL_SERVICE_SECRET,
+        )
+
+        response = await fetch(
+          `${env.BILLING_LEDGER_SERVICE_URL}/v1/ledger/accounts/${tutorId}/statement/pdf`,
+          { method: 'GET', headers, signal: controller.signal },
+        )
+      } catch (error) {
+        logger.error({ err: error, tutorId }, 'falha ao pedir o extrato em PDF ao ledger')
+        throw upstreamUnavailable('Não foi possível gerar o extrato agora. Tente em instantes.')
+      } finally {
+        clearTimeout(timeout)
+      }
+
+      if (!response.ok) {
+        const problema = (await response.json().catch(() => null)) as ProblemBody | null
+        const conhecido = problema?.code !== undefined && problema.code in ERROR_CATALOG
+
+        if (response.status >= 500 || !conhecido) {
+          logger.error(
+            { status: response.status, tutorId, detail: problema?.detail },
+            'billing-ledger-service recusou o extrato do Portal',
+          )
+          throw upstreamUnavailable('Não foi possível gerar o extrato agora. Tente em instantes.')
+        }
+
+        throw new AppError(
+          problema?.code as ErrorCode,
+          typeof problema?.detail === 'string' ? problema.detail : 'Não foi possível gerar o extrato',
+        )
+      }
+
+      return {
+        bytes: Buffer.from(await response.arrayBuffer()),
+        // O nome vem de quem montou a folha: é ele que sabe o período impresso nela.
+        filename: filenameFrom(response.headers.get('content-disposition')),
+      }
+    },
   }
+}
+
+/** `attachment; filename="extrato-2026-09-07.pdf"` → o nome, ou um padrão. */
+function filenameFrom(header: string | null): string {
+  const match = header ? /filename="([^"]+)"/.exec(header) : null
+  return match?.[1] ?? `extrato-${new Date().toISOString().slice(0, 10)}.pdf`
 }
 
 let port: LedgerPort | null = null

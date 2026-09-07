@@ -214,6 +214,14 @@ export type TermVersionsResponse = z.infer<typeof TermVersionsResponseSchema>
 export const AcceptTermSchema = z.strictObject({
   kind: TermKindSchema,
   version: TermVersionNumberSchema.optional(),
+  /**
+   * De onde veio o aceite, e é **prova**: o balcão e o Portal registram a mesma
+   * autorização em circunstâncias diferentes.
+   *
+   * Quem o fixa é a porta do Portal (`tutor-port.ts`), como já fixa o `purpose` do
+   * consentimento — o cliente não o escolhe, e a tela do Admin nem o envia.
+   */
+  source: z.enum(['STAFF_FORM', 'PORTAL']).default('STAFF_FORM'),
 })
 export type AcceptTermInput = z.output<typeof AcceptTermSchema>
 

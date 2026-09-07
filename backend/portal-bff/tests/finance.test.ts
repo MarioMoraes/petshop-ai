@@ -413,6 +413,59 @@ describe('GET /portal/v1/finance/statement', () => {
   })
 })
 
+describe('GET /portal/v1/finance/statement/pdf', () => {
+  it('AC-02 de MOD-DOC-09: desce os bytes do extrato e registra o acesso', async () => {
+    const tutorId = await givenTutor(fixture)
+
+    const response = await callApi({
+      method: 'GET',
+      url: '/portal/v1/finance/statement/pdf',
+      ...asTutor(fixture, tutorId),
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toBe('application/pdf')
+    expect(response.headers['content-disposition']).toBe(
+      'attachment; filename="extrato-2026-09-07.pdf"',
+    )
+    // A conta corrente do titular não fica no cache de nenhum intermediário.
+    expect(response.headers['cache-control']).toBe('no-store')
+    expect(response.rawPayload.subarray(0, 5).toString()).toBe('%PDF-')
+
+    // O `tutorId` que chegou ao ledger é o do `ownScope`, não um da URL.
+    expect(ledger.calls).toEqual([tutorId])
+
+    const trilha = await ownerPrisma.auditLog.findFirst({
+      where: { tenantId: fixture.tenantId, action: 'portal.statement_downloaded' },
+    })
+    expect(trilha?.entityId).toBe(tutorId)
+  })
+
+  it('quem entrou no Clerk mas não vinculou ficha não alcança o extrato', async () => {
+    const response = await callApi({
+      method: 'GET',
+      url: '/portal/v1/finance/statement/pdf',
+      ...asVisitor(fixture),
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(ledger.calls).toEqual([])
+  })
+
+  it('o Gotenberg fora do ar atravessa como 503, e não como folha vazia', async () => {
+    const tutorId = await givenTutor(fixture)
+    ledger.failWith = new AppError('ERR_LEDGER_013', 'Geração de documento indisponível')
+
+    const response = await callApi({
+      method: 'GET',
+      url: '/portal/v1/finance/statement/pdf',
+      ...asTutor(fixture, tutorId),
+    })
+
+    expect(response.statusCode).toBe(503)
+  })
+})
+
 describe('GET /portal/v1/finance/receipts/:paymentId', () => {
   it('AC-03: devolve a URL assinada do recibo e registra o acesso', async () => {
     const tutorId = await givenTutor(fixture)

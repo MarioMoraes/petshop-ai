@@ -114,6 +114,36 @@ export function upstreamUnavailable(
   return new AppError('ERR_PORTAL_010', detail)
 }
 
+/**
+ * Erro do próprio Fastify, antes de qualquer handler: corpo vazio com
+ * `content-type: application/json`, JSON malformado, corpo grande demais.
+ *
+ * **Sem esta tradução eles viram 500.** O handler do `service-kit` só reconhece
+ * `AppError` e `ZodError`; o resto cai no ramo final e responde "erro interno" — o que
+ * transforma requisição malformada em alarme de bug nosso, com stack no log de erro.
+ *
+ * Fica no Portal, e não no kit, porque esta é a superfície que recebe requisição de
+ * fora: as rotas `/v1` do Admin só são alcançadas pelo gateway.
+ */
+function fastifyClientError(error: unknown): AppError | null {
+  if (typeof error !== 'object' || error === null) return null
+
+  const candidato = error as { statusCode?: unknown; code?: unknown; message?: unknown }
+  const status = typeof candidato.statusCode === 'number' ? candidato.statusCode : 0
+  const code = typeof candidato.code === 'string' ? candidato.code : ''
+
+  if (status < 400 || status >= 500 || !code.startsWith('FST_')) return null
+
+  return invalid(
+    typeof candidato.message === 'string' ? candidato.message : 'Requisição malformada',
+  )
+}
+
 export function registerErrorHandler(app: FastifyInstance): void {
-  registerKitErrorHandler(app, { logger, validationError, notFound })
+  registerKitErrorHandler(app, {
+    logger,
+    validationError,
+    notFound,
+    branches: [fastifyClientError],
+  })
 }

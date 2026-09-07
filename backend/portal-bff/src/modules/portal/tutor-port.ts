@@ -9,6 +9,7 @@ import {
   type PermissionKey,
   type PortalAddressInput,
   type PortalChannel,
+  type TermKind,
   type TutorExport,
   type UpdatePortalAddressInput,
 } from '@petshop/shared-types'
@@ -97,6 +98,14 @@ export interface TutorPort {
     input: { reason?: string | undefined },
   ): Promise<DeletionRequestResponse>
   exportOwnData(caller: TutorCaller, tutorId: string): Promise<TutorExport>
+  /**
+   * O aceite de um termo pelo Portal (AC-02 de MOD-DOC-07).
+   *
+   * A sétima rota da porta, e a que mais exige do contrato acima: `source` é fixado em
+   * `PORTAL` aqui, como o `purpose` do consentimento, porque ele **é prova** — um aceite
+   * que se dissesse do balcão descreveria uma cena que não houve.
+   */
+  acceptTerm(caller: TutorCaller, tutorId: string, kind: TermKind): Promise<void>
 }
 
 const REQUEST_TIMEOUT_MS = 10_000
@@ -206,6 +215,16 @@ function createHttpPort(): TutorPort {
           ],
         },
         'Não foi possível salvar a preferência agora.',
+      )
+    },
+
+    async acceptTerm(caller, tutorId, kind) {
+      await call(
+        caller,
+        `/v1/tutors/${tutorId}/term-acceptances`,
+        'POST',
+        { kind, source: 'PORTAL' },
+        'Não foi possível registrar o aceite agora.',
       )
     },
 

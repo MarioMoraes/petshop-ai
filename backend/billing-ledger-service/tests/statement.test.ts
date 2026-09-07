@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createManualEntry } from '../src/modules/ledger/entries.js'
+import { PdfUnavailableError, setPdfPort } from '../src/lib/pdf.js'
 import {
   actorOf,
   asAdmin,
@@ -8,6 +9,7 @@ import {
   closeHarness,
   givenTenant,
   givenTutor,
+  ownerPrisma,
   resetDatabase,
   type TenantFixture,
 } from './harness.js'
@@ -215,5 +217,137 @@ describe('MOD-LEDGER-01 — resumo da conta', () => {
     expect(body.openDebitsCount).toBe(2)
     expect(body.oldestOpenDebitAt).not.toBeNull()
     expect(body.needsReview).toBe(false)
+  })
+})
+
+describe('MOD-DOC-09 — o extrato em papel', () => {
+  /** Captura o HTML que iria ao Chromium: é nele que se confere o que a folha diz. */
+  let folhas: string[]
+
+  beforeEach(() => {
+    folhas = []
+    setPdfPort({
+      async render(html) {
+        folhas.push(html)
+        return Buffer.from('%PDF-1.4 dublê')
+      },
+    })
+  })
+
+  afterAll(() => setPdfPort(null))
+
+  it('AC-01: desce como anexo, com o movimento e os dois saldos', async () => {
+    await post('DEBIT', 10000, 'Banho e tosa', daysAgo(10))
+    await post('CREDIT', 4000, 'Pagamento parcial', daysAgo(2))
+
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: `/v1/ledger/accounts/${tutorId}/statement/pdf?from=${isoDate(30)}&to=${isoDate(0)}`,
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toBe('application/pdf')
+    expect(response.headers['content-disposition']).toBe(
+      `attachment; filename="extrato-${isoDate(30)}-a-${isoDate(0)}.pdf"`,
+    )
+    // A conta corrente de uma pessoa não fica no cache de ninguém.
+    expect(response.headers['cache-control']).toBe('no-store')
+    expect(response.rawPayload.subarray(0, 5).toString()).toBe('%PDF-')
+
+    const folha = folhas[0] ?? ''
+    expect(folha).toContain('Banho e tosa')
+    expect(folha).toContain('Pagamento parcial')
+    expect(folha).toContain('Saldo de abertura')
+    expect(folha).toContain('Saldo de fechamento')
+  })
+
+  it('AC-05: saldo negativo é dívida, e a folha diz "em aberto"', async () => {
+    await post('DEBIT', 15000, 'Consulta veterinária', daysAgo(3))
+
+    await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: `/v1/ledger/accounts/${tutorId}/statement/pdf`,
+    })
+
+    const folha = folhas[0] ?? ''
+    expect(folha).toContain('150,00 em aberto')
+    // O sinal cru não aparece: quem lê a folha não é contador.
+    expect(folha).not.toContain('-R$')
+  })
+
+  it('crédito em conta é dito como crédito, não como saldo positivo', async () => {
+    await post('CREDIT', 5000, 'Adiantamento', daysAgo(1))
+
+    await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: `/v1/ledger/accounts/${tutorId}/statement/pdf`,
+    })
+
+    expect(folhas[0] ?? '').toContain('de crédito')
+  })
+
+  it('AC-03: período sem movimento sai assim mesmo, e não 404', async () => {
+    await post('DEBIT', 10000, 'Banho de um ano atrás', daysAgo(365))
+
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: `/v1/ledger/accounts/${tutorId}/statement/pdf?from=${isoDate(5)}&to=${isoDate(0)}`,
+    })
+
+    expect(response.statusCode).toBe(200)
+
+    const folha = folhas[0] ?? ''
+    expect(folha).toContain('Sem movimento no período')
+    // Os dois saldos são o mesmo número: é exatamente o que aconteceu no período.
+    expect(folha).toContain('Saldo de abertura')
+    expect(folha).toContain('Saldo de fechamento')
+  })
+
+  it('AC-04: nada é arquivado — nem linha em `documents`, nem objeto no bucket', async () => {
+    await post('DEBIT', 10000, 'Banho', daysAgo(1))
+
+    await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: `/v1/ledger/accounts/${tutorId}/statement/pdf`,
+    })
+
+    const documentos = await ownerPrisma.document.count({ where: { tenantId: tenant.tenantId } })
+    expect(documentos).toBe(0)
+  })
+
+  it('escapa o que o balcão digitou — o Gotenberg roda um Chromium', async () => {
+    await post('DEBIT', 1000, 'Banho <script>alert(1)</script>', daysAgo(1))
+
+    await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: `/v1/ledger/accounts/${tutorId}/statement/pdf`,
+    })
+
+    const folha = folhas[0] ?? ''
+    expect(folha).toContain('&lt;script&gt;')
+    expect(folha).not.toContain('<script>alert(1)</script>')
+  })
+
+  it('o Gotenberg fora do ar vira 503, e o extrato continua em tela', async () => {
+    setPdfPort({
+      async render() {
+        throw new PdfUnavailableError('Gotenberg fora do ar')
+      },
+    })
+
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: `/v1/ledger/accounts/${tutorId}/statement/pdf`,
+    })
+
+    expect(response.statusCode).toBe(503)
+    expect(response.json().code).toBe('ERR_LEDGER_013')
   })
 })

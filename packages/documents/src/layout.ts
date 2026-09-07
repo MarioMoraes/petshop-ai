@@ -43,8 +43,14 @@ export interface DocumentLayoutInput {
   issuer: DocumentIssuer
   /** "Recibo de pagamento", "Receituário veterinário". Vai no topo e no rodapé. */
   title: string
-  /** A série. Aparece ao lado do título e identifica o papel no rodapé. */
-  number: string
+  /**
+   * A série. Aparece ao lado do título e identifica o papel no rodapé.
+   *
+   * **Nula no documento que não tem série**, e o extrato é o primeiro: ele não entra em
+   * `documents` (RN-01), não é arquivado e é regerado a cada pedido — dar-lhe um número
+   * sequencial prometeria um arquivo que ninguém guardou.
+   */
+  number?: string | null
   issuedAt: Date
   timezone: string
   /** O miolo, já escapado por quem o montou. */
@@ -106,8 +112,8 @@ export function renderPageHeader(): string {
  * `.pageNumber` e `.totalPages` são substituídos por ele na renderização; qualquer
  * cálculo nosso exigiria saber a altura do conteúdo antes de renderizá-lo.
  */
-export function renderPageFooter(input: { title: string; number: string }): string {
-  const identificacao = escapeHtml(`${input.title} ${input.number}`)
+export function renderPageFooter(input: { title: string; number?: string | null }): string {
+  const identificacao = escapeHtml(input.number ? `${input.title} ${input.number}` : input.title)
   return `<html><head><style>
     body { margin: 0; font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
     .rodape { width: 100%; padding: 0 0.6in; font-size: 8px; color: #6b6d76;
@@ -171,9 +177,9 @@ export function renderDocument(input: DocumentLayoutInput): string {
     <div class="emissor">${identificacao}</div>
   </div>
   <h1 class="titulo">${escapeHtml(input.title)}</h1>
-  <div class="serie">Nº ${escapeHtml(input.number)} · emitido em ${escapeHtml(
-    formatDateTime(input.issuedAt, input.timezone),
-  )}</div>
+  <div class="serie">${
+    input.number ? `Nº ${escapeHtml(input.number)} · ` : ''
+  }emitido em ${escapeHtml(formatDateTime(input.issuedAt, input.timezone))}</div>
   ${input.bodyHtml}
   ${aviso}
 </body></html>`

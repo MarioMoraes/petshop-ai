@@ -83,6 +83,14 @@ export default async function PortalInicioPage() {
             Mensagens
           </Link>
           {/*
+            "Meus documentos" fica ao lado de mensagens e antes de "meus dados": é o
+            lugar de buscar um papel — o recibo do mês passado, o receituário do gato —,
+            e não o de corrigir cadastro.
+          */}
+          <Link href="/portal/documentos" className="btn btn-ghost w-full">
+            Meus documentos
+          </Link>
+          {/*
             "Meus dados" é o último da lista, e não por ordem de chegada: é o que se abre
             quando alguma coisa está errada, e não o que se vem fazer. Marcar horário
             continua no topo.

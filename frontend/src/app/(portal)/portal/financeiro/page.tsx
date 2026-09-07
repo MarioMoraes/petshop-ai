@@ -34,7 +34,7 @@ export const dynamic = 'force-dynamic'
 export default async function PortalFinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ recibo?: string }>
+  searchParams: Promise<{ recibo?: string; extrato?: string }>
 }) {
   let context
   let finance: PortalFinanceResponse
@@ -51,7 +51,7 @@ export default async function PortalFinanceiroPage({
     throw error
   }
 
-  const { recibo } = await searchParams
+  const { recibo, extrato } = await searchParams
   const deve = portalOwesCents(finance.balanceCents)
   const credito = portalCreditCents(finance.balanceCents)
 
@@ -71,6 +71,11 @@ export default async function PortalFinanceiroPage({
           O documento está sendo gerado. Tente de novo em alguns instantes.
         </Alert>
       )}
+      {extrato === 'erro' && (
+        <Alert tone="danger" icon={<AlertTriangleIcon />} title="Não foi possível gerar o extrato">
+          Tente novamente em instantes. Os lançamentos continuam aqui na tela.
+        </Alert>
+      )}
       {recibo === 'erro' && (
         <Alert tone="danger" icon={<AlertTriangleIcon />} title="Não foi possível abrir o recibo">
           Tente novamente em instantes. Se continuar assim, fale com o{' '}
@@ -85,6 +90,15 @@ export default async function PortalFinanceiroPage({
       )}
 
       <Statement inicial={statement} />
+
+      {/*
+        A folha do extrato, num link e não num botão: o resultado é um arquivo, e quem
+        sabe baixar arquivo é o navegador. Fica **depois** dos lançamentos porque é o que
+        se faz quando a leitura na tela não bastou — levar o papel para outro lugar.
+      */}
+      <a href="/portal/financeiro/extrato" className="btn btn-ghost w-full">
+        Baixar extrato em PDF
+      </a>
 
       {deve > 0 && <HowToPayCard finance={finance} tenantName={context.tenant.name} />}
     </PortalFrame>

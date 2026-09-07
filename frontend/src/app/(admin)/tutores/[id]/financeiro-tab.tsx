@@ -53,6 +53,15 @@ interface Props {
 
 type Panel = 'payment' | 'entry' | 'package' | null
 
+/** O intervalo da tela vira consulta; sem datas, o papel cobre todo o histórico. */
+function periodoNaUrl(from: string, to: string): string {
+  const params = new URLSearchParams()
+  if (from) params.set('from', from)
+  if (to) params.set('to', to)
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
 export function FinanceiroTab({
   tutorId,
   account,
@@ -208,6 +217,17 @@ export function FinanceiroTab({
                 Limpar
               </button>
             )}
+            {/*
+              Um link, e não um botão com ação: o resultado é um arquivo, e quem sabe
+              baixar arquivo é o navegador. O intervalo é o **da tela** — o papel sai do
+              mesmo recorte que está sendo lido, e não de um período que só o PDF conhece.
+            */}
+            <a
+              href={`/tutores/${tutorId}/extrato${periodoNaUrl(from, to)}`}
+              className="btn btn-ghost"
+            >
+              Baixar PDF
+            </a>
           </div>
         </div>
 

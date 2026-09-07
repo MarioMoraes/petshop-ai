@@ -42,7 +42,8 @@ import { cashflowByMethod, receivablesByBucket } from './reconciliation.js'
 import { accountsReceivableReport, receiptsByDayReport } from './reports.js'
 import { renderAccountsReceivableHtml, renderReceiptsByDayHtml } from './report-template.js'
 import { getSettings, updateSettings } from './settings.js'
-import { getStatement } from './statement.js'
+import { getStatement, statementDocument, statementFilename } from './statement.js'
+import { renderStatementHtml } from './statement-template.js'
 
 /**
  * Rotas do financeiro (PRD financeiro_tutor_05 §5).
@@ -58,6 +59,17 @@ import { getStatement } from './statement.js'
  */
 
 const IdParamSchema = z.object({ id: z.uuid() })
+
+/**
+ * O intervalo do extrato em papel — só as duas datas.
+ *
+ * Sem `page` nem `limit`: paginar um PDF é a folha mentir sobre o que contém. Quando o
+ * período não cabe no teto, a própria folha diz quantos lançamentos ficaram de fora.
+ */
+const StatementPeriodSchema = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+})
 const TutorParamSchema = z.object({ tutorId: z.uuid() })
 
 function actorFrom(request: FastifyRequest): ActorContext {
@@ -114,6 +126,25 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
       limit: result.limit,
       summary: result.summary,
     }
+  })
+
+  /**
+   * AC-01 de MOD-DOC-09 — o extrato em papel.
+   *
+   * **Desce em bytes, e não por URL assinada**, ao contrário do recibo: o extrato não
+   * entra em `documents` e não vai ao bucket (AC-04 e RN-01). Ele descreve o presente, e
+   * um arquivo guardado hoje contradiz o sistema amanhã — não há endereço a assinar
+   * porque não há arquivo a guardar.
+   *
+   * Mesma permissão do extrato em tela: quem pode ler a conta pode imprimi-la.
+   */
+  app.get('/v1/ledger/accounts/:tutorId/statement/pdf', READ, async (request, reply) => {
+    const { tutorId } = parseInput(TutorParamSchema, request.params)
+    const period = parseInput(StatementPeriodSchema, request.query)
+
+    const data = await statementDocument(actorFrom(request), tutorId, period)
+
+    return sendPdf(reply, renderStatementHtml(data), statementFilename(period))
   })
 
   /**

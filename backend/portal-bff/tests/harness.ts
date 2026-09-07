@@ -6,7 +6,10 @@ import type { FastifyInstance } from 'fastify'
 import { signServiceHeaders, type ServiceAuthContext } from '@petshop/service-auth'
 import {
   AppError,
+  DEFAULT_TERM_VERSION,
+  PLATFORM_TERM_SEEDS,
   ROLE_PERMISSIONS,
+  TERM_KINDS,
   type PermissionKey,
   type ServiceCategory,
   type TaxiRideResponse,
@@ -199,6 +202,23 @@ export async function givenTenant(options: TenantOptions = {}): Promise<TenantFi
 
   await withTenant(tenantId, (tx) => createTenantKey(tx, tenantId))
 
+  /**
+   * As três versões `1.0` da plataforma, como o provisionamento semeia (MOD-DOC-06).
+   *
+   * O tenant daqui nasce por INSERT e não pelo `seedTenantDomain` do identity-service,
+   * então o fixture repete o seed. Sem ele, "Meus documentos" não teria termo nenhum a
+   * apresentar e todo aceite seria recusado por versão inexistente.
+   */
+  await ownerPrisma.termVersion.createMany({
+    data: TERM_KINDS.map((kind) => ({
+      tenantId,
+      kind,
+      version: DEFAULT_TERM_VERSION,
+      title: PLATFORM_TERM_SEEDS[kind].title,
+      body: PLATFORM_TERM_SEEDS[kind].body,
+    })),
+  })
+
   return { tenantId, slug, userId: user.id, clerkUserId: user.clerkUserId }
 }
 
@@ -292,6 +312,14 @@ export interface InjectOptions extends CallerOptions {
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   url: string
   payload?: unknown
+  /**
+   * Cabeçalhos extras, acrescentados aos assinados.
+   *
+   * Existe por causa do `x-forwarded-for`: o app sobe com `trustProxy`, e o IP que vira
+   * **prova** do consentimento é o que chega por aí. Sem poder forjá-lo, o teste
+   * verificaria o IP do próprio harness.
+   */
+  headers?: Record<string, string>
 }
 
 export async function callApi(options: InjectOptions) {
@@ -299,7 +327,7 @@ export async function callApi(options: InjectOptions) {
   return instance.inject({
     method: options.method,
     url: options.url,
-    headers: authHeaders(options),
+    headers: { ...authHeaders(options), ...options.headers },
     ...(options.payload !== undefined ? { payload: options.payload as object } : {}),
   })
 }
@@ -1169,6 +1197,8 @@ export async function givenPackagePurchase(
 export interface LedgerDouble {
   /** O que a porta devolve; o teste ajusta antes de chamar. */
   receipt: { number: string; status: string; issuedAt: string | null; url: string | null }
+  /** Os bytes que o extrato em papel devolve, e o nome do arquivo. */
+  statement: { bytes: Buffer; filename: string }
   /** Erro que a próxima emissão deve levantar. */
   failWith: AppError | null
   calls: string[]
@@ -1192,6 +1222,7 @@ export async function fakeLedger(): Promise<LedgerDouble> {
       issuedAt: '2026-09-01T12:00:00.000Z',
       url: 'https://bucket.example/recibo.pdf?assinatura=x',
     },
+    statement: { bytes: Buffer.from('%PDF-1.4 extrato'), filename: 'extrato-2026-09-07.pdf' },
     failWith: null,
     calls: [],
   }
@@ -1201,6 +1232,11 @@ export async function fakeLedger(): Promise<LedgerDouble> {
       double.calls.push(paymentId)
       if (double.failWith) throw double.failWith
       return double.receipt
+    },
+    async statementPdf(_caller, tutorId) {
+      double.calls.push(tutorId)
+      if (double.failWith) throw double.failWith
+      return double.statement
     },
   })
 
@@ -1276,11 +1312,54 @@ export async function givenMessage(
   })
 }
 
+/**
+ * Um documento já emitido, como o serviço de domínio o teria deixado.
+ *
+ * O que este harness **não** faz é emitir: renderizar o PDF, numerar a série e gravar no
+ * bucket são do ledger, do prontuário e do tutor-service, e cada um tem suíte própria. O
+ * que o Portal precisa provar é o recorte por titular e a entrega.
+ */
+export async function givenDocument(
+  fixture: TenantFixture,
+  options: {
+    tutorId: string | null
+    kind: 'RECEIPT' | 'PRESCRIPTION' | 'TERM_ACCEPTANCE' | 'IMAGE_CONSENT'
+    number: string
+    status?: 'PENDING' | 'ISSUED' | 'CANCELLED' | 'FAILED'
+    petId?: string
+    issuedAt?: Date
+  },
+): Promise<string> {
+  return withTenant(fixture.tenantId, async (tx) => {
+    const status = options.status ?? 'ISSUED'
+    const document = await tx.document.create({
+      data: {
+        tenantId: fixture.tenantId,
+        kind: options.kind,
+        number: options.number,
+        tutorId: options.tutorId,
+        ...(options.petId ? { petId: options.petId } : {}),
+        status,
+        ...(status === 'ISSUED'
+          ? {
+              storageKey: `tenants/${fixture.tenantId}/documents/${options.number}.pdf`,
+              issuedAt: options.issuedAt ?? new Date(),
+            }
+          : {}),
+      },
+      select: { id: true },
+    })
+    return document.id
+  })
+}
+
 export interface ConsentOptions {
-  channel: 'WHATSAPP' | 'EMAIL' | 'SMS' | 'TERMS' | 'IMAGE_USE'
+  channel: 'WHATSAPP' | 'EMAIL' | 'SMS' | 'TERMS' | 'SERVICE_LIABILITY' | 'IMAGE_USE'
   granted: boolean
   purpose?: 'TRANSACTIONAL' | 'MARKETING' | 'BOTH'
   source?: 'STAFF_FORM' | 'PORTAL' | 'SITE' | 'WHATSAPP' | 'IMPORT'
+  /** A versão do termo citada. O padrão é a `1.0` que o fixture semeia. */
+  version?: string
   createdAt?: Date
 }
 
@@ -1310,7 +1389,7 @@ export async function givenConsent(
         granted: options.granted,
         purpose: options.purpose ?? 'MARKETING',
         source: options.source ?? 'STAFF_FORM',
-        version: '1.0',
+        version: options.version ?? DEFAULT_TERM_VERSION,
         ...(options.createdAt ? { createdAt: options.createdAt } : {}),
       },
       select: { id: true },
@@ -1335,8 +1414,15 @@ export interface TutorServiceDouble {
    * campo travado, que ela não foi.
    */
   writes: {
-    kind: 'profile' | 'contact' | 'address' | 'deletion' | 'export'
+    kind: 'profile' | 'contact' | 'address' | 'deletion' | 'export' | 'term'
     tutorId: string
+  }[]
+  /** Os aceites de termo, com a origem que a porta fixou — é prova (MOD-DOC-07). */
+  terms: {
+    tutorId: string
+    term: 'TERMS' | 'SERVICE_LIABILITY' | 'IMAGE_USE'
+    source: string
+    ipAddress?: string | undefined
   }[]
   /** Erro que a próxima gravação deve levantar — é como se exercita a tradução. */
   failWith: AppError | null
@@ -1381,7 +1467,7 @@ export function fakePdf(): PdfDouble {
  * não da resposta da porta.
  */
 export function fakeTutorService(fixture: TenantFixture): TutorServiceDouble {
-  const double: TutorServiceDouble = { calls: [], writes: [], failWith: null }
+  const double: TutorServiceDouble = { calls: [], writes: [], terms: [], failWith: null }
 
   setTutorPort({
     async updateMarketingConsent(caller, tutorId, input) {
@@ -1402,6 +1488,26 @@ export function fakeTutorService(fixture: TenantFixture): TutorServiceDouble {
       })
 
       return { current: [], history: [] }
+    },
+
+    /**
+     * O aceite de termo, gravado de verdade — como a transição de consentimento.
+     *
+     * O que o dublê substitui é a emissão do papel, que tem suíte própria no
+     * tutor-service. A linha de `tutor_consents` continua real, porque é dela que a
+     * tela do Portal deriva o estado do termo.
+     */
+    async acceptTerm(caller, tutorId, kind) {
+      if (double.failWith) throw double.failWith
+      double.writes.push({ kind: 'term', tutorId })
+      double.terms.push({ tutorId, term: kind, source: 'PORTAL', ipAddress: caller.ipAddress })
+
+      await givenConsent(fixture, tutorId, {
+        channel: kind,
+        granted: true,
+        purpose: 'BOTH',
+        source: 'PORTAL',
+      })
     },
 
     async updateOwnProfile(_caller, tutorId, patch) {

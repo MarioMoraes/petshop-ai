@@ -14,12 +14,14 @@ import {
   PortalStatementQuerySchema,
   PortalTimelineQuerySchema,
   PortalVerifySchema,
+  TermKindSchema,
   UpdateOwnPetSchema,
   UpdateOwnTutorSchema,
   UpdatePortalAddressSchema,
   UpdatePortalPreferenceSchema,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
+import { z } from 'zod'
 import {
   requireOwnScope,
   requirePermission,
@@ -39,7 +41,13 @@ import {
   rescheduleOwnAppointment,
 } from './appointments.js'
 import { createBooking, listBookableServices, readAvailability } from './booking.js'
-import { readOwnFinance, readOwnReceipt, readOwnStatement } from './finance.js'
+import {
+  downloadOwnStatementPdf,
+  readOwnFinance,
+  readOwnReceipt,
+  readOwnStatement,
+} from './finance.js'
+import { acceptOwnTerm, listOwnDocuments, listOwnTerms, readOwnDocument } from './documents.js'
 import { requestContactChange, verifyContactChange } from './contact-change.js'
 import { readPortalContext, readPortalTenant, touchLastSeen } from './me.js'
 import {
@@ -110,6 +118,9 @@ function callerOf(request: FastifyRequest): SchedulingCaller {
  * evidência de quem consentiu e de quem pediu. Sem eles, a linha registraria o endereço do
  * contêiner do BFF — uma prova que aponta para nós mesmos.
  */
+const DocumentParamSchema = z.object({ documentId: z.uuid() })
+const TermParamSchema = z.object({ kind: TermKindSchema })
+
 function tutorCallerOf(request: FastifyRequest): TutorCaller {
   const auth = requireTenantContext(request)
   return {
@@ -430,6 +441,42 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   )
 
   /**
+   * AC-02 de MOD-DOC-09 — o mesmo extrato, em papel.
+   *
+   * Bytes, e não URL assinada: o extrato não é arquivado (AC-04), então não há endereço
+   * a assinar. É a mesma embalagem da exportação de dados do MOD-PORTAL-09.
+   *
+   * `finance:read_own`, e o recorte de titularidade vem do `ownScope` — nunca de uma
+   * conferência dentro do handler.
+   */
+  app.get(
+    '/portal/v1/finance/statement/pdf',
+    { preHandler: requirePermission('finance:read_own') },
+    async (request, reply) => {
+      const auth = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+
+      const documento = await downloadOwnStatementPdf(
+        { tenantId: auth.tenantId, clerkUserId: auth.clerkUserId, userId: auth.userId ?? undefined },
+        {
+          actorUserId: auth.userId,
+          ipAddress: request.ip,
+          userAgent: request.headers['user-agent'],
+        },
+        tutorId,
+      )
+
+      return reply
+        .type('application/pdf')
+        .header('content-disposition', `attachment; filename="${documento.filename}"`)
+        // O extrato lista o que o titular deve e a quem: nem o navegador nem nenhum
+        // intermediário tem por que guardar uma cópia.
+        .header('cache-control', 'no-store')
+        .send(documento.bytes)
+    },
+  )
+
+  /**
    * AC-03 — o recibo do pagamento.
    *
    * Devolve a **URL assinada**, não os bytes: o recibo é peça contábil e já mora no
@@ -696,6 +743,88 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
         tutorId,
         input,
       )
+    },
+  )
+
+  // ─── MOD-DOC-10 — Meus Documentos ──────────────────────────────────────────
+
+  /**
+   * A lista de documentos do titular.
+   *
+   * `tutor:read_own` e não `finance:read_own`: a lista atravessa recibo, receituário e
+   * termo, e o que ela tem em comum não é dinheiro — é ser **do titular**. Gate
+   * financeiro aqui esconderia o termo que ele assinou de quem não vê a conta.
+   *
+   * Nenhuma URL é assinada na listagem: abrir a lista não é baixar dez arquivos.
+   */
+  app.get(
+    '/portal/v1/documents',
+    { preHandler: requirePermission('tutor:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+
+      return { documents: await listOwnDocuments(tenantId, tutorId) }
+    },
+  )
+
+  /**
+   * O endereço de um documento — e pedi-lo **é** o download (§9).
+   *
+   * AC-02: documento de outro titular responde 404, como o que não existe. O recorte é
+   * `tutorId` na consulta, e o `ownScope` é quem o fornece.
+   */
+  app.get(
+    '/portal/v1/documents/:documentId',
+    { preHandler: requirePermission('tutor:read_own') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const { documentId } = parseInput(DocumentParamSchema, request.params)
+
+      return readOwnDocument(auth.tenantId, tutorId, documentId, {
+        actorUserId: auth.userId,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+      })
+    },
+  )
+
+  // ─── MOD-DOC-07 e 08 — os termos, do lado do cliente ───────────────────────
+
+  /**
+   * Os termos vigentes e o que este titular já aceitou.
+   *
+   * `tutor:read_own`: o texto do termo é público para quem o assina, e o estado do
+   * aceite é da ficha dele.
+   */
+  app.get(
+    '/portal/v1/terms',
+    { preHandler: requirePermission('tutor:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+
+      return { terms: await listOwnTerms(tenantId, tutorId) }
+    },
+  )
+
+  /**
+   * O aceite (AC-02 de MOD-DOC-07).
+   *
+   * `tutor:update_own`, como toda escrita do titular na própria ficha. O que grava é o
+   * tutor-service, pela porta que assina — é ele que confere a versão vigente, escreve a
+   * linha append-only com o IP que veio nos headers e emite o papel.
+   */
+  app.post(
+    '/portal/v1/terms/:kind/accept',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request, reply) => {
+      const { tutorId } = requireOwnScope(request)
+      const { kind } = parseInput(TermParamSchema, request.params)
+
+      await acceptOwnTerm(tutorCallerOf(request), tutorId, kind)
+      return reply.status(204).send()
     },
   )
 }
