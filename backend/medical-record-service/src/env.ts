@@ -14,6 +14,22 @@ import { z } from 'zod'
 export const { loadEnv, resetEnvCache } = defineEnv('medical-record-service', {
   ...serviceEnvShape,
   MEDICAL_RECORD_SERVICE_PORT: z.coerce.number().int().default(3005),
+
+  /**
+   * Receituário em PDF (MOD-DOC-04).
+   *
+   * As duas pontas são **opcionais de propósito**, pelo mesmo motivo que no financeiro:
+   * sem Gotenberg ou sem bucket, a prescrição continua sendo registrada e só o arquivo
+   * fica pendente, esperando o job de reprocesso. Exigi-las na subida derrubaria o
+   * prontuário inteiro em um ambiente que ainda não configurou impressão de documento.
+   */
+  GOTENBERG_URL: z.string().optional(),
+  R2_ENDPOINT: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().default('petshop-media'),
+  /** R2 ignora região, mas o assinador SigV4 do SDK exige uma. */
+  R2_REGION: z.string().default('auto'),
 })
 
 export type Env = ReturnType<typeof loadEnv>

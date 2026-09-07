@@ -16,6 +16,7 @@ import {
   AllergyCheckResultSchema,
   AllergySchema,
   AttendanceSchema,
+  PrescriptionViewSchema,
   PetClinicalSummarySchema,
   TimelinePageSchema,
   ManagedBreedSchema,
@@ -227,6 +228,7 @@ import {
   type UpdatePetInput,
   type UpdatePetTutorInput,
   type UpdateTenantSettingsInput,
+  type CreatePrescriptionInput,
   type UpdateTutorInput,
 } from '@petshop/shared-types'
 import { z, type ZodType } from 'zod'
@@ -1015,6 +1017,53 @@ export function createApiClient(options: ApiClientOptions) {
         path: `/v1/attendances/${id}/void`,
         body: input,
         schema: AttendanceSchema,
+      }),
+
+    // ─── Receituário (MOD-DOC-04) ──────────────────────────────────────────
+
+    /**
+     * Emite o receituário do atendimento.
+     *
+     * O gate real não é a permissão: é o CRMV do profissional ligado ao usuário. Sem
+     * ele o servidor devolve 403 `ERR_PRONT_009` — e é o único caminho pelo qual esse
+     * código, que existe no catálogo desde o MOD-PRONT, chega à tela.
+     */
+    createPrescription: (attendanceId: string, input: CreatePrescriptionInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/attendances/${attendanceId}/prescriptions`,
+        body: input,
+        schema: PrescriptionViewSchema,
+      }),
+
+    listPetPrescriptions: (petId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/pets/${petId}/prescriptions`,
+        schema: z.object({ prescriptions: z.array(PrescriptionViewSchema) }),
+      }),
+
+    listAttendancePrescriptions: (attendanceId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/attendances/${attendanceId}/prescriptions`,
+        schema: z.object({ prescriptions: z.array(PrescriptionViewSchema) }),
+      }),
+
+    /**
+     * O detalhe traz a URL assinada de 15 minutos — e pedi-la **é** o download: esta
+     * chamada entra na trilha de auditoria do tenant. A listagem não assina nada.
+     */
+    getPrescription: (id: string) =>
+      request({ method: 'GET', path: `/v1/prescriptions/${id}`, schema: PrescriptionViewSchema }),
+
+    /** Anular mantém o arquivo e o número: o que muda é o que o sistema diz sobre ele. */
+    voidPrescription: (id: string, input: { reason: string }) =>
+      request({
+        method: 'POST',
+        path: `/v1/prescriptions/${id}/void`,
+        body: input,
+        schema: PrescriptionViewSchema,
       }),
 
     /** RN-03: o serviço esbarra em alguma alergia deste pet? */

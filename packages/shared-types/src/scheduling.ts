@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { StrictUFSchema } from './tutor.js'
 
 /**
  * MOD-AGENDA — catálogo de serviços, profissionais e bloqueios
@@ -124,6 +125,18 @@ export const ReplaceServicePricingSchema = z.object({
 
 // ─── MOD-AGENDA-02 — profissionais e jornada ─────────────────────────────────
 
+/**
+ * O número do registro, sem a UF: dígitos e, quando o conselho os usa, um separador.
+ *
+ * `12345`, `1234-5` e `SP 12345` são o que os conselhos regionais emitem de verdade —
+ * o formato não é uniforme entre eles. O que se recusa é o campo que claramente não é
+ * um registro.
+ */
+export const CrmvNumberSchema = z
+  .string()
+  .transform((value) => value.trim().toUpperCase())
+  .refine((value) => /^[0-9][0-9.\-/ ]{1,18}$/.test(value), 'Informe o número do registro')
+
 export const CreateProfessionalSchema = z.object({
   /** Membership de origem; nulo é o profissional sem login (§4). */
   userId: z.uuid().nullish(),
@@ -141,6 +154,15 @@ export const CreateProfessionalSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, 'Use uma cor no formato #RRGGBB')
     .nullish(),
   serviceIds: z.array(z.uuid()).default([]),
+  /**
+   * Registro no conselho (MOD-DOC-05). Os dois campos andam juntos: um número sem UF
+   * não identifica ninguém, e uma UF sem número não é registro.
+   *
+   * A validação é de **forma**, e não de existência: não há base pública consultável do
+   * CFMV, e prometer verificação que não se faz é pior que não prometer.
+   */
+  crmv: CrmvNumberSchema.nullish(),
+  crmvState: StrictUFSchema.nullish(),
 })
 export type CreateProfessionalInput = z.output<typeof CreateProfessionalSchema>
 
@@ -248,6 +270,9 @@ export const ProfessionalResponseSchema = z.object({
   maxConcurrentPets: z.number().int(),
   color: z.string().nullable(),
   active: z.boolean(),
+  /** MOD-DOC-05: sem os dois, o profissional não prescreve. */
+  crmv: z.string().nullable(),
+  crmvState: z.string().nullable(),
   serviceIds: z.array(z.uuid()),
   schedule: z.array(ScheduleWindowResponseSchema),
   createdAt: z.iso.datetime(),

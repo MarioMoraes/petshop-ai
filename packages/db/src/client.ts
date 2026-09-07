@@ -90,6 +90,9 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   // quantos documentos o vizinho emitiu.
   'Document',
   'DocumentCounter',
+  // MOD-DOC-04: o receituário. Prescrição alheia é prontuário alheio — o conteúdo é
+  // cifrado, mas quem tomou o quê já é a informação clínica.
+  'Prescription',
   // MOD-TAXI: o leva-e-traz. `TaxiRideStatusLog` entra junto porque carrega
   // `tenant_id` próprio — a trilha de uma corrida é tão do tenant quanto a corrida.
   'TaxiRide',

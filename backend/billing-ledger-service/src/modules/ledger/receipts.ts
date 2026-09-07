@@ -3,8 +3,7 @@ import {
   cancelDocument,
   createPendingDocument,
   issueDocument,
-  type DocumentAddress,
-  type DocumentIssuer,
+  loadIssuer,
 } from '@petshop/documents'
 import { DOCUMENT_MAX_ATTEMPTS, type PaymentMethod } from '@petshop/shared-types'
 import { recordAudit } from '../../lib/audit.js'
@@ -157,7 +156,11 @@ export async function issueReceipt(
         action: 'ledger.receipt_issued',
         entity: 'receipt',
         entityId: receiptId,
-        after: { number: data.receipt.number, paymentId: data.receipt.paymentId },
+        // `documentNumber`, e não `number`: `number` está na lista de chaves sensíveis
+        // do `service-kit` (é o número do endereço), e a trilha vinha gravando
+        // `[redacted]` no lugar da série do recibo desde o MOD-LEDGER. O §9 do MOD-DOC
+        // exige o número na trilha, e uma trilha de emissão sem ele não responde nada.
+        after: { documentNumber: data.receipt.number, paymentId: data.receipt.paymentId },
       })
     },
     tenantOptions(actor),
@@ -193,12 +196,10 @@ async function collectData(tx: TenantTransaction, tenantId: string, receipt: Rec
     },
   })
 
-  const [tenant, settings, tutor, billing] = await Promise.all([
-    tx.tenant.findFirstOrThrow({
-      where: { id: tenantId },
-      select: { name: true, legalName: true },
-    }),
-    tx.tenantSettings.findUnique({ where: { tenantId } }),
+  const [emissor, tutor, billing] = await Promise.all([
+    // O cabeçalho de quem emitiu mora em `@petshop/documents` desde a fatia 2 do
+    // MOD-DOC: o receituário foi o segundo a precisar dele, e montá-lo é igual nos dois.
+    loadIssuer(tx, tenantId),
     // RN-14 reserva o nome civil a documentos fiscais — e o RN-20 é explícito em que
     // este não é um. Quem tem nome social é chamado por ele no próprio comprovante.
     tx.tutor.findFirstOrThrow({
@@ -216,8 +217,8 @@ async function collectData(tx: TenantTransaction, tenantId: string, receipt: Rec
 
   return {
     number: receipt.number,
-    issuer: buildIssuer(tenant, settings),
-    timezone: settings?.timezone ?? 'America/Sao_Paulo',
+    issuer: emissor.issuer,
+    timezone: emissor.timezone,
     tutorName: tutor.socialName ?? tutor.fullName,
     amountCents: Number(payment.amountCents),
     method: payment.method as PaymentMethod,
@@ -227,67 +228,6 @@ async function collectData(tx: TenantTransaction, tenantId: string, receipt: Rec
     creditCents: Number(payment.amountCents) - Number(payment.allocatedCents),
     balanceAfterCents: Number(payment.entry.balanceAfterCents),
     footerText: billing.receiptFooterText,
-  }
-}
-
-interface BrandingJson {
-  logoUrl?: string | null
-  primaryColor?: string | null
-}
-
-/**
- * Quem emitiu, para o cabeçalho comum do MOD-DOC.
- *
- * O endereço **não é cifrado** — é comercial, e o MOD-SITE existe para publicá-lo. O do
- * tutor continua cifrado porque é residencial.
- *
- * O CNPJ fica de fora por ora: `tenants.cnpj_encrypted` exige a DEK do tenant, e o
- * recibo nunca o mostrou. Entra junto com a discussão de NFS-e (questão 2 do §11).
- */
-function buildIssuer(
-  tenant: { name: string; legalName: string | null },
-  settings: {
-    addressZip: string | null
-    addressStreet: string | null
-    addressNumber: string | null
-    addressComplement: string | null
-    addressDistrict: string | null
-    addressCity: string | null
-    addressState: string | null
-    publicPhone: string | null
-    branding: unknown
-  } | null,
-): DocumentIssuer {
-  const branding = (settings?.branding ?? {}) as BrandingJson
-
-  // O CHECK `tenant_settings_address_complete` garante tudo ou nada; a checagem de um
-  // campo basta, e o resto do `&&` é o que convence o TypeScript.
-  const address: DocumentAddress | null =
-    settings?.addressStreet &&
-    settings.addressZip &&
-    settings.addressNumber &&
-    settings.addressDistrict &&
-    settings.addressCity &&
-    settings.addressState
-      ? {
-          zip: settings.addressZip,
-          street: settings.addressStreet,
-          number: settings.addressNumber,
-          complement: settings.addressComplement,
-          district: settings.addressDistrict,
-          city: settings.addressCity,
-          state: settings.addressState,
-        }
-      : null
-
-  return {
-    name: tenant.name,
-    legalName: tenant.legalName,
-    cnpj: null,
-    address,
-    phone: settings?.publicPhone ?? null,
-    logoUrl: branding.logoUrl ?? null,
-    primaryColor: branding.primaryColor ?? null,
   }
 }
 

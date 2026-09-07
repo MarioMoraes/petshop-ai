@@ -137,6 +137,9 @@ const BUSINESS_TABLES = [
   'automations',
   // MOD-LEDGER-08 — o recibo aponta para o pagamento, então vem antes dele.
   'receipts',
+  // MOD-DOC-04 — antes de `documents`, `attendances`, `pets` e `professionals`, que a
+  // prescrição referencia.
+  'prescriptions',
   'documents',
   'document_counters',
   // MOD-LEDGER — na frente de tudo: referencia tutores, pets e serviços.

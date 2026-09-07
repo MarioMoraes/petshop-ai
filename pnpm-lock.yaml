@@ -252,6 +252,15 @@ importers:
       '@petshop/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@petshop/documents':
+        specifier: workspace:*
+        version: link:../../packages/documents
+      '@petshop/job-scheduler':
+        specifier: workspace:*
+        version: link:../../packages/job-scheduler
+      '@petshop/pdf':
+        specifier: workspace:*
+        version: link:../../packages/pdf
       '@petshop/service-auth':
         specifier: workspace:*
         version: link:../../packages/service-auth

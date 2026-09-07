@@ -242,3 +242,109 @@ describe('MOD-AGENDA-02 — profissionais e jornada', () => {
     expect(response.json()).toHaveLength(0)
   })
 })
+
+/**
+ * MOD-DOC-05 — o registro no conselho.
+ *
+ * O campo é da agenda porque o profissional é da agenda, mas quem depende dele é o
+ * receituário: sem CRMV, o `medical-record-service` recusa a emissão com
+ * `ERR_PRONT_009` — o código que existia no catálogo desde o MOD-PRONT e nunca teve
+ * como ser levantado.
+ */
+describe('MOD-DOC-05 — CRMV do profissional', () => {
+  it('AC-01: grava número e UF, e eles voltam na resposta', async () => {
+    const vet = await givenProfessional({
+      displayName: 'Dra. Helena',
+      roleKey: 'VET',
+      crmv: '12345',
+      crmvState: 'sp',
+    })
+
+    // A UF é normalizada para maiúscula na entrada: quem digita "sp" não erra.
+    expect(vet).toMatchObject({ crmv: '12345', crmvState: 'SP' })
+
+    const lista = await callApi({ ...asAdmin(tenant), method: 'GET', url: '/v1/professionals' })
+    expect(lista.json()[0]).toMatchObject({ crmv: '12345', crmvState: 'SP' })
+  })
+
+  it('AC-02: UF inexistente é 422', async () => {
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'POST',
+      url: '/v1/professionals',
+      payload: { displayName: 'Dra. Helena', roleKey: 'VET', crmv: '12345', crmvState: 'XX' },
+    })
+
+    expect(response.statusCode).toBe(422)
+  })
+
+  it('AC-02: número que não parece registro é 422', async () => {
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'POST',
+      url: '/v1/professionals',
+      payload: { displayName: 'Dra. Helena', roleKey: 'VET', crmv: 'sem numero', crmvState: 'SP' },
+    })
+
+    expect(response.statusCode).toBe(422)
+  })
+
+  it('metade do registro é recusada: número sem UF não identifica ninguém', async () => {
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'POST',
+      url: '/v1/professionals',
+      payload: { displayName: 'Dra. Helena', roleKey: 'VET', crmv: '12345' },
+    })
+
+    expect(response.statusCode).toBe(422)
+    expect(response.json().detail).toContain('UF')
+  })
+
+  it('o PATCH completa o par com o que já estava gravado', async () => {
+    const vet = await givenProfessional({ roleKey: 'VET', crmv: '12345', crmvState: 'SP' })
+
+    // Só a UF muda: o número já está no cadastro, e recusar aqui obrigaria a tela a
+    // reenviar o que não mudou.
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'PATCH',
+      url: `/v1/professionals/${vet.id}`,
+      payload: { crmvState: 'RJ' },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({ crmv: '12345', crmvState: 'RJ' })
+  })
+
+  it('§9: a alteração do registro entra na trilha, com o antes e o depois', async () => {
+    const vet = await givenProfessional({ roleKey: 'VET', crmv: '12345', crmvState: 'SP' })
+
+    await callApi({
+      ...asAdmin(tenant),
+      method: 'PATCH',
+      url: `/v1/professionals/${vet.id}`,
+      payload: { crmv: '99999', crmvState: 'RJ' },
+    })
+
+    const trilha = await ownerPrisma.auditLog.findFirstOrThrow({
+      where: { tenantId: tenant.tenantId, action: 'professional.updated' },
+    })
+    expect(trilha.before).toMatchObject({ crmv: '12345', crmvState: 'SP' })
+    expect(trilha.after).toMatchObject({ crmv: '99999', crmvState: 'RJ' })
+  })
+
+  it('limpar o registro é mandar os dois nulos', async () => {
+    const vet = await givenProfessional({ roleKey: 'VET', crmv: '12345', crmvState: 'SP' })
+
+    const response = await callApi({
+      ...asAdmin(tenant),
+      method: 'PATCH',
+      url: `/v1/professionals/${vet.id}`,
+      payload: { crmv: null, crmvState: null },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({ crmv: null, crmvState: null })
+  })
+})

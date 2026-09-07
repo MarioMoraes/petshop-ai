@@ -27,7 +27,23 @@ async function assertServicesExist(tx: TenantTransaction, serviceIds: string[]) 
   }
 }
 
+/**
+ * MOD-DOC-05 — o registro do conselho é um par, ou não é registro.
+ *
+ * A checagem é sobre o **resultado**, não sobre o corpo da requisição: um PATCH que
+ * manda só a UF sobre um cadastro que já tem o número está completo, e recusá-lo
+ * obrigaria a tela a reenviar o que não mudou. Metade preenchida é o que se recusa, e
+ * por um motivo prático — `12345` sem UF não identifica veterinário nenhum, e é isso
+ * que sai impresso no receituário.
+ */
+function assertCrmvPair(crmv: string | null, crmvState: string | null): void {
+  if (crmv && !crmvState) throw invalid('Informe a UF do registro profissional')
+  if (crmvState && !crmv) throw invalid('Informe o número do registro profissional')
+}
+
 export async function createProfessional(actor: ActorContext, input: CreateProfessionalInput) {
+  assertCrmvPair(input.crmv ?? null, input.crmvState ?? null)
+
   const created = await withTenant(
     actor.tenantId,
     async (tx) => {
@@ -41,6 +57,8 @@ export async function createProfessional(actor: ActorContext, input: CreateProfe
           roleKey: input.roleKey,
           maxConcurrentPets: input.maxConcurrentPets,
           color: input.color ?? null,
+          crmv: input.crmv ?? null,
+          crmvState: input.crmvState ?? null,
           createdBy: actor.actorUserId ?? null,
           services: {
             create: input.serviceIds.map((serviceId) => ({
@@ -62,6 +80,8 @@ export async function createProfessional(actor: ActorContext, input: CreateProfe
           displayName: professional.displayName,
           roleKey: professional.roleKey,
           maxConcurrentPets: professional.maxConcurrentPets,
+          crmv: professional.crmv,
+          crmvState: professional.crmvState,
         },
         ipAddress: actor.ipAddress ?? null,
         userAgent: actor.userAgent ?? null,
@@ -141,10 +161,17 @@ export async function updateProfessional(
         })
       }
 
+      assertCrmvPair(
+        input.crmv === undefined ? before.crmv : (input.crmv ?? null),
+        input.crmvState === undefined ? before.crmvState : (input.crmvState ?? null),
+      )
+
       const professional = await tx.professional.update({
         where: { id: professionalId },
         data: {
           ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
+          ...(input.crmv === undefined ? {} : { crmv: input.crmv ?? null }),
+          ...(input.crmvState === undefined ? {} : { crmvState: input.crmvState ?? null }),
           ...(input.roleKey === undefined ? {} : { roleKey: input.roleKey }),
           ...(input.maxConcurrentPets === undefined
             ? {}
@@ -165,11 +192,17 @@ export async function updateProfessional(
           displayName: before.displayName,
           active: before.active,
           maxConcurrentPets: before.maxConcurrentPets,
+          // §9 do MOD-DOC: a alteração de CRMV entra na trilha. É o registro que
+          // autoriza alguém a prescrever, e o receituário guarda o snapshot dele.
+          crmv: before.crmv,
+          crmvState: before.crmvState,
         },
         after: {
           displayName: professional.displayName,
           active: professional.active,
           maxConcurrentPets: professional.maxConcurrentPets,
+          crmv: professional.crmv,
+          crmvState: professional.crmvState,
         },
         ipAddress: actor.ipAddress ?? null,
         userAgent: actor.userAgent ?? null,

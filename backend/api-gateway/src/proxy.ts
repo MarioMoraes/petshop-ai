@@ -168,6 +168,8 @@ const RECORD_SUFFIXES = [
   // MOD-PRONT-02 e 11.
   '/timeline',
   '/summary',
+  // MOD-DOC-04: o receituário do pet.
+  '/prescriptions',
 ]
 
 /**
@@ -175,8 +177,12 @@ const RECORD_SUFFIXES = [
  * **antes** do da agenda: `/v1/attendances` não colide com `/v1/appointments`, mas a
  * proximidade dos dois é justamente o tipo de coisa que alguém "consolida" um dia.
  * O registro é do prontuário; o horário é da agenda.
+ *
+ * `/v1/prescriptions` entra junto (MOD-DOC-04): o receituário é documento, mas quem o
+ * emite é quem sabe o que é uma prescrição — e isso é o prontuário. O
+ * `document-service:3012` do SPEC não nasce.
  */
-const ATTENDANCE_PREFIXES = ['/v1/attendances']
+const ATTENDANCE_PREFIXES = ['/v1/attendances', '/v1/prescriptions']
 
 function isRecordPath(path: string): boolean {
   if (!path.startsWith('/v1/pets/')) return false

@@ -146,9 +146,11 @@ export function PetDetailView(props: Props) {
       {tab === 'historico' && (
         <TimelineTab
           petId={pet.id}
+          petName={pet.name}
           page={props.timeline}
           canVoid={props.canVoidAttendance}
           canWrite={props.canWriteNotes}
+          canPrescribe={props.canManageRecord}
           photos={album.photos}
           canUploadPhoto={props.canUploadPhoto}
         />

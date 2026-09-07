@@ -15,6 +15,7 @@
  */
 
 export * from './issue.js'
+export * from './issuer.js'
 export * from './layout.js'
 export * from './registry.js'
 export * from './storage.js'

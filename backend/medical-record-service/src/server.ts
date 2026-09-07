@@ -3,6 +3,7 @@ import { buildApp } from './app.js'
 import { loadEnv } from './env.js'
 import { closeEvents } from './lib/events.js'
 import { logger } from './lib/logger.js'
+import { startJobs, stopJobs } from './jobs/schedule.js'
 import { closeRedis } from './lib/redis.js'
 import { startRecordConsumers, stopRecordConsumers } from './modules/attendances/consumers.js'
 
@@ -16,6 +17,7 @@ async function main() {
   // prontuário fica vazio. Falha de broker não derruba o serviço — a função loga e
   // segue, e a API continua respondendo.
   await startRecordConsumers()
+  startJobs()
 
   await app.listen({ port: env.MEDICAL_RECORD_SERVICE_PORT, host: '0.0.0.0' })
   logger.info({ port: env.MEDICAL_RECORD_SERVICE_PORT }, 'medical-record-service no ar')
@@ -23,6 +25,10 @@ async function main() {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'encerrando medical-record-service')
     await app.close()
+    // `stopJobs` primeiro e sozinho: ele **espera** o job em curso terminar, e o
+    // `process.exit` logo abaixo não dá segunda chance a quem estiver no meio de uma
+    // varredura.
+    await stopJobs()
     await Promise.all([
       stopRecordConsumers(),
       closeEvents(),

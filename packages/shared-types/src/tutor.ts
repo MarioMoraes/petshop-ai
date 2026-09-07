@@ -47,6 +47,26 @@ export const UFSchema = z
   .transform((value) => value.trim().toUpperCase())
   .refine((value) => /^[A-Z]{2}$/.test(value), 'UF deve ter 2 letras')
 
+/**
+ * As 27 unidades da federação.
+ *
+ * O `UFSchema` acima confere **forma**, não existência: ele nasceu para o endereço,
+ * onde a origem do dado é a consulta de CEP e o par cidade/estado chega junto. Onde a
+ * UF é digitada sozinha — o registro profissional do MOD-DOC-05 — forma não basta, e
+ * `XX/12345` passaria.
+ */
+export const BR_UFS = [
+  'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT',
+  'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO',
+] as const
+
+export type BrazilianState = (typeof BR_UFS)[number]
+
+export const StrictUFSchema = z
+  .string()
+  .transform((value) => value.trim().toUpperCase())
+  .refine((value) => (BR_UFS as readonly string[]).includes(value), 'UF inexistente')
+
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
 export const PersonTypeSchema = z.enum(['PF', 'PJ'])

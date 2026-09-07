@@ -432,7 +432,15 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
     const { loadEnv } = await import('../src/env.js')
     const env = loadEnv()
 
-    for (const suffix of ['timeline', 'summary', 'allergies', 'alerts', 'safety-record']) {
+    for (const suffix of [
+      'timeline',
+      'summary',
+      'allergies',
+      'alerts',
+      'safety-record',
+      // MOD-DOC-04: o receituário do pet é do prontuário, não do cadastro.
+      'prescriptions',
+    ]) {
       expect(resolveTarget(`/v1/pets/abc/${suffix}`)).toBe(env.MEDICAL_RECORD_SERVICE_URL)
     }
     // E o cadastro do pet continua com quem é dele.
@@ -447,6 +455,13 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
 
     expect(resolveTarget('/v1/attendances')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
     expect(resolveTarget('/v1/attendances/abc/addendum')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
+    // MOD-DOC-04: o receituário é documento, mas quem sabe o que é uma prescrição é o
+    // prontuário — o `document-service:3012` do SPEC não nasce.
+    expect(resolveTarget('/v1/attendances/abc/prescriptions')).toBe(
+      env.MEDICAL_RECORD_SERVICE_URL,
+    )
+    expect(resolveTarget('/v1/prescriptions/abc')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
+    expect(resolveTarget('/v1/prescriptions/abc/void')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
     // O encaixe cria agendamento: é da agenda, apesar de o registro clínico não ser.
     expect(resolveTarget('/v1/appointments/walk-in')).toBe(env.SCHEDULING_SERVICE_URL)
     expect(resolveTarget('/v1/appointments/abc/checkout')).toBe(env.SCHEDULING_SERVICE_URL)

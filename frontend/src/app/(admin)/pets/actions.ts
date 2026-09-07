@@ -5,6 +5,8 @@ import { ApiError } from '@petshop/api-client'
 import {
   AddendumSchema,
   CreateAllergySchema,
+  CreatePrescriptionSchema,
+  VoidPrescriptionSchema,
   CreateMedicalAlertSchema,
   CreatePetSchema,
   LinkTutorSchema,
@@ -22,6 +24,7 @@ import {
   VoidAttendanceSchema,
   type Allergy,
   type Attendance,
+  type PrescriptionView,
   type TimelinePage,
   type Breed,
   type MedicalAlert,
@@ -548,6 +551,80 @@ export async function voidAttendanceAction(
     const attendance = await serverApi().voidAttendance(id, parsed.data)
     revalidateRecord(petId)
     return { ok: true, data: attendance }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── Receituário (MOD-DOC-04) ────────────────────────────────────────────────
+
+/**
+ * Os receituários de um atendimento.
+ *
+ * Lista, e não detalhe: a listagem **não** assina URL de arquivo, e por isso não entra
+ * na trilha de acesso a documento. Abrir a aba do pet não é baixar o receituário dele.
+ */
+export async function listAttendancePrescriptionsAction(
+  attendanceId: string,
+): Promise<PrescriptionView[]> {
+  try {
+    const result = await serverApi().listAttendancePrescriptions(attendanceId)
+    return result.prescriptions
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Emite o receituário.
+ *
+ * O 403 que volta quando o profissional não tem CRMV é `ERR_PRONT_009`, e a mensagem
+ * dele diz onde cadastrar — a tela a repassa inteira, em vez de traduzir para um
+ * "sem permissão" que mandaria o veterinário procurar o administrador à toa.
+ */
+export async function createPrescriptionAction(
+  petId: string,
+  attendanceId: string,
+  input: unknown,
+): Promise<ActionResult<PrescriptionView>> {
+  const parsed = CreatePrescriptionSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const prescription = await serverApi().createPrescription(attendanceId, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: prescription }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * O detalhe, que é o que traz a URL do PDF — e pedi-lo é o que a auditoria registra
+ * como download. Só se chama quando alguém clica em abrir.
+ */
+export async function getPrescriptionAction(
+  id: string,
+): Promise<ActionResult<PrescriptionView>> {
+  try {
+    return { ok: true, data: await serverApi().getPrescription(id) }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function voidPrescriptionAction(
+  petId: string,
+  id: string,
+  reason: string,
+): Promise<ActionResult<PrescriptionView>> {
+  const parsed = VoidPrescriptionSchema.safeParse({ reason })
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const prescription = await serverApi().voidPrescription(id, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: prescription }
   } catch (error) {
     return toFailure(error)
   }

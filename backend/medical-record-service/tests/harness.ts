@@ -245,6 +245,56 @@ export async function givenProfessional(
   })
 }
 
+/**
+ * O veterinário que assina o receituário (MOD-DOC-04).
+ *
+ * O `userId` é o que amarra o profissional ao usuário autenticado: quem prescreve é
+ * quem está logado, e não o `performed_by` do atendimento. Sem esse vínculo, o serviço
+ * recusa com `ERR_PRONT_009` — que é justamente o comportamento sob teste.
+ */
+export async function givenVet(
+  fixture: TenantFixture,
+  options: { userId?: string; crmv?: string | null; crmvState?: string | null } = {},
+): Promise<string> {
+  return withTenant(fixture.tenantId, async (tx) => {
+    const vet = await tx.professional.create({
+      data: {
+        tenantId: fixture.tenantId,
+        displayName: 'Dra. Helena Prado',
+        roleKey: 'VET',
+        userId: options.userId ?? fixture.userId,
+        crmv: options.crmv === undefined ? '12345' : options.crmv,
+        crmvState: options.crmvState === undefined ? 'SP' : options.crmvState,
+      },
+    })
+    return vet.id
+  })
+}
+
+/**
+ * O cadastro do estabelecimento, sem o qual nenhum documento formal sai.
+ *
+ * Tenants criados antes de 2026-08-28 estão sem endereço, e o AC-02 de MOD-DOC-01 manda
+ * recusar a emissão dizendo qual dado falta. O `givenTenant` não cria estas linhas de
+ * propósito: é o cenário de quem nunca preencheu.
+ */
+export async function givenIssuerSettings(fixture: TenantFixture): Promise<void> {
+  await ownerPrisma.tenantSettings.create({
+    data: {
+      tenantId: fixture.tenantId,
+      branding: { primaryColor: '#2f6f5a' },
+      businessHours: {},
+      addressZip: '01310100',
+      addressStreet: 'Avenida Paulista',
+      addressNumber: '1000',
+      addressDistrict: 'Bela Vista',
+      addressCity: 'São Paulo',
+      addressState: 'SP',
+      publicPhone: '11 3000-0000',
+    },
+  })
+}
+
 export async function givenService(fixture: TenantFixture, name = 'Banho'): Promise<string> {
   return withTenant(fixture.tenantId, async (tx) => {
     const service = await tx.service.create({

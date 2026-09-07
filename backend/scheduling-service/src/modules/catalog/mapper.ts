@@ -59,6 +59,8 @@ export interface ProfessionalResponse {
   maxConcurrentPets: number
   color: string | null
   active: boolean
+  crmv: string | null
+  crmvState: string | null
   serviceIds: string[]
   schedule: ScheduleWindowResponse[]
   createdAt: string
@@ -110,6 +112,8 @@ export function toProfessionalResponse(row: ProfessionalRow): ProfessionalRespon
     maxConcurrentPets: row.maxConcurrentPets,
     color: row.color,
     active: row.active,
+    crmv: row.crmv,
+    crmvState: row.crmvState,
     serviceIds: row.services.map((link) => link.serviceId).sort(),
     schedule: row.schedules
       .map((window) => ({

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import type { ProfessionalResponse, ServiceResponse } from '@petshop/shared-types'
+import { BR_UFS, type ProfessionalResponse, type ServiceResponse } from '@petshop/shared-types'
 import { Badge, Card, EmptyState, Field } from '@/components/ui'
 import {
   createProfessionalAction,
@@ -203,6 +203,14 @@ function ProfessionalRow({
             {person.active && person.schedule.length === 0 && (
               <Badge tone="danger">Sem jornada</Badge>
             )}
+            {/* MOD-DOC-05: sem registro, o veterinário não emite receituário — e o
+                lugar de descobrir isso é aqui, não na hora de prescrever. */}
+            {person.roleKey === 'VET' && person.crmv && person.crmvState && (
+              <Badge tone="neutral">CRMV {person.crmv}/{person.crmvState}</Badge>
+            )}
+            {person.active && person.roleKey === 'VET' && !person.crmv && (
+              <Badge tone="danger">Sem CRMV</Badge>
+            )}
           </div>
           <p className="hint mt-1">
             {person.serviceIds.length === 0
@@ -248,6 +256,8 @@ function ProfessionalRow({
               />
             </Field>
           </div>
+
+          {person.roleKey === 'VET' && <CrmvFields person={person} onPatch={onPatch} />}
 
           <fieldset>
             <legend className="label">Serviços que executa</legend>
@@ -400,6 +410,89 @@ function ProfessionalRow({
         </div>
       )}
     </Card>
+  )
+}
+
+/**
+ * O registro no conselho (MOD-DOC-05).
+ *
+ * Só aparece para o veterinário: banhista e motorista não têm CRMV, e um campo vazio
+ * em toda ficha ensina a equipe a ignorá-lo.
+ *
+ * Os dois campos são salvos **juntos**, num clique explícito, e não no `onBlur` de cada
+ * um como os demais desta tela. Metade do registro é recusada pelo servidor, e um
+ * `onBlur` por campo mandaria o número sozinho e mostraria um erro para quem estava
+ * apenas indo digitar a UF.
+ */
+function CrmvFields({
+  person,
+  onPatch,
+}: {
+  person: ProfessionalResponse
+  onPatch: (patch: Record<string, unknown>) => void
+}) {
+  const [numero, setNumero] = useState(person.crmv ?? '')
+  const [uf, setUf] = useState(person.crmvState ?? '')
+
+  const mudou = numero.trim() !== (person.crmv ?? '') || uf.trim() !== (person.crmvState ?? '')
+  const pelaMetade = Boolean(numero.trim()) !== Boolean(uf.trim())
+
+  return (
+    <fieldset>
+      <legend className="label">Registro no conselho</legend>
+      <p className="hint mb-3">
+        Sem CRMV, o sistema recusa a emissão de receituário — é o registro que vai
+        impresso no papel, e ele identifica quem assina.
+      </p>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Número" htmlFor={`crmv-${person.id}`}>
+          <input
+            id={`crmv-${person.id}`}
+            className="field w-40"
+            maxLength={20}
+            value={numero}
+            onChange={(event) => setNumero(event.target.value)}
+          />
+        </Field>
+
+        <Field label="UF" htmlFor={`crmv-uf-${person.id}`}>
+          <select
+            id={`crmv-uf-${person.id}`}
+            className="field w-24"
+            value={uf}
+            onChange={(event) => setUf(event.target.value)}
+          >
+            <option value="">—</option>
+            {BR_UFS.map((sigla) => (
+              <option key={sigla} value={sigla}>
+                {sigla}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!mudou || pelaMetade}
+          onClick={() =>
+            onPatch({
+              crmv: numero.trim() || null,
+              crmvState: uf.trim() || null,
+            })
+          }
+        >
+          Salvar registro
+        </button>
+      </div>
+
+      {pelaMetade && (
+        <p className="error-text mt-3" role="alert">
+          Número e UF andam juntos: um sem o outro não identifica ninguém.
+        </p>
+      )}
+    </fieldset>
   )
 }
 

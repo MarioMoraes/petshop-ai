@@ -4,21 +4,30 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ATTENDANCE_STATUS_LABELS,
+  PRESCRIBABLE_ATTENDANCE_TYPES,
   SEVERITY_LABELS,
   type Attendance,
   type PetPhoto,
+  type PrescriptionItem,
+  type PrescriptionView,
   type TimelineEntry,
   type TimelineKind,
   type TimelinePage,
 } from '@petshop/shared-types'
 import { Badge, EmptyState, Field, FormError } from '@/components/ui'
+import { HeartPulseIcon } from '@/components/icons'
+import { Modal } from '@/components/modal'
 import {
   addAddendumAction,
+  createPrescriptionAction,
   getAttendanceAction,
+  getPrescriptionAction,
+  listAttendancePrescriptionsAction,
   loadTimelineAction,
   updateAttendanceAction,
   uploadPhotosAction,
   voidAttendanceAction,
+  voidPrescriptionAction,
 } from '../actions'
 
 /**
@@ -38,11 +47,19 @@ import {
 
 interface Props {
   petId: string
+  /** Linha de contexto do diálogo de receituário: de qual animal se está prescrevendo. */
+  petName: string
   page: TimelinePage
   /** `record:void` — anular estorna o débito, e é só do administrador. */
   canVoid: boolean
   /** `record:write_notes` — corrigir e adendar. */
   canWrite: boolean
+  /**
+   * `record:write` — o pedido de emissão. O gate que decide de verdade é o CRMV do
+   * profissional ligado ao usuário, e ele só existe no servidor: a tela oferece o
+   * caminho, e a recusa vem com a mensagem que diz onde cadastrar o registro.
+   */
+  canPrescribe: boolean
   /** O álbum inteiro; o detalhe recorta o que está preso a cada atendimento. */
   photos: PetPhoto[]
   /** `pet:upload_photo` — a foto de antes e depois (MOD-PRONT-10). */
@@ -82,7 +99,16 @@ function timeLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-export function TimelineTab({ petId, page, canVoid, canWrite, photos, canUploadPhoto }: Props) {
+export function TimelineTab({
+  petId,
+  petName,
+  page,
+  canVoid,
+  canWrite,
+  canPrescribe,
+  photos,
+  canUploadPhoto,
+}: Props) {
   const [entries, setEntries] = useState(page.entries)
   const [cursor, setCursor] = useState(page.nextCursor)
   const [carregando, startCarga] = useTransition()
@@ -124,8 +150,10 @@ export function TimelineTab({ petId, page, canVoid, canWrite, photos, canUploadP
               <TimelineCard
                 entry={entry}
                 petId={petId}
+                petName={petName}
                 canVoid={canVoid}
                 canWrite={canWrite}
+                canPrescribe={canPrescribe}
                 photos={photos}
                 canUploadPhoto={canUploadPhoto}
                 expanded={aberto === entry.id}
@@ -153,8 +181,10 @@ export function TimelineTab({ petId, page, canVoid, canWrite, photos, canUploadP
 function TimelineCard({
   entry,
   petId,
+  petName,
   canVoid,
   canWrite,
+  canPrescribe,
   photos,
   canUploadPhoto,
   expanded,
@@ -162,8 +192,10 @@ function TimelineCard({
 }: {
   entry: TimelineEntry
   petId: string
+  petName: string
   canVoid: boolean
   canWrite: boolean
+  canPrescribe: boolean
   photos: PetPhoto[]
   canUploadPhoto: boolean
   expanded: boolean
@@ -220,8 +252,10 @@ function TimelineCard({
         <AttendanceDetail
           attendanceId={entry.id}
           petId={petId}
+          petName={petName}
           canVoid={canVoid && !anulado}
           canWrite={canWrite && !anulado}
+          canPrescribe={canPrescribe && !anulado}
           photos={photos.filter((photo) => photo.attendanceId === entry.id)}
           canUploadPhoto={canUploadPhoto && !anulado}
         />
@@ -241,15 +275,19 @@ function TimelineCard({
 function AttendanceDetail({
   attendanceId,
   petId,
+  petName,
   canVoid,
   canWrite,
+  canPrescribe,
   photos,
   canUploadPhoto,
 }: {
   attendanceId: string
   petId: string
+  petName: string
   canVoid: boolean
   canWrite: boolean
+  canPrescribe: boolean
   photos: PetPhoto[]
   canUploadPhoto: boolean
 }) {
@@ -351,6 +389,16 @@ function AttendanceDetail({
         photos={photos}
         canUpload={canUploadPhoto}
       />
+
+      {(PRESCRIBABLE_ATTENDANCE_TYPES as readonly string[]).includes(attendance.type) && (
+        <Prescriptions
+          petId={petId}
+          petName={petName}
+          attendanceId={attendance.id}
+          canPrescribe={canPrescribe}
+          canVoid={canVoid}
+        />
+      )}
 
       {attendance.notes.length > 0 && (
         <ol className="space-y-2 border-l-2 border-line pl-3">
@@ -530,5 +578,442 @@ function BeforeAfter({
       </div>
       <FormError message={erro} />
     </div>
+  )
+}
+
+/**
+ * O receituário do atendimento (MOD-DOC-04).
+ *
+ * Aparece só em atendimento veterinário, e por baixo do registro clínico — porque é
+ * consequência dele: primeiro se anota o que se viu, depois se prescreve.
+ *
+ * Três coisas que a tela precisa dizer e não são óbvias:
+ *
+ * - **não há editar.** Receituário emitido é papel entregue, e a única correção é
+ *   anular e emitir outro. O botão de anular fica ao lado do documento, e não escondido;
+ * - **o PDF pode não estar pronto.** O arquivo nasce fora da transação, então a lista
+ *   mostra "em preparo" em vez de um link morto;
+ * - **abrir é baixar.** O endereço do arquivo só é pedido no clique — é essa chamada que
+ *   entra na trilha de acesso ao documento.
+ */
+function Prescriptions({
+  petId,
+  petName,
+  attendanceId,
+  canPrescribe,
+  canVoid,
+}: {
+  petId: string
+  petName: string
+  attendanceId: string
+  canPrescribe: boolean
+  canVoid: boolean
+}) {
+  const [prescriptions, setPrescriptions] = useState<PrescriptionView[] | null>(null)
+  const [emitindo, setEmitindo] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [pendente, startTransicao] = useTransition()
+
+  useEffect(() => {
+    let ativo = true
+    void listAttendancePrescriptionsAction(attendanceId).then((lista) => {
+      if (ativo) setPrescriptions(lista)
+    })
+    return () => {
+      ativo = false
+    }
+  }, [attendanceId])
+
+  if (prescriptions === null) return <p className="hint">Carregando receituários…</p>
+
+  function abrir(id: string) {
+    setErro(null)
+    startTransicao(async () => {
+      const result = await getPrescriptionAction(id)
+      if (!result.ok) {
+        setErro(result.message)
+        return
+      }
+      setPrescriptions((atual) =>
+        (atual ?? []).map((item) => (item.id === id ? result.data : item)),
+      )
+      if (result.data.url) window.open(result.data.url, '_blank', 'noopener')
+      else setErro('O arquivo ainda está sendo gerado. Tente de novo em instantes.')
+    })
+  }
+
+  function anular(id: string, reason: string) {
+    setErro(null)
+    startTransicao(async () => {
+      const result = await voidPrescriptionAction(petId, id, reason)
+      if (result.ok) {
+        setPrescriptions((atual) =>
+          (atual ?? []).map((item) => (item.id === id ? result.data : item)),
+        )
+      } else setErro(result.message)
+    })
+  }
+
+  return (
+    <div className="space-y-2 border-t border-line pt-3">
+      <p className="hint">Receituário</p>
+
+      {prescriptions.length === 0 && (
+        <p className="hint">Nenhum receituário emitido neste atendimento.</p>
+      )}
+
+      <ul className="space-y-2">
+        {prescriptions.map((prescription) => (
+          <PrescriptionRow
+            key={prescription.id}
+            prescription={prescription}
+            canVoid={canVoid}
+            pendente={pendente}
+            onOpen={() => abrir(prescription.id)}
+            onVoid={(reason) => anular(prescription.id, reason)}
+          />
+        ))}
+      </ul>
+
+      <FormError message={erro} />
+
+      {canPrescribe && (
+        <button type="button" className="btn btn-ghost" onClick={() => setEmitindo(true)}>
+          Emitir receituário
+        </button>
+      )}
+
+      {emitindo && (
+        <PrescriptionForm
+          petId={petId}
+          petName={petName}
+          attendanceId={attendanceId}
+          onCancel={() => setEmitindo(false)}
+          onIssued={(prescription) => {
+            setPrescriptions((atual) => [prescription, ...(atual ?? [])])
+            setEmitindo(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function PrescriptionRow({
+  prescription,
+  canVoid,
+  pendente,
+  onOpen,
+  onVoid,
+}: {
+  prescription: PrescriptionView
+  canVoid: boolean
+  pendente: boolean
+  onOpen: () => void
+  onVoid: (reason: string) => void
+}) {
+  const [anulando, setAnulando] = useState(false)
+  const [motivo, setMotivo] = useState('')
+  const anulado = prescription.voidedAt !== null
+
+  return (
+    <li className={`rounded-xl border border-line px-3 py-2 ${anulado ? 'opacity-60' : ''}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className={`font-medium ${anulado ? 'line-through' : ''}`}>
+          {prescription.number || 'Sem número'}
+        </span>
+        <span className="hint">
+          {prescription.vetName} · CRMV {prescription.crmv}
+        </span>
+      </div>
+
+      <ul className="hint mt-1 space-y-0.5">
+        {prescription.items.map((item, index) => (
+          <li key={`${item.drug}-${index}`}>
+            {item.drug}
+            {item.concentration ? ` ${item.concentration}` : ''} — {item.dosage} · {item.frequency}{' '}
+            · {item.durationDays} {item.durationDays === 1 ? 'dia' : 'dias'}
+          </li>
+        ))}
+      </ul>
+
+      {anulado && prescription.voidReason && (
+        <p className="hint mt-1">Anulado: {prescription.voidReason}</p>
+      )}
+
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        {/* Depois de pedido, o endereço vira **link** e não botão: o `window.open` do
+            `onOpen` acontece depois de um `await`, e o navegador pode bloqueá-lo como
+            janela não pedida pelo usuário. O link é a saída quando isso acontece — é o
+            mesmo par que o recibo usa na ficha do tutor. */}
+        {prescription.url ? (
+          <a
+            href={prescription.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm underline decoration-line underline-offset-4 hover:decoration-fg"
+          >
+            Abrir PDF
+          </a>
+        ) : prescription.documentStatus === 'ISSUED' ? (
+          <button
+            type="button"
+            className="text-sm underline decoration-line underline-offset-4 hover:decoration-fg"
+            disabled={pendente}
+            onClick={onOpen}
+          >
+            {pendente ? 'Buscando…' : 'Abrir PDF'}
+          </button>
+        ) : (
+          <span className="hint">
+            {prescription.documentStatus === 'FAILED'
+              ? 'O arquivo não pôde ser gerado'
+              : 'Arquivo em preparo'}
+          </span>
+        )}
+
+        {canVoid && !anulado && !anulando && (
+          <button
+            type="button"
+            className="text-sm text-danger underline decoration-line underline-offset-4"
+            onClick={() => setAnulando(true)}
+          >
+            Anular
+          </button>
+        )}
+      </div>
+
+      {anulando && (
+        <div className="mt-2 space-y-2 rounded-xl border border-danger/40 bg-danger-soft px-3 py-3">
+          <p className="hint">
+            O receituário continua no histórico, riscado e com o motivo. O tutor pode já
+            ter levado o papel — anular não o traz de volta.
+          </p>
+          <textarea
+            className="field min-h-16"
+            placeholder="Por que este receituário está errado?"
+            value={motivo}
+            onChange={(event) => setMotivo(event.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn btn-accent"
+              disabled={pendente || motivo.trim().length < 5}
+              onClick={() => onVoid(motivo.trim())}
+            >
+              Confirmar anulação
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => setAnulando(false)}>
+              Voltar
+            </button>
+          </div>
+        </div>
+      )}
+    </li>
+  )
+}
+
+interface ItemDraft extends PrescriptionItem {
+  key: string
+}
+
+function novoItem(): ItemDraft {
+  return { key: crypto.randomUUID(), drug: '', dosage: '', frequency: '', durationDays: 7 }
+}
+
+/**
+ * O formulário de emissão.
+ *
+ * É `<Modal>`, e não um painel dentro do cartão: o formulário responde a **uma linha da
+ * lista** — este atendimento —, e é a regra 8 de `docs/design-formularios.md`. Aberto no
+ * cartão, ele ficaria espremido na largura de uma coluna e empurraria a linha do tempo
+ * inteira para baixo, que foi exatamente o que aquela regra veio corrigir.
+ *
+ * Os itens são linhas estruturadas, e não um campo de texto, porque é o que permite ao
+ * papel sair legível e ao sistema responder um dia "o que este pet já tomou". Um
+ * receituário digitado como parágrafo é ilegível na farmácia e opaco para o histórico.
+ */
+function PrescriptionForm({
+  petId,
+  petName,
+  attendanceId,
+  onCancel,
+  onIssued,
+}: {
+  petId: string
+  petName: string
+  attendanceId: string
+  onCancel: () => void
+  onIssued: (prescription: PrescriptionView) => void
+}) {
+  const [items, setItems] = useState<ItemDraft[]>(() => [novoItem()])
+  const [instructions, setInstructions] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, startSalvar] = useTransition()
+
+  const incompleto = items.some(
+    (item) => item.drug.trim().length < 2 || !item.dosage.trim() || !item.frequency.trim(),
+  )
+
+  function atualizar(key: string, patch: Partial<PrescriptionItem>) {
+    setItems((atual) => atual.map((item) => (item.key === key ? { ...item, ...patch } : item)))
+  }
+
+  function emitir() {
+    setErro(null)
+    startSalvar(async () => {
+      const result = await createPrescriptionAction(petId, attendanceId, {
+        // Campo a campo, e não `...rest`: o `key` do rascunho é da tela, e o schema do
+        // servidor é `strictObject` — mandá-lo junto derrubaria a emissão inteira.
+        items: items.map((item) => ({
+          drug: item.drug.trim(),
+          dosage: item.dosage.trim(),
+          frequency: item.frequency.trim(),
+          durationDays: item.durationDays,
+          ...(item.concentration?.trim() ? { concentration: item.concentration.trim() } : {}),
+        })),
+        ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
+      })
+
+      if (result.ok) onIssued(result.data)
+      else setErro(result.message)
+    })
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onCancel}
+      busy={salvando}
+      icon={<HeartPulseIcon />}
+      tone="icon-health"
+      eyebrow="Receituário"
+      title={`Prescrever para ${petName}`}
+      subtitle="Sai com o seu nome e o seu CRMV, e não pode ser editado depois de emitido — a correção é anular e emitir outro."
+      footer={
+        <>
+          <button type="button" className="btn btn-ghost" disabled={salvando} onClick={onCancel}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={salvando || incompleto}
+            onClick={emitir}
+          >
+            {salvando ? 'Emitindo…' : 'Emitir receituário'}
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        <FormError message={erro} />
+
+        {items.map((item, index) => (
+          <fieldset key={item.key}>
+            <div className="mb-2 flex items-baseline justify-between">
+              <legend className="label">Medicamento {index + 1}</legend>
+              {items.length > 1 && (
+                <button
+                  type="button"
+                  className="hint underline decoration-line underline-offset-4"
+                  onClick={() => setItems((atual) => atual.filter((row) => row.key !== item.key))}
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Princípio ativo" htmlFor={`drug-${item.key}`}>
+                <input
+                  id={`drug-${item.key}`}
+                  className="field"
+                  maxLength={120}
+                  value={item.drug}
+                  onChange={(event) => atualizar(item.key, { drug: event.target.value })}
+                />
+              </Field>
+
+              <Field label="Concentração" htmlFor={`conc-${item.key}`} hint="Opcional.">
+                <input
+                  id={`conc-${item.key}`}
+                  className="field"
+                  maxLength={60}
+                  placeholder="50 mg/mL"
+                  value={item.concentration ?? ''}
+                  onChange={(event) => atualizar(item.key, { concentration: event.target.value })}
+                />
+              </Field>
+
+              <Field label="Dose" htmlFor={`dose-${item.key}`}>
+                <input
+                  id={`dose-${item.key}`}
+                  className="field"
+                  maxLength={120}
+                  placeholder="1 comprimido"
+                  value={item.dosage}
+                  onChange={(event) => atualizar(item.key, { dosage: event.target.value })}
+                />
+              </Field>
+
+              <Field label="Frequência" htmlFor={`freq-${item.key}`}>
+                <input
+                  id={`freq-${item.key}`}
+                  className="field"
+                  maxLength={120}
+                  placeholder="a cada 12 horas"
+                  value={item.frequency}
+                  onChange={(event) => atualizar(item.key, { frequency: event.target.value })}
+                />
+              </Field>
+
+              <Field label="Duração (dias)" htmlFor={`dur-${item.key}`}>
+                <input
+                  id={`dur-${item.key}`}
+                  type="number"
+                  className="field w-28"
+                  min={1}
+                  max={365}
+                  value={item.durationDays}
+                  onChange={(event) =>
+                    atualizar(item.key, {
+                      durationDays: Math.max(1, Number(event.target.value) || 1),
+                    })
+                  }
+                />
+              </Field>
+            </div>
+          </fieldset>
+        ))}
+
+        {items.length < 20 && (
+          <div>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setItems((atual) => [...atual, novoItem()])}
+            >
+              Adicionar medicamento
+            </button>
+          </div>
+        )}
+
+        <Field
+          label="Orientações ao tutor"
+          htmlFor={`orientacoes-${attendanceId}`}
+          hint="O que vai impresso embaixo da prescrição. Quem lê é quem dá o remédio em casa."
+        >
+          <textarea
+            id={`orientacoes-${attendanceId}`}
+            className="field min-h-20"
+            maxLength={2000}
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+          />
+        </Field>
+      </div>
+    </Modal>
   )
 }

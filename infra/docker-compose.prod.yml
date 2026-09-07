@@ -255,6 +255,14 @@ services:
     environment:
       <<: *backend-env
       MEDICAL_RECORD_SERVICE_PORT: 3005
+      # MOD-DOC-04: o receituário é arquivado como qualquer documento formal. Sem
+      # bucket, a prescrição é registrada e o PDF fica pendente para o job — o
+      # `GOTENBERG_URL` já vem do bloco comum.
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_REGION: ${R2_REGION:-auto}
 
   scheduling-service:
     <<: *backend

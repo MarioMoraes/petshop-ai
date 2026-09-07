@@ -71,6 +71,33 @@ export function immutable(
   return new AppError('ERR_PRONT_006', detail)
 }
 
+/**
+ * RN-10 / RN-05 do MOD-DOC: prescrever exige registro no conselho.
+ *
+ * O código está no catálogo **desde o MOD-PRONT** e nenhuma rota conseguia levantá-lo,
+ * porque `professionals` não tinha onde guardar o CRMV. A fatia 2 do MOD-DOC dá a
+ * coluna, e é aqui que a regra passa a existir de verdade.
+ *
+ * É 403 e não 422 de propósito: não falta um campo no formulário — falta autoridade
+ * para assinar o documento.
+ */
+export function crmvRequired(
+  detail = 'Prescrição exige CRMV cadastrado no perfil do profissional',
+): AppError {
+  return new AppError('ERR_PRONT_009', detail)
+}
+
+/**
+ * Falta dado do estabelecimento para emitir documento formal (AC-02 de MOD-DOC-01).
+ *
+ * Documento com valor legal sem o endereço de quem emitiu não é documento; é papel
+ * timbrado pela metade. O corpo diz **qual** dado falta, porque quem vê a mensagem é
+ * quem pode preenchê-lo — e "dados insuficientes" sozinho vira chamado de suporte.
+ */
+export function documentDataMissing(detail: string): AppError {
+  return new AppError('ERR_DOC_002', detail)
+}
+
 export function registerErrorHandler(app: FastifyInstance): void {
   registerKitErrorHandler(app, { logger, validationError, notFound })
 }

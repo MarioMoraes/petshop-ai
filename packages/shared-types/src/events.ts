@@ -313,6 +313,7 @@ export interface PetVinculoAlteradoEvent extends BaseEvent {
 export const RECORD_ROUTING_KEYS = {
   alertaAlterado: 'prontuario.alerta.alterado',
   atendimentoAnulado: 'atendimento.anulado',
+  prescricaoEmitida: 'prescricao.emitida',
 } as const
 
 export type RecordRoutingKey = (typeof RECORD_ROUTING_KEYS)[keyof typeof RECORD_ROUTING_KEYS]
@@ -366,9 +367,30 @@ export interface AtendimentoAnuladoEvent extends BaseEvent {
   voidedBy: string | null
 }
 
+/**
+ * Um receituário foi emitido (MOD-DOC-04).
+ *
+ * O nome já estava previsto no §8 do `prontuario_04`, apontando para um
+ * `document-service` que não nasce: o consumidor mudou, o evento não. Quem escuta é o
+ * MOD-NOTIF, que manda o PDF anexo ao tutor, e a auditoria.
+ *
+ * O payload leva o `documentId` e **não** o conteúdo: posologia é sigilo profissional,
+ * e um evento é a última coisa que se quer ver num log de broker.
+ */
+export interface PrescricaoEmitidaEvent extends BaseEvent {
+  tenantId: string
+  prescriptionId: string
+  documentId: string
+  number: string
+  petId: string
+  tutorId: string
+  vetId: string
+}
+
 export interface RecordEventMap {
   'prontuario.alerta.alterado': ProntuarioAlertaAlteradoEvent
   'atendimento.anulado': AtendimentoAnuladoEvent
+  'prescricao.emitida': PrescricaoEmitidaEvent
 }
 
 export interface PetEventMap {

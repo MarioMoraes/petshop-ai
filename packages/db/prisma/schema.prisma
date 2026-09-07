@@ -900,9 +900,10 @@ model Pet {
   transfers PetTransferLog[]
   photos    PetPhoto[]
 
-  appointments Appointment[]
-  taxiRides    TaxiRide[]
-  messages     Message[]
+  appointments  Appointment[]
+  taxiRides     TaxiRide[]
+  prescriptions Prescription[]
+  messages      Message[]
 
   allergies     Allergy[]
   temperaments  Temperament[]
@@ -1248,8 +1249,9 @@ model Attendance {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  items AttendanceItem[]
-  notes AttendanceNote[]
+  items         AttendanceItem[]
+  notes         AttendanceNote[]
+  prescriptions Prescription[]
 
   pet         Pet          @relation(fields: [petId], references: [id], onDelete: Restrict)
   tutor       Tutor        @relation(fields: [tutorId], references: [id], onDelete: Restrict)
@@ -1468,6 +1470,17 @@ model Professional {
   /// Cor da coluna no painel do dia.
   color String? @db.VarChar(7)
 
+  /// Registro no conselho regional (MOD-DOC-05).
+  ///
+  /// Guardado em duas colunas e impresso como uma (`12345/SP`). Sem ele a RN-10 do
+  /// MOD-PRONT é inaplicável: `ERR_PRONT_009` estava no catálogo desde o prontuário e
+  /// nenhuma rota conseguia levantá-lo, porque não havia onde consultar o registro.
+  ///
+  /// A validação é de **forma**, nunca de existência: não há base pública consultável
+  /// do CFMV, e prometer verificação que não se faz é pior que não prometer.
+  crmv      String? @db.VarChar(20)
+  crmvState String? @map("crmv_state") @db.Char(2)
+
   /// AC-04: desligar alguém com agendamento futuro exige reatribuição antes.
   active Boolean @default(true)
 
@@ -1480,8 +1493,9 @@ model Professional {
   schedules ProfessionalSchedule[]
   blocks    CalendarBlock[]
 
-  appointments Appointment[]
-  taxiRides    TaxiRide[]
+  appointments  Appointment[]
+  taxiRides     TaxiRide[]
+  prescriptions Prescription[]
 
   @@index([tenantId, active])
   @@map("professionals")
@@ -3325,13 +3339,76 @@ model Document {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  receipt Receipt?
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receipt      Receipt?
+  prescription Prescription?
 
   @@unique([tenantId, kind, number], map: "idx_documents_number")
   @@index([tenantId, kind, issuedAt(sort: Desc)], map: "idx_documents_tenant_kind")
   @@index([tenantId, tutorId, issuedAt(sort: Desc)], map: "idx_documents_tenant_tutor")
   @@map("documents")
+}
+
+/// O receituário veterinário (MOD-DOC-04, fecha o MOD-PRONT-07).
+///
+/// É o documento mais delicado do sistema: erra a dosagem e mata o animal, sai sem
+/// CRMV e expõe o profissional, muda depois de emitido e deixa de ser prova. Daí as
+/// três decisões que a tabela carrega.
+///
+/// **Não há UPDATE de conteúdo.** Nenhuma rota edita `items_encrypted` — a janela de
+/// 24h que a RN-05 do MOD-PRONT concede ao atendimento vale para o registro clínico,
+/// **não** para o papel que saiu pela porta. Corrigir é anular e emitir outra, e a
+/// anulada continua visível com o motivo.
+///
+/// **O CRMV é snapshot.** O prescritor que corrigir o próprio registro amanhã não
+/// reescreve o que já imprimiu (AC-03 de MOD-DOC-05) — e o job de reprocesso, que pode
+/// renderizar o PDF dias depois, precisa imprimir o que era verdade no dia.
+///
+/// O número e o arquivo moram em `documents`: aqui fica só o que é da prescrição.
+model Prescription {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  petId        String @map("pet_id") @db.Uuid
+  attendanceId String @map("attendance_id") @db.Uuid
+
+  /// `professionals.id` do prescritor — quem assina, e não quem conduziu o
+  /// atendimento: são a mesma pessoa no caminho normal e podem não ser no encaixe.
+  vetId String @map("vet_id") @db.Uuid
+  /// Snapshot do registro no dia, na forma impressa: `12345/SP`.
+  crmv  String @map("crmv") @db.VarChar(20)
+
+  /// JSON dos itens, cifrado com a DEK do tenant. Sigilo profissional veterinário
+  /// (Res. CFMV 1.138/2016) — a mesma justificativa do `observations_encrypted`.
+  itemsEncrypted        String  @map("items_encrypted")
+  /// Orientações ao tutor. Cifradas pelo mesmo motivo.
+  instructionsEncrypted String? @map("instructions_encrypted")
+
+  /// O PDF. Nulo é impossível na prática — a linha nasce junto do documento, na mesma
+  /// transação —, e opcional no schema porque a FK é `Restrict`: apagar o documento
+  /// não pode deixar a prescrição órfã em silêncio.
+  documentId String? @unique @map("document_id") @db.Uuid
+
+  issuedAt DateTime @map("issued_at") @db.Timestamptz(6)
+
+  /// Anulação. O motivo é obrigatório quando há data — anulação sem motivo é
+  /// exclusão disfarçada, a mesma regra do atendimento.
+  voidedAt   DateTime? @map("voided_at") @db.Timestamptz(6)
+  voidReason String?   @map("void_reason")
+  voidedBy   String?   @map("voided_by") @db.Uuid
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet        Pet          @relation(fields: [petId], references: [id], onDelete: Restrict)
+  attendance Attendance   @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  vet        Professional @relation(fields: [vetId], references: [id], onDelete: Restrict)
+  document   Document?    @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, petId, issuedAt(sort: Desc)], map: "idx_prescriptions_tenant_pet")
+  @@index([tenantId, attendanceId], map: "idx_prescriptions_tenant_attendance")
+  @@map("prescriptions")
 }
 
 /// Contador por tenant, tipo e ano (RN-16).

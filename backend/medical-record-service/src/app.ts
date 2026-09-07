@@ -5,6 +5,7 @@ import { registerAuthContext } from './auth/context.js'
 import { registerErrorHandler } from './lib/errors.js'
 import { logger, loggerOptions } from './lib/logger.js'
 import { registerAttendanceRoutes } from './modules/attendances/routes.js'
+import { registerPrescriptionRoutes } from './modules/prescriptions/routes.js'
 import { registerRecordRoutes } from './modules/records/routes.js'
 
 /**
@@ -38,6 +39,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await registerRecordRoutes(app)
   await registerAttendanceRoutes(app)
+  await registerPrescriptionRoutes(app)
 
   return app
 }

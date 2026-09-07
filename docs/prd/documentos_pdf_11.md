@@ -131,6 +131,14 @@
 
 > Fecha o **MOD-PRONT-07**, que ficou de fora do prontuário justamente por depender deste módulo. O receituário é o documento mais delicado do sistema: erra a dosagem e mata o animal, sai sem CRMV e expõe o profissional, muda depois de emitido e deixa de ser prova.
 
+> **Como ficou, na implementação da fatia 2 (2026-09-08):** três decisões que o PRD não previa e o código precisou tomar.
+>
+> **Quem assina é quem está logado**, e não o `performed_by` do atendimento. O prescritor é o profissional cujo `professionals.user_id` é o usuário autenticado; sem esse vínculo, `403 ERR_PRONT_009`. São a mesma pessoa no caminho normal, e a diferença importa justamente quando não são — um receituário emitido pelo balcão em nome do veterinário que não está na sala é prova falsa, e `record:write` sozinho não distingue os dois.
+>
+> **`/v1/prescriptions/:id/pdf` com 302 não nasce.** O gateway encaminha com `fetch` e `redirect: 'follow'`: o 302 seria consumido lá dentro e os bytes do arquivo voltariam pela rede interna — exatamente o que a URL assinada existe para evitar. O endereço desce no corpo do `GET /v1/prescriptions/:id`, como o recibo já fazia desde o MOD-LEDGER, e é **essa** chamada que a trilha do §9 registra como download. A listagem não assina nada: abrir a aba do pet não é baixar o receituário dele.
+>
+> **Não há PATCH.** A ausência da rota é a regra do AC-04; o 409 `ERR_PRONT_006` que resta é o da segunda anulação.
+
 **AC-01 (Happy Path)**
 - **Dado** um atendimento do tipo veterinário, conduzido por um profissional com CRMV cadastrado
 - **Quando** o veterinário emite a prescrição com um ou mais itens (`{ drug, concentration, dosage, frequency, durationDays }`) e orientações ao tutor
@@ -169,6 +177,10 @@
 - **Dado** um CRMV fora do formato `{número}/{UF}` com UF válida
 - **Quando** submete
 - **Então** **422** `ERR_IDENT_002`. A validação é de forma, não de existência: não há base pública consultável do CFMV, e prometer verificação que não se faz é pior que não prometer
+
+> **Divergência consciente da fatia 2:** o código emitido é `ERR_AGENDA_002`, e não `ERR_IDENT_002`. O campo é do profissional, o profissional é da agenda, e o `scheduling-service` responde pelo próprio catálogo de erro — um serviço que emitisse o código de outro obrigaria quem lê o log a saber de cor qual módulo emprestou qual prefixo. Os dois são 422 e a mensagem é a mesma.
+>
+> São **duas** colunas (`crmv` e `crmv_state`) e **um** campo impresso (`12345/SP`): número sem UF não identifica ninguém, e é o par que o servidor exige — a checagem é sobre o resultado, não sobre o corpo do PATCH, para que mandar só a UF sobre um cadastro que já tem o número continue valendo.
 
 **AC-03 (Edge Case — CRMV alterado depois de prescrições emitidas)**
 - **Dado** um profissional que corrigiu o próprio CRMV
