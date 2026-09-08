@@ -43,7 +43,12 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
    * domínio. O BFF pergunta o preço, pergunta se há motorista e pede a corrida — as três
    * são operações que o taxidog-service já expunha ao balcão.
    */
-  TAXIDOG_SERVICE_URL: z.string().url().default('http://localhost:3008'),
+  /**
+   * O Taxi Dog virou módulo do backend (porta 3000) e não tem mais porta própria.
+   * A chamada continua sendo HTTP com contexto assinado — o que mudou foi o destino.
+   * Ver a consolidação no `CLAUDE.md`.
+   */
+  TAXIDOG_SERVICE_URL: z.string().url().default('http://localhost:3000'),
 
   /**
    * O serviço de tutores, para **gravar** a preferência de comunicação (MOD-PORTAL-10).

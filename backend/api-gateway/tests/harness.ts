@@ -25,11 +25,21 @@ const { useTestDatabase, createOwnerClient, truncateBusinessTables } = await imp
 type OwnerClient = import('@petshop/db').PrismaClient
 useTestDatabase()
 
+// Broker, agendador e cache ficam fora: os testes verificam o efeito no banco, e
+// subir RabbitMQ/Redis por teste só adicionaria intermitência.
+//
+// **Sem Redis, o rate limit do site libera todo envio** (`withinRateLimit` degrada
+// aberto de propósito: lead perdido é cliente perdido). O teste do 429 liga um dublê.
+process.env.DISABLE_EVENTS = 'true'
+process.env.DISABLE_JOBS = 'true'
 process.env.DISABLE_REDIS = 'true'
 process.env.NODE_ENV = 'test'
 process.env.CLERK_SECRET_KEY ||= 'sk_test_harness'
 
 export const ownerPrisma: OwnerClient = createOwnerClient()
+
+const { setStoragePort } = await import('../src/shared/storage.js')
+const { clearTenantKeyCache } = await import('@petshop/db')
 
 // ─── Serviço de destino falso ────────────────────────────────────────────────
 
@@ -76,7 +86,15 @@ async function startUpstream(): Promise<string> {
 
 let gateway: FastifyInstance | null = null
 
-export async function getGateway(): Promise<FastifyInstance> {
+/**
+ * O app do processo — gateway e módulos juntos.
+ *
+ * Sobe o app de verdade: os escopos do Fastify, o handler de erro, o RLS e o banco. A
+ * separação entre superfície pública e administrativa **só existe na montagem do
+ * app**; um harness que chamasse as funções de módulo direto não provaria nada sobre
+ * ela.
+ */
+export async function getApp(): Promise<FastifyInstance> {
   if (gateway) return gateway
   // Todos os serviços apontam para o mesmo eco: o que está sob teste é o roteamento
   // e a assinatura do contexto, não quem responde do outro lado.
@@ -89,7 +107,7 @@ export async function getGateway(): Promise<FastifyInstance> {
   process.env.BILLING_LEDGER_SERVICE_URL = upstreamAddress
   process.env.PORTAL_BFF_URL = upstreamAddress
 
-  const { resetEnvCache } = await import('../src/env.js')
+  const { resetEnvCache } = await import('../src/config/env.js')
   resetEnvCache()
 
   const { buildApp } = await import('../src/app.js')
@@ -98,18 +116,23 @@ export async function getGateway(): Promise<FastifyInstance> {
   return gateway
 }
 
+/** Nome antigo, mantido para a suíte de encaminhamento. */
+export const getGateway = getApp
+
 export async function closeHarness(): Promise<void> {
   await gateway?.close()
   await upstream?.close()
   gateway = null
   upstream = null
   upstreamUrl = ''
+  setStoragePort(null)
   const { disconnectPrisma } = await import('@petshop/db')
   await Promise.all([ownerPrisma.$disconnect(), disconnectPrisma()])
 }
 
 export async function resetDatabase(): Promise<void> {
   await truncateBusinessTables(ownerPrisma)
+  clearTenantKeyCache()
   echoed.length = 0
 }
 
@@ -220,4 +243,121 @@ export function lastEchoed(): EchoedRequest {
   const last = echoed.at(-1)
   if (!last) throw new Error('nenhuma requisição chegou ao serviço de destino')
   return last
+}
+
+
+/** Storage em memória: o upload é exercitado de ponta a ponta, sem bucket. */
+export function useMemoryStorage(): Map<string, { body: Buffer; contentType: string }> {
+  const objects = new Map<string, { body: Buffer; contentType: string }>()
+  setStoragePort({
+    async put(key, body, contentType) {
+      objects.set(key, { body, contentType })
+    },
+    async read(key) {
+      return objects.get(key) ?? null
+    },
+    async remove(keys) {
+      for (const key of keys) objects.delete(key)
+    },
+  })
+  return objects
+}
+
+// ─── Chamadas ────────────────────────────────────────────────────────────────
+
+/**
+ * Quem chama, do ponto de vista do processo consolidado.
+ *
+ * **Deixou de ser um contexto montado à mão.** Enquanto o site era um serviço, o
+ * harness assinava um `ServiceAuthContext` com a lista exata de permissões que o teste
+ * queria exercitar. Agora a identidade entra pela mesma porta da produção: um token, o
+ * membership no banco e a matriz de papéis resolvendo as permissões. O teste ficou mais
+ * caro de montar e passou a provar também que o papel concede o que o §9 diz que
+ * concede.
+ */
+/** O mínimo que um cenário precisa expor para montar um chamador. */
+export interface TenantRef {
+  tenantId: string
+  clerkOrgId: string
+}
+
+export interface Caller {
+  clerkUserId: string
+  clerkOrgId: string
+}
+
+export interface InjectOptions extends Caller {
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
+  url: string
+  payload?: unknown
+  headers?: Record<string, string>
+}
+
+/**
+ * Os headers de uma chamada autenticada.
+ *
+ * Um `Authorization: Bearer` de verdade, com o token registrado no verificador falso —
+ * onde antes iam os seis headers assinados com HMAC do contrato gateway→serviço.
+ */
+export function authHeaders(caller: Caller): Record<string, string> {
+  const token = givenToken({ clerkUserId: caller.clerkUserId, clerkOrgId: caller.clerkOrgId })
+  return { authorization: `Bearer ${token}` }
+}
+
+/** Chamada autenticada, como o Admin a faz. */
+export async function callApi(options: InjectOptions) {
+  const instance = await getApp()
+  return instance.inject({
+    method: options.method,
+    url: options.url,
+    headers: { ...authHeaders(options), ...options.headers },
+    ...(options.payload !== undefined ? { payload: options.payload as object } : {}),
+  })
+}
+
+/** Chamada **anônima**, como o Next a faz ao renderizar a página. */
+export async function callPublic(options: {
+  method: 'GET' | 'POST'
+  url: string
+  payload?: unknown
+  headers?: Record<string, string>
+}) {
+  const instance = await getApp()
+  return instance.inject({
+    method: options.method,
+    url: options.url,
+    ...(options.headers ? { headers: options.headers } : {}),
+    ...(options.payload !== undefined ? { payload: options.payload as object } : {}),
+  })
+}
+
+/**
+ * Um membro novo do tenant, com o papel pedido.
+ *
+ * As permissões saem da matriz do MOD-IDENT-04, e não de uma lista escrita no teste —
+ * é o que faz "quem tosa não vê a fila de contatos" continuar verdadeiro quando a
+ * matriz mudar, em vez de continuar passando contra uma lista congelada.
+ */
+export async function asRole(fixture: TenantRef, roleKey: string): Promise<Caller> {
+  const { clerkUserId } = await seedMember(fixture.tenantId, roleKey)
+  return { clerkUserId, clerkOrgId: fixture.clerkOrgId }
+}
+
+/**
+ * Revoga uma permissão de um papel **neste tenant** (`tenant_role_overrides`).
+ *
+ * É o mecanismo do MOD-IDENT-04 para ajustar a matriz padrão, e a única forma honesta
+ * de montar um cenário que a matriz não produz sozinha — como uma recepção que vê a
+ * fila de contatos mas não abre ficha de tutor. Antes da consolidação o teste
+ * escrevia a lista de permissões à mão; agora monta a configuração de verdade que
+ * levaria àquele contexto.
+ */
+export async function revokePermission(
+  fixture: TenantRef,
+  roleKey: string,
+  permissionKey: string,
+): Promise<void> {
+  await ownerPrisma.tenantRoleOverride.create({
+    data: { tenantId: fixture.tenantId, roleKey, permissionKey, granted: false },
+  })
 }

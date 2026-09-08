@@ -128,7 +128,9 @@ describe('o cliente de manutenção (BYPASSRLS) não escreve fora de platform.ts
   it('encontra os arquivos para varrer', () => {
     // Uma varredura que não acha nada passaria vazia e daria falsa segurança.
     expect(files.length).toBeGreaterThan(100)
-    expect(files.some((f) => f.includes('tenant-site-service'))).toBe(true)
+    // Um caminho de módulo, e não de serviço: a consolidação move os serviços para
+    // dentro do backend único, e a âncora precisa sobreviver a isso.
+    expect(files.some((f) => f.includes(join('modules', 'site')))).toBe(true)
   })
 
   it('nenhum módulo grava com o cliente de manutenção', () => {

@@ -12,7 +12,7 @@ import {
   seedTenant,
 } from './harness.js'
 
-/** api-gateway — autenticação, resolução de tenant e propagação de contexto. */
+/** O backend — autenticação, resolução de tenant e propagação de contexto. */
 
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET!
 
@@ -55,7 +55,9 @@ describe('autenticação', () => {
   it('deixa /health passar sem token', async () => {
     const response = await call({ url: '/health' })
     expect(response.statusCode).toBe(200)
-    expect(response.json().service).toBe('api-gateway')
+    // `petshop-app`, e não `api-gateway`: o processo deixou de ser só um gateway
+    // quando passou a hospedar módulo. Ver a consolidação no CLAUDE.md.
+    expect(response.json().service).toBe('petshop-app')
   })
 
   it('roteia /v1/tutors para o tutor-service com o contexto assinado', async () => {
@@ -391,7 +393,7 @@ describe('RN-04 — tenant suspenso', () => {
 describe('resolveTarget — a que serviço cada rota pertence', () => {
   it('manda o financeiro para o billing-ledger-service', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/env.js')
+    const { loadEnv } = await import('../src/config/env.js')
     const ledger = loadEnv().BILLING_LEDGER_SERVICE_URL
 
     for (const path of [
@@ -409,7 +411,7 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
 
   it('os pacotes do tutor vencem o prefixo de tutores', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/env.js')
+    const { loadEnv } = await import('../src/config/env.js')
     const env = loadEnv()
 
     // A checagem por sufixo precisa vir antes de `TUTOR_PREFIXES`; senão esta rota
@@ -422,14 +424,14 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
 
   it('`/v1/services` continua sendo da agenda, não do catálogo de pacotes', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/env.js')
+    const { loadEnv } = await import('../src/config/env.js')
 
     expect(resolveTarget('/v1/services')).toBe(loadEnv().SCHEDULING_SERVICE_URL)
   })
 
   it('o prontuário vence o prefixo de pets, inclusive na linha do tempo e no resumo', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/env.js')
+    const { loadEnv } = await import('../src/config/env.js')
     const env = loadEnv()
 
     for (const suffix of [
@@ -450,7 +452,7 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
 
   it('o atendimento é do prontuário; o agendamento, da agenda', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/env.js')
+    const { loadEnv } = await import('../src/config/env.js')
     const env = loadEnv()
 
     expect(resolveTarget('/v1/attendances')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
@@ -591,7 +593,7 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
 
   it('o prefixo do Portal vai para o portal-bff, e nada mais vai', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/env.js')
+    const { loadEnv } = await import('../src/config/env.js')
     const env = loadEnv()
 
     expect(resolveTarget('/portal/v1/me')).toBe(env.PORTAL_BFF_URL)

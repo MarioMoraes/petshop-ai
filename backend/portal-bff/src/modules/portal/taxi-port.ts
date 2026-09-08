@@ -13,7 +13,12 @@ import { logger } from '../../lib/logger.js'
 import { upstreamUnavailable } from '../../lib/errors.js'
 
 /**
- * A porta para o taxidog-service (MOD-PORTAL-07).
+ * A porta para o Taxi Dog (MOD-PORTAL-07).
+ *
+ * O Taxi Dog virou módulo do backend na consolidação e não tem mais porta própria:
+ * `TAXIDOG_SERVICE_URL` aponta para o gateway, que reconhece o contexto assinado numa
+ * porta interna e entrega ao módulo. O contrato desta porta não mudou — só o destino.
+ * Quando o `portal-bff` migrar, ela vira chamada de função e este arquivo some.
  *
  * **Por que HTTP, se o BFF lê o banco direto no resto do módulo.** É a mesma linha de
  * corte da `scheduling-port`: ler é escolher um recorte, pedir uma corrida é aplicar
@@ -120,7 +125,7 @@ function createHttpPort(): TaxiPort {
         signal: controller.signal,
       })
     } catch (error) {
-      logger.error({ err: error, path }, 'falha ao falar com o taxidog-service')
+      logger.error({ err: error, path }, 'falha ao falar com o módulo do Taxi Dog')
       throw upstreamUnavailable()
     } finally {
       clearTimeout(timeout)

@@ -40,10 +40,11 @@ x-backend: &backend
     MEDICAL_RECORD_SERVICE_URL: http://medical-record-service:3005
     SCHEDULING_SERVICE_URL: http://scheduling-service:3006
     BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
-    TAXIDOG_SERVICE_URL: http://taxidog-service:3008
     CRM_AUTOMATION_SERVICE_URL: http://crm-automation-service:3009
     MESSAGING_SERVICE_URL: http://messaging-service:3010
-    SITE_SERVICE_URL: http://tenant-site-service:3013
+    # O Taxi Dog é módulo do gateway desde a consolidação; quem ainda o chama
+    # por HTTP é o portal-bff (MOD-PORTAL-07), com contexto assinado.
+    TAXIDOG_SERVICE_URL: http://api-gateway:3000
     PORTAL_BFF_URL: http://portal-bff:3020
     # O site é rota do Next: o serviço precisa alcançá-lo para invalidar a página de
     # um tenant quando o horário ou o catálogo mudam (AC-03 de MOD-SITE-11).
@@ -206,6 +207,12 @@ services:
       # Origens exatas: o `@clerk/backend` compara com `includes(azp)`, sem curinga.
       # Ver o comentário longo em `docker-compose.swarm.yml`.
       CLERK_AUTHORIZED_PARTIES: https://app.${APP_DOMAIN},https://${APP_DOMAIN}
+      # MOD-SITE: a galeria do site do estabelecimento, no mesmo bucket do álbum do
+      # pet, em prefixo próprio. Vieram com o módulo na consolidação.
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-petshop-media}
     healthcheck:
       test: ['CMD', 'curl', '-sf', 'http://localhost:3000/health']
       interval: 30s
@@ -278,12 +285,6 @@ services:
       <<: *backend-env
       BILLING_LEDGER_SERVICE_PORT: 3007
 
-  taxidog-service:
-    <<: *backend
-    command: ['node', 'backend/taxidog-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      TAXIDOG_SERVICE_PORT: 3008
 
   crm-automation-service:
     <<: *backend
@@ -315,16 +316,6 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET: ${R2_BUCKET:-petshop-media}
 
-  tenant-site-service:
-    <<: *backend
-    command: ['node', 'backend/tenant-site-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      SITE_SERVICE_PORT: 3013
-      R2_ENDPOINT: ${R2_ENDPOINT:-}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
-      R2_BUCKET: ${R2_BUCKET:-petshop-media}
 
   # O Portal do Tutor (MOD-PORTAL). Porta 3020, fora do bloco 3009-3013: é superfície
   # de outro público, e não mais um serviço de domínio.

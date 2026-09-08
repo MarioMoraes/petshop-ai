@@ -56,10 +56,8 @@ RUN pnpm build --concurrency=2 \
       --filter="@petshop/medical-record-service" \
       --filter="@petshop/scheduling-service" \
       --filter="@petshop/billing-ledger-service" \
-      --filter="@petshop/taxidog-service" \
       --filter="@petshop/crm-automation-service" \
       --filter="@petshop/messaging-service" \
-      --filter="@petshop/tenant-site-service" \
       --filter="@petshop/portal-bff" \
       --filter="@petshop/api-client"
 

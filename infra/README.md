@@ -67,11 +67,16 @@ salvo continua funcionando). A raiz `/` e tudo o mais no host do tenant são o *
 petshop**, servido por reescrita interna para `/s/{slug}` — o visitante nunca vê esse
 caminho, e pedi-lo diretamente é 404 em qualquer host.
 
-O site precisa de mais três variáveis no container do `tenant-site-service` e do
-frontend: `SITE_SERVICE_URL`, `FRONTEND_INTERNAL_URL` e `SITE_REVALIDATE_SECRET` — a
-última é o que impede qualquer um na rede interna de forçar re-render de todos os sites
-em laço. Sem `FRONTEND_INTERNAL_URL` a página continua servindo, só que atualizada pelo
-TTL de dez minutos em vez de na hora.
+O site precisa de mais duas variáveis no backend: `FRONTEND_INTERNAL_URL` e
+`SITE_REVALIDATE_SECRET` — a última é o que impede qualquer um na rede interna de forçar
+re-render de todos os sites em laço. Sem `FRONTEND_INTERNAL_URL` a página continua
+servindo, só que atualizada pelo TTL de dez minutos em vez de na hora.
+
+O frontend fala com o site pelo mesmo `API_URL` de todo o resto, no prefixo `/public/`.
+Havia uma terceira variável, `SITE_SERVICE_URL`, de quando o site era um serviço à parte
+— e **nenhum compose a entregava ao frontend**, então em container a página pública caía
+no padrão `localhost:3013` e não respondia. A consolidação do módulo tirou a variável e o
+defeito junto.
 
 ### `APP_DOMAIN` sob um domínio já existente
 

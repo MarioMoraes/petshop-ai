@@ -6,19 +6,23 @@ import {
 } from '@petshop/shared-types'
 
 /**
- * O cliente do `tenant-site-service`, para o SSR da página pública.
+ * O cliente do módulo do site, para o SSR da página pública.
  *
- * **Não passa pelo gateway**, ao contrário de `lib/api.ts`. O gateway existe para
- * validar a sessão do Clerk e assinar o contexto para os serviços; a página do petshop
- * não tem sessão nenhuma para validar, e abrir no gateway um ramo anônimo publicaria a
- * API interna para o mundo. Quem fala com o serviço é o Next, pela rede interna, e o
- * browser nunca o alcança.
+ * Fala com o backend no mesmo endereço de `lib/api.ts`, no prefixo `/public/` — o ramo
+ * anônimo, o único que responde sem sessão. Enquanto o site era um serviço à parte,
+ * este cliente batia direto na porta dele para não abrir um ramo anônimo no gateway; a
+ * consolidação tirou a porta separada, e o que protege a API continua sendo a mesma
+ * coisa de sempre: **o backend não é publicado**. A borda (`infra/Caddyfile`) só
+ * encaminha para o Next, e nem o gateway nem o módulo alcançam a internet.
+ *
+ * Não é `NEXT_PUBLIC_`, pela razão de `lib/api.ts`: quem chama é o servidor do Next,
+ * pela rede interna, e o browser nunca vê este endereço.
  *
  * O `slug` viaja na querystring porque é o que a borda resolveu do host — e não um
  * header que o cliente pudesse forjar.
  */
 
-const baseUrl = process.env.SITE_SERVICE_URL ?? 'http://localhost:3013'
+const baseUrl = process.env.API_URL ?? 'http://localhost:3000'
 
 /** Distingue "não existe" de "o serviço caiu" — a página trata as duas diferente. */
 export class SiteNotFoundError extends Error {}

@@ -42,6 +42,12 @@ petshop-ai/
 
 ## 2. Decomposição em Microserviços
 
+> **Como ler esta tabela.** Ela descreve o alvo, não o repositório. A implementação
+> está sendo consolidada num **monólito modular** — um backend deployable, com as
+> mesmas fronteiras — para que cada módulo possa voltar a ser serviço sem reescrever a
+> lógica. Ver a seção "Backend — a consolidação em andamento" do `CLAUDE.md`. Traduza
+> "serviço X" para `backend/api-gateway/src/modules/X` quando o módulo já migrou.
+
 | Serviço | Responsabilidade | Módulo PRD relacionado |
 |---|---|---|
 | **identity-service** | Tenants, usuários, papéis (RBAC), integração Clerk | 7.1 |

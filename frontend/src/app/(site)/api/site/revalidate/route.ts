@@ -5,7 +5,7 @@ import { siteTag } from '@/lib/site-api'
 /**
  * A revalidação sob demanda (AC-03 de MOD-SITE-11).
  *
- * Quem chama é o `tenant-site-service`, ao publicar, despublicar ou receber
+ * Quem chama é o módulo do site no backend, ao publicar, despublicar ou receber
  * `tenant.configuracao.atualizada` / `agenda.servico.alterado`. Sem isto, o horário
  * corrigido às 9h apareceria ao meio-dia, pelo TTL.
  *

@@ -69,10 +69,11 @@ x-backend: &backend
     MEDICAL_RECORD_SERVICE_URL: http://medical-record-service:3005
     SCHEDULING_SERVICE_URL: http://scheduling-service:3006
     BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
-    TAXIDOG_SERVICE_URL: http://taxidog-service:3008
     CRM_AUTOMATION_SERVICE_URL: http://crm-automation-service:3009
     MESSAGING_SERVICE_URL: http://messaging-service:3010
-    SITE_SERVICE_URL: http://tenant-site-service:3013
+    # O Taxi Dog é módulo do gateway desde a consolidação; quem ainda o chama
+    # por HTTP é o portal-bff (MOD-PORTAL-07), com contexto assinado.
+    TAXIDOG_SERVICE_URL: http://api-gateway:3000
     PORTAL_BFF_URL: http://portal-bff:3020
     FRONTEND_INTERNAL_URL: http://frontend:3002
     SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET}
@@ -304,6 +305,12 @@ services:
       # requisição e o acrescenta à lista daquela verificação (`portalAuthorizedParty`
       # em `app.ts`). É mais estreito que um curinga, não mais largo.
       CLERK_AUTHORIZED_PARTIES: https://app.${APP_DOMAIN:?},https://${APP_DOMAIN}
+      # MOD-SITE: a galeria do site do estabelecimento, no mesmo bucket do álbum do
+      # pet, em prefixo próprio. Vieram com o módulo na consolidação.
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-petshop-media}
     healthcheck: &hc-gateway
       test: ['CMD-SHELL', 'curl -sf http://localhost:3000/health || exit 1']
       interval: 20s
@@ -416,16 +423,6 @@ services:
       <<: *hc-gateway
       test: ['CMD-SHELL', 'curl -sf http://localhost:3007/health || exit 1']
 
-  taxidog-service:
-    <<: *backend
-    command:
-      ['/app/infra/swarm/aguardar-migracao.sh', 'node', 'backend/taxidog-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      TAXIDOG_SERVICE_PORT: 3008
-    healthcheck:
-      <<: *hc-gateway
-      test: ['CMD-SHELL', 'curl -sf http://localhost:3008/health || exit 1']
 
   crm-automation-service:
     <<: *backend
@@ -474,24 +471,6 @@ services:
       <<: *hc-gateway
       test: ['CMD-SHELL', 'curl -sf http://localhost:3010/health || exit 1']
 
-  tenant-site-service:
-    <<: *backend
-    command:
-      [
-        '/app/infra/swarm/aguardar-migracao.sh',
-        'node',
-        'backend/tenant-site-service/dist/src/server.js',
-      ]
-    environment:
-      <<: *backend-env
-      SITE_SERVICE_PORT: 3013
-      R2_ENDPOINT: ${R2_ENDPOINT:-}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
-      R2_BUCKET: ${R2_BUCKET:-petshop-media}
-    healthcheck:
-      <<: *hc-gateway
-      test: ['CMD-SHELL', 'curl -sf http://localhost:3013/health || exit 1']
 
   # O Portal do Tutor (MOD-PORTAL). Porta 3020, fora do bloco 3009-3013: é superfície
   # de outro público, e não mais um serviço de domínio. Sem `ports`: quem o alcança é o

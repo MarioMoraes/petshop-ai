@@ -1,8 +1,8 @@
 import { createPublicKey } from 'node:crypto'
 import { verifyToken } from '@clerk/backend'
-import { listFromEnv, loadEnv } from '../env.js'
-import { logger } from '../lib/logger.js'
-import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../lib/redis.js'
+import { listFromEnv, loadEnv } from '../config/env.js'
+import { logger } from '../shared/logger.js'
+import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../shared/redis.js'
 
 /**
  * Verificação do JWT de sessão do Clerk.

@@ -2,30 +2,38 @@ import { randomUUID } from 'node:crypto'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import { getPrisma, setDbLogger } from '@petshop/db'
-import {
-  AppError,
-  MAX_PHOTOS_PER_UPLOAD,
-  MAX_PHOTO_BYTES,
-  toProblemDetails,
-} from '@petshop/shared-types'
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
+import { verifyServiceHeaders, type ServiceAuthContext } from '@petshop/service-auth'
+import { AppError, MAX_PHOTOS_PER_UPLOAD, MAX_PHOTO_BYTES } from '@petshop/shared-types'
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
 import { InvalidTokenError, verifySessionToken } from './auth/clerk-token.js'
 import { resolvePortalSession, resolvePortalTenant } from './auth/portal-session.js'
 import { resolveSession } from './auth/session.js'
-import { listFromEnv, loadEnv } from './env.js'
-import { logger, loggerOptions } from './lib/logger.js'
+import { listFromEnv, loadEnv } from './config/env.js'
+import { registerModules } from './gateway/routes.js'
+import { registerErrorHandler } from './shared/errors.js'
+import { logger, loggerOptions } from './shared/logger.js'
 import { isPortalPath, proxyRequest, resolveTarget } from './proxy.js'
 
 /**
- * api-gateway (porta 3000, SPEC §2).
+ * O backend (porta 3000, SPEC §2).
  *
  * Ponto único de entrada: valida o token do Clerk, resolve tenant e permissões,
- * aplica rate limit e o gate de tenant suspenso, e encaminha aos serviços com o
- * contexto assinado.
+ * aplica rate limit e o gate de tenant suspenso. O que já é módulo deste processo é
+ * atendido aqui mesmo; o que ainda não migrou segue ao serviço com o contexto
+ * assinado.
  */
 
-const PROBLEM_CONTENT_TYPE = 'application/problem+json'
 const PUBLIC_PATHS = new Set(['/health', '/ready'])
+
+/**
+ * A superfície anônima dos módulos.
+ *
+ * O prefixo é a fronteira, e é dela que depende o site do estabelecimento responder a
+ * quem nunca se identificou. Vale para **prefixo inteiro**, então uma rota nova sob
+ * `/public/` nasce aberta — é o preço de ter a fronteira legível, e a razão de o
+ * escopo autenticado de `gateway/routes.ts` ser o padrão e este a exceção declarada.
+ */
+const PUBLIC_PREFIX = '/public/'
 
 /**
  * O header pelo qual o Next diz de que petshop o Portal está falando.
@@ -54,25 +62,6 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   setDbLogger({ error: (payload, message) => logger.error(payload, message) })
 
-  /**
-   * Corpo binário passa direto (MOD-PET-04).
-   *
-   * O gateway não interpreta upload: ele bufferiza os bytes e repassa. Registrar o
-   * `@fastify/multipart` aqui obrigaria a remontar o multipart do outro lado, com
-   * outro `boundary` — trabalho para chegar ao mesmo lugar, e uma chance a mais de
-   * corromper o arquivo no caminho.
-   *
-   * O teto é o do arquivo mais folga para o envelope multipart e os metadados; quem
-   * recusa de verdade, com a mensagem do AC-02, é o pet-service.
-   */
-  app.addContentTypeParser(
-    'multipart/form-data',
-    { parseAs: 'buffer', bodyLimit: MAX_PHOTO_BYTES * MAX_PHOTOS_PER_UPLOAD + 1_048_576 },
-    (_request, body, done) => {
-      done(null, body)
-    },
-  )
-
   // SPEC §7.4 — CORS restritivo por domínio, nunca `*` com credenciais.
   await app.register(cors, {
     origin: listFromEnv(env.CORS_ORIGINS),
@@ -84,6 +73,19 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(rateLimit, {
     max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW_MS,
+    /**
+     * A superfície anônima fica **fora** deste balde, e a razão é o formato do
+     * tráfego: em produção quem chama `/public/` é sempre o servidor do Next, pela
+     * rede interna, com um IP só. Um balde por IP juntaria o site de todos os tenants
+     * num teto comum — e um visitante abusivo derrubaria a página dos outros.
+     *
+     * Quem defende essa superfície é o módulo, com o recorte certo: leitura fica em
+     * cache no Next (dez minutos a página, uma hora a foto), e o envio do formulário,
+     * único caminho anônimo de escrita, tem teto por tenant **e por IP do visitante** —
+     * que é o IP que a Server Action repassa, não o do container.
+     */
+    allowList: (request: FastifyRequest) =>
+      (request.url.split('?')[0] ?? '').startsWith(PUBLIC_PREFIX),
     keyGenerator: (request: FastifyRequest) => {
       const tenantId = request.authContext?.tenantId
       const userId = request.authContext?.clerkUserId
@@ -102,11 +104,15 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   app.addHook('onRequest', async (request: FastifyRequest) => {
     const path = request.url.split('?')[0] ?? ''
-    if (PUBLIC_PATHS.has(path) || request.method === 'OPTIONS') return
+    if (PUBLIC_PATHS.has(path) || path.startsWith(PUBLIC_PREFIX)) return
+    if (request.method === 'OPTIONS') return
 
-    const context = isPortalPath(path)
-      ? await resolvePortalRequest(request, path)
-      : await resolveAdminRequest(request, path)
+    const internal = resolveInternalRequest(request)
+    const context = internal
+      ? internal
+      : isPortalPath(path)
+        ? await resolvePortalRequest(request, path)
+        : await resolveAdminRequest(request, path)
 
     request.authContext = context
 
@@ -118,7 +124,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     })
   })
 
-  app.get('/health', async () => ({ status: 'ok', service: 'api-gateway' }))
+  app.get('/health', async () => ({ status: 'ok', service: 'petshop-app' }))
 
   app.get('/ready', async (_request, reply) => {
     try {
@@ -130,25 +136,81 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   })
 
-  // Métodos explícitos, e não `app.all`: o @fastify/cors já registra o handler de
-  // preflight em OPTIONS `/*`, e um `all` colidiria com ele.
-  app.route({
-    method: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    url: '/*',
-    handler: async (request, reply) => {
-      const path = request.url.split('?')[0] ?? ''
-      const target = resolveTarget(path)
-      if (!target) {
-        throw new AppError('ERR_IDENT_001', 'Rota não encontrada')
-      }
-      return proxyRequest(request, reply, {
-        targetBaseUrl: target,
-        context: request.authContext,
-      })
-    },
+  await registerModules(app)
+
+  /**
+   * O encaminhamento aos serviços que ainda não migraram, **num escopo próprio**.
+   *
+   * O escopo existe pelo parser: aqui `multipart/form-data` é bufferizado byte a byte
+   * e repassado intacto (MOD-PET-04 — o `boundary` está no `content-type`, e
+   * reserializar corromperia o arquivo), enquanto o módulo do site precisa do parser
+   * de verdade para consumir o upload da galeria. Os dois não cabem na raiz: o
+   * Fastify recusa um segundo parser para o mesmo content-type e o processo nem sobe
+   * (`FST_ERR_CTP_ALREADY_PRESENT`). Em escopos irmãos, cada um vale no seu ramo.
+   *
+   * O teto é o do arquivo mais folga para o envelope multipart e os metadados; quem
+   * recusa de verdade, com a mensagem do AC-02, é o pet-service.
+   */
+  await app.register(async (proxy) => {
+    proxy.addContentTypeParser(
+      'multipart/form-data',
+      { parseAs: 'buffer', bodyLimit: MAX_PHOTO_BYTES * MAX_PHOTOS_PER_UPLOAD + 1_048_576 },
+      (_request, body, done) => {
+        done(null, body)
+      },
+    )
+
+    // Métodos explícitos, e não `proxy.all`: o @fastify/cors já registra o handler de
+    // preflight em OPTIONS `/*`, e um `all` colidiria com ele.
+    proxy.route({
+      method: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+      url: '/*',
+      handler: async (request, reply) => {
+        const path = request.url.split('?')[0] ?? ''
+        const target = resolveTarget(path)
+        if (!target) {
+          throw new AppError('ERR_IDENT_001', 'Rota não encontrada')
+        }
+        return proxyRequest(request, reply, {
+          targetBaseUrl: target,
+          context: request.authContext,
+        })
+      },
+    })
   })
 
   return app
+}
+
+/**
+ * A requisição de um serviço que **ainda não migrou**, autenticada pela assinatura.
+ *
+ * Enquanto a consolidação está em curso, o processo tem duas portas de entrada. Pela
+ * de fora chega o token do Clerk, que este arquivo resolve em contexto. Pela de dentro
+ * chega um serviço que já tem o contexto resolvido e o assina com HMAC — é o contrato
+ * gateway→serviço de sempre, e é assim que o `portal-bff` alcança o Taxi Dog agora que
+ * o Taxi Dog não tem porta própria (MOD-PORTAL-07).
+ *
+ * **Não afrouxa nada.** Assinar exige o `INTERNAL_SERVICE_SECRET`, e o gateway já
+ * descarta os headers `x-petshop-*` que chegam de fora antes de encaminhar, então um
+ * cliente não consegue se apresentar por aqui. O que a assinatura prova é o mesmo que
+ * provava quando o destino era outro processo.
+ *
+ * **Some com a última fatia.** Quando nenhum serviço sobrar, não há mais quem assine,
+ * e esta função sai junto com o `proxy.ts`.
+ */
+function resolveInternalRequest(request: FastifyRequest): ServiceAuthContext | null {
+  const result = verifyServiceHeaders(request.headers, loadEnv().INTERNAL_SERVICE_SECRET)
+  if (result.ok) return result.context
+
+  // Sem assinatura nenhuma é o caso normal: a requisição veio de fora, com token.
+  if (result.reason === 'MISSING_SIGNATURE') return null
+
+  // Assinatura presente e inválida é outra coisa — relógio fora de hora, segredo
+  // divergente entre serviços, ou tentativa de forjar. Nenhuma delas deve virar
+  // silenciosamente uma tentativa de ler token que não existe.
+  request.log.warn({ reason: result.reason, path: request.url }, 'assinatura de serviço inválida')
+  throw new AppError('ERR_IDENT_005', 'Requisição não autenticada')
 }
 
 /**
@@ -235,40 +297,4 @@ function readBearerToken(request: FastifyRequest): string | null {
   if (!header?.startsWith('Bearer ')) return null
   const token = header.slice('Bearer '.length).trim()
   return token || null
-}
-
-function registerErrorHandler(app: FastifyInstance): void {
-  app.setErrorHandler((error: unknown, request: FastifyRequest, reply: FastifyReply) => {
-    const traceId = String(request.id)
-
-    if (error instanceof AppError) {
-      request.log.info({ traceId, code: error.code, path: request.url }, error.message)
-      return reply
-        .status(error.status)
-        .type(PROBLEM_CONTENT_TYPE)
-        .send(toProblemDetails(error, traceId))
-    }
-
-    // O plugin de rate limit sinaliza pelo status, não por um tipo próprio.
-    if ((error as { statusCode?: number })?.statusCode === 429) {
-      return reply.status(429).type(PROBLEM_CONTENT_TYPE).send({
-        type: 'https://docs.petshopai.com/errors/ERR_RATE_LIMITED',
-        title: 'Muitas requisições',
-        status: 429,
-        code: 'ERR_RATE_LIMITED',
-        detail: 'Você fez muitas requisições. Aguarde um instante.',
-        traceId,
-      })
-    }
-
-    logger.error({ traceId, err: error, path: request.url }, 'erro não tratado no gateway')
-    return reply.status(500).type(PROBLEM_CONTENT_TYPE).send({
-      type: 'https://docs.petshopai.com/errors/ERR_INTERNAL',
-      title: 'Erro interno',
-      status: 500,
-      code: 'ERR_INTERNAL',
-      detail: 'Não foi possível concluir a operação. Tente novamente.',
-      traceId,
-    })
-  })
 }

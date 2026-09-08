@@ -70,7 +70,7 @@ export const SITE_PREFIX = '/s'
  * Caminhos que passam sem gate nenhum, **em qualquer host**.
  *
  * `/api/health` é o que o orquestrador consulta. `/api/site/revalidate` é chamado pelo
- * `tenant-site-service` pela rede interna, com `Host: frontend:3002` — um host que
+ * módulo do site no backend, pela rede interna, com `Host: frontend:3002` — um host que
  * `resolveHost` classifica como Admin, e sem esta lista a chamada terminaria num
  * redirecionamento para a tela de login. O gate dele é o segredo compartilhado, na
  * própria rota.

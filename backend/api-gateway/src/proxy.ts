@@ -1,7 +1,7 @@
 import { signServiceHeaders, type ServiceAuthContext } from '@petshop/service-auth'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { loadEnv } from './env.js'
-import { logger } from './lib/logger.js'
+import { loadEnv } from './config/env.js'
+import { logger } from './shared/logger.js'
 
 /**
  * Encaminhamento para os microserviços.
@@ -197,14 +197,6 @@ function isRecordPath(path: string): boolean {
 }
 
 /**
- * MOD-TAXI. Tudo debaixo de `/v1/taxi`, num prefixo só: a corrida é complemento do
- * agendamento (RN-01), mas as rotas são do Taxi Dog — pendurá-las em
- * `/v1/appointments/:id/taxi` faria o gateway ter de olhar o sufixo, como já
- * acontece com o prontuário, sem ganhar nada em troca.
- */
-const TAXI_PREFIXES = ['/v1/taxi']
-
-/**
  * MOD-CRM. O módulo é um só, partido em dois processos: **decidir** quem recebe o quê
  * (`/v1/crm`) e **entregar** (`/v1/messages`, `/v1/messaging`). O corte de prefixo
  * segue o corte de responsabilidade, e não a ordem em que os serviços nasceram.
@@ -219,8 +211,6 @@ const MESSAGING_PREFIXES = ['/v1/messages', '/v1/messaging']
  * seria publicar a API interna para o mundo. Quem chama a superfície pública é o Next,
  * pela rede interna, no SSR da página do tenant.
  */
-const SITE_PREFIXES = ['/v1/site']
-
 /**
  * MOD-PORTAL. Prefixo próprio, e não um ramo de `/v1`, e isso é a decisão de segurança
  * do módulo (AC-04 de MOD-PORTAL-11): a superfície do cliente final tem allowlist de
@@ -277,9 +267,7 @@ export function resolveTarget(path: string): string | null {
   if (matches(path, PET_PREFIXES)) return env.PET_SERVICE_URL
   if (matches(path, SCHEDULING_PREFIXES)) return env.SCHEDULING_SERVICE_URL
   if (matches(path, LEDGER_PREFIXES)) return env.BILLING_LEDGER_SERVICE_URL
-  if (matches(path, TAXI_PREFIXES)) return env.TAXIDOG_SERVICE_URL
   if (matches(path, CRM_PREFIXES)) return env.CRM_AUTOMATION_SERVICE_URL
   if (matches(path, MESSAGING_PREFIXES)) return env.MESSAGING_SERVICE_URL
-  if (matches(path, SITE_PREFIXES)) return env.SITE_SERVICE_URL
   return null
 }

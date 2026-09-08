@@ -7,10 +7,10 @@ import { submitLead, type LeadResult } from '@/lib/site-api'
 /**
  * O envio do formulário público.
  *
- * Passa por Server Action, e não por `fetch` do browser: o `tenant-site-service` não é
- * publicado pela borda (o Caddy entrega só o Next), então o browser não teria como
- * alcançá-lo — e não precisa. O IP do visitante é lido aqui e repassado ao serviço,
- * que é quem aplica o teto de três envios por quinze minutos.
+ * Passa por Server Action, e não por `fetch` do browser: o backend não é publicado
+ * pela borda (o Caddy entrega só o Next), então o browser não teria como alcançá-lo —
+ * e não precisa. O IP do visitante é lido aqui e repassado ao módulo do site, que é
+ * quem aplica o teto de três envios por quinze minutos.
  */
 
 export interface LeadFormState extends LeadResult {

@@ -240,6 +240,20 @@ export const DOCUMENT_ERRORS = {
 
 export type DocumentErrorCode = keyof typeof DOCUMENT_ERRORS
 
+/**
+ * Erros da plataforma, não de um módulo.
+ *
+ * `ERR_RATE_LIMITED` já saía na resposta do gateway antes de existir aqui — era um
+ * corpo `problem+json` montado à mão porque o catálogo não o conhecia. Trazê-lo para
+ * cá não muda o que o cliente recebe; muda que agora ele nasce de `AppError` como
+ * todos os outros, e o error handler tem um caminho só.
+ */
+export const PLATFORM_ERRORS = {
+  ERR_RATE_LIMITED: { status: 429, title: 'Muitas requisições' },
+} as const
+
+export type PlatformErrorCode = keyof typeof PLATFORM_ERRORS
+
 export const ERROR_CATALOG = {
   ...IDENTITY_ERRORS,
   ...TUTOR_ERRORS,
@@ -251,6 +265,7 @@ export const ERROR_CATALOG = {
   ...SITE_ERRORS,
   ...PORTAL_ERRORS,
   ...DOCUMENT_ERRORS,
+  ...PLATFORM_ERRORS,
 } as const
 
 export type ErrorCode = keyof typeof ERROR_CATALOG

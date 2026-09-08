@@ -17,7 +17,7 @@ import { OpenNow } from './open-now'
  * opcionais.
  *
  * `revalidate = 600`: a página é HTML pronto, servido de cache. Quando o admin muda o
- * horário, o evento chega ao `tenant-site-service`, que chama `/api/site/revalidate` e
+ * horário, o evento chega ao módulo do site no backend, que chama `/api/site/revalidate` e
  * a página se refaz em segundos — sem ninguém tocar no site (AC-02 de MOD-SITE-06).
  */
 

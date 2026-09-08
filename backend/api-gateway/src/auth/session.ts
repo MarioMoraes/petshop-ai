@@ -6,8 +6,8 @@ import {
 } from '@petshop/db'
 import { AppError, type PermissionKey, type RoleKey } from '@petshop/shared-types'
 import type { ServiceAuthContext } from '@petshop/service-auth'
-import { logger, recordMetric } from '../lib/logger.js'
-import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../lib/redis.js'
+import { logger, recordMetric } from '../shared/logger.js'
+import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../shared/redis.js'
 import type { SessionClaims } from './clerk-token.js'
 
 /**
