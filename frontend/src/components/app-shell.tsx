@@ -388,11 +388,12 @@ function Saudacao({
         traçado são o que fazem a mão aberta ler como aceno em vez de "pare"; o acento é a
         única cor quente do sistema, e uma saudação é o lugar dela.
 
-        19px, e não os 20 do resto do conjunto: o ícone acompanha o tamanho da frase ao
-        lado — texto que muda de tamanho sozinho desproporciona o ícone.
+        21px: o mesmo corpo da frase ao lado, e não os 20 do resto do conjunto. O ícone
+        acompanha o tamanho do texto — um aceno que não cresce junto encolhe sozinho toda
+        vez que a saudação sobe.
       */}
       <span className="inline-flex shrink-0 rotate-12 text-accent">
-        <WaveIcon size={19} />
+        <WaveIcon size={21} />
       </span>
     </Tag>
   )
