@@ -24,6 +24,20 @@ import { redeemCredit, suspendPurchasesForPet } from './packages.js'
 
 const QUEUE = 'billing-ledger-service.events'
 
+/**
+ * O que o motor de mensageria conta (MOD-NOTIF-06).
+ *
+ * `documentId` é anulável porque a esmagadora maioria das mensagens não carrega papel
+ * nenhum — lembrete, confirmação, aviso de taxi. O handler sai cedo nesses casos.
+ */
+const MensagemEnviadaSchema = z.object({
+  tenantId: z.uuid(),
+  messageId: z.uuid(),
+  channel: z.enum(['WHATSAPP', 'EMAIL']),
+  sentAt: z.iso.datetime(),
+  documentId: z.uuid().nullish(),
+})
+
 const AtendimentoConcluidoSchema = z.object({
   tenantId: z.uuid(),
   appointmentId: z.uuid(),
@@ -403,6 +417,41 @@ export async function handleAtendimentoAnulado(payload: unknown): Promise<void> 
 
 // ─── Ligação com o broker ────────────────────────────────────────────────────
 
+/**
+ * AC-01 e AC-02 de MOD-NOTIF-06 — `receipts.sent_at`, enfim alcançável.
+ *
+ * A coluna está no schema desde o MOD-LEDGER com o comentário "inalcançável até o
+ * MOD-NOTIF existir: não há quem envie". Com a entrega por e-mail, a máquina
+ * `PENDING → ISSUED → SENT` do §6 do PRD 05 fica completa pela primeira vez.
+ *
+ * O casamento é por **documento**, não por mensagem: o ledger não sabe o que é um
+ * `templateKey` e não deve saber. Ele procura o recibo cujo `document_id` bate com o que
+ * viajou, e toda outra mensagem enviada no sistema passa por aqui sem encontrar nada —
+ * que é o desfecho correto, e não uma falha.
+ *
+ * `updateMany` com o estado no `where` é o que fecha a corrida e a idempotência de uma
+ * vez: recibo já `SENT` não é reescrito, e recibo `CANCELLED` entre o envio e o callback
+ * **não** volta a `SENT`. O broker entrega ao menos uma vez.
+ */
+export async function handleMensagemEnviada(payload: unknown): Promise<void> {
+  const event = MensagemEnviadaSchema.parse(payload)
+  if (!event.documentId) return
+
+  const { count } = await withTenant(event.tenantId, (tx) =>
+    tx.receipt.updateMany({
+      where: { documentId: event.documentId, status: 'ISSUED' },
+      data: { status: 'SENT', sentAt: new Date(event.sentAt) },
+    }),
+  )
+
+  if (count > 0) {
+    logger.info(
+      { documentId: event.documentId, channel: event.channel },
+      'recibo entregue ao tutor',
+    )
+  }
+}
+
 const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'atendimento.concluido': handleAtendimentoConcluido,
   'atendimento.anulado': handleAtendimentoAnulado,
@@ -410,6 +459,7 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'pet.transferido': handlePetTransferido,
   'tutor.mesclado': handleTutorMesclado,
   'tutor.anonimizado': handleTutorAnonimizado,
+  'mensagem.enviada': handleMensagemEnviada,
 }
 
 let connection: ChannelModel | null = null

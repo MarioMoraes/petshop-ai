@@ -251,6 +251,8 @@ model User {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   memberships Membership[]
+  /// MOD-NOTIF-01: o que o produto mandou a esta pessoa **como membro da equipe**.
+  messages    Message[]
 
   @@map("users")
 }
@@ -472,6 +474,9 @@ enum ConsentSource {
   SITE
   WHATSAPP
   IMPORT
+  /// O provedor de e-mail informou que a pessoa marcou a mensagem como spam
+  /// (AC-02 de MOD-NOTIF-10). É a única origem que não é um gesto numa tela nossa.
+  PROVIDER
 }
 
 /// O cliente pagante e titular dos dados pessoais.
@@ -2536,6 +2541,17 @@ enum MessageDirection {
   INBOUND
 }
 
+/// Com quem o motor está falando (MOD-NOTIF-01).
+///
+/// A fila nasceu inteiramente moldada no tutor — consentimento, janela de silêncio e
+/// os três tetos descrevem a relação comercial com um cliente. O e-mail que vai a um
+/// membro da equipe percorre a mesma fila e o mesmo despacho, mas **nenhum** desses
+/// gates: um convite que não sai às 21h porque a janela fechou é um convite quebrado.
+enum MessageRecipientKind {
+  TUTOR
+  USER
+}
+
 /// Decide base legal, janela de silêncio e teto diário de uma vez (RN-01).
 enum MessageCategory {
   TRANSACTIONAL
@@ -2605,8 +2621,18 @@ model Message {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
 
-  tutorId String  @map("tutor_id") @db.Uuid
+  /// Exatamente um dos dois, casando com `recipientKind` — a garantia é o CHECK
+  /// `messages_recipient_check`, não só o schema Zod (AC-02 de MOD-NOTIF-01).
+  recipientKind MessageRecipientKind @default(TUTOR) @map("recipient_kind")
+
+  tutorId String? @map("tutor_id") @db.Uuid
+  userId  String? @map("user_id") @db.Uuid
   petId   String? @map("pet_id") @db.Uuid
+
+  /// O anexo, **por referência** (MOD-NOTIF-05). O arquivo é lido do R2 na hora do
+  /// envio; o corpo cifrado guarda texto, nunca bytes. Sem FK declarada: `documents`
+  /// vive sob RLS no mesmo tenant, e a mensagem sobrevive a um documento anulado.
+  documentId String? @map("document_id") @db.Uuid
 
   channel   MessageChannel
   direction MessageDirection @default(OUTBOUND)
@@ -2666,11 +2692,17 @@ model Message {
   events MessageEvent[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tutor  Tutor  @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  tutor  Tutor? @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  /// **Sem cascade, e sem `SetNull`** (AC-04 de MOD-NOTIF-01). O registro do que se
+  /// mandou a um ex-membro é auditoria: apagá-lo com o vínculo apagaria a prova de
+  /// que o convite foi enviado. `SetNull` — que o §4 do PRD esboça — deixaria a linha
+  /// em `USER` sem `user_id` e violaria o próprio CHECK da tabela.
+  user   User?  @relation(fields: [userId], references: [id], onDelete: Restrict)
   pet    Pet?   @relation(fields: [petId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, dedupeKey], map: "idx_messages_dedupe")
   @@index([tenantId, tutorId, createdAt(sort: Desc)], map: "idx_messages_tutor")
+  @@index([tenantId, userId, createdAt(sort: Desc)], map: "idx_messages_user")
   @@map("messages")
 }
 

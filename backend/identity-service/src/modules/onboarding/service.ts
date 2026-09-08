@@ -88,7 +88,7 @@ export async function advanceOnboarding(
   }
 
   if (row.onboardingCompletedAt && payload.step === ONBOARDING_LAST_STEP) {
-    await announceCompletion(row)
+    await announceCompletion(row, params.actorUserId ?? null)
   }
 
   return toTenantResponse(row, null)
@@ -158,7 +158,7 @@ function isSkippable(step: number): boolean {
   return (SKIPPABLE_ONBOARDING_STEPS as readonly number[]).includes(step)
 }
 
-async function announceCompletion(row: Tenant): Promise<void> {
+async function announceCompletion(row: Tenant, adminUserId: string | null): Promise<void> {
   const durationSeconds = Math.max(
     0,
     Math.round(
@@ -178,6 +178,15 @@ async function announceCompletion(row: Tenant): Promise<void> {
     tenantId: row.id,
     durationSeconds,
     stepsSkipped: row.onboardingStepsSkipped,
+    /**
+     * Quem terminou o wizard, para as boas-vindas do MOD-NOTIF-08.
+     *
+     * O evento existe desde o MOD-IDENT-02 e ninguém o consumia, então nunca precisou
+     * dizer a quem se dirigia. Nulo só no caminho de reprocesso do provisionamento, que
+     * chega aqui sem ator — e nesse caso o consumidor não manda nada, em vez de
+     * adivinhar um destinatário.
+     */
+    adminUserId,
   })
 }
 

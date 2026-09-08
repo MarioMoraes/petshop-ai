@@ -25,6 +25,14 @@ export interface DocumentStorageConfig {
 export interface DocumentStoragePort {
   put(key: string, body: Buffer, contentType: string): Promise<void>
   signedUrl(key: string, expiresInSeconds: number): Promise<string>
+  /**
+   * Os bytes do objeto (MOD-NOTIF-05).
+   *
+   * O único leitor é o anexo de e-mail: em toda outra entrega o arquivo desce por URL
+   * assinada, e passá-lo pela memória do serviço seria pagar a banda duas vezes. O
+   * anexo não tem essa saída — o Resend quer o conteúdo em base64 no corpo do POST.
+   */
+  read(key: string): Promise<Buffer>
 }
 
 /** Erro de infraestrutura do storage. Deixa o documento pendente, não derruba o negócio. */
@@ -78,6 +86,24 @@ export function createDocumentStorage(config: DocumentStorageConfig): DocumentSt
         if (error instanceof StorageUnavailableError) throw error
         config.logger.error({ err: error, key }, 'falha ao arquivar documento')
         throw new StorageUnavailableError('Falha ao arquivar o documento', { cause: error })
+      }
+    },
+
+    async read(key) {
+      try {
+        const response = await s3().send(
+          new GetObjectCommand({ Bucket: config.bucket(), Key: key }),
+        )
+        const body = response.Body
+        if (!body) throw new StorageUnavailableError('O objeto veio sem conteúdo')
+        // `transformToByteArray` é do SDK v3 e evita montar o stream à mão — o
+        // documento inteiro cabe na memória por definição: acima do teto de anexo ele
+        // nem é lido (RN-07).
+        return Buffer.from(await body.transformToByteArray())
+      } catch (error) {
+        if (error instanceof StorageUnavailableError) throw error
+        config.logger.error({ err: error, key }, 'falha ao ler documento do storage')
+        throw new StorageUnavailableError('Falha ao ler o documento', { cause: error })
       }
     },
 

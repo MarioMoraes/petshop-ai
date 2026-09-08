@@ -114,6 +114,7 @@ import {
   type CreateSuppressionInput,
   type MessageCategory,
   type MessageChannel,
+  type MessageRecipientKind,
   type MessageStatus,
   type PreviewTemplateInput,
   type SiteContentPatch,
@@ -2118,6 +2119,8 @@ export type MessageFilters = {
   status?: MessageStatus
   channel?: MessageChannel
   category?: MessageCategory
+  /** MOD-NOTIF-11: separa o que foi ao cliente do que foi à equipe. */
+  recipientKind?: MessageRecipientKind
   templateKey?: string
   from?: string
   to?: string

@@ -605,7 +605,15 @@ export async function markBanned(tenantId: string, detail: string | null): Promi
 async function fallbackPendingToEmail(tenantId: string): Promise<number> {
   const pending = await withTenant(tenantId, (tx) =>
     tx.message.findMany({
-      where: { channel: 'WHATSAPP', status: { in: ['QUEUED', 'SCHEDULED'] } },
+      // `recipientKind: 'TUTOR'` não é redundância: mensagem de equipe nunca sai por
+      // WhatsApp, e sem o filtro o `tutorId` desta consulta poderia vir nulo — o que o
+      // `resolveDelivery` abaixo não sabe tratar.
+      where: {
+        channel: 'WHATSAPP',
+        recipientKind: 'TUTOR',
+        tutorId: { not: null },
+        status: { in: ['QUEUED', 'SCHEDULED'] },
+      },
       select: { id: true, tutorId: true, category: true, templateKey: true },
     }),
   )
@@ -616,7 +624,7 @@ async function fallbackPendingToEmail(tenantId: string): Promise<number> {
       const cipher = await openCipher(tx, tenantId)
       const decision = await resolveDelivery(tx, cipher, {
         tenantId,
-        tutorId: message.tutorId,
+        tutorId: message.tutorId as string,
         // `AUTO` e não `EMAIL`: a instância já está `BANNED`, então a cascata descarta o
         // WhatsApp sozinha. Pedir o e-mail pelo nome duplicaria essa decisão aqui.
         preference: 'AUTO',

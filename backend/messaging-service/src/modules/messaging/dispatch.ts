@@ -4,7 +4,11 @@ import { publishEvent } from '../../lib/events.js'
 import { logger, recordMetric } from '../../lib/logger.js'
 import { consumeDailySlot, consumeRateSlot } from '../../lib/redis.js'
 import { loadEnv } from '../../env.js'
+import { formatAddress, loadIssuer } from '@petshop/documents'
+import { templateAuthorOf } from '@petshop/shared-types'
 import { openCipher } from './crypto.js'
+import { renderBrandEmail } from './brand.js'
+import { planAttachment, type AttachmentPlan } from './attachments.js'
 import { portFor } from './ports/registry.js'
 import { allows, loadConsents } from './consent.js'
 import { marketingCapReached } from './frequency.js'
@@ -43,6 +47,17 @@ const MAX_ATTEMPTS = 5
  */
 const CHANNEL_DOWN_RETRY_MINUTES = 10
 
+/**
+ * De quanto em quanto tempo reexaminar uma mensagem cujo documento ainda não ficou
+ * pronto (AC-04 de MOD-NOTIF-05).
+ *
+ * Cinco minutos, que é a ordem de grandeza do reprocesso de documento do MOD-DOC. A
+ * espera não é retentativa: nada falhou, e por isso ela não consome `attempts` nem
+ * caminha para `DEAD`. Quem a encurta é o consumidor de `documento.emitido`, que ainda
+ * não existe — enquanto não existir, o relógio resolve sozinho, só mais devagar.
+ */
+const DOCUMENT_PENDING_RETRY_MINUTES = 5
+
 /** RN-05: intervalo com jitter entre disparos. Rajada uniforme é assinatura de robô. */
 const JITTER_MIN_MS = 2_000
 const JITTER_MAX_MS = 6_000
@@ -69,26 +84,51 @@ export async function dispatchTenant(
   const summary: DispatchSummary = { picked: 0, sent: 0, failed: 0, blocked: 0, throttled: 0 }
 
   const settings = await withTenant(tenantId, (tx) => loadSettings(tx, tenantId))
-  if (!settings.enabled) return summary
 
+  /**
+   * O motor desligado **não** cala o e-mail de equipe (AC-04 de MOD-NOTIF-02).
+   *
+   * Até o MOD-NOTIF esta linha era um `return` seco, e ele estaria certo enquanto todo
+   * destinatário fosse cliente: `enabled` é a decisão de quem responde pelo número do
+   * petshop sobre quando começar a falar com a base. Um tenant que ainda não ligou o
+   * CRM continua precisando receber as boas-vindas do próprio onboarding — barrá-las
+   * aqui desligaria justamente a mensagem que ensina a ligar o motor.
+   *
+   * O enfileiramento já recusa a mensagem de cliente nesse estado; o que sobra na fila
+   * é o parque anterior ao desligamento, e ele fica onde está.
+   */
   const batch = await withTenant(tenantId, (tx) =>
     tx.message.findMany({
       where: {
         direction: 'OUTBOUND',
+        ...(settings.enabled ? {} : { recipientKind: 'USER' as const }),
         status: { in: ['QUEUED', 'SCHEDULED'] },
         OR: [{ scheduledFor: null }, { scheduledFor: { lte: now } }],
       },
       orderBy: [{ scheduledFor: 'asc' }, { createdAt: 'asc' }],
       take: loadEnv().DISPATCH_BATCH_SIZE,
-      select: { id: true },
+      select: { id: true, recipientKind: true },
     }),
   )
 
   summary.picked = batch.length
   const today = tenantToday(settings.timezone, now)
 
-  for (const { id } of batch) {
-    if (!(await consumeRateSlot(tenantId, settings.perMinuteCap))) {
+  for (const { id, recipientKind } of batch) {
+    /**
+     * Os três tetos são do cliente (AC-01 de MOD-NOTIF-02).
+     *
+     * Este é o que mais custou decidir, porque ele protege o **provedor** e não a
+     * pessoa: uma rajada uniforme é assinatura de robô, e represá-la é o que mantém o
+     * número e o domínio de pé. O que resolve a tensão é o volume — e-mail de equipe é
+     * um punhado por semana, contra centenas de lembretes por dia — e a consequência
+     * de errar para o outro lado: um convite parado atrás da fila de lembretes de um
+     * sábado é um convite que chega no domingo.
+     */
+    if (
+      recipientKind === 'TUTOR' &&
+      !(await consumeRateSlot(tenantId, settings.perMinuteCap))
+    ) {
       summary.throttled += 1
       // Sem `break` disfarçado: o teto é por minuto, e as restantes do lote ficam
       // para a passada seguinte — trinta segundos depois.
@@ -114,8 +154,12 @@ export async function dispatchTenant(
 type Outcome = 'sent' | 'failed' | 'blocked' | 'throttled'
 
 interface PreparedMessage {
-  tutorId: string
+  recipientKind: 'TUTOR' | 'USER'
+  templateKey: string
+  tutorId: string | null
+  userId: string | null
   petId: string | null
+  documentId: string | null
   originType: string | null
   channel: 'WHATSAPP' | 'EMAIL'
   category: 'TRANSACTIONAL' | 'OPERATIONAL' | 'MARKETING'
@@ -150,7 +194,18 @@ async function dispatchOne(
       }
     /** Pagou entre a fila e o envio: não é bloqueio, é assunto encerrado (AC-03 de MOD-CRM-08). */
     | { kind: 'cancel'; message: PreparedMessage }
-    | { kind: 'send'; message: PreparedMessage; to: string; body: string; subject: string | null }
+    /** O documento ainda está em preparo (AC-04 de MOD-NOTIF-05). Adia, não falha. */
+    | { kind: 'wait'; message: PreparedMessage }
+    | {
+        kind: 'send'
+        message: PreparedMessage
+        to: string
+        body: string
+        subject: string | null
+        attachment: AttachmentPlan
+        /** O molde de marca, ou `null` quando o texto é do petshop (MOD-NOTIF-04). */
+        html: string | null
+      }
 
   const prepared: Prepared = await withTenant(tenantId, async (tx) => {
     const message = await tx.message.findUniqueOrThrow({ where: { id: messageId } })
@@ -162,13 +217,43 @@ async function dispatchOne(
       ? safeDecrypt(cipher.decrypt, message.subjectEncrypted)
       : null
 
-    // RN-03: o mundo pode ter mudado desde o enfileiramento.
-    const consents = await loadConsents(tx, message.tutorId)
-    if (!allows(consents, message.channel, message.category)) {
-      return { kind: 'block' as const, block: 'NO_CONSENT' as const, message }
+    /**
+     * RN-03: o mundo pode ter mudado desde o enfileiramento.
+     *
+     * **Só para tutor** (AC-01 de MOD-NOTIF-02). Consentimento, janela de silêncio e os
+     * três tetos descrevem a relação comercial com um cliente; nenhum deles diz nada
+     * sobre um e-mail dirigido a um membro da equipe, e aplicá-los ali produziria o
+     * absurdo de um convite represado até as oito da manhã.
+     */
+    if (message.recipientKind === 'TUTOR' && message.tutorId) {
+      const consents = await loadConsents(tx, message.tutorId)
+      if (!allows(consents, message.channel, message.category)) {
+        return { kind: 'block' as const, block: 'NO_CONSENT' as const, message }
+      }
     }
+
+    /**
+     * A supressão, essa, vale para os dois (AC-02 de MOD-NOTIF-02).
+     *
+     * Ela é do **endereço**, por hash e por tenant, e protege o domínio remetente e não
+     * a pessoa: um e-mail que já voltou como inexistente não volta a ser tentado por o
+     * dono dele ser da casa.
+     */
     if (!to || (await isSuppressed(tx, message.channel, to))) {
       return { kind: 'block' as const, block: to ? ('SUPPRESSED' as const) : ('NO_CHANNEL' as const), message }
+    }
+
+    /**
+     * AC-04 de MOD-NOTIF-01 — o vínculo pode ter sido encerrado enquanto a mensagem
+     * esperava. É a mesma revalidação que a RN-03 faz do consentimento do tutor, pela
+     * mesma razão: checar só na entrada é checar no momento errado.
+     */
+    if (message.recipientKind === 'USER' && message.userId) {
+      const membership = await tx.membership.findFirst({
+        where: { userId: message.userId, status: 'ACTIVE' },
+        select: { id: true },
+      })
+      if (!membership) return { kind: 'block' as const, block: 'NO_CHANNEL' as const, message }
     }
 
     /**
@@ -205,7 +290,7 @@ async function dispatchOne(
      *
      * Cobrar quem acabou de pagar destrói a confiança de que a régua inteira depende.
      */
-    if (message.originType === 'LEDGER_ENTRY') {
+    if (message.originType === 'LEDGER_ENTRY' && message.tutorId) {
       const tutor = await tx.tutor.findUnique({
         where: { id: message.tutorId },
         select: { balanceCents: true },
@@ -219,6 +304,7 @@ async function dispatchOne(
      */
     if (
       message.category === 'MARKETING' &&
+      message.tutorId &&
       (await marketingCapReached(tx, {
         tutorId: message.tutorId,
         cap: settings.marketingWeeklyCap,
@@ -229,8 +315,58 @@ async function dispatchOne(
       return { kind: 'block' as const, block: 'WEEKLY_CAP' as const, message }
     }
 
-    return { kind: 'send' as const, message, to, body, subject }
+    /**
+     * O anexo é decidido **aqui**, no despacho, e não no enfileiramento.
+     *
+     * Entre uma coisa e outra o documento pode ter sido emitido, cancelado ou
+     * reprocessado com outro arquivo. A pergunta "os bytes vão junto?" só tem resposta
+     * verdadeira no instante do envio — e uma das respostas é "ainda não".
+     */
+    const attachment = await planAttachment(tx, {
+      tenantId,
+      documentId: message.documentId,
+      channel: message.channel,
+    })
+    if (attachment.kind === 'pending') return { kind: 'wait' as const, message }
+    if (attachment.kind === 'cancelled') return { kind: 'cancel' as const, message }
+
+    /**
+     * O molde de marca (MOD-NOTIF-04), montado aqui e não no adaptador.
+     *
+     * Duas razões, e a segunda é a que decide: o adaptador não tem transação de tenant
+     * aberta — ele é um cliente HTTP —, e a identidade visual sai da **mesma** consulta
+     * que monta o cabeçalho do PDF. Buscá-la lá dentro seria abrir um contexto de tenant
+     * dentro de uma porta de saída, que é exatamente o que as portas existem para evitar.
+     *
+     * Só para o e-mail: no WhatsApp o corpo é texto, e sempre foi.
+     */
+    const html =
+      message.channel === 'EMAIL' && templateAuthorOf(message.templateKey) === 'SYSTEM'
+        ? await brandedHtml(tx, tenantId, body)
+        : null
+
+    return { kind: 'send' as const, message, to, body, subject, attachment, html }
   })
+
+  /**
+   * O documento não ficou pronto: volta para a fila com hora marcada.
+   *
+   * Não conta tentativa e não caminha para `DEAD`, porque nada falhou — o Gotenberg
+   * estava fora quando o assunto aconteceu, e o reprocesso do MOD-DOC vai emitir. Mandar
+   * "segue o recibo" sem recibo é pior que atrasar (AC-04 de MOD-NOTIF-05).
+   */
+  if (prepared.kind === 'wait') {
+    await withTenant(tenantId, (tx) =>
+      tx.message.update({
+        where: { id: messageId },
+        data: {
+          status: 'SCHEDULED',
+          scheduledFor: new Date(now.getTime() + DOCUMENT_PENDING_RETRY_MINUTES * 60_000),
+        },
+      }),
+    )
+    return 'throttled'
+  }
 
   if (prepared.kind === 'cancel') {
     await withTenant(tenantId, (tx) =>
@@ -249,7 +385,9 @@ async function dispatchOne(
     await publishEvent('mensagem.bloqueada', {
       tenantId,
       messageId,
+      recipientKind: prepared.message.recipientKind,
       tutorId: prepared.message.tutorId,
+      userId: prepared.message.userId,
       channel: prepared.message.channel,
       category: prepared.message.category,
       blockReason: prepared.block,
@@ -271,7 +409,10 @@ async function dispatchOne(
       ? whatsappWarmupCap(settings.dailyCap, await warmupStartedAt(tenantId), now)
       : { cap: settings.dailyCap, daysLeft: null }
 
-  if (prepared.message.category === 'MARKETING' || warmup.daysLeft !== null) {
+  if (
+    prepared.message.recipientKind === 'TUTOR' &&
+    (prepared.message.category === 'MARKETING' || warmup.daysLeft !== null)
+  ) {
     if (!(await consumeDailySlot(tenantId, today, warmup.cap))) {
       await withTenant(tenantId, (tx) =>
         tx.message.update({
@@ -291,6 +432,8 @@ async function dispatchOne(
     body: prepared.body,
     senderName: settings.senderName,
     replyTo: settings.replyToEmail,
+    attachment: prepared.attachment.kind === 'file' ? prepared.attachment.attachment : null,
+    html: prepared.html,
   })
 
   if (result.ok) {
@@ -307,17 +450,32 @@ async function dispatchOne(
         },
       })
       await tx.messageEvent.create({
-        data: { tenantId, messageId, event: 'SENT', occurredAt: now },
+        data: {
+          tenantId,
+          messageId,
+          event: 'SENT',
+          occurredAt: now,
+          // AC-02 de MOD-NOTIF-05: **o histórico registra a troca**. Sem esta linha,
+          // "por que o recibo foi por link?" só se responde relendo o tamanho do
+          // arquivo — que o reprocesso pode ter mudado desde então.
+          raw: attachmentRaw(prepared.attachment) ?? undefined,
+        },
       })
     })
 
     await publishEvent('mensagem.enviada', {
       tenantId,
       messageId,
+      recipientKind: prepared.message.recipientKind,
       tutorId: prepared.message.tutorId,
+      userId: prepared.message.userId,
       channel: prepared.message.channel,
       providerMessageId: result.providerMessageId,
       sentAt: now.toISOString(),
+      // MOD-NOTIF-06: é por aqui que o MOD-LEDGER fecha `receipts.sent_at`, o estado
+      // que o schema marcava como inalcançável desde que a coluna nasceu.
+      documentId: prepared.message.documentId,
+      templateKey: prepared.message.templateKey,
     })
     return 'sent'
   }
@@ -403,7 +561,9 @@ async function dispatchOne(
     await publishEvent('mensagem.falhou', {
       tenantId,
       messageId,
+      recipientKind: prepared.message.recipientKind,
       tutorId: prepared.message.tutorId,
+      userId: prepared.message.userId,
       channel: prepared.message.channel,
       errorCode: result.errorCode ?? null,
       attempts,
@@ -448,6 +608,44 @@ export async function dispatchPending(now = new Date()): Promise<DispatchSummary
   }
 
   return total
+}
+
+/**
+ * Como o arquivo viajou, para a trilha de entrega.
+ *
+ * Ausente quando não havia documento nenhum: gravar `{attachment:'none'}` em toda
+ * mensagem do sistema encheria a tabela de uma informação que só interessa às poucas
+ * que carregam papel.
+ */
+/**
+ * A identidade visual do estabelecimento, já em HTML.
+ *
+ * Uma falha aqui **não** segura o e-mail: cai para o embrulho mínimo e o texto sai
+ * igual. Perder a moldura é cosmético; perder o recibo, não.
+ */
+async function brandedHtml(
+  tx: Parameters<Parameters<typeof withTenant>[1]>[0],
+  tenantId: string,
+  body: string,
+): Promise<string | null> {
+  try {
+    const { issuer } = await loadIssuer(tx, tenantId)
+    return renderBrandEmail({
+      issuer,
+      address: issuer.address ? formatAddress(issuer.address) : null,
+      body,
+    })
+  } catch (error) {
+    logger.error({ err: error, tenantId }, 'falha ao montar o molde de marca do e-mail')
+    return null
+  }
+}
+
+function attachmentRaw(
+  plan: AttachmentPlan,
+): { attachment: string; reason?: string } | undefined {
+  if (plan.kind !== 'file' && plan.kind !== 'link') return undefined
+  return plan.kind === 'file' ? { attachment: 'file' } : { attachment: 'link', reason: plan.reason }
 }
 
 function safeDecrypt(decrypt: (payload: string) => string, payload: string): string {

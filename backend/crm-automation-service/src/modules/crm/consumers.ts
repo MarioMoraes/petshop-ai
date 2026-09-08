@@ -8,6 +8,12 @@ import { loadAppointmentVariables } from './appointment-vars.js'
 import { loadTaxiVariables } from './taxi-vars.js'
 import { resolveAutomation } from './automations.js'
 import { getMessagingPort } from './messaging-port.js'
+import {
+  handleConviteAceito,
+  handleOnboardingConcluido,
+  handlePrescricaoEmitida,
+  handleReciboEmitido,
+} from './notifications.js'
 
 /**
  * O que a agenda e o prontuário contam ao relacionamento (§8).
@@ -228,6 +234,18 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'taxi.chegou': handleTaxiChegou,
   'taxi.entregue': handleTaxiEntregue,
   'taxi.falhou': handleTaxiFalhou,
+
+  /**
+   * Os avisos do produto (MOD-NOTIF-06 a 09), em `notifications.ts`.
+   *
+   * Entram na mesma fila e no mesmo `prefetch(1)` dos demais, e é o que se quer: o
+   * `recibo.emitido` de um tenant não pode passar na frente do `agendamento.cancelado`
+   * de outro só por ser de outro módulo.
+   */
+  'recibo.emitido': handleReciboEmitido,
+  'prescricao.emitida': handlePrescricaoEmitida,
+  'tenant.onboarding.concluido': handleOnboardingConcluido,
+  'convite.aceito': handleConviteAceito,
 }
 
 let connection: ChannelModel | null = null

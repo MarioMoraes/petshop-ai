@@ -307,6 +307,9 @@ importers:
       '@petshop/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@petshop/documents':
+        specifier: workspace:*
+        version: link:../../packages/documents
       '@petshop/job-scheduler':
         specifier: workspace:*
         version: link:../../packages/job-scheduler

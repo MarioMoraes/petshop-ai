@@ -42,6 +42,7 @@ async function enqueueMarketing(
   extra: Record<string, unknown> = {},
 ) {
   return enqueueMessage(actor(tenantId), {
+    recipientKind: 'TUTOR',
     tutorId,
     templateKey: 'campaign_broadcast',
     channel: 'EMAIL',
@@ -79,6 +80,7 @@ describe('teto semanal de marketing', () => {
     // O lembrete é execução de contrato: represá-lo por causa de uma oferta seria
     // inverter exatamente a prioridade que o módulo defende.
     const reminder = await enqueueMessage(actor(fixture.tenantId), {
+      recipientKind: 'TUTOR',
       tutorId,
       templateKey: 'appointment_reminder',
       channel: 'EMAIL',
@@ -169,6 +171,7 @@ describe('revalidação no despacho (RN-03)', () => {
     })
 
     const message = await enqueueMessage(actor(fixture.tenantId), {
+      recipientKind: 'TUTOR',
       tutorId,
       petId,
       templateKey: 'birthday_pet',
@@ -204,6 +207,7 @@ describe('revalidação no despacho (RN-03)', () => {
     )
 
     const message = await enqueueMessage(actor(fixture.tenantId), {
+      recipientKind: 'TUTOR',
       tutorId,
       templateKey: 'dunning_soft',
       channel: 'EMAIL',
@@ -239,6 +243,7 @@ describe('revalidação no despacho (RN-03)', () => {
     )
 
     await enqueueMessage(actor(fixture.tenantId), {
+      recipientKind: 'TUTOR',
       tutorId,
       templateKey: 'dunning_soft',
       channel: 'EMAIL',
@@ -263,6 +268,7 @@ describe('destino imposto', () => {
 
     await expect(
       enqueueMessage(actor(fixture.tenantId), {
+        recipientKind: 'TUTOR',
         tutorId,
         templateKey: 'campaign_broadcast',
         channel: 'EMAIL',

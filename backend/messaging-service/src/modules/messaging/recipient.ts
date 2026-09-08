@@ -1,4 +1,4 @@
-import type { TenantTransaction } from '@petshop/db'
+import { decryptPlatform, type TenantTransaction } from '@petshop/db'
 import type {
   MessageBlockReason,
   MessageCategory,
@@ -99,6 +99,70 @@ export async function resolveDelivery(
   }
 
   return { ok: false, reason, channel: blockedChannel }
+}
+
+/**
+ * Para onde vai o e-mail de um membro da equipe (MOD-NOTIF-01).
+ *
+ * Três coisas separam esta função da cascata acima, e as três vêm do mesmo fato: um
+ * membro da equipe **não é cliente**.
+ *
+ * - **O canal é sempre o e-mail.** O produto não tem o WhatsApp do funcionário, e o
+ *   número que ele porventura tenha na ficha é o de tutor, de outra relação.
+ * - **A chave é outra.** `users` é tabela **global**, fora de `RLS_MODELS` e sem política
+ *   nenhuma, e o e-mail dela é cifrado com a **chave de plataforma** (HKDF sobre a KEK),
+ *   não com a DEK do tenant. Abrir o cifrador errado aqui devolveria **lixo em vez de
+ *   erro** — é a pegadinha central da sub-feature. A leitura cabe na mesma transação
+ *   porque a guarda de `withTenant` só recusa tabela sob RLS; o que ela **não** pode é
+ *   sair do tenant, e por isso quem responde "esta pessoa é da casa?" é `memberships`,
+ *   que tem política.
+ * - **Não se pergunta consentimento.** `tutor_consents` é a base legal de uma relação
+ *   comercial; a relação de trabalho não passa por ali.
+ *
+ * O que **continua** valendo é a supressão: ela é do endereço, protege o domínio
+ * remetente, e um e-mail que já voltou como inexistente não volta a ser tentado por o
+ * dono dele ser da casa.
+ *
+ * AC-04 — vínculo encerrado vira `NO_CHANNEL`. O caminho é o mesmo de um tutor sem
+ * contato: a mensagem nasce (ou morre no despacho) `BLOCKED` com o motivo, e a linha
+ * fica de pé. É ela a prova de que o convite foi enviado.
+ */
+export async function resolveUserDelivery(
+  tx: TenantTransaction,
+  options: { tenantId: string; userId: string },
+): Promise<DeliveryDecision> {
+  const membership = await tx.membership.findFirst({
+    where: { userId: options.userId, status: 'ACTIVE' },
+    select: { id: true },
+  })
+  if (!membership) return { ok: false, reason: 'NO_CHANNEL', channel: 'EMAIL' }
+
+  const user = await tx.user.findUnique({
+    where: { id: options.userId },
+    select: { emailEncrypted: true, status: true },
+  })
+  if (!user || user.status !== 'ACTIVE') {
+    return { ok: false, reason: 'NO_CHANNEL', channel: 'EMAIL' }
+  }
+
+  let address: string
+  try {
+    address = decryptPlatform(user.emailEncrypted)
+  } catch {
+    // Chave rotacionada sem re-cifrar, ou linha de fixture com lixo: o endereço não
+    // existe para efeito de envio, e é o mesmo desfecho de um cadastro sem e-mail.
+    return { ok: false, reason: 'NO_CHANNEL', channel: 'EMAIL' }
+  }
+  if (!address) return { ok: false, reason: 'NO_CHANNEL', channel: 'EMAIL' }
+
+  if (!(await channelAvailable('EMAIL', options.tenantId))) {
+    return { ok: false, reason: 'NO_CHANNEL', channel: 'EMAIL' }
+  }
+  if (await isSuppressed(tx, 'EMAIL', address)) {
+    return { ok: false, reason: 'SUPPRESSED', channel: 'EMAIL' }
+  }
+
+  return { ok: true, delivery: { channel: 'EMAIL', address } }
 }
 
 /**

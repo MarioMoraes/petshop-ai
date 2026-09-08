@@ -5,6 +5,7 @@ import { registerAuthContext } from './auth/context.js'
 import { registerErrorHandler } from './lib/errors.js'
 import { logger, loggerOptions } from './lib/logger.js'
 import {
+  registerEmailWebhookRoutes,
   registerMessagingRoutes,
   registerWhatsappWebhookRoutes,
 } from './modules/messaging/routes.js'
@@ -41,6 +42,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   // autentica é o token da instância, e é por isso que ele fica **fora** do escopo
   // autenticado — o mesmo desenho que o `tenant-site-service` usa para a página pública.
   await app.register(registerWhatsappWebhookRoutes)
+
+  // O do Resend, pela mesma razão e com uma diferença: ele precisa do corpo **cru**
+  // para conferir a assinatura, e por isso registra um parser próprio no escopo dele.
+  await app.register(registerEmailWebhookRoutes)
 
   // Autenticada: a assinatura do gateway vale só dentro deste escopo.
   await app.register(async (authenticated) => {

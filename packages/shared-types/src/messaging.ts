@@ -23,6 +23,18 @@ export const MessageDirectionSchema = z.enum(['OUTBOUND', 'INBOUND'])
 export type MessageDirection = z.infer<typeof MessageDirectionSchema>
 
 /**
+ * Com quem o motor está falando (MOD-NOTIF-01).
+ *
+ * O motor nasceu inteiramente moldado no tutor: `resolveDelivery` lê a ficha, e os
+ * gates — consentimento, janela de silêncio e os três tetos — descrevem a relação
+ * comercial com um cliente. Nada disso se aplica a um e-mail dirigido a um membro da
+ * equipe, e é essa diferença que o campo nomeia. O que **continua** valendo para os
+ * dois é a supressão, que protege o domínio remetente e não a pessoa.
+ */
+export const MessageRecipientKindSchema = z.enum(['TUTOR', 'USER'])
+export type MessageRecipientKind = z.infer<typeof MessageRecipientKindSchema>
+
+/**
  * A categoria é o eixo que decide **três** coisas de uma vez: base legal, janela de
  * silêncio e teto diário. Ela vem do template e o chamador não pode elevá-la — do
  * contrário bastaria marcar uma campanha como transacional para furar o opt-out.
@@ -125,49 +137,81 @@ export const MESSAGE_BODY_LIMITS: Record<MessageChannel, number> = {
  * meio de um consumo reprocessa o evento — sem a chave, cada redeploy mandaria o
  * lembrete de novo.
  */
-export const EnqueueMessageSchema = z.object({
-  tutorId: z.uuid(),
-  petId: z.uuid().optional(),
-  templateKey: z.string().min(1).max(60),
-  channel: MessageChannelPrefSchema.default('AUTO'),
-  variables: z.record(z.string(), z.union([z.string(), z.number()])).default({}),
-  dedupeKey: z.string().min(1).max(120),
-  originType: MessageOriginTypeSchema.optional(),
-  originId: z.uuid().optional(),
+export const EnqueueMessageSchema = z
+  .strictObject({
+    /**
+     * Com quem se está falando (MOD-NOTIF-01). `TUTOR` por padrão, que é o que os
+     * chamadores anteriores ao MOD-NOTIF continuam mandando — sem o campo.
+     */
+    recipientKind: MessageRecipientKindSchema.default('TUTOR'),
+    tutorId: z.uuid().optional(),
+    /** O membro da equipe. Exatamente um entre este e `tutorId` (AC-02). */
+    userId: z.uuid().optional(),
+    petId: z.uuid().optional(),
+    templateKey: z.string().min(1).max(60),
+    channel: MessageChannelPrefSchema.default('AUTO'),
+    variables: z.record(z.string(), z.union([z.string(), z.number()])).default({}),
+    dedupeKey: z.string().min(1).max(120),
+    originType: MessageOriginTypeSchema.optional(),
+    originId: z.uuid().optional(),
+    /**
+     * O documento do MOD-DOC que viaja anexo (MOD-NOTIF-05).
+     *
+     * **Referência, nunca conteúdo.** O arquivo é lido do R2 no instante do envio; o
+     * corpo cifrado da mensagem guarda texto. Anexo é do e-mail: no WhatsApp ele vira
+     * link para o Portal (AC-03).
+     */
+    documentId: z.uuid().optional(),
+    /**
+     * Nulo = assim que a janela permitir. Não existe "agora à força": a janela de
+     * silêncio é do tutor, não do chamador.
+     */
+    scheduledFor: z.coerce.date().optional(),
+    /**
+     * Mensagem que perde o sentido se atrasar: o código de acesso ao Portal é o caso.
+     *
+     * Duas consequências, e as duas são exceções às regras do MOD-CRM: a mensagem
+     * **não** é absorvida por uma irmã recente (RN-08 agruparia o código dentro de
+     * outro texto), e o despacho acontece na mesma requisição, sem esperar o tique do
+     * worker. Um código de dez minutos que sai no minuto sete não serve para nada.
+     *
+     * A janela de silêncio continua valendo pelo que a categoria do template disser —
+     * quem precisa furá-la usa `OPERATIONAL`, e isso é decisão do texto, não de quem o
+     * dispara.
+     */
+    urgent: z.boolean().default(false),
+    /**
+     * Manda para **este** endereço, e não para o que está na ficha do tutor.
+     *
+     * Existe por um caso só, e é o que justifica a exceção: o MOD-PORTAL-09 precisa
+     * provar que o tutor possui o telefone ou o e-mail **novo**, e um código enviado ao
+     * contato antigo não prova nada. O endereço ainda não está gravado em lugar nenhum
+     * quando a mensagem sai — se estivesse, a prova viria depois do fato que ela
+     * deveria autorizar.
+     *
+     * O que impede isto de virar "mandar mensagem para qualquer um": o serviço só o
+     * honra com `channel` explícito e **nunca** para texto de categoria `MARKETING`. A
+     * lista de supressão continua valendo, porque ela é do endereço e não da ficha —
+     * quem pediu para não receber e-mail nosso não passa a receber por estar digitando o
+     * próprio endereço numa tela nossa. O consentimento de marketing, esse, não se
+     * aplica: o que atravessa aqui é execução de contrato, e o tutor acabou de pedir.
+     */
+    overrideAddress: z.string().min(3).max(160).optional(),
+  })
   /**
-   * Nulo = assim que a janela permitir. Não existe "agora à força": a janela de
-   * silêncio é do tutor, não do chamador.
+   * AC-02 de MOD-NOTIF-01 — exatamente um destinatário, coerente com o tipo.
+   *
+   * O CHECK do banco diz a mesma coisa, e a repetição é deliberada: o schema devolve
+   * 422 com uma frase que o chamador entende, e o banco garante que nenhum caminho
+   * futuro — um `create` direto, uma migration de dados — escape da regra.
    */
-  scheduledFor: z.coerce.date().optional(),
-  /**
-   * Mensagem que perde o sentido se atrasar: o código de acesso ao Portal é o caso.
-   *
-   * Duas consequências, e as duas são exceções às regras do MOD-CRM: a mensagem **não**
-   * é absorvida por uma irmã recente (RN-08 agruparia o código dentro de outro texto), e
-   * o despacho acontece na mesma requisição, sem esperar o tique do worker. Um código de
-   * dez minutos que sai no minuto sete não serve para nada.
-   *
-   * A janela de silêncio continua valendo pelo que a categoria do template disser — quem
-   * precisa furá-la usa `OPERATIONAL`, e isso é decisão do texto, não de quem o dispara.
-   */
-  urgent: z.boolean().default(false),
-  /**
-   * Manda para **este** endereço, e não para o que está na ficha do tutor.
-   *
-   * Existe por um caso só, e é o que justifica a exceção: o MOD-PORTAL-09 precisa provar
-   * que o tutor possui o telefone ou o e-mail **novo**, e um código enviado ao contato
-   * antigo não prova nada. O endereço ainda não está gravado em lugar nenhum quando a
-   * mensagem sai — se estivesse, a prova viria depois do fato que ela deveria autorizar.
-   *
-   * O que impede isto de virar "mandar mensagem para qualquer um": o serviço só o honra
-   * com `channel` explícito e **nunca** para texto de categoria `MARKETING`. A lista de
-   * supressão continua valendo, porque ela é do endereço e não da ficha — quem pediu
-   * para não receber e-mail nosso não passa a receber por estar digitando o próprio
-   * endereço numa tela nossa. O consentimento de marketing, esse, não se aplica: o que
-   * atravessa aqui é execução de contrato, e o tutor acabou de pedir.
-   */
-  overrideAddress: z.string().min(3).max(160).optional(),
-})
+  .refine(
+    (input) =>
+      input.recipientKind === 'TUTOR'
+        ? Boolean(input.tutorId) && !input.userId
+        : Boolean(input.userId) && !input.tutorId,
+    { message: 'Informe exatamente um destinatário, coerente com recipientKind' },
+  )
 export type EnqueueMessageInput = z.output<typeof EnqueueMessageSchema>
 
 export const MessageListQuerySchema = z.object({
@@ -176,7 +220,10 @@ export const MessageListQuerySchema = z.object({
   status: MessageStatusSchema.optional(),
   channel: MessageChannelSchema.optional(),
   category: MessageCategorySchema.optional(),
+  /** AC-01 de MOD-NOTIF-11: separar o que foi ao cliente do que foi à equipe. */
+  recipientKind: MessageRecipientKindSchema.optional(),
   tutorId: z.uuid().optional(),
+  userId: z.uuid().optional(),
   templateKey: z.string().max(60).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
@@ -447,15 +494,27 @@ export type CreateSuppressionInput = z.output<typeof CreateSuppressionSchema>
 
 export const MessageSummarySchema = z.object({
   id: z.uuid(),
-  tutorId: z.uuid(),
+  recipientKind: MessageRecipientKindSchema,
+  /** Nulo quando `recipientKind` é `USER` — a mensagem não tem cliente do outro lado. */
+  tutorId: z.uuid().nullable(),
+  /** Nulo quando `recipientKind` é `TUTOR`. */
+  userId: z.uuid().nullable(),
   /**
    * Nome de exibição do destinatário, resolvido na leitura.
    *
    * Vai no resumo, e não é composto pela tela, porque o painel lista vinte linhas de
-   * vinte tutores diferentes: buscar cada nome por HTTP seria vinte idas ao gateway
-   * para escrever vinte palavras. `messages` já tem a relação com `tutors` e
-   * `full_name` está em claro — é uma consulta a mais por página, não por linha.
-   * Mesmo caminho que o painel do Taxi Dog já usa.
+   * vinte destinatários diferentes: buscar cada nome por HTTP seria vinte idas ao
+   * gateway para escrever vinte palavras. `messages` já tem a relação com `tutors` e
+   * com `users`, e `full_name` está em claro nas duas — é uma consulta a mais por
+   * página, não por linha. Mesmo caminho que o painel do Taxi Dog já usa.
+   */
+  recipientName: z.string(),
+  /**
+   * O nome do tutor, como o campo se chamava antes do MOD-NOTIF.
+   *
+   * Mantido porque o Portal e a aba Mensagens da ficha o consomem, e os dois só veem
+   * mensagem de tutor — para eles os dois campos são sempre iguais. Em linha de equipe
+   * ele repete `recipientName`; quem precisa distinguir olha `recipientKind`.
    */
   tutorName: z.string(),
   petId: z.uuid().nullable(),
@@ -475,6 +534,8 @@ export const MessageSummarySchema = z.object({
   attempts: z.number().int(),
   errorCode: z.string().nullable(),
   errorDetail: z.string().nullable(),
+  /** MOD-NOTIF-05: o documento que viajou anexo, ou `null`. Referência, nunca bytes. */
+  documentId: z.uuid().nullable(),
   createdAt: z.iso.datetime(),
 })
 export type MessageSummary = z.infer<typeof MessageSummarySchema>
@@ -602,6 +663,11 @@ export const MESSAGE_STATUS_LABELS: Record<MessageStatus, string> = {
   CANCELLED: 'Cancelada',
   // Não é "não enviada": o texto dela saiu, dentro da mensagem que a absorveu.
   MERGED: 'Agrupada',
+}
+
+export const MESSAGE_RECIPIENT_KIND_LABELS: Record<MessageRecipientKind, string> = {
+  TUTOR: 'Cliente',
+  USER: 'Equipe',
 }
 
 export const MESSAGE_CHANNEL_LABELS: Record<MessageChannel, string> = {

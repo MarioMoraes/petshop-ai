@@ -3,6 +3,7 @@ import { ApiError } from '@petshop/api-client'
 import {
   DEFAULT_TIMEZONE,
   MessageCategorySchema,
+  MessageRecipientKindSchema,
   MessageChannelSchema,
   MessageStatusSchema,
   addDays,
@@ -53,6 +54,7 @@ export default async function CrmPage({ searchParams }: PageProps) {
     status: asEnum(params.status, MessageStatusSchema.options),
     channel: asEnum(params.channel, MessageChannelSchema.options),
     category: asEnum(params.category, MessageCategorySchema.options),
+    recipientKind: asEnum(params.recipientKind, MessageRecipientKindSchema.options),
   }
   const page = asPage(params.page)
 
@@ -76,6 +78,7 @@ export default async function CrmPage({ searchParams }: PageProps) {
         ...(filters.status ? { status: filters.status } : {}),
         ...(filters.channel ? { channel: filters.channel } : {}),
         ...(filters.category ? { category: filters.category } : {}),
+        ...(filters.recipientKind ? { recipientKind: filters.recipientKind } : {}),
       })
       .catch(swallowApiError),
   ])

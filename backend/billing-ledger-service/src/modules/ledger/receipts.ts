@@ -5,7 +5,7 @@ import {
   issueDocument,
   loadIssuer,
 } from '@petshop/documents'
-import { DOCUMENT_MAX_ATTEMPTS, type PaymentMethod } from '@petshop/shared-types'
+import { DOCUMENT_MAX_ATTEMPTS, formatBRL, type PaymentMethod } from '@petshop/shared-types'
 import { recordAudit } from '../../lib/audit.js'
 import { notFound } from '../../lib/errors.js'
 import { publishEvent } from '../../lib/events.js'
@@ -172,6 +172,16 @@ export async function issueReceipt(
     paymentId: data.receipt.paymentId,
     tutorId: data.receipt.tutorId,
     number: data.receipt.number,
+    /**
+     * MOD-NOTIF-06: quem entrega o recibo por e-mail precisa do documento para anexá-lo.
+     *
+     * Vai daqui porque o publicador já o tem na mão — resolvê-lo do `receiptId` do outro
+     * lado obrigaria o consumidor a ler uma tabela do financeiro. O valor viaja junto e
+     * **já formatado**: o template não faz conta, e um número em centavos escapando para
+     * o corpo de uma mensagem é o erro mais caro que este catálogo pode cometer.
+     */
+    documentId,
+    amount: formatBRL(data.payload.amountCents),
   })
   recordMetric({
     metric: 'receipt_issued_total',

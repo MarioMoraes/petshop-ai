@@ -61,6 +61,14 @@ function installFakes(): void {
     async signedUrl(key) {
       return `https://r2.test/${key}?assinada=1`
     },
+    // O leitor entrou na porta com o anexo de e-mail do MOD-NOTIF-05. Nenhum teste
+    // deste serviço o exercita — quem lê é o messaging-service —, mas a interface é
+    // uma só, e um dublê que só sabe escrever esconderia a metade que falta.
+    async read(key) {
+      const stored = objetos.get(key)
+      if (!stored) throw new Error(`objeto inexistente: ${key}`)
+      return stored
+    },
   })
 }
 

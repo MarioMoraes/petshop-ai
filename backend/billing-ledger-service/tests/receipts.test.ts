@@ -7,6 +7,7 @@ import { StorageUnavailableError, setStoragePort } from '../src/lib/storage.js'
 import { recordPayment, reversePayment } from '../src/modules/ledger/payments.js'
 import { renderReceiptHtml } from '../src/modules/ledger/receipt-template.js'
 import { retryPendingReceipts } from '../src/modules/ledger/receipts.js'
+import { handleMensagemEnviada } from '../src/modules/ledger/consumers.js'
 import {
   actorOf,
   asAdmin,
@@ -61,6 +62,14 @@ function installFakes(): void {
     },
     async signedUrl(key) {
       return `https://r2.test/${key}?assinada=1`
+    },
+    // O leitor entrou na porta com o anexo de e-mail do MOD-NOTIF-05. Nenhum teste
+    // deste serviço o exercita — quem lê é o messaging-service —, mas a interface é
+    // uma só, e um dublê que só sabe escrever esconderia a metade que falta.
+    async read(key) {
+      const stored = storage.objects.get(key)
+      if (!stored) throw new Error(`objeto inexistente: ${key}`)
+      return stored
     },
   })
 }
@@ -358,6 +367,77 @@ describe('ciclo de vida', () => {
       ...asAdmin(tenant),
     })
     expect(pdf.calls).toHaveLength(1)
+  })
+})
+
+describe('MOD-NOTIF-06 — `receipts.sent_at`, enfim alcançável', () => {
+  it('AC-02: a entrega do e-mail leva o recibo de ISSUED a SENT', async () => {
+    const payment = await pay()
+    const documento = await documentOf(payment.paymentId)
+
+    await handleMensagemEnviada({
+      tenantId: tenant.tenantId,
+      messageId: randomUUID(),
+      channel: 'EMAIL',
+      sentAt: new Date().toISOString(),
+      documentId: documento.id,
+    })
+
+    const receipt = await receiptOf(payment.paymentId)
+    // A máquina `PENDING → ISSUED → SENT` do §6 fica completa pela primeira vez desde
+    // que a coluna nasceu com o comentário "não há quem envie".
+    expect(receipt.status).toBe('SENT')
+    expect(receipt.sentAt).not.toBeNull()
+  })
+
+  it('mensagem sem documento passa sem encontrar nada, e isso não é falha', async () => {
+    const payment = await pay()
+
+    await handleMensagemEnviada({
+      tenantId: tenant.tenantId,
+      messageId: randomUUID(),
+      channel: 'WHATSAPP',
+      sentAt: new Date().toISOString(),
+      documentId: null,
+    })
+
+    expect((await receiptOf(payment.paymentId)).status).toBe('ISSUED')
+  })
+
+  it('o evento repetido não reescreve o recibo', async () => {
+    const payment = await pay()
+    const documento = await documentOf(payment.paymentId)
+    const primeiro = new Date('2026-09-08T12:00:00Z')
+
+    const event = {
+      tenantId: tenant.tenantId,
+      messageId: randomUUID(),
+      channel: 'EMAIL' as const,
+      sentAt: primeiro.toISOString(),
+      documentId: documento.id,
+    }
+    await handleMensagemEnviada(event)
+    await handleMensagemEnviada({ ...event, sentAt: new Date().toISOString() })
+
+    // O `where` com o estado é o que fecha a idempotência: o broker entrega ao menos
+    // uma vez, e o segundo callback não pode mover a data da entrega.
+    expect((await receiptOf(payment.paymentId)).sentAt?.toISOString()).toBe(primeiro.toISOString())
+  })
+
+  it('recibo cancelado entre o envio e o callback não volta a SENT', async () => {
+    const payment = await pay()
+    const documento = await documentOf(payment.paymentId)
+    await reversePayment(actorOf(tenant), payment.paymentId, 'Cliente desistiu')
+
+    await handleMensagemEnviada({
+      tenantId: tenant.tenantId,
+      messageId: randomUUID(),
+      channel: 'EMAIL',
+      sentAt: new Date().toISOString(),
+      documentId: documento.id,
+    })
+
+    expect((await receiptOf(payment.paymentId)).status).toBe('CANCELLED')
   })
 })
 

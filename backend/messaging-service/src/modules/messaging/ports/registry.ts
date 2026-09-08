@@ -13,6 +13,18 @@ import { getWhatsAppPort } from './whatsapp.js'
  * conectou, e a mensagem falharia no provedor em vez de cair para o e-mail.
  */
 
+/**
+ * O arquivo que viaja junto (MOD-NOTIF-05).
+ *
+ * Já resolvido em bytes quando chega aqui: quem decide entre anexar e mandar link é o
+ * `attachments.ts`, no despacho, e o adaptador só obedece. É o que mantém a regra do
+ * RN-06 num lugar só — o WhatsApp nunca recebe `attachment` preenchido.
+ */
+export interface SendAttachment {
+  filename: string
+  content: Buffer
+}
+
 export interface SendRequest {
   /** Quem está enviando. É por ele que o WhatsApp acha a instância e a chave dela. */
   tenantId: string
@@ -21,6 +33,17 @@ export interface SendRequest {
   body: string
   senderName: string | null
   replyTo: string | null
+  attachment?: SendAttachment | null
+  /**
+   * O corpo em HTML, quando o texto é do **produto** (MOD-NOTIF-04).
+   *
+   * Ausente para o texto do petshop, que continua saindo com o embrulho mínimo que o
+   * próprio adaptador monta. Quem decide entre os dois moldes é o despacho, olhando o
+   * `authored` do template — o adaptador não sabe o que é marca.
+   *
+   * O WhatsApp ignora o campo: lá o corpo é texto, e sempre foi.
+   */
+  html?: string | null
 }
 
 export interface SendResult {

@@ -52,6 +52,14 @@ export interface TenantOnboardingConcluidoEvent extends BaseEvent {
   tenantId: string
   durationSeconds: number
   stepsSkipped: number[]
+  /**
+   * Quem terminou o wizard, e portanto quem recebe as boas-vindas (MOD-NOTIF-08).
+   *
+   * Opcional porque o evento existe desde o MOD-IDENT-02 e ninguém o consumia; quem
+   * conclui o onboarding é sempre um usuário autenticado, mas o caminho de reprocesso
+   * do provisionamento pode chegar aqui sem ator.
+   */
+  adminUserId?: string | null
 }
 
 export interface TenantStatusAlteradoEvent extends BaseEvent {
@@ -160,6 +168,8 @@ export const TUTOR_CONSUMED_ROUTING_KEYS = [
   'inadimplencia.detectada',
   'inadimplencia.resolvida',
   'mensagem.recebida',
+  /** AC-02 de MOD-NOTIF-10: reclamação de spam revoga o marketing daquele canal. */
+  'mensagem.reclamada',
 ] as const
 
 export interface TutorCriadoEvent extends BaseEvent {
@@ -727,6 +737,17 @@ export interface ReciboEmitidoEvent extends BaseEvent {
   paymentId: string
   tutorId: string
   number: string
+  /**
+   * O registro em `documents`, que é o dono do arquivo desde o MOD-DOC-02.
+   *
+   * Acrescentado pelo MOD-NOTIF-06: quem entrega o recibo por e-mail precisa do
+   * documento para anexá-lo, e resolvê-lo do `receiptId` obrigaria o consumidor a ler
+   * uma tabela do financeiro para descobrir uma chave que o publicador já tinha na mão.
+   * Opcional no tipo por causa do parque em trânsito no dia do deploy.
+   */
+  documentId?: string | null
+  /** Já formatado em reais pelo publicador — o template não faz conta. */
+  amount?: string | null
 }
 
 /**
@@ -865,7 +886,17 @@ interface MessagingBaseEvent {
   timestamp: string
   tenantId: string
   messageId: string
-  tutorId: string
+  /**
+   * Quem recebeu. **Nulável desde o MOD-NOTIF-01**: a mensagem pode ser dirigida a um
+   * membro da equipe, e nesse caso quem está preenchido é `userId`.
+   *
+   * Os campos são opcionais no tipo para que os consumidores anteriores ao MOD-NOTIF
+   * continuem compilando — o que eles precisam saber, todos, é se há tutor do outro
+   * lado, e `tutorId` nulo responde isso.
+   */
+  tutorId?: string | null
+  userId?: string | null
+  recipientKind?: 'TUTOR' | 'USER'
 }
 
 export interface MensagemEnfileiradaEvent extends MessagingBaseEvent {
@@ -879,6 +910,15 @@ export interface MensagemEnviadaEvent extends MessagingBaseEvent {
   channel: 'WHATSAPP' | 'EMAIL'
   providerMessageId: string | null
   sentAt: string
+  /**
+   * O documento que viajou nesta mensagem, se houve (MOD-NOTIF-06).
+   *
+   * É por ele que o MOD-LEDGER fecha `receipts.sent_at` — o estado que o schema marcava
+   * como inalcançável desde que a coluna nasceu. O ledger não pergunta "que mensagem é
+   * essa?": ele procura o recibo cujo `document_id` casa, e ignora o resto.
+   */
+  documentId?: string | null
+  templateKey?: string
 }
 
 export interface MensagemEntregueEvent extends MessagingBaseEvent {
@@ -914,8 +954,25 @@ export interface WhatsappConexaoEvent extends BaseEvent {
   detail: string | null
 }
 
+/**
+ * O destinatário marcou o e-mail como spam (AC-02 de MOD-NOTIF-10).
+ *
+ * Existe como evento, e não como escrita direta, por causa de uma regra que o MOD-CRM
+ * fixou e que continua valendo: **o messaging-service lê consentimento e nunca o
+ * grava**. A trilha jurídica é `tutor_consents`, do MOD-TUTOR, append-only e com prova
+ * — dois escritores dela seriam duas verdades sobre a mesma pergunta, e a que valeria
+ * num processo seria a de lá.
+ *
+ * A supressão do endereço, essa, acontece na hora e do lado de cá: ela é técnica, é do
+ * endereço, e não depende de o broker estar de pé.
+ */
+export interface MensagemReclamadaEvent extends MessagingBaseEvent {
+  channel: 'WHATSAPP' | 'EMAIL'
+}
+
 export interface MessagingEventMap {
   'mensagem.enfileirada': MensagemEnfileiradaEvent
+  'mensagem.reclamada': MensagemReclamadaEvent
   'mensagem.enviada': MensagemEnviadaEvent
   'mensagem.entregue': MensagemEntregueEvent
   'mensagem.falhou': MensagemFalhouEvent

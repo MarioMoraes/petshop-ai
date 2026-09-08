@@ -97,7 +97,23 @@ export type ConsentChannel = z.infer<typeof ConsentChannelSchema>
 export const ConsentPurposeSchema = z.enum(['TRANSACTIONAL', 'MARKETING', 'BOTH'])
 export type ConsentPurpose = z.infer<typeof ConsentPurposeSchema>
 
-export const ConsentSourceSchema = z.enum(['STAFF_FORM', 'PORTAL', 'SITE', 'WHATSAPP', 'IMPORT'])
+/**
+ * De onde veio a transição de consentimento.
+ *
+ * `PROVIDER` é a única que não vem de um gesto do titular numa tela nossa: é o provedor
+ * de e-mail informando que a pessoa marcou a mensagem como spam (AC-02 de
+ * MOD-NOTIF-10). Marcar spam **é** opt-out — tratá-lo só como endereço queimado
+ * ignoraria o que a pessoa disse —, mas a prova é de segunda mão, e a origem precisa
+ * dizer isso para quem ler a trilha depois.
+ */
+export const ConsentSourceSchema = z.enum([
+  'STAFF_FORM',
+  'PORTAL',
+  'SITE',
+  'WHATSAPP',
+  'IMPORT',
+  'PROVIDER',
+])
 export type ConsentSource = z.infer<typeof ConsentSourceSchema>
 
 /** Estado derivado do histórico append-only (PRD §6). */

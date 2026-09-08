@@ -239,7 +239,13 @@ async function tutorsAtWeeklyCap(
     _count: { _all: true },
   })
 
-  return new Set(rows.filter((row) => row._count._all >= cap).map((row) => row.tutorId))
+  // `tutorId` é anulável desde o MOD-NOTIF-01 — mensagem de equipe não tem tutor. O
+  // `where` acima já as exclui pelo `in`, e o filtro aqui é o que convence o tipo.
+  return new Set(
+    rows
+      .filter((row) => row._count._all >= cap && row.tutorId !== null)
+      .map((row) => row.tutorId as string),
+  )
 }
 
 /** AC-02 de MOD-CRM-07: quem entrou na mira **desta** campanha dentro da carência. */

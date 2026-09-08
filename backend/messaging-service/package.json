@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@petshop/db": "workspace:*",
+    "@petshop/documents": "workspace:*",
     "@petshop/job-scheduler": "workspace:*",
     "@petshop/service-auth": "workspace:*",
     "@petshop/service-kit": "workspace:*",

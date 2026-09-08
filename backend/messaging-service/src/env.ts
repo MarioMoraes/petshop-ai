@@ -45,6 +45,41 @@ export const { loadEnv, resetEnvCache } = defineEnv('messaging-service', {
    * no host (`host.docker.internal`); em produção os dois são containers na mesma rede.
    */
   EVOLUTION_WEBHOOK_URL: z.string().url().optional(),
+
+  /**
+   * O segredo do webhook do Resend (MOD-NOTIF-10).
+   *
+   * Opcional como as demais credenciais de provedor: sem ele a rota do webhook
+   * **recusa tudo com 401**, e não o contrário — um endpoint que aceita qualquer
+   * requisição quando falta configuração é uma porta para suprimir o endereço de
+   * qualquer concorrente (AC-03). O painel do Resend o entrega no formato `whsec_…`.
+   */
+  RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+  /**
+   * O bucket dos documentos (MOD-NOTIF-05).
+   *
+   * Este serviço só **lê** — o anexo do e-mail. Quem escreve é o serviço de domínio
+   * que emitiu o documento. Opcionais pela mesma razão que as credenciais de provedor:
+   * sem bucket o e-mail sai com link em vez de anexo, que é a mesma queda do documento
+   * grande demais (RN-07), e não uma fila travada.
+   */
+  R2_ENDPOINT: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().default('petshop-media'),
+  /** R2 ignora região, mas o assinador SigV4 do SDK exige uma. */
+  R2_REGION: z.string().default('auto'),
+
+  /**
+   * O domínio da instalação, de onde sai o link do Portal (MOD-NOTIF-05).
+   *
+   * O endereço de "Meus Documentos" é `{slug}.{APP_DOMAIN}/portal/documentos` — o
+   * mesmo que o portal-bff e o tenant-site-service montam, com o mesmo padrão e o
+   * mesmo motivo: lido em tempo de execução, nunca cravado, para que a imagem não
+   * nasça amarrada a uma instalação.
+   */
+  APP_DOMAIN: z.string().default('localhost:3002'),
 })
 
 export type Env = ReturnType<typeof loadEnv>

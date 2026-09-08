@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation'
 import {
   MESSAGE_CATEGORY_LABELS,
   MESSAGE_CHANNEL_LABELS,
+  MESSAGE_RECIPIENT_KIND_LABELS,
   MESSAGE_STATUS_LABELS,
   MessageCategorySchema,
   MessageChannelSchema,
+  MessageRecipientKindSchema,
   MessageStatusSchema,
   type MessageCategory,
   type MessageChannel,
+  type MessageRecipientKind,
   type MessageStatus,
   type PaginatedMessages,
 } from '@petshop/shared-types'
@@ -31,6 +34,7 @@ export interface BoardFilters {
   status?: MessageStatus | undefined
   channel?: MessageChannel | undefined
   category?: MessageCategory | undefined
+  recipientKind?: MessageRecipientKind | undefined
 }
 
 interface Props {
@@ -48,7 +52,8 @@ export function MessagesBoard({ page, filters, canSend }: Props) {
   const filtered =
     filters.status !== undefined ||
     filters.channel !== undefined ||
-    filters.category !== undefined
+    filters.category !== undefined ||
+    filters.recipientKind !== undefined
 
   /**
    * Muda a URL, e o servidor recarrega. Trocar um filtro sempre volta à página 1 —
@@ -62,6 +67,7 @@ export function MessagesBoard({ page, filters, canSend }: Props) {
     if (next.status) search.set('status', next.status)
     if (next.channel) search.set('channel', next.channel)
     if (next.category) search.set('category', next.category)
+    if (next.recipientKind) search.set('recipientKind', next.recipientKind)
     if (patch.page && patch.page > 1) search.set('page', String(patch.page))
 
     startTransition(() => router.push(`/crm?${search.toString()}`))
@@ -70,7 +76,7 @@ export function MessagesBoard({ page, filters, canSend }: Props) {
   return (
     <div className="space-y-5">
       <Card>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
           <label className="block">
             <span className="hint">De</span>
             <input
@@ -151,6 +157,34 @@ export function MessagesBoard({ page, filters, canSend }: Props) {
               {MessageCategorySchema.options.map((category) => (
                 <option key={category} value={category}>
                   {MESSAGE_CATEGORY_LABELS[category]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/*
+            AC-01 de MOD-NOTIF-11. São duas relações no mesmo painel, e não dois
+            painéis: o admin que investiga "por que ninguém recebeu nada hoje" precisa
+            das duas na mesma fila, com o mesmo estado e o mesmo motivo de bloqueio.
+          */}
+          <label className="block">
+            <span className="hint">Destinatário</span>
+            <select
+              className="field mt-1"
+              value={filters.recipientKind ?? ''}
+              onChange={(event) =>
+                apply({
+                  recipientKind: (event.target.value || undefined) as
+                    | MessageRecipientKind
+                    | undefined,
+                  page: 1,
+                })
+              }
+            >
+              <option value="">Todos</option>
+              {MessageRecipientKindSchema.options.map((kind) => (
+                <option key={kind} value={kind}>
+                  {MESSAGE_RECIPIENT_KIND_LABELS[kind]}
                 </option>
               ))}
             </select>

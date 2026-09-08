@@ -38,6 +38,10 @@ export async function listOwnMessages(
   return withTenant(tenantId, async (tx) => {
     const where = {
       tutorId,
+      // AC-03 de MOD-NOTIF-11. `tutorId` já bastaria — mensagem de equipe nasce com ele
+      // nulo —, e o filtro está aqui como afirmação: o Portal é a superfície do
+      // cliente, e o e-mail que ele recebeu como funcionário não é assunto dele ali.
+      recipientKind: 'TUTOR' as const,
       direction: 'OUTBOUND' as const,
       status: { in: [...PORTAL_VISIBLE_MESSAGE_STATUSES] },
       templateKey: { notIn: [...PORTAL_HIDDEN_TEMPLATE_KEYS] },

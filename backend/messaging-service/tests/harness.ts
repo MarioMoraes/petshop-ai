@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHmac, randomUUID } from 'node:crypto'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config } from 'dotenv'
@@ -40,6 +40,11 @@ process.env.EVOLUTION_API_URL = 'http://evolution.invalido'
 process.env.EVOLUTION_API_KEY = 'chave-de-teste'
 process.env.EVOLUTION_WEBHOOK_URL = 'http://messaging.invalido/internal/v1/whatsapp/webhook'
 
+// Sem segredo o webhook do Resend recusa **tudo** (AC-03), e todo teste dele passaria
+// pelo motivo errado. O valor é o mesmo que `callEmailWebhook` usa para assinar.
+process.env.RESEND_WEBHOOK_SECRET =
+  'whsec_' + Buffer.from('segredo-de-teste').toString('base64')
+
 export const ownerPrisma: OwnerClient = createOwnerClient()
 
 const { buildApp } = await import('../src/app.js')
@@ -55,10 +60,10 @@ const { loadEnv, resetEnvCache } = await import('../src/env.js')
  * que torna o harness independente da ordem de importação do teste.
  */
 resetEnvCache()
-const { clearTenantKeyCache, createTenantKey, encryptForTenant, withTenant } = await import(
-  '@petshop/db'
-)
+const { clearTenantKeyCache, createTenantKey, encryptForTenant, encryptPlatform, withTenant } =
+  await import('@petshop/db')
 const { setEmailPort } = await import('../src/modules/messaging/ports/email.js')
+const { setStoragePort } = await import('../src/lib/storage.js')
 const { setWhatsAppPort } = await import('../src/modules/messaging/ports/whatsapp.js')
 const { setEvolutionPort, EvolutionRequestError } = await import(
   '../src/modules/messaging/ports/evolution.js'
@@ -96,6 +101,13 @@ export interface SentMessage {
   to: string
   subject: string | null
   body: string
+  /** O nome do arquivo que viajou anexo, ou `null` quando foi só texto/link. */
+  attachment: string | null
+  /** O molde de marca, ou `null` quando o texto é do petshop (MOD-NOTIF-04). */
+  html: string | null
+  /** Como o remetente foi montado (MOD-NOTIF-03). */
+  senderName: string | null
+  replyTo: string | null
 }
 
 export interface FakePort {
@@ -116,6 +128,32 @@ export function resetPorts(): void {
   setEmailPort(null)
   setWhatsAppPort(null)
   setEvolutionPort(null)
+  setStoragePort(null)
+}
+
+/**
+ * O bucket dos documentos, dublado em memória.
+ *
+ * Só `read` faz alguma coisa: este serviço **não escreve** documento nenhum, e um dublê
+ * com `put` funcional daria a impressão contrária. Quem arquiva é o serviço de domínio
+ * que emitiu o papel.
+ */
+export function installFakeDocumentStorage(): Map<string, Buffer> {
+  const objects = new Map<string, Buffer>()
+  setStoragePort({
+    async put(key, body) {
+      objects.set(key, body)
+    },
+    async signedUrl(key) {
+      return `https://r2.test/${key}?assinada=1`
+    },
+    async read(key) {
+      const stored = objects.get(key)
+      if (!stored) throw new Error(`objeto inexistente: ${key}`)
+      return stored
+    },
+  })
+  return objects
 }
 
 /**
@@ -147,7 +185,15 @@ export function installFakeEmailPort(options: { available?: boolean } = {}): Fak
           errorDetail: 'falha injetada pelo teste',
         }
       }
-      sent.push({ to: request.to, subject: request.subject, body: request.body })
+      sent.push({
+        to: request.to,
+        subject: request.subject,
+        body: request.body,
+        attachment: request.attachment?.filename ?? null,
+        html: request.html ?? null,
+        senderName: request.senderName,
+        replyTo: request.replyTo,
+      })
       return { ok: true, providerMessageId: `fake-${sent.length}`, provider: 'fake' }
     },
   })
@@ -191,7 +237,15 @@ export function installFakeWhatsAppPort(
           errorDetail: 'falha injetada pelo teste',
         }
       }
-      sent.push({ to: request.to, subject: request.subject, body: request.body })
+      sent.push({
+        to: request.to,
+        subject: request.subject,
+        body: request.body,
+        attachment: request.attachment?.filename ?? null,
+        html: request.html ?? null,
+        senderName: request.senderName,
+        replyTo: request.replyTo,
+      })
       return { ok: true, providerMessageId: `wa-${sent.length}`, provider: 'fake-wa' }
     },
   })
@@ -322,6 +376,57 @@ export function installFakeEvolution(): FakeEvolution {
   }
 }
 
+/**
+ * Um documento arquivado, como o MOD-DOC o deixa (MOD-NOTIF-05).
+ *
+ * `bytes` grava o arquivo no dublê de storage e `sizeBytes` sai do que foi gravado —
+ * não de um número escolhido à mão. É o que permite o teste do teto exercitar a mesma
+ * comparação que a produção faz.
+ */
+export async function givenDocument(
+  fixture: TenantFixture,
+  options: {
+    tutorId?: string
+    kind?: 'RECEIPT' | 'PRESCRIPTION' | 'TERM_ACCEPTANCE' | 'IMAGE_CONSENT'
+    status?: 'PENDING' | 'ISSUED' | 'CANCELLED' | 'FAILED'
+    bytes?: Buffer
+    /** Sobrescreve o tamanho gravado, para exercitar o teto sem alocar 8 MB. */
+    sizeBytes?: number
+    storage?: Map<string, Buffer>
+  } = {},
+): Promise<string> {
+  const kind = options.kind ?? 'RECEIPT'
+  const status = options.status ?? 'ISSUED'
+  const bytes = options.bytes ?? Buffer.from('%PDF-1.7 documento de teste')
+
+  return withTenant(fixture.tenantId, async (tx) => {
+    const document = await tx.document.create({
+      data: {
+        tenantId: fixture.tenantId,
+        kind,
+        number: `${kind === 'RECEIPT' ? '' : 'RX-'}2026/${String(Math.floor(Math.random() * 899999) + 100000)}`,
+        ...(options.tutorId ? { tutorId: options.tutorId } : {}),
+        status,
+        ...(status === 'PENDING'
+          ? {}
+          : {
+              storageKey: `tenants/${fixture.tenantId}/documents/temp.pdf`,
+              sizeBytes: options.sizeBytes ?? bytes.byteLength,
+              issuedAt: new Date(),
+            }),
+      },
+    })
+
+    if (status !== 'PENDING') {
+      const key = `tenants/${fixture.tenantId}/documents/${document.id}.pdf`
+      await tx.document.update({ where: { id: document.id }, data: { storageKey: key } })
+      options.storage?.set(key, bytes)
+    }
+
+    return document.id
+  })
+}
+
 /** O callback da Evolution, como ela o manda: anônimo, com o token no cabeçalho. */
 export async function callWebhook(token: string, payload: unknown) {
   const instance = await getApp()
@@ -333,15 +438,88 @@ export async function callWebhook(token: string, payload: unknown) {
   })
 }
 
+/**
+ * O callback do Resend, assinado como o Svix o assina.
+ *
+ * O harness assina de verdade em vez de dublar a verificação, porque é justamente a
+ * assinatura que protege o endpoint: um teste que a contornasse não diria nada sobre o
+ * AC-03, que é o critério mais importante da sub-feature.
+ */
+export const RESEND_WEBHOOK_SECRET = 'whsec_' + Buffer.from('segredo-de-teste').toString('base64')
+
+export async function callEmailWebhook(
+  payload: unknown,
+  options: { secret?: string; timestamp?: number; signature?: string } = {},
+) {
+  const instance = await getApp()
+  const raw = JSON.stringify(payload)
+  const id = `msg_${randomUUID()}`
+  const timestamp = String(options.timestamp ?? Math.floor(Date.now() / 1000))
+  const secret = options.secret ?? RESEND_WEBHOOK_SECRET
+  const key = Buffer.from(secret.replace(/^whsec_/, ''), 'base64')
+  const signature =
+    options.signature ??
+    `v1,${createHmac('sha256', key).update(`${id}.${timestamp}.${raw}`).digest('base64')}`
+
+  return instance.inject({
+    method: 'POST',
+    url: '/internal/v1/email/webhook',
+    headers: {
+      'content-type': 'application/json',
+      'svix-id': id,
+      'svix-timestamp': timestamp,
+      'svix-signature': signature,
+    },
+    payload: raw,
+  })
+}
+
 // ─── Cenário ─────────────────────────────────────────────────────────────────
 
 export interface TenantFixture {
   tenantId: string
   userId: string
   clerkUserId: string
+  /** O endereço do membro da equipe, em claro — para o teste conferir o que saiu. */
+  userEmail: string
 }
 
 export const TEST_TIMEZONE = 'America/Sao_Paulo'
+
+/**
+ * A identidade visual e o endereço do estabelecimento (MOD-NOTIF-04).
+ *
+ * Sai de `tenant_settings`, e é a **mesma** linha que o cabeçalho do PDF lê: um teste
+ * que montasse o molde de outra fonte não provaria que o recibo impresso e o e-mail que
+ * o carrega dizem o mesmo endereço.
+ */
+export async function givenBranding(
+  fixture: TenantFixture,
+  options: { logoUrl?: string; primaryColor?: string; address?: boolean } = {},
+): Promise<void> {
+  await withTenant(fixture.tenantId, (tx) =>
+    tx.tenantSettings.update({
+      where: { tenantId: fixture.tenantId },
+      data: {
+        branding: {
+          ...(options.logoUrl ? { logoUrl: options.logoUrl } : {}),
+          primaryColor: options.primaryColor ?? '#1B7F5A',
+        },
+        publicPhone: '(11) 4002-8922',
+        ...(options.address === false
+          ? {}
+          : {
+              addressZip: '01310100',
+              addressStreet: 'Avenida Paulista',
+              addressNumber: '1000',
+              addressDistrict: 'Bela Vista',
+              addressCity: 'São Paulo',
+              addressState: 'SP',
+            }),
+      },
+    }),
+  )
+}
 
 export async function givenTenant(name = 'Petshop Teste'): Promise<TenantFixture> {
   const tenantId = randomUUID()
@@ -363,10 +541,13 @@ export async function givenTenant(name = 'Petshop Teste'): Promise<TenantFixture
     },
   })
 
+  // O e-mail é cifrado **com a chave de plataforma**, e não com a DEK do tenant: é a
+  // pegadinha central do MOD-NOTIF-01, e um placeholder aqui faria todo teste de
+  // destinatário de equipe exercitar o caminho de erro sem querer.
   const user = await ownerPrisma.user.create({
     data: {
       clerkUserId: `user_${suffix}`,
-      emailEncrypted: 'v1:x:x:x',
+      emailEncrypted: encryptPlatform(`equipe-${suffix}@exemplo.com`),
       emailHash: `hash-${suffix}`,
       fullName: 'Atendente de Teste',
     },
@@ -378,7 +559,12 @@ export async function givenTenant(name = 'Petshop Teste'): Promise<TenantFixture
 
   await withTenant(tenantId, (tx) => createTenantKey(tx, tenantId))
 
-  return { tenantId, userId: user.id, clerkUserId: user.clerkUserId }
+  return {
+    tenantId,
+    userId: user.id,
+    clerkUserId: user.clerkUserId,
+    userEmail: `equipe-${suffix}@exemplo.com`,
+  }
 }
 
 /** Liga o motor. Sem isso todo enfileiramento recusa com ERR_CRM_013 (RN-13). */

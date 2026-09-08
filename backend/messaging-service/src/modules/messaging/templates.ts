@@ -1,7 +1,7 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
+  EDITABLE_MESSAGE_TEMPLATES,
   MESSAGE_BODY_LIMITS,
-  MESSAGE_TEMPLATES,
   findTemplateDefinition,
   type MessageCategory,
   type MessageChannel,
@@ -103,7 +103,15 @@ export async function listTemplates(tenantId: string): Promise<ResolvedTemplate[
     const byKey = new Map(overrides.map((row) => [`${row.key}:${row.channel}`, row]))
 
     const resolved: ResolvedTemplate[] = []
-    for (const definition of MESSAGE_TEMPLATES) {
+    /**
+     * A tela do CRM mostra o que o petshop pode editar (MOD-NOTIF-04).
+     *
+     * Os textos de sistema ficam de fora: o corpo deles carrega o endereço do painel, o
+     * número do documento e a estrutura que o molde de marca espera. Oferecê-los para
+     * edição é oferecer ao admin a chance de quebrar o próprio e-mail de boas-vindas
+     * sem saber — e ninguém pediu para reescrever aquele texto. O do lembrete, sim.
+     */
+    for (const definition of EDITABLE_MESSAGE_TEMPLATES) {
       for (const channel of ['WHATSAPP', 'EMAIL'] as const) {
         const base = fromDefinition(definition.key, channel)
         if (!base) continue
@@ -135,8 +143,20 @@ export async function upsertTemplate(
   const definition = findTemplateDefinition(key)
   if (!definition) {
     throw unknownTemplate(`Não existe um texto chamado "${key}"`, {
-      available: MESSAGE_TEMPLATES.map((template) => template.key),
+      available: EDITABLE_MESSAGE_TEMPLATES.map((template) => template.key),
     })
+  }
+
+  /**
+   * Texto de sistema não se edita (MOD-NOTIF-04).
+   *
+   * A listagem já não o oferece, e esta guarda existe porque a rota é endereçável: o
+   * `PUT /v1/messaging/templates/tenant_welcome/EMAIL` é uma URL que alguém pode
+   * digitar. Sem ela, o petshop poderia apagar o endereço do painel do próprio e-mail
+   * de boas-vindas — e descobrir isso quando o próximo funcionário não conseguisse entrar.
+   */
+  if ((definition.authored ?? 'TENANT') === 'SYSTEM') {
+    throw systemTemplate('Este texto é do produto e não pode ser editado')
   }
 
   if (input.body.length > MESSAGE_BODY_LIMITS[channel]) {

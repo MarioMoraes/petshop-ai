@@ -25,6 +25,27 @@ export interface MessageTemplateDefinition {
   /** Só EMAIL usa assunto. */
   subject?: string
   body: Record<MessageChannel, string>
+  /**
+   * A quem o texto se dirige (MOD-NOTIF-01). Padrão `TUTOR`, que preserva os dezessete
+   * textos anteriores ao MOD-NOTIF sem tocá-los.
+   *
+   * Não é decoração: é o que impede a tela do CRM de oferecer ao petshop um texto de
+   * boas-vindas de equipe para editar como se fosse recado de cliente, e o que separa
+   * `{{tutor.nome}}` de `{{usuario.nome}}` na validação de variável.
+   */
+  audience?: 'TUTOR' | 'USER'
+  /**
+   * Quem escreve o texto, e portanto em que molde ele sai (MOD-NOTIF-04).
+   *
+   * `TENANT` é o padrão e é o catálogo inteiro de hoje: o petshop edita na tela do CRM,
+   * escreve em texto puro, e o e-mail sai com o embrulho mínimo que só preserva as
+   * quebras de linha. Um texto de WhatsApp dentro de moldura corporativa soa falso.
+   *
+   * `SYSTEM` é o texto que o **produto** escreve — boas-vindas, recibo, documento — e
+   * ele sai no molde de marca, com logo, cor e rodapé do estabelecimento. Um molde só
+   * para os dois casos pioraria um dos dois.
+   */
+  authored?: 'TENANT' | 'SYSTEM'
 }
 
 /**
@@ -53,6 +74,40 @@ const DUNNING_VARIABLES = [
   ...BASE_VARIABLES,
   'financeiro.valor_devido',
   'financeiro.dias_atraso',
+] as const
+
+/**
+ * As do documento entregue por e-mail (MOD-NOTIF-06 e 07).
+ *
+ * `documento.link` é a página "Meus Documentos" do Portal, **nunca** a URL assinada do
+ * bucket — o motor a resolve no enfileiramento, e a razão está em `attachments.ts`.
+ */
+const DOCUMENT_VARIABLES = [
+  ...BASE_VARIABLES,
+  'pet.nome',
+  'documento.tipo',
+  'documento.numero',
+  'documento.link',
+  'financeiro.valor_pago',
+] as const
+
+/**
+ * As dos textos dirigidos à **equipe** (MOD-NOTIF-08 e 09).
+ *
+ * `tutor.*` não aparece aqui, e é a diferença que dá sentido ao `audience`: quem recebe
+ * não é cliente, e um texto de equipe que dissesse "Olá, tutor" seria o vazamento de
+ * enquadramento que o módulo existe para evitar. Os três endereços são montados de
+ * `APP_DOMAIN` em tempo de execução — nunca de constante cravada (AC-02 de MOD-NOTIF-08).
+ */
+const TEAM_VARIABLES = [
+  'usuario.nome',
+  'usuario.primeiro_nome',
+  'petshop.nome',
+  'petshop.telefone',
+  'petshop.link_admin',
+  'petshop.link_site',
+  'petshop.link_portal',
+  'equipe.papel',
 ] as const
 
 const APPOINTMENT_VARIABLES = [
@@ -464,6 +519,103 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         '{{petshop.telefone}}.',
     },
   },
+
+  // ─── MOD-NOTIF — os textos que o produto escreve ──────────────────────────
+  //
+  // Os quatro são `authored: 'SYSTEM'` e saem no molde de marca. Os dois primeiros vão
+  // ao cliente e carregam papel; os dois últimos vão à equipe e não carregam nada além
+  // de um endereço para entrar.
+
+  {
+    key: 'receipt_issued',
+    label: 'Recibo emitido',
+    category: 'TRANSACTIONAL',
+    variables: DOCUMENT_VARIABLES,
+    authored: 'SYSTEM',
+    subject: 'Seu recibo do {{petshop.nome}}',
+    body: {
+      /**
+       * O WhatsApp leva **link**, sempre (RN-06). Arquivo pela Evolution cai nas regras
+       * de mídia, engorda a fila e some do histórico do tutor.
+       */
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, seu recibo nº {{documento.numero}} do {{petshop.nome}} ' +
+        'está pronto.\n\n' +
+        'Valor: {{financeiro.valor_pago}}\n' +
+        'Baixe em {{documento.link}}',
+      EMAIL:
+        'Olá, {{tutor.primeiro_nome}}!\n\n' +
+        'Segue o recibo nº {{documento.numero}} referente ao seu pagamento de ' +
+        '{{financeiro.valor_pago}} no {{petshop.nome}}.\n\n' +
+        'O arquivo vai anexo. Ele também fica guardado em {{documento.link}}.',
+    },
+  },
+  {
+    key: 'document_issued',
+    label: 'Documento emitido',
+    category: 'TRANSACTIONAL',
+    variables: DOCUMENT_VARIABLES,
+    authored: 'SYSTEM',
+    subject: '{{documento.tipo}} de {{pet.nome}}',
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, o {{documento.tipo}} de {{pet.nome}} está pronto.\n\n' +
+        'Baixe em {{documento.link}}',
+      EMAIL:
+        'Olá, {{tutor.primeiro_nome}}!\n\n' +
+        'Segue o {{documento.tipo}} de {{pet.nome}}, emitido pelo {{petshop.nome}}.\n\n' +
+        'O arquivo vai anexo. Ele também fica guardado em {{documento.link}}.',
+    },
+  },
+  {
+    key: 'tenant_welcome',
+    label: 'Boas-vindas do estabelecimento',
+    category: 'TRANSACTIONAL',
+    variables: TEAM_VARIABLES,
+    audience: 'USER',
+    authored: 'SYSTEM',
+    subject: 'Sua conta do {{petshop.nome}} está pronta',
+    /**
+     * Os três endereços de uma vez, e é deliberado: o admin que acabou de terminar o
+     * wizard não sabe que existem três superfícies, e descobrir o site do próprio
+     * petshop dias depois, por acaso, é o desperdício mais comum de um onboarding.
+     */
+    body: {
+      WHATSAPP:
+        '{{usuario.primeiro_nome}}, a conta do {{petshop.nome}} está pronta.\n\n' +
+        'Painel: {{petshop.link_admin}}\n' +
+        'Site: {{petshop.link_site}}\n' +
+        'Portal do cliente: {{petshop.link_portal}}',
+      EMAIL:
+        'Olá, {{usuario.primeiro_nome}}!\n\n' +
+        'A conta do {{petshop.nome}} está pronta para uso. São três endereços, e vale ' +
+        'conhecer os três:\n\n' +
+        'O painel da equipe, onde você trabalha: {{petshop.link_admin}}\n' +
+        'A página pública do seu petshop, que já está no ar: {{petshop.link_site}}\n' +
+        'O portal onde seus clientes marcam horário: {{petshop.link_portal}}\n\n' +
+        'Comece cadastrando um cliente e o pet dele. O resto do sistema nasce daí.',
+    },
+  },
+  {
+    key: 'user_welcome',
+    label: 'Boas-vindas de membro da equipe',
+    category: 'TRANSACTIONAL',
+    variables: TEAM_VARIABLES,
+    audience: 'USER',
+    authored: 'SYSTEM',
+    subject: 'Bem-vindo à equipe do {{petshop.nome}}',
+    body: {
+      WHATSAPP:
+        '{{usuario.primeiro_nome}}, seu acesso ao {{petshop.nome}} está ativo como ' +
+        '{{equipe.papel}}.\n\nEntre em {{petshop.link_admin}}',
+      EMAIL:
+        'Olá, {{usuario.primeiro_nome}}!\n\n' +
+        'Seu acesso ao {{petshop.nome}} está ativo, com o papel de {{equipe.papel}}.\n\n' +
+        'O painel da equipe fica em {{petshop.link_admin}}.\n\n' +
+        'O que você vê lá dentro depende do seu papel: se algo que você precisa não ' +
+        'aparece, fale com quem administra a conta.',
+    },
+  },
 ]
 
 const BY_KEY = new Map(MESSAGE_TEMPLATES.map((template) => [template.key, template]))
@@ -473,6 +625,40 @@ export function findTemplateDefinition(key: string): MessageTemplateDefinition |
 }
 
 export const MESSAGE_TEMPLATE_KEYS = MESSAGE_TEMPLATES.map((template) => template.key)
+
+/**
+ * A quem o texto se dirige, com o padrão aplicado.
+ *
+ * Existe como função e não como leitura direta do campo porque o padrão é o caso
+ * esmagador: dezoito dos vinte e dois textos omitem `audience`, e obrigar cada chamador
+ * a escrever `?? 'TUTOR'` é convidar o primeiro que esquecer a mandar recado de equipe
+ * para um cliente.
+ */
+export function templateAudienceOf(key: string): 'TUTOR' | 'USER' {
+  return BY_KEY.get(key)?.audience ?? 'TUTOR'
+}
+
+/**
+ * Em que molde o texto sai (MOD-NOTIF-04). Mesma razão da função acima.
+ *
+ * `TENANT` é texto do petshop e sai como sempre saiu; `SYSTEM` é texto do produto e sai
+ * com logo, cor e rodapé. Quem pergunta é o despacho, no instante de montar o e-mail.
+ */
+export function templateAuthorOf(key: string): 'TENANT' | 'SYSTEM' {
+  return BY_KEY.get(key)?.authored ?? 'TENANT'
+}
+
+/**
+ * Os textos que o petshop pode editar na tela do CRM.
+ *
+ * Os de sistema ficam de fora: o corpo deles carrega o endereço do painel, o número do
+ * documento e a estrutura que o molde de marca espera, e deixar o petshop reescrever
+ * isso é deixá-lo quebrar o próprio e-mail de boas-vindas sem saber. Editar o **texto**
+ * dele não é uma necessidade que alguém tenha declarado; editar o do lembrete, sim.
+ */
+export const EDITABLE_MESSAGE_TEMPLATES = MESSAGE_TEMPLATES.filter(
+  (template) => (template.authored ?? 'TENANT') === 'TENANT',
+)
 
 /**
  * Nome de tela do template, com o próprio `key` como último recurso.

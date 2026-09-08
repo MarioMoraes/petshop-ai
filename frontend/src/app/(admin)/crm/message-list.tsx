@@ -7,6 +7,7 @@ import {
   MESSAGE_BLOCK_REASON_LABELS,
   MESSAGE_CATEGORY_LABELS,
   MESSAGE_CHANNEL_LABELS,
+  MESSAGE_RECIPIENT_KIND_LABELS,
   MESSAGE_STATUS_LABELS,
   templateLabelOf,
   type MessageStatus,
@@ -25,6 +26,10 @@ import { cancelMessageAction, retryMessageAction } from './actions'
  *
  * A diferença entre os dois usos cabe em `showTutor`: no painel a coluna de quem
  * recebeu é a mais importante; na ficha ela seria a mesma palavra vinte vezes.
+ *
+ * Desde o MOD-NOTIF-11 essa coluna tem **duas** relações. O selo "Equipe" só aparece
+ * na linha de equipe: marcar as duas transformaria a informação em ruído, e a de
+ * cliente é a esmagadora maioria.
  */
 
 interface Props {
@@ -75,7 +80,12 @@ export function MessageList({ messages, canSend, showTutor, empty }: Props) {
                 <p className="truncate text-sm font-medium">
                   {templateLabelOf(message.templateKey)}
                   {showTutor && (
-                    <span className="text-muted"> · {message.tutorName}</span>
+                    <span className="text-muted"> · {message.recipientName}</span>
+                  )}
+                  {showTutor && message.recipientKind === 'USER' && (
+                    <span className="ml-2 inline-flex align-middle">
+                      <Badge>{MESSAGE_RECIPIENT_KIND_LABELS[message.recipientKind]}</Badge>
+                    </span>
                   )}
                 </p>
                 <p className="hint mt-0.5">

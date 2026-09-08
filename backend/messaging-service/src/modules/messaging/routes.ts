@@ -11,7 +11,7 @@ import {
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { resolveWhatsappInstanceByTokenHash, withTenant } from '@petshop/db'
 import { hasPermission, requirePermission, requireTenantContext } from '../../auth/context.js'
-import { badWebhook, forbidden, invalid, notFound } from '../../lib/errors.js'
+import { badWebhook, forbidden, invalid, notFound, unauthorized } from '../../lib/errors.js'
 import { parseInput } from '../../lib/validate.js'
 import type { ActorContext } from './actor.js'
 import { cancelMessage, enqueueMessage, retryMessage } from './messages.js'
@@ -20,6 +20,7 @@ import { render } from './render.js'
 import { getSettings, toApi, updateSettings } from './settings.js'
 import { createSuppression, listSuppressions, removeSuppression } from './suppressions.js'
 import { listTemplates, resetTemplate, upsertTemplate } from './templates.js'
+import { applyEmailWebhook, verifyResendSignature } from './webhook-email.js'
 import {
   applyWebhook,
   connectWhatsapp,
@@ -403,4 +404,55 @@ export async function registerWhatsappWebhookRoutes(app: FastifyInstance): Promi
       return reply.status(204).send()
     },
   )
+}
+
+/**
+ * O callback do Resend (MOD-NOTIF-10) — **fora** da autenticação de serviço, como o da
+ * Evolution, e pelo mesmo motivo: o provedor não conhece o contrato HMAC do gateway.
+ *
+ * Duas diferenças em relação ao vizinho, e as duas vêm de o Resend ser um serviço na
+ * internet e não um container ao lado:
+ *
+ * - **O caminho precisa ser alcançável de fora**, então ele não pode se apoiar em estar
+ *   fechado na rede interna. Quem o protege é inteiramente a assinatura.
+ * - **A verificação é sobre o corpo cru.** O `addContentTypeParser` guarda os bytes
+ *   originais em `request.rawBody`: o JSON reserializado pelo Fastify tem as mesmas
+ *   chaves e outros bytes, e a assinatura é dos bytes.
+ */
+export async function registerEmailWebhookRoutes(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    scope.addContentTypeParser(
+      'application/json',
+      { parseAs: 'string' },
+      (request, body, done) => {
+        const raw = typeof body === 'string' ? body : body.toString('utf8')
+        ;(request as FastifyRequest & { rawBody?: string }).rawBody = raw
+        try {
+          done(null, raw.length > 0 ? JSON.parse(raw) : {})
+        } catch (error) {
+          done(error as Error, undefined)
+        }
+      },
+    )
+
+    scope.post('/internal/v1/email/webhook', async (request, reply) => {
+      const raw = (request as FastifyRequest & { rawBody?: string }).rawBody ?? ''
+      const valid = verifyResendSignature(
+        {
+          id: request.headers['svix-id'] as string | undefined,
+          timestamp: request.headers['svix-timestamp'] as string | undefined,
+          signature: request.headers['svix-signature'] as string | undefined,
+        },
+        raw,
+      )
+      // 401 sem processar nada e sem revelar se a mensagem existe (AC-03).
+      if (!valid) throw unauthorized('Assinatura do webhook inválida')
+
+      await applyEmailWebhook(request.body as Parameters<typeof applyEmailWebhook>[0])
+      // 204 mesmo para o que ignoramos: o Resend reenvia o que não recebe 2xx, e
+      // reenviar um `email.opened` que não se rastreia de propósito encheria a fila
+      // dele para sempre.
+      return reply.status(204).send()
+    })
+  })
 }

@@ -23,6 +23,9 @@ const PURGED = '(mensagem removida pela política de retenção)'
  */
 const UNKNOWN_TUTOR = 'Tutor'
 
+/** O ex-membro cuja linha continua no histórico. Ver AC-04 de MOD-NOTIF-01. */
+const UNKNOWN_USER = 'Membro da equipe'
+
 /** Nome de exibição por id, para os tutores citados nesta página. */
 async function tutorNames(
   tx: TenantTransaction,
@@ -34,6 +37,33 @@ async function tutorNames(
     select: { id: true, fullName: true, socialName: true },
   })
   return new Map(rows.map((row) => [row.id, row.socialName ?? row.fullName]))
+}
+
+/**
+ * O mesmo, para os membros da equipe (MOD-NOTIF-11).
+ *
+ * Uma consulta por página e não por linha, como a de tutores. `users` é global e
+ * `full_name` está em claro nela também — resolver o nome aqui não abre chave nenhuma,
+ * e é por isso que o painel consegue dizer quem recebeu sem decifrar o destinatário.
+ */
+async function userNames(tx: TenantTransaction, userIds: string[]): Promise<Map<string, string>> {
+  if (userIds.length === 0) return new Map()
+  const rows = await tx.user.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, fullName: true },
+  })
+  return new Map(rows.map((row) => [row.id, row.fullName]))
+}
+
+/** O que a coluna "destinatário" mostra, venha ele de onde vier. */
+function displayName(
+  row: { recipientKind: string; tutorId: string | null; userId: string | null },
+  tutors: Map<string, string>,
+  users: Map<string, string>,
+): string {
+  return row.recipientKind === 'USER'
+    ? (row.userId ? users.get(row.userId) : undefined) ?? UNKNOWN_USER
+    : (row.tutorId ? tutors.get(row.tutorId) : undefined) ?? UNKNOWN_TUTOR
 }
 
 export interface MessagePage {
@@ -51,7 +81,9 @@ export async function listMessages(
     ...(query.status ? { status: query.status } : {}),
     ...(query.channel ? { channel: query.channel } : {}),
     ...(query.category ? { category: query.category } : {}),
+    ...(query.recipientKind ? { recipientKind: query.recipientKind } : {}),
     ...(query.tutorId ? { tutorId: query.tutorId } : {}),
+    ...(query.userId ? { userId: query.userId } : {}),
     ...(query.templateKey ? { templateKey: query.templateKey } : {}),
     ...(query.from || query.to
       ? {
@@ -74,12 +106,13 @@ export async function listMessages(
       tx.message.count({ where }),
     ])
 
-    const [cipher, names] = await Promise.all([
+    const [cipher, tutors, users] = await Promise.all([
       openCipher(tx, tenantId),
-      tutorNames(tx, [...new Set(rows.map((row) => row.tutorId))]),
+      tutorNames(tx, [...new Set(rows.flatMap((row) => (row.tutorId ? [row.tutorId] : [])))]),
+      userNames(tx, [...new Set(rows.flatMap((row) => (row.userId ? [row.userId] : [])))]),
     ])
     return {
-      data: rows.map((row) => toSummary(row, cipher, names.get(row.tutorId) ?? UNKNOWN_TUTOR)),
+      data: rows.map((row) => toSummary(row, cipher, displayName(row, tutors, users))),
       total,
       page: query.page,
       limit: query.limit,
@@ -91,11 +124,12 @@ export async function findMessage(tenantId: string, id: string): Promise<Message
   return withTenant(tenantId, async (tx) => {
     const row = await tx.message.findUnique({ where: { id } })
     if (!row) return null
-    const [cipher, names] = await Promise.all([
+    const [cipher, tutors, users] = await Promise.all([
       openCipher(tx, tenantId),
-      tutorNames(tx, [row.tutorId]),
+      tutorNames(tx, row.tutorId ? [row.tutorId] : []),
+      userNames(tx, row.userId ? [row.userId] : []),
     ])
-    return toSummary(row, cipher, names.get(row.tutorId) ?? UNKNOWN_TUTOR)
+    return toSummary(row, cipher, displayName(row, tutors, users))
   })
 }
 
@@ -163,8 +197,11 @@ export async function messageStats(
 function toSummary(
   row: {
     id: string
-    tutorId: string
+    recipientKind: string
+    tutorId: string | null
+    userId: string | null
     petId: string | null
+    documentId: string | null
     channel: 'WHATSAPP' | 'EMAIL'
     direction: 'OUTBOUND' | 'INBOUND'
     category: 'TRANSACTIONAL' | 'OPERATIONAL' | 'MARKETING'
@@ -184,12 +221,17 @@ function toSummary(
     createdAt: Date
   },
   cipher: MessageCipher,
-  tutorName: string,
+  recipientName: string,
 ): MessageSummary {
   return {
     id: row.id,
+    recipientKind: row.recipientKind as MessageSummary['recipientKind'],
     tutorId: row.tutorId,
-    tutorName,
+    userId: row.userId,
+    recipientName,
+    // O nome antigo do campo, repetido. O Portal e a aba Mensagens da ficha só veem
+    // linha de tutor, e para eles os dois valores são sempre o mesmo.
+    tutorName: recipientName,
     petId: row.petId,
     channel: row.channel,
     direction: row.direction,
@@ -209,6 +251,7 @@ function toSummary(
     attempts: row.attempts,
     errorCode: row.errorCode,
     errorDetail: row.errorDetail,
+    documentId: row.documentId,
     createdAt: row.createdAt.toISOString(),
   }
 }

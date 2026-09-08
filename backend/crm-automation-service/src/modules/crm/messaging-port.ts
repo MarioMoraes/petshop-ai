@@ -18,8 +18,17 @@ import { logger } from '../../lib/logger.js'
 
 export interface EnqueueRequest {
   tenantId: string
-  tutorId: string
+  /**
+   * A quem se fala. `TUTOR` por omissão, que é o que toda automação anterior ao
+   * MOD-NOTIF manda — e o que mantém `tutorId` obrigatório na prática para elas.
+   */
+  recipientKind?: 'TUTOR' | 'USER'
+  tutorId?: string
+  /** O membro da equipe (MOD-NOTIF-01). Exatamente um entre este e `tutorId`. */
+  userId?: string
   petId?: string
+  /** O documento que viaja anexo (MOD-NOTIF-05). Referência, nunca conteúdo. */
+  documentId?: string
   templateKey: string
   dedupeKey: string
   variables: Record<string, string | number>
@@ -73,8 +82,11 @@ function createHttpPort(): MessagingPort {
           method: 'POST',
           headers: { ...headers, 'content-type': 'application/json' },
           body: JSON.stringify({
-            tutorId: request.tutorId,
+            ...(request.recipientKind ? { recipientKind: request.recipientKind } : {}),
+            ...(request.tutorId ? { tutorId: request.tutorId } : {}),
+            ...(request.userId ? { userId: request.userId } : {}),
             ...(request.petId ? { petId: request.petId } : {}),
+            ...(request.documentId ? { documentId: request.documentId } : {}),
             templateKey: request.templateKey,
             dedupeKey: request.dedupeKey,
             variables: request.variables,

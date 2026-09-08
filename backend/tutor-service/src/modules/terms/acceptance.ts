@@ -64,6 +64,10 @@ const SOURCE_LABELS: Record<ConsentSource, string> = {
   SITE: 'Site do estabelecimento',
   WHATSAPP: 'WhatsApp',
   IMPORT: 'Importação de cadastro',
+  // Nunca aparece num termo — a origem existe para a revogação por reclamação de spam
+  // (AC-02 de MOD-NOTIF-10). Fica aqui porque o mapa é exaustivo de propósito: é o
+  // typecheck que obriga a decidir o rótulo quando uma origem nova nasce.
+  PROVIDER: 'Reclamação no provedor de e-mail',
 }
 
 export interface AcceptTermResult {

@@ -53,8 +53,24 @@ function createResendPort(apiKey: string, from: string): ChannelPort {
             to: [request.to],
             subject: request.subject ?? '',
             text: request.body,
-            html: renderHtml(request.body),
+            // O molde de marca vem pronto do despacho; sem ele, o embrulho mínimo de
+            // sempre. As duas pontas mandam `text` junto: cliente que recusa HTML
+            // continua lendo o e-mail, e é o que faz o texto puro ser a fonte.
+            html: request.html ?? renderHtml(request.body),
             ...(request.replyTo ? { reply_to: request.replyTo } : {}),
+            // MOD-NOTIF-05: o Resend quer o conteúdo em base64 no corpo do POST — é a
+            // única entrega do sistema que não passa por URL assinada. Quem decidiu
+            // que os bytes cabiam foi o `attachments.ts`; aqui só se obedece.
+            ...(request.attachment
+              ? {
+                  attachments: [
+                    {
+                      filename: request.attachment.filename,
+                      content: request.attachment.content.toString('base64'),
+                    },
+                  ],
+                }
+              : {}),
           }),
           signal: controller.signal,
         })
@@ -110,9 +126,12 @@ function createLoggingPort(motivo: string): ChannelPort {
 }
 
 /**
- * O corpo é texto puro, escrito pelo petshop. O HTML existe só para o cliente de
- * e-mail respeitar as quebras de linha — nada de layout, porque quem edita o texto na
- * tela não escreve marcação e não deve precisar.
+ * O embrulho mínimo: o corpo é texto puro, escrito pelo petshop.
+ *
+ * O HTML existe só para o cliente de e-mail respeitar as quebras de linha — nada de
+ * layout, porque quem edita o texto na tela não escreve marcação e não deve precisar.
+ * O molde **de marca**, esse, é outro (MOD-NOTIF-04) e mora em `brand.ts`: ele vale
+ * para o texto que o produto escreve, e chega aqui pronto em `request.html`.
  */
 function renderHtml(body: string): string {
   const escaped = body

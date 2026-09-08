@@ -56,6 +56,12 @@ const MensagemRecebidaSchema = z.object({
   body: z.string(),
 })
 
+const MensagemReclamadaSchema = z.object({
+  tenantId: z.uuid(),
+  tutorId: z.uuid(),
+  channel: z.enum(['WHATSAPP', 'EMAIL']),
+})
+
 /** Palavras que valem como opt-out no WhatsApp brasileiro. */
 const OPT_OUT_WORDS = new Set(['SAIR', 'PARAR', 'CANCELAR', 'DESCADASTRAR', 'STOP'])
 
@@ -188,6 +194,42 @@ export async function handleMensagemRecebida(payload: unknown): Promise<boolean>
 }
 
 /**
+ * O tutor marcou a mensagem como spam (AC-02 de MOD-NOTIF-10).
+ *
+ * A supressão do endereço já aconteceu do lado do messaging-service, na mesma
+ * transação do bounce: ela é técnica e não podia depender do broker. O que chega aqui é
+ * a parte **jurídica** — reclamação de spam é opt-out, e tratá-la só como endereço
+ * queimado ignoraria o que a pessoa disse.
+ *
+ * A escrita é deste serviço porque `tutor_consents` é dele: append-only, com versão,
+ * origem e prova. Dois escritores da mesma trilha seriam duas verdades sobre a mesma
+ * pergunta, e a que valeria num processo seria esta. É a mesma forma do opt-out por
+ * palavra no WhatsApp, logo acima; só muda a origem.
+ */
+export async function handleMensagemReclamada(payload: unknown): Promise<void> {
+  const event = MensagemReclamadaSchema.parse(payload)
+
+  await withTenant(event.tenantId, (tx: TenantTransaction) =>
+    recordConsentsIn(tx, {
+      tenantId: event.tenantId,
+      tutorId: event.tutorId,
+      transitions: [
+        { channel: event.channel, granted: false, purpose: 'MARKETING', source: 'PROVIDER' },
+      ],
+    }),
+  )
+
+  await invalidateTutor(event.tenantId, event.tutorId)
+  await publishEvent(TUTOR_ROUTING_KEYS.tutorConsentimentoRevogado, {
+    tenantId: event.tenantId,
+    tutorId: event.tutorId,
+    channel: event.channel,
+    purpose: 'MARKETING',
+    version: 'provider-complaint',
+  })
+}
+
+/**
  * `tutors.pets_count`, alimentado por MOD-PET.
  *
  * Reconta em vez de incrementar: a entrega do RabbitMQ é *ao menos uma vez*, e um
@@ -224,6 +266,7 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'inadimplencia.detectada': handleInadimplenciaDetectada,
   'inadimplencia.resolvida': handleInadimplenciaResolvida,
   'mensagem.recebida': handleMensagemRecebida,
+  'mensagem.reclamada': handleMensagemReclamada,
   'pet.criado': handlePetCriado,
   'pet.vinculo.alterado': handlePetVinculoAlterado,
 }

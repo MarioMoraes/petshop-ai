@@ -6,6 +6,7 @@ import {
   type MessageCategory,
   type MessageChannel,
   type MessageOriginType,
+  type MessageRecipientKind,
 } from '@petshop/shared-types'
 import { recordAudit } from '../../lib/audit.js'
 import { publishEvent } from '../../lib/events.js'
@@ -22,7 +23,8 @@ import { openCipher, type MessageCipher } from './crypto.js'
 import { dispatchTenant } from './dispatch.js'
 import { render } from './render.js'
 import { marketingCapReached } from './frequency.js'
-import { resolveDelivery, resolveOverrideDelivery } from './recipient.js'
+import { adminUrlOf, documentsUrlOf, portalUrlOf, siteUrlOf } from './attachments.js'
+import { resolveDelivery, resolveOverrideDelivery, resolveUserDelivery } from './recipient.js'
 import { resolveTemplate } from './templates.js'
 import { loadSettings } from './settings.js'
 import { nextOpening } from './window.js'
@@ -75,26 +77,99 @@ export interface EnqueueResult {
  */
 async function baseVariables(
   tx: TenantTransaction,
-  tutorId: string,
+  recipient: Recipient,
+  documentId: string | null,
 ): Promise<Record<string, string>> {
-  const [tutor, tenant, settings] = await Promise.all([
-    tx.tutor.findUnique({ where: { id: tutorId }, select: { fullName: true } }),
-    tx.tenant.findFirst({ select: { name: true } }),
+  const [tenant, settings] = await Promise.all([
+    tx.tenant.findFirst({ select: { name: true, slug: true } }),
     // O telefone público entrou em `tenant_settings` com o perfil do tenant
     // (2026-08-28). Antes dele esta variável renderizava vazio, e toda mensagem saía
     // dizendo "avise pelo " — a frase ficava de pé, mas sem o número que a justifica.
     tx.tenantSettings.findFirst({ select: { publicPhone: true, publicWhatsapp: true } }),
   ])
 
-  const fullName = tutor?.fullName ?? ''
-  return {
-    'tutor.nome': fullName,
-    'tutor.primeiro_nome': fullName.split(/\s+/)[0] ?? '',
+  const slug = tenant?.slug ?? ''
+  const common = {
     'petshop.nome': tenant?.name ?? '',
     // O WhatsApp na frente do fixo: quem recebe a mensagem por WhatsApp responde por
     // ele, e o template diz "fale com a gente" — não "ligue".
     'petshop.telefone': settings?.publicWhatsapp ?? settings?.publicPhone ?? '',
+    /**
+     * Os três endereços da instalação (AC-02 de MOD-NOTIF-08).
+     *
+     * Montados de `APP_DOMAIN` em tempo de execução, e não de constante cravada. É o
+     * mesmo bug que já mordeu uma vez, quando `.petshopai.app` estava fixo no
+     * onboarding e em `/configuracoes`: o admin lia um endereço que não existia.
+     */
+    'petshop.link_admin': adminUrlOf(),
+    'petshop.link_site': siteUrlOf(slug),
+    'petshop.link_portal': portalUrlOf(slug),
+    /**
+     * O endereço do documento entra **aqui**, no enfileiramento, e é o que mantém a
+     * promessa do AC-05 de MOD-NOTIF-05: o corpo cifrado nunca conhece uma URL
+     * assinada.
+     *
+     * O que se oferece é a página "Meus Documentos" do Portal — pública, estável, e que
+     * pede a sessão do tutor do outro lado. A URL assinada do bucket vive quinze minutos
+     * e é credencial: no corpo, ela estaria no histórico, no log do provedor e na caixa
+     * de entrada, que são três lugares onde credencial não vai.
+     */
+    ...(documentId && recipient.kind === 'TUTOR'
+      ? { 'documento.link': documentsUrlOf(slug) }
+      : {}),
   }
+
+  /**
+   * O nome de quem recebe sai de tabelas diferentes, e as marcações também.
+   *
+   * `tutor.*` e `usuario.*` não são sinônimos com nomes distintos: são as duas relações
+   * que a instância única do Clerk aproxima e que o produto precisa manter separadas.
+   * Um texto de equipe que dissesse "Olá, tutor" seria exatamente o vazamento de
+   * enquadramento que o MOD-NOTIF existe para evitar.
+   */
+  if (recipient.kind === 'USER') {
+    const user = await tx.user.findUnique({
+      where: { id: recipient.userId },
+      select: { fullName: true },
+    })
+    const fullName = user?.fullName ?? ''
+    return {
+      ...common,
+      'usuario.nome': fullName,
+      'usuario.primeiro_nome': fullName.split(/\s+/)[0] ?? '',
+    }
+  }
+
+  const tutor = await tx.tutor.findUnique({
+    where: { id: recipient.tutorId },
+    select: { fullName: true },
+  })
+  const fullName = tutor?.fullName ?? ''
+  return {
+    ...common,
+    'tutor.nome': fullName,
+    'tutor.primeiro_nome': fullName.split(/\s+/)[0] ?? '',
+  }
+}
+
+/**
+ * O destinatário, já desambiguado (MOD-NOTIF-01).
+ *
+ * União discriminada e não dois campos opcionais, porque a diferença entre os dois é
+ * grande demais para ser um `if` espalhado: chave de criptografia, gates, tabela de
+ * origem do nome e canal disponível mudam todos junto. O schema Zod já garantiu que
+ * exatamente um veio; o tipo é o que impede o resto do arquivo de esquecer disso.
+ */
+type Recipient =
+  | { kind: 'TUTOR'; tutorId: string }
+  | { kind: 'USER'; userId: string }
+
+function recipientOf(input: EnqueueMessageInput): Recipient {
+  // O `as string` é o que o `.refine()` do schema já garantiu: `recipientKind` e o id
+  // correspondente chegam juntos, ou a requisição nem passou da validação.
+  return input.recipientKind === 'USER'
+    ? { kind: 'USER', userId: input.userId as string }
+    : { kind: 'TUTOR', tutorId: input.tutorId as string }
 }
 
 /**
@@ -162,6 +237,32 @@ export async function enqueueMessage(
     throw unknownTemplate(`Não existe um texto chamado "${input.templateKey}"`)
   }
   const category: MessageCategory = definition.category
+  const recipient = recipientOf(input)
+  const recipientKind: MessageRecipientKind = recipient.kind
+
+  /**
+   * AC-03 de MOD-NOTIF-02 — marketing não se dirige à equipe.
+   *
+   * É a mesma linha que a guarda do `overrideAddress` já não cruza, e recusar aqui em
+   * vez de bloquear no despacho é deliberado: mandar oferta a um funcionário não é um
+   * tutor que não quer receber, é um chamador que errou o destinatário. E o gate que
+   * pegaria isso mais tarde — o consentimento — nem roda para `USER`.
+   */
+  if (recipientKind === 'USER' && category === 'MARKETING') {
+    throw invalid('Texto de marketing não pode ser enviado a um membro da equipe')
+  }
+
+  /**
+   * Equipe sai por e-mail, e só.
+   *
+   * O produto não tem o WhatsApp do funcionário — o número que ele porventura tenha
+   * cadastrado é o de tutor, de outra relação, e mandar recado de trabalho para ele
+   * seria misturar as duas que a instância única do Clerk já aproxima. Recusar é melhor
+   * que cair para o e-mail em silêncio: quem pediu WhatsApp precisa saber que não houve.
+   */
+  if (recipientKind === 'USER' && input.channel === 'WHATSAPP') {
+    throw invalid('Mensagem para a equipe sai por e-mail; o WhatsApp é do cliente')
+  }
 
   /**
    * As duas guardas do destino imposto (ver `resolveOverrideDelivery`).
@@ -180,6 +281,12 @@ export async function enqueueMessage(
    * ninguém precisar lembrar deste arquivo enquanto escrevia o outro.
    */
   if (input.overrideAddress) {
+    if (recipientKind === 'USER') {
+      // O convite de equipe é o único destinatário do sistema sem `user_id` — e ele
+      // ficou fora da v1 (MOD-NOTIF-12). Enquanto não migrar, endereço imposto é coisa
+      // de tutor, e aceitar aqui abriria o caminho antes de haver quem o usasse.
+      throw invalid('Contato fora da ficha não se aplica a mensagem de equipe')
+    }
     if (category === 'MARKETING') {
       throw invalid('Texto de marketing não pode ser enviado para um contato fora da ficha')
     }
@@ -211,7 +318,15 @@ export async function enqueueMessage(
     actor.tenantId,
     async (tx) => {
       const settings = await loadSettings(tx, actor.tenantId)
-      if (!settings.enabled) throw messagingDisabled()
+      /**
+       * AC-04 de MOD-NOTIF-02 — o interruptor é sobre falar com o **cliente**.
+       *
+       * `enabled` nasce falso, e é assim de propósito: quem responde pelo número do
+       * petshop decide quando o disparo começa. Mas o e-mail de boas-vindas do próprio
+       * onboarding é dirigido ao administrador, e barrá-lo aqui desligaria justamente a
+       * mensagem que ensina a ligar o motor.
+       */
+      if (!settings.enabled && recipientKind === 'TUTOR') throw messagingDisabled()
 
       const existing = await tx.message.findUnique({
         where: { tenantId_dedupeKey: { tenantId: actor.tenantId, dedupeKey: input.dedupeKey } },
@@ -227,7 +342,9 @@ export async function enqueueMessage(
       }
 
       const cipher = await openCipher(tx, actor.tenantId)
-      const decision = input.overrideAddress
+      const decision = recipient.kind === 'USER'
+        ? await resolveUserDelivery(tx, { tenantId: actor.tenantId, userId: recipient.userId })
+        : input.overrideAddress
         ? await resolveOverrideDelivery(tx, {
             tenantId: actor.tenantId,
             // O `input.channel !== 'AUTO'` já foi exigido acima; o `as` só convence o
@@ -237,7 +354,7 @@ export async function enqueueMessage(
           })
         : await resolveDelivery(tx, cipher, {
             tenantId: actor.tenantId,
-            tutorId: input.tutorId,
+            tutorId: recipient.kind === 'TUTOR' ? recipient.tutorId : '',
             preference: input.channel === 'AUTO' ? settings.defaultChannel : input.channel,
             category,
           })
@@ -256,9 +373,12 @@ export async function enqueueMessage(
        */
       const overWeeklyCap =
         decision.ok &&
+        // AC-01 de MOD-NOTIF-02: o teto protege **o tutor**, que é quem cansa de
+        // receber oferta. Não há oferta para a equipe — a guarda acima já recusou.
+        recipient.kind === 'TUTOR' &&
         category === 'MARKETING' &&
         (await marketingCapReached(tx, {
-          tutorId: input.tutorId,
+          tutorId: recipient.tutorId,
           cap: settings.marketingWeeklyCap,
           now,
         }))
@@ -269,7 +389,10 @@ export async function enqueueMessage(
       const template = await resolveTemplate(tx, input.templateKey, channel)
       if (!template) throw unknownTemplate(`Não existe um texto chamado "${input.templateKey}"`)
 
-      const variables = { ...(await baseVariables(tx, input.tutorId)), ...input.variables }
+      const variables = {
+        ...(await baseVariables(tx, recipient, input.documentId ?? null)),
+        ...input.variables,
+      }
       const body = render(template.body, variables)
       const subject = template.subject ? render(template.subject, variables).text : null
 
@@ -283,15 +406,25 @@ export async function enqueueMessage(
         )
       }
 
-      // A janela é do tutor: mesmo um `scheduledFor` pedido pelo chamador é empurrado
-      // para a próxima abertura se cair na madrugada.
-      const wanted = input.scheduledFor ?? now
-      const opening = nextOpening(wanted, category, {
-        quietStartMin: settings.quietStartMin,
-        quietEndMin: settings.quietEndMin,
-        marketingWeekdaysOnly: settings.marketingWeekdaysOnly,
-        timezone: settings.timezone,
-      })
+      /**
+       * A janela é do tutor: mesmo um `scheduledFor` pedido pelo chamador é empurrado
+       * para a próxima abertura se cair na madrugada.
+       *
+       * **E é só dele** (AC-01 de MOD-NOTIF-02). A janela de silêncio existe para não
+       * incomodar um cliente em casa às onze da noite; um convite de equipe represado
+       * até as oito da manhã é um convite quebrado, e quem o espera está com a tela
+       * aberta agora. `scheduledFor` explícito continua valendo para os dois — quem
+       * pediu hora sabe o que quer.
+       */
+      const opening =
+        recipient.kind === 'USER'
+          ? null
+          : nextOpening(input.scheduledFor ?? now, category, {
+              quietStartMin: settings.quietStartMin,
+              quietEndMin: settings.quietEndMin,
+              marketingWeekdaysOnly: settings.marketingWeekdaysOnly,
+              timezone: settings.timezone,
+            })
       const scheduledFor = opening ?? input.scheduledFor ?? null
 
       const blocked = !decision.ok || overWeeklyCap
@@ -316,11 +449,15 @@ export async function enqueueMessage(
        * o campo é `urgent` —, e a guarda existe para o segundo.
        */
       const absorbedBy =
-        blocked || input.urgent || input.overrideAddress
+        blocked ||
+        input.urgent ||
+        input.overrideAddress ||
+        Boolean(input.documentId) ||
+        recipient.kind === 'USER'
           ? null
           : await absorbIntoRecent(tx, cipher, {
               tenantId: actor.tenantId,
-              tutorId: input.tutorId,
+              tutorId: recipient.tutorId,
               channel,
               category,
               body: body.text,
@@ -330,8 +467,11 @@ export async function enqueueMessage(
       const created = await tx.message.create({
         data: {
           tenantId: actor.tenantId,
-          tutorId: input.tutorId,
+          recipientKind,
+          tutorId: recipient.kind === 'TUTOR' ? recipient.tutorId : null,
+          userId: recipient.kind === 'USER' ? recipient.userId : null,
           petId: input.petId ?? null,
+          documentId: input.documentId ?? null,
           channel,
           category,
           templateKey: input.templateKey,
@@ -379,7 +519,9 @@ export async function enqueueMessage(
       await publishEvent('mensagem.bloqueada', {
         tenantId: actor.tenantId,
         messageId: result.id,
-        tutorId: input.tutorId,
+        recipientKind,
+        tutorId: input.tutorId ?? null,
+        userId: input.userId ?? null,
         channel: result.channel,
         category,
         blockReason: result.blockReason,
@@ -388,7 +530,9 @@ export async function enqueueMessage(
       await publishEvent('mensagem.enfileirada', {
         tenantId: actor.tenantId,
         messageId: result.id,
-        tutorId: input.tutorId,
+        recipientKind,
+        tutorId: input.tutorId ?? null,
+        userId: input.userId ?? null,
         channel: result.channel,
         category,
         templateKey: input.templateKey,
