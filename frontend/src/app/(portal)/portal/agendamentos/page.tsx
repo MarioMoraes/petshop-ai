@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { formatBRL, type PortalAppointment } from '@petshop/shared-types'
-import { Badge, Card, EmptyState } from '@/components/ui'
+import { Badge, EmptyState, SectionHead } from '@/components/ui'
+import { CalendarIcon } from '@/components/icons'
 import { PortalFrame } from '../frame'
+import { RowChip, RowItem, RowMeta, RowStack, RowText } from '../list'
 import { AppointmentCard } from './appointment-card'
 import { PortalError, readOwnAppointments, readPortalContext } from '@/lib/portal-api'
 
@@ -58,6 +60,12 @@ export default async function PortalAgendamentosPage() {
         <>
           {agenda.upcoming.length > 0 && (
             <section className="flex flex-col gap-3">
+              {/*
+                Os próximos continuam **um cartão cada**, e não linhas de uma pilha: cada
+                um carrega botões, o leva-e-traz e um diálogo de cancelamento. Espremer
+                isso numa linha de lista faria a lista virar cartão de qualquer jeito, só
+                que sem o respiro entre um compromisso e o outro.
+              */}
               <p className="section-eyebrow">Próximos</p>
               {agenda.upcoming.map((appointment) => (
                 <AppointmentCard
@@ -71,19 +79,22 @@ export default async function PortalAgendamentosPage() {
           )}
 
           {agenda.past.length > 0 && (
-            <section className="flex flex-col gap-3">
+            <section>
               {/*
                 "Histórico", e não "já aconteceram": o cancelado de sexta que vem cai
                 nesta seção e ainda não aconteceu. O rótulo precisa caber nos dois.
               */}
-              <p className="section-eyebrow">Histórico</p>
-              {agenda.past.map((appointment) => (
-                <PastCard
-                  key={appointment.id}
-                  appointment={appointment}
-                  timezone={agenda.timezone}
-                />
-              ))}
+              <RowStack
+                head={<SectionHead icon={<CalendarIcon />} tone="icon-time" title="Histórico" />}
+              >
+                {agenda.past.map((appointment) => (
+                  <PastRow
+                    key={appointment.id}
+                    appointment={appointment}
+                    timezone={agenda.timezone}
+                  />
+                ))}
+              </RowStack>
             </section>
           )}
         </>
@@ -98,48 +109,53 @@ export default async function PortalAgendamentosPage() {
  * Sem botões, e o cancelado **aparece** em vez de sumir: o tutor lembra de ter marcado
  * aquele dia, e uma lista que nega o que ele lembra faz duvidar da tela inteira. É a
  * mesma decisão do atendimento anulado na linha do tempo do pet.
+ *
+ * `RowItem` e não `RowLink`: daqui não se vai a lugar nenhum. Uma linha que levantasse
+ * sob o dedo prometeria um detalhe que não existe.
  */
-function PastCard({
-  appointment,
-  timezone,
-}: {
-  appointment: PortalAppointment
-  timezone: string
-}) {
+function PastRow({ appointment, timezone }: { appointment: PortalAppointment; timezone: string }) {
   const cancelado = appointment.status === 'CANCELLED'
 
   return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className={`text-sm font-medium ${cancelado ? 'text-muted line-through' : ''}`}>
-            {dataHora(appointment.startsAt, timezone)}
-          </p>
-          <p className="hint mt-0.5">
-            {appointment.petName} · {appointment.services.join(', ')}
-          </p>
-        </div>
-        <div className="shrink-0 text-right">
-          {cancelado ? (
-            <Badge tone="neutral">Cancelado</Badge>
-          ) : appointment.status === 'NO_SHOW' ? (
-            <Badge tone="danger">Não compareceu</Badge>
-          ) : (
-            <p className="text-sm font-medium">{formatBRL(appointment.totalCents)}</p>
-          )}
-        </div>
-      </div>
-    </Card>
+    <RowItem>
+      <RowChip icon={<CalendarIcon />} tone="icon-time" />
+
+      <RowText
+        title={dataHora(appointment.startsAt, timezone)}
+        hint={`${appointment.petName} · ${appointment.services.join(', ')}`}
+        strike={cancelado}
+      />
+
+      <RowMeta>
+        {cancelado ? (
+          <Badge tone="neutral">Cancelado</Badge>
+        ) : appointment.status === 'NO_SHOW' ? (
+          <Badge tone="danger">Não compareceu</Badge>
+        ) : (
+          formatBRL(appointment.totalCents)
+        )}
+      </RowMeta>
+    </RowItem>
   )
 }
 
+/**
+ * A data do histórico, curta.
+ *
+ * "14/08/2026 · 10:00" e não "14 de ago. de 2026, 10:00": a linha divide a largura com o
+ * valor ou com o selo de cancelado, e a forma por extenso quebrava em duas linhas em
+ * qualquer celular. É a mesma forma numérica do extrato, que é a outra lista de coisas
+ * já acontecidas.
+ */
 function dataHora(instant: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('pt-BR', {
+  const formatador = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
-    month: 'short',
+    month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     timeZone,
-  }).format(new Date(instant))
+  })
+  const [data, hora] = formatador.format(new Date(instant)).split(', ')
+  return `${data} · ${hora}`
 }

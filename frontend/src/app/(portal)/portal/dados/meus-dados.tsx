@@ -2,8 +2,15 @@
 
 import { useState } from 'react'
 import type { PortalMeDataResponse } from '@petshop/shared-types'
-import { Alert, Card, DataRow } from '@/components/ui'
-import { AlertTriangleIcon } from '@/components/icons'
+import { Alert, Card, DataRow, SectionHead } from '@/components/ui'
+import {
+  AlertTriangleIcon,
+  DocumentIcon,
+  IdCardIcon,
+  MapPinIcon,
+  PhoneIcon,
+} from '@/components/icons'
+import { RowChip, RowItem, RowStack, RowText } from '../list'
 import { ContatoModal } from './contato-modal'
 import { EnderecoModal } from './endereco-modal'
 import { Exclusao } from './exclusao'
@@ -21,6 +28,11 @@ import { PerfilModal } from './perfil-modal'
  * Os cartões são **brancos**, e não `tone="soft"`: aqui não há campo nenhum: o que se vê é
  * leitura, e cada edição abre em `<Modal>` (regra 1 e regra 8 de
  * `docs/design-formularios.md`). No celular o diálogo vira folha inferior.
+ *
+ * Cada seção abre com `<SectionHead>` e o chip do assunto, como o resto do Portal passou
+ * a fazer em 2026-09-08: o olho-de-boi sozinho identificava a seção, mas não dava a ela
+ * peso nenhum na página — quatro cartões brancos seguidos liam como um documento longo
+ * em vez de quatro assuntos.
  */
 export function MeusDados({
   inicial,
@@ -44,11 +56,11 @@ export function MeusDados({
 
       <Card>
         <div className="flex items-start justify-between gap-3">
-          <p className="section-eyebrow">Seus dados</p>
+          <SectionHead icon={<IdCardIcon />} tone="icon-people" title="Seus dados" />
           <PerfilModal perfil={dados.profile} onSalvo={setDados} />
         </div>
 
-        <div className="mt-3 flex flex-col gap-1">
+        <div className="mt-4 flex flex-col gap-1">
           <DataRow label="Nome">{dados.profile.fullName}</DataRow>
           {dados.profile.socialName && (
             <DataRow label="Como prefere ser chamado">{dados.profile.socialName}</DataRow>
@@ -66,74 +78,84 @@ export function MeusDados({
           ficha como leitura, com o motivo ao lado — a mesma escolha da ficha do pet.
         */}
         <p className="hint mt-4">
-          Nome completo e documento são conferidos no balcão. Se algum estiver errado, avise
-          o {tenantName}.
+          Nome completo e documento são conferidos no balcão. Se algum estiver errado, avise o{' '}
+          {tenantName}.
         </p>
       </Card>
 
       <Card>
         <div className="flex items-start justify-between gap-3">
-          <p className="section-eyebrow">Contato</p>
-          <ContatoModal
-            perfil={dados.profile}
-            pendente={dados.pendingContact}
-            onSalvo={setDados}
-          />
+          <SectionHead icon={<PhoneIcon />} tone="icon-brand" title="Contato" />
+          <ContatoModal perfil={dados.profile} pendente={dados.pendingContact} onSalvo={setDados} />
         </div>
 
-        <div className="mt-3 flex flex-col gap-1">
+        <div className="mt-4 flex flex-col gap-1">
           <DataRow label="Telefone">{dados.profile.phoneMasked}</DataRow>
           <DataRow label="E-mail">{dados.profile.email ?? 'Não cadastrado'}</DataRow>
         </div>
 
         <p className="hint mt-4">
-          Trocar telefone ou e-mail pede um código enviado ao contato novo. É como sabemos
-          que é você — e é o que impede alguém de apontar o seu cadastro para outro número.
+          Trocar telefone ou e-mail pede um código enviado ao contato novo. É como sabemos que é
+          você — e é o que impede alguém de apontar o seu cadastro para outro número.
         </p>
       </Card>
 
-      <Card>
-        <div className="flex items-start justify-between gap-3">
-          <p className="section-eyebrow">Endereços</p>
-          <EnderecoModal onSalvo={setDados} />
-        </div>
-
-        {dados.addresses.length === 0 ? (
-          <p className="hint mt-3">
-            Nenhum endereço cadastrado. Ele é usado no leva-e-traz e nas entregas.
-          </p>
-        ) : (
-          <div className="mt-3 flex flex-col gap-3">
-            {dados.addresses.map((endereco) => (
-              <div key={endereco.id} className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">
-                    {endereco.label}
-                    {endereco.isPrimary && (
-                      <span className="section-eyebrow ml-2 align-middle">Principal</span>
-                    )}
-                  </p>
-                  <p className="hint">
-                    {endereco.street}, {endereco.number}
-                    {endereco.complement ? ` — ${endereco.complement}` : ''}
-                  </p>
-                  <p className="hint">
-                    {endereco.district} · {endereco.city}/{endereco.state} · {cep(endereco.zipCode)}
-                  </p>
-                </div>
-                <EnderecoModal endereco={endereco} onSalvo={setDados} />
-              </div>
-            ))}
+      <RowStack
+        head={
+          <div className="flex items-start justify-between gap-3">
+            <SectionHead
+              icon={<MapPinIcon />}
+              tone="icon-time"
+              title="Endereços"
+              description={
+                dados.addresses.length === 0
+                  ? 'Nenhum endereço cadastrado. Ele é usado no leva-e-traz e nas entregas.'
+                  : undefined
+              }
+            />
+            <EnderecoModal onSalvo={setDados} />
           </div>
-        )}
-      </Card>
+        }
+      >
+        {dados.addresses.map((endereco) => (
+          <RowItem key={endereco.id} top>
+            <RowChip icon={<MapPinIcon />} tone="icon-time" />
+
+            <RowText
+              title={
+                <>
+                  {endereco.label}
+                  {endereco.isPrimary && (
+                    <span className="section-eyebrow ml-2 align-middle">Principal</span>
+                  )}
+                </>
+              }
+              hint={
+                <>
+                  {endereco.street}, {endereco.number}
+                  {endereco.complement ? ` — ${endereco.complement}` : ''}
+                </>
+              }
+            >
+              <span className="hint block">
+                {endereco.district} · {endereco.city}/{endereco.state} · {cep(endereco.zipCode)}
+              </span>
+            </RowText>
+
+            <span className="shrink-0">
+              <EnderecoModal endereco={endereco} onSalvo={setDados} />
+            </span>
+          </RowItem>
+        ))}
+      </RowStack>
 
       <Card>
-        <p className="section-eyebrow">Uma cópia dos seus dados</p>
-        <p className="hint mt-2">
-          Baixe tudo o que o {tenantName} tem sobre você, num documento só. É um direito
-          seu, e não precisa de pedido nem de espera.
-        </p>
+        <SectionHead
+          icon={<DocumentIcon />}
+          tone="icon-system"
+          title="Uma cópia dos seus dados"
+          description={`Baixe tudo o que o ${tenantName} tem sobre você, num documento só. É um direito seu, e não precisa de pedido nem de espera.`}
+        />
         {/*
           `<a download>` e não botão com Server Action: o arquivo é montado pela rota
           `/portal/dados/exportar`, que responde com os bytes e o cabeçalho que faz o

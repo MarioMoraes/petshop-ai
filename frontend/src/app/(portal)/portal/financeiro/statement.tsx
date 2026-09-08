@@ -1,8 +1,14 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { formatBRL, type PortalStatementEntry, type PortalStatementResponse } from '@petshop/shared-types'
-import { Card } from '@/components/ui'
+import {
+  formatBRL,
+  type PortalStatementEntry,
+  type PortalStatementResponse,
+} from '@petshop/shared-types'
+import { SectionHead } from '@/components/ui'
+import { ReceiptIcon, WalletIcon } from '@/components/icons'
+import { RowChip, RowItem, RowMeta, RowStack, RowText } from '../list'
 import { carregarLancamentos } from './actions'
 
 /**
@@ -37,36 +43,45 @@ export function Statement({ inicial }: { inicial: PortalStatementResponse }) {
     })
   }
 
-  if (entradas.length === 0) {
-    return (
-      <Card>
-        <p className="section-eyebrow">Lançamentos</p>
-        <p className="hint mt-3">
-          Ainda não há movimentação na sua conta. Os atendimentos e os pagamentos
-          aparecem aqui assim que forem registrados.
-        </p>
-      </Card>
-    )
-  }
+  const head = (
+    <SectionHead
+      icon={<WalletIcon />}
+      tone="icon-money"
+      title="Lançamentos"
+      description={
+        entradas.length === 0
+          ? 'Os atendimentos e os pagamentos aparecem aqui assim que forem registrados.'
+          : undefined
+      }
+    />
+  )
+
+  if (entradas.length === 0) return <RowStack head={head} />
 
   return (
-    <Card>
-      <p className="section-eyebrow">Lançamentos</p>
+    <RowStack
+      head={head}
+      footer={
+        <>
+          {erro && <p className="text-danger text-sm">{erro}</p>}
 
-      <ol className="mt-3 flex flex-col">
-        {entradas.map((entrada) => (
-          <Linha key={entrada.id} entrada={entrada} timezone={inicial.timezone} />
-        ))}
-      </ol>
-
-      {erro && <p className="text-danger mt-3 text-sm">{erro}</p>}
-
-      {restam > 0 && (
-        <button type="button" className="btn btn-ghost mt-4 w-full" onClick={mais} disabled={carregando}>
-          {carregando ? 'Carregando…' : 'Ver mais'}
-        </button>
-      )}
-    </Card>
+          {restam > 0 && (
+            <button
+              type="button"
+              className="btn btn-ghost w-full"
+              onClick={mais}
+              disabled={carregando}
+            >
+              {carregando ? 'Carregando…' : 'Ver mais'}
+            </button>
+          )}
+        </>
+      }
+    >
+      {entradas.map((entrada) => (
+        <Linha key={entrada.id} entrada={entrada} timezone={inicial.timezone} />
+      ))}
+    </RowStack>
   )
 }
 
@@ -85,22 +100,35 @@ function Linha({ entrada, timezone }: { entrada: PortalStatementEntry; timezone:
   const credito = entrada.amountCents > 0
 
   return (
-    <li className="border-line flex items-start justify-between gap-3 border-b py-3 last:border-b-0">
-      <div className="min-w-0">
-        <p className={`text-sm font-medium ${entrada.reversed ? 'text-muted line-through' : ''}`}>
-          {entrada.description}
-        </p>
-        <p className="hint mt-0.5">
-          {data(entrada.occurredAt, timezone)}
-          {entrada.petName && ` · ${entrada.petName}`}
-          {entrada.reversed && ' · estornado'}
-        </p>
+    <RowItem top>
+      {/*
+        O chip separa dinheiro que entrou de dinheiro que saiu pelo desenho, antes do
+        sinal: a nota é o pagamento, a carteira é o atendimento lançado na conta. O tom é
+        o mesmo nos dois — dinheiro é dinheiro —, e quem diz a direção continua sendo o
+        sinal e o verde do valor.
+      */}
+      <RowChip icon={credito ? <ReceiptIcon /> : <WalletIcon />} tone="icon-money" />
 
+      <RowText
+        title={entrada.description}
+        strike={entrada.reversed}
+        hint={
+          <>
+            {data(entrada.occurredAt, timezone)}
+            {entrada.petName && ` · ${entrada.petName}`}
+            {entrada.reversed && ' · estornado'}
+          </>
+        }
+      >
         {/*
           O recibo só existe onde houve pagamento. O link abre a rota do próprio Next,
           que busca a URL assinada no servidor e redireciona — um `<a>` apontando direto
           ao bucket exigiria a assinatura viajar até aqui e ficar no histórico do
           navegador.
+
+          Ele continua um link dentro da linha, e não uma linha própria: a linha do
+          extrato é leitura, e transformá-la inteira num download faria o dedo que rola a
+          lista baixar PDF sem querer.
         */}
         {entrada.paymentId && !entrada.reversed && (
           <a
@@ -112,17 +140,19 @@ function Linha({ entrada, timezone }: { entrada: PortalStatementEntry; timezone:
             Baixar recibo
           </a>
         )}
-      </div>
+      </RowText>
 
-      <p
-        className={`shrink-0 text-sm font-medium ${
-          entrada.reversed ? 'text-muted line-through' : credito ? 'text-success' : ''
-        }`}
-      >
-        {credito ? '+' : '−'}
-        {formatBRL(Math.abs(entrada.amountCents))}
-      </p>
-    </li>
+      <RowMeta>
+        <span
+          className={
+            entrada.reversed ? 'text-muted line-through' : credito ? 'text-success' : undefined
+          }
+        >
+          {credito ? '+' : '−'}
+          {formatBRL(Math.abs(entrada.amountCents))}
+        </span>
+      </RowMeta>
+    </RowItem>
   )
 }
 

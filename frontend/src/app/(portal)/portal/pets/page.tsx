@@ -1,17 +1,20 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { EmptyState } from '@/components/ui'
+import { EmptyState, SectionHead } from '@/components/ui'
+import { PawPrintIcon } from '@/components/icons'
 import { PortalFrame } from '../frame'
+import { RowLink, RowStack, RowText } from '../list'
 import { PortalError, readOwnPets, readPortalContext } from '@/lib/portal-api'
 import type { PortalPetSummary } from '@petshop/shared-types'
 
 /**
  * "Meus pets" (MOD-PORTAL-03).
  *
- * Cada pet é um cartão-alvo inteiro, e não uma linha com um link no fim: no celular o
- * polegar acerta o cartão, não o texto de 14px.
+ * Cada pet é uma linha-alvo inteira, e não um texto com um link no fim: no celular o
+ * polegar acerta a linha, não as 14px do nome. A pilha de cartões soltos virou um cartão
+ * com linhas dentro em 2026-09-08, junto com o resto do Portal — o alvo continua do
+ * mesmo tamanho, e a lista passou a ter o relevo que tem o menu do Início.
  *
- * O que cada cartão mostra foi escolhido pela pergunta que o tutor faz ao abrir isto:
+ * O que cada linha mostra foi escolhido pela pergunta que o tutor faz ao abrir isto:
  * **quando é o próximo, e quando foi o último**. Espécie, raça e idade servem para
  * reconhecer de qual pet se trata quando há mais de um; nada além disso cabe aqui.
  */
@@ -37,9 +40,7 @@ export default async function PortalPetsPage() {
       tenantName={context.tenant.name}
       titulo="Meus pets"
       voltar={{ href: '/portal/inicio', label: 'Início' }}
-      descricao={
-        vivos.length > 0 ? 'Toque em um pet para ver a ficha e o histórico.' : undefined
-      }
+      descricao={vivos.length > 0 ? 'Toque em um pet para ver a ficha e o histórico.' : undefined}
     >
       {pets.length === 0 && (
         <EmptyState
@@ -49,60 +50,62 @@ export default async function PortalPetsPage() {
       )}
 
       {vivos.length > 0 && (
-        <ul className="flex flex-col gap-3">
+        <RowStack>
           {vivos.map((pet) => (
-            <PetCard key={pet.id} pet={pet} timezone={context.tenant.timezone} />
+            <PetRow key={pet.id} pet={pet} timezone={context.tenant.timezone} />
           ))}
-        </ul>
+        </RowStack>
       )}
 
       {emMemoria.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <p className="section-eyebrow">Em memória</p>
-          <ul className="flex flex-col gap-3">
-            {emMemoria.map((pet) => (
-              <PetCard key={pet.id} pet={pet} timezone={context.tenant.timezone} />
-            ))}
-          </ul>
-        </section>
+        <RowStack
+          head={
+            <SectionHead
+              icon={<PawPrintIcon />}
+              tone="icon-pet"
+              title="Em memória"
+              description="A ficha e o histórico continuam aqui."
+            />
+          }
+        >
+          {emMemoria.map((pet) => (
+            <PetRow key={pet.id} pet={pet} timezone={context.tenant.timezone} />
+          ))}
+        </RowStack>
       )}
     </PortalFrame>
   )
 }
 
-function PetCard({ pet, timezone }: { pet: PortalPetSummary; timezone: string }) {
+function PetRow({ pet, timezone }: { pet: PortalPetSummary; timezone: string }) {
   return (
-    <li>
-      <Link
-        href={`/portal/pets/${pet.id}`}
-        className="card hover:border-ink/20 block p-4 transition-colors"
-      >
-        <div className="flex items-center gap-4">
-          <Avatar pet={pet} />
+    <RowLink href={`/portal/pets/${pet.id}`} top>
+      <Avatar pet={pet} />
 
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{pet.name}</p>
-            <p className="hint truncate">{descreve(pet)}</p>
-          </div>
-        </div>
-
+      <RowText title={pet.name} hint={descreve(pet)}>
+        {/*
+          A terceira linha responde à pergunta que faz o tutor abrir esta tela: quando é
+          o próximo, e — se não houver — quando foi o último. Ela é a única coisa aqui
+          que muda de peso: o compromisso marcado vem em texto de leitura, o atendimento
+          passado desce ao cinza da legenda.
+        */}
         {pet.nextAppointment ? (
-          <p className="border-line mt-3 border-t pt-3 text-sm">
+          <span className="mt-1 block text-sm">
             <span className="text-subtle">Próximo · </span>
             {formatoLongo(pet.nextAppointment.startsAt, timezone)}
             {pet.nextAppointment.services.length > 0 && (
               <span className="text-subtle"> · {pet.nextAppointment.services.join(', ')}</span>
             )}
-          </p>
+          </span>
         ) : (
           pet.lastAttendanceAt && (
-            <p className="border-line text-subtle mt-3 border-t pt-3 text-sm">
+            <span className="hint mt-1 block">
               Último atendimento em {formatoCurto(pet.lastAttendanceAt, timezone)}
-            </p>
+            </span>
           )
         )}
-      </Link>
-    </li>
+      </RowText>
+    </RowLink>
   )
 }
 
@@ -119,14 +122,14 @@ function Avatar({ pet }: { pet: PortalPetSummary }) {
       <img
         src={pet.photoUrl}
         alt=""
-        className="size-14 shrink-0 rounded-full object-cover"
+        className="size-12 shrink-0 rounded-full object-cover"
         loading="lazy"
       />
     )
   }
 
   return (
-    <span className="bg-chip text-subtle flex size-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold">
+    <span className="bg-chip text-subtle flex size-12 shrink-0 items-center justify-center rounded-full text-base font-semibold">
       {pet.name.slice(0, 1).toUpperCase()}
     </span>
   )

@@ -555,6 +555,19 @@ export function ChevronDownIcon() {
   )
 }
 
+/**
+ * A linha que leva a outra tela, no fim do item de menu. Sem tom, pelo mesmo motivo do
+ * chevron de baixo: ele é gramática do controle, não do assunto — pintá-lo com a cor do
+ * tipo colocaria dois sinais coloridos na mesma linha.
+ */
+export function ChevronRightIcon() {
+  return (
+    <svg {...BASE} width={16} height={16}>
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  )
+}
+
 /** O item já escolhido de uma lista. Sem tom, pelo mesmo motivo do chevron. */
 export function CheckIcon() {
   return (

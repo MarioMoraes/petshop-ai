@@ -1,15 +1,10 @@
 import { notFound, redirect } from 'next/navigation'
-import { Alert, Card, DataRow } from '@/components/ui'
+import { Alert, Card, DataRow, SectionHead } from '@/components/ui'
 import { AlertTriangleIcon, PawPrintIcon } from '@/components/icons'
 import { PortalFrame } from '../../frame'
 import { PetForm } from './pet-form'
 import { Timeline } from './timeline'
-import {
-  PortalError,
-  readOwnPet,
-  readOwnPetTimeline,
-  readPortalContext,
-} from '@/lib/portal-api'
+import { PortalError, readOwnPet, readOwnPetTimeline, readPortalContext } from '@/lib/portal-api'
 
 /**
  * A ficha do pet, com a história dele embaixo (MOD-PORTAL-03 e 04).
@@ -24,11 +19,7 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-export default async function PortalPetPage({
-  params,
-}: {
-  params: Promise<{ petId: string }>
-}) {
+export default async function PortalPetPage({ params }: { params: Promise<{ petId: string }> }) {
   const { petId } = await params
 
   try {
@@ -48,8 +39,8 @@ export default async function PortalPetPage({
       >
         {pet.inMemoriam && (
           <Alert tone="accent" icon={<PawPrintIcon />} title="Em memória" role="status">
-            A ficha do {pet.name} fica guardada aqui, como está. Se algo precisar mudar,
-            fale com o {context.tenant.name}.
+            A ficha do {pet.name} fica guardada aqui, como está. Se algo precisar mudar, fale com o{' '}
+            {context.tenant.name}.
           </Alert>
         )}
 
@@ -72,8 +63,8 @@ export default async function PortalPetPage({
         )}
 
         <Card>
-          <p className="section-eyebrow">A ficha</p>
-          <div className="mt-3 flex flex-col gap-1">
+          <SectionHead icon={<PawPrintIcon />} tone="icon-pet" title="A ficha" />
+          <div className="mt-4 flex flex-col gap-1">
             <DataRow label="Sexo">{rotuloSexo(pet.sex)}</DataRow>
             <DataRow label="Nascimento">{rotuloNascimento(pet)}</DataRow>
             <DataRow label="Castrado">{rotuloTernario(pet.neutered)}</DataRow>
@@ -89,8 +80,8 @@ export default async function PortalPetPage({
             reclamar — é o que separa "não posso" de "não deu certo".
           */}
           <p className="hint border-line mt-4 border-t pt-3">
-            Peso, porte, raça e pelagem são conferidos no balcão, porque entram no preço
-            do serviço. Se algum estiver errado, avise o {context.tenant.name}.
+            Peso, porte, raça e pelagem são conferidos no balcão, porque entram no preço do serviço.
+            Se algum estiver errado, avise o {context.tenant.name}.
           </p>
         </Card>
 

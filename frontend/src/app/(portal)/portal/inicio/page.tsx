@@ -1,8 +1,18 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { SignOutButton } from '@clerk/nextjs'
 import { formatBRL, portalCreditCents, portalOwesCents } from '@petshop/shared-types'
-import { Card, DataRow } from '@/components/ui'
+import {
+  CalendarIcon,
+  ChevronRightIcon,
+  DocumentIcon,
+  IdCardIcon,
+  InboxIcon,
+  PawPrintIcon,
+  WalletIcon,
+  type IconTone,
+} from '@/components/icons'
 import { PortalFrame } from '../frame'
 import { PortalError, readPortalContext } from '@/lib/portal-api'
 
@@ -17,9 +27,99 @@ import { PortalError, readPortalContext } from '@/lib/portal-api'
  * falhou. A última promessa dele — rever as mensagens — virou tela, e um cartão vazio
  * anunciando nada faria a tela terminar num silêncio esquisito. Se uma fatia futura
  * voltar a prometer algo, o cartão volta com ela.
+ *
+ * A tela é **uma ação e um menu**, e não uma pilha de botões. Enquanto era uma pilha,
+ * "Marcar horário" era um botão escuro no meio de cinco botões fantasma — e uma peça
+ * chapada entre transparentes lê como *item selecionado*, não como item importante. O
+ * tutor abria Meus pets, voltava, e o topo da lista continuava aceso como se ele
+ * estivesse ali. A separação resolve pela estrutura, e não por um ajuste de cor: ação é
+ * ação, destino é destino.
+ *
+ * **O cartão de resumo saiu em 2026-09-08**, a pedido: dois números — pets cadastrados e
+ * saldo — ocupavam o primeiro terço da tela para dizer o que as próprias linhas do menu
+ * já levam. O saldo era o único deles que não podia sumir, e virou o subtítulo de
+ * "Minha conta"; a contagem de pets não voltou, porque quem quer saber quantos são abre
+ * a lista.
  */
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * Os destinos do menu, na ordem em que o tutor precisa deles.
+ *
+ * O tom do ícone é o do domínio no Admin — o calendário é azul aqui como é na Agenda —,
+ * porque quem atende no balcão e quem usa o Portal falam do mesmo assunto, e a cor é o
+ * que faz a linha ser reconhecida antes de ser lida.
+ *
+ * `href` em união literal e não `string`: é o `typedRoutes` do Next que transforma um
+ * link para tela inexistente em erro de compilação. Mesma escolha do `NavItem` do
+ * `AppShell` e do `voltar` do `PortalFrame`.
+ */
+const MENU: {
+  href:
+    | '/portal/agendamentos'
+    | '/portal/pets'
+    | '/portal/financeiro'
+    | '/portal/mensagens'
+    | '/portal/documentos'
+    | '/portal/dados'
+  label: string
+  hint: string
+  icon: ReactNode
+  tone: IconTone
+}[] = [
+  {
+    href: '/portal/agendamentos',
+    label: 'Meus agendamentos',
+    hint: 'Ver, remarcar ou cancelar',
+    icon: <CalendarIcon />,
+    tone: 'icon-time',
+  },
+  {
+    href: '/portal/pets',
+    label: 'Meus pets',
+    hint: 'Ficha, histórico e vacinas',
+    icon: <PawPrintIcon />,
+    tone: 'icon-pet',
+  },
+  {
+    href: '/portal/financeiro',
+    label: 'Minha conta',
+    hint: 'Extrato, pacotes e recibos',
+    icon: <WalletIcon />,
+    tone: 'icon-money',
+  },
+  {
+    href: '/portal/mensagens',
+    label: 'Mensagens',
+    hint: 'O que o petshop te enviou',
+    icon: <InboxIcon />,
+    tone: 'icon-brand',
+  },
+  /*
+    "Meus documentos" fica ao lado de mensagens e antes de "meus dados": é o lugar de
+    buscar um papel — o recibo do mês passado, o receituário do gato —, e não o de
+    corrigir cadastro.
+  */
+  {
+    href: '/portal/documentos',
+    label: 'Meus documentos',
+    hint: 'Receituários e comprovantes',
+    icon: <DocumentIcon />,
+    tone: 'icon-system',
+  },
+  /*
+    "Meus dados" é o último da lista, e não por ordem de chegada: é o que se abre quando
+    alguma coisa está errada, e não o que se vem fazer.
+  */
+  {
+    href: '/portal/dados',
+    label: 'Meus dados',
+    hint: 'Contato, endereço e privacidade',
+    icon: <IdCardIcon />,
+    tone: 'icon-people',
+  },
+]
 
 export default async function PortalInicioPage() {
   let context
@@ -41,77 +141,73 @@ export default async function PortalInicioPage() {
   const deve = portalOwesCents(context.tutor.balanceCents)
   const credito = portalCreditCents(context.tutor.balanceCents)
 
+  /*
+   * O saldo desceu para a linha "Minha conta" quando o cartão de resumo saiu da tela.
+   * Ele não podia sair junto: uma dívida em aberto é a única coisa nesta tela que a
+   * pessoa precisa ver sem procurar, e ela agora aparece onde já estava o caminho para
+   * resolvê-la — em vermelho, que é o único lugar do menu onde a cor diz estado e não
+   * assunto. Sem dívida e sem crédito, a linha volta a descrever o destino.
+   */
+  const saldo =
+    deve > 0
+      ? `${formatBRL(deve)} em aberto`
+      : credito > 0
+        ? `${formatBRL(credito)} de crédito`
+        : null
+
   return (
     <PortalFrame
       tenantName={context.tenant.name}
       titulo={`Olá, ${primeiroNome(context.tutor.name)}`}
       descricao="Seu acesso está ativo."
     >
-      <Card>
-        <div className="flex flex-col gap-1">
-          <DataRow label="Pets cadastrados">{context.tutor.petsCount}</DataRow>
-          <DataRow label={deve > 0 ? 'Em aberto' : 'Sua conta'}>
-            {deve > 0
-              ? formatBRL(deve)
-              : credito > 0
-                ? `${formatBRL(credito)} de crédito`
-                : 'Sem pendências'}
-          </DataRow>
-        </div>
+      {/*
+        Marcar horário é a única ação da tela, e por isso mora sozinha acima do menu: é o
+        que a pessoa vem fazer — consultar a ficha se faz uma vez, marcar banho se faz
+        todo mês. Fora da lista ela pode ser escura sem que a lista pareça ter um item
+        ligado.
+      */}
+      {context.features.onlineBookingEnabled && (
+        <Link href="/portal/agendar" className="btn btn-primary h-12 w-full text-[0.9375rem]">
+          Marcar horário
+        </Link>
+      )}
 
-        <div className="mt-4 flex flex-col gap-2">
-          {/*
-            Marcar horário é o botão principal, e "ver meus pets" desce a fantasma.
-            É o que a pessoa vem fazer: consultar a ficha é o que se faz uma vez, marcar
-            banho é o que se faz todo mês.
-          */}
-          {context.features.onlineBookingEnabled && (
-            <Link href="/portal/agendar" className="btn btn-primary w-full">
-              Marcar horário
-            </Link>
-          )}
-          <Link href="/portal/agendamentos" className="btn btn-ghost w-full">
-            Meus agendamentos
-          </Link>
-          <Link href="/portal/pets" className="btn btn-ghost w-full">
-            Meus pets
-          </Link>
-          <Link href="/portal/financeiro" className="btn btn-ghost w-full">
-            Minha conta
-          </Link>
-          <Link href="/portal/mensagens" className="btn btn-ghost w-full">
-            Mensagens
-          </Link>
-          {/*
-            "Meus documentos" fica ao lado de mensagens e antes de "meus dados": é o
-            lugar de buscar um papel — o recibo do mês passado, o receituário do gato —,
-            e não o de corrigir cadastro.
-          */}
-          <Link href="/portal/documentos" className="btn btn-ghost w-full">
-            Meus documentos
-          </Link>
-          {/*
-            "Meus dados" é o último da lista, e não por ordem de chegada: é o que se abre
-            quando alguma coisa está errada, e não o que se vem fazer. Marcar horário
-            continua no topo.
-          */}
-          <Link href="/portal/dados" className="btn btn-ghost w-full">
-            Meus dados
-          </Link>
+      <nav aria-label="Menu do portal" className="card menu-stack">
+        {MENU.map((item) => (
+          <Link key={item.href} href={item.href} className="menu-row">
+            {/* O tom é do assunto, não do estado: nada aqui fica "aceso". */}
+            <span className={`icon-chip icon-chip-sm shrink-0 ${item.tone}`}>{item.icon}</span>
 
-          {/*
-            O "Sair" fecha a lista, no mesmo botão fantasma dos outros.
-            Fica aqui e não no rodapé de toda tela porque sair é o fim de uma visita, e
-            o Início é onde a visita termina. Sem ele, o Portal não tinha saída nenhuma —
-            e ele roda no celular de família, que passa de mão em mão.
-          */}
-          <SignOutButton redirectUrl="/portal/entrar">
-            <button type="button" className="btn btn-ghost w-full">
-              Sair
-            </button>
-          </SignOutButton>
-        </div>
-      </Card>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">{item.label}</span>
+              <span
+                className={`hint block truncate ${
+                  deve > 0 && item.href === '/portal/financeiro' ? 'text-danger font-medium' : ''
+                }`}
+              >
+                {(item.href === '/portal/financeiro' ? saldo : null) ?? item.hint}
+              </span>
+            </span>
+
+            <span className="menu-chevron shrink-0">
+              <ChevronRightIcon />
+            </span>
+          </Link>
+        ))}
+      </nav>
+
+      {/*
+        O "Sair" fecha a tela, e fora do menu: sair não é um destino do Portal, é o fim
+        da visita. Fica aqui e não no rodapé de toda tela porque o Início é onde a visita
+        termina — e sem ele o Portal não teria saída nenhuma, rodando como roda no
+        celular de família, que passa de mão em mão.
+      */}
+      <SignOutButton redirectUrl="/portal/entrar">
+        <button type="button" className="btn btn-ghost w-full">
+          Sair
+        </button>
+      </SignOutButton>
     </PortalFrame>
   )
 }

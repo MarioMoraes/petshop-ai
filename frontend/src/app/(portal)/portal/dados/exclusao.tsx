@@ -6,7 +6,7 @@ import {
   type PortalDeletionRequest,
   type PortalMeDataResponse,
 } from '@petshop/shared-types'
-import { Alert, Card, Field, FormError } from '@/components/ui'
+import { Alert, Card, Field, FormError, SectionHead } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { ShieldCheckIcon } from '@/components/icons'
 import { pedirExclusao } from './actions'
@@ -42,9 +42,7 @@ export function Exclusao({
     setErro(null)
 
     startTransition(async () => {
-      const resultado = await pedirExclusao(
-        motivo.trim() ? { reason: motivo.trim() } : {},
-      )
+      const resultado = await pedirExclusao(motivo.trim() ? { reason: motivo.trim() } : {})
       if (!resultado.ok) {
         setErro(resultado.message)
         return
@@ -58,18 +56,21 @@ export function Exclusao({
   if (pedido?.status === 'OPEN') {
     return (
       <Card>
-        <p className="section-eyebrow">Pedido de exclusão</p>
-        <Alert tone="accent" icon={<ShieldCheckIcon />} title="Em análise" role="status">
-          Recebemos seu pedido em {data(pedido.requestedAt)}. O {tenantName} responde até{' '}
-          {data(pedido.dueAt)}.
-        </Alert>
+        <SectionHead icon={<ShieldCheckIcon />} tone="icon-system" title="Pedido de exclusão" />
+
+        <div className="mt-4">
+          <Alert tone="accent" icon={<ShieldCheckIcon />} title="Em análise" role="status">
+            Recebemos seu pedido em {data(pedido.requestedAt)}. O {tenantName} responde até{' '}
+            {data(pedido.dueAt)}.
+          </Alert>
+        </div>
       </Card>
     )
   }
 
   return (
     <Card>
-      <p className="section-eyebrow">Pedido de exclusão</p>
+      <SectionHead icon={<ShieldCheckIcon />} tone="icon-system" title="Pedido de exclusão" />
 
       {/*
         O retorno de um pedido anterior continua na tela.
@@ -77,21 +78,22 @@ export function Exclusao({
         e a fila da equipe receberia o mesmo caso outra vez.
       */}
       {pedido && (
-        <Alert
-          tone={pedido.status === 'REJECTED' ? 'danger' : 'accent'}
-          icon={<ShieldCheckIcon />}
-          title={pedido.status === 'REJECTED' ? 'Pedido anterior recusado' : 'Pedido atendido'}
-          role="status"
-        >
-          {pedido.resolution ?? 'Sem detalhes registrados.'}
-        </Alert>
+        <div className="mt-4">
+          <Alert
+            tone={pedido.status === 'REJECTED' ? 'danger' : 'accent'}
+            icon={<ShieldCheckIcon />}
+            title={pedido.status === 'REJECTED' ? 'Pedido anterior recusado' : 'Pedido atendido'}
+            role="status"
+          >
+            {pedido.resolution ?? 'Sem detalhes registrados.'}
+          </Alert>
+        </div>
       )}
 
       <p className="hint mt-3">
-        Você pode pedir a exclusão dos seus dados. O pedido vai para a equipe do{' '}
-        {tenantName}, que responde em até {PORTAL_DELETION_RESPONSE_DAYS} dias — cadastros
-        com conta em aberto ou documento fiscal em guarda podem não ser apagados por
-        inteiro.
+        Você pode pedir a exclusão dos seus dados. O pedido vai para a equipe do {tenantName}, que
+        responde em até {PORTAL_DELETION_RESPONSE_DAYS} dias — cadastros com conta em aberto ou
+        documento fiscal em guarda podem não ser apagados por inteiro.
       </p>
 
       {/*
@@ -146,8 +148,8 @@ export function Exclusao({
           <FormError message={erro} />
 
           <p className="hint">
-            Nada é apagado agora. Seus agendamentos e sua conta seguem como estão até a
-            equipe responder.
+            Nada é apagado agora. Seus agendamentos e sua conta seguem como estão até a equipe
+            responder.
           </p>
 
           <Field
@@ -171,7 +173,5 @@ export function Exclusao({
 }
 
 function data(iso: string): string {
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' }).format(
-    new Date(iso),
-  )
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' }).format(new Date(iso))
 }

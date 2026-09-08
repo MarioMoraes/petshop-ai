@@ -6,16 +6,12 @@ import {
   type PortalFinanceResponse,
   type PortalPackage,
 } from '@petshop/shared-types'
-import { Alert, Badge, Card } from '@/components/ui'
-import { AlertTriangleIcon } from '@/components/icons'
+import { Alert, Badge, Card, SectionHead } from '@/components/ui'
+import { AlertTriangleIcon, PhoneIcon, ReceiptIcon, WalletIcon } from '@/components/icons'
 import { PortalFrame } from '../frame'
+import { RowChip, RowItem, RowMeta, RowStack, RowText } from '../list'
 import { Statement } from './statement'
-import {
-  PortalError,
-  readOwnFinance,
-  readOwnStatement,
-  readPortalContext,
-} from '@/lib/portal-api'
+import { PortalError, readOwnFinance, readOwnStatement, readPortalContext } from '@/lib/portal-api'
 
 /**
  * Minha conta (MOD-PORTAL-08).
@@ -78,8 +74,7 @@ export default async function PortalFinanceiroPage({
       )}
       {recibo === 'erro' && (
         <Alert tone="danger" icon={<AlertTriangleIcon />} title="Não foi possível abrir o recibo">
-          Tente novamente em instantes. Se continuar assim, fale com o{' '}
-          {context.tenant.name}.
+          Tente novamente em instantes. Se continuar assim, fale com o {context.tenant.name}.
         </Alert>
       )}
 
@@ -124,8 +119,19 @@ function BalanceCard({
 }) {
   return (
     <Card>
-      <p className="section-eyebrow">{deve > 0 ? 'Em aberto' : 'Sua conta'}</p>
-      <p className={`mt-2 text-3xl font-semibold ${deve > 0 ? 'text-danger' : ''}`}>
+      {/*
+        O número é a resposta da tela, e por isso ele — e não o chip — manda no cartão: o
+        ícone abre a linha do rótulo em 36px, e os 3rem do saldo vêm logo abaixo, sozinhos
+        na largura toda.
+      */}
+      <div className="section-head">
+        <span className="icon-chip icon-chip-sm icon-money">
+          <WalletIcon />
+        </span>
+        <p className="section-eyebrow">{deve > 0 ? 'Em aberto' : 'Sua conta'}</p>
+      </div>
+
+      <p className={`mt-3 text-3xl font-semibold ${deve > 0 ? 'text-danger' : ''}`}>
         {deve > 0 ? formatBRL(deve) : credito > 0 ? formatBRL(credito) : 'Em dia'}
       </p>
 
@@ -137,14 +143,10 @@ function BalanceCard({
       )}
 
       {credito > 0 && (
-        <p className="hint mt-2">
-          Este valor entra como desconto no seu próximo atendimento.
-        </p>
+        <p className="hint mt-2">Este valor entra como desconto no seu próximo atendimento.</p>
       )}
 
-      {deve === 0 && credito === 0 && (
-        <p className="hint mt-2">Nenhum valor em aberto por aqui.</p>
-      )}
+      {deve === 0 && credito === 0 && <p className="hint mt-2">Nenhum valor em aberto por aqui.</p>}
     </Card>
   )
 }
@@ -156,42 +158,42 @@ function BalanceCard({
  * escrita junto. Dizê-la só na semana do vencimento seria avisar tarde: quem comprou
  * quatro banhos em janeiro precisa saber em janeiro até quando pode usá-los.
  */
-function PackagesCard({
-  packages,
-  timezone,
-}: {
-  packages: PortalPackage[]
-  timezone: string
-}) {
+function PackagesCard({ packages, timezone }: { packages: PortalPackage[]; timezone: string }) {
   return (
-    <Card>
-      <p className="section-eyebrow">Seus pacotes</p>
+    <RowStack
+      head={<SectionHead icon={<ReceiptIcon />} tone="icon-money" title="Seus pacotes" />}
+      footer={
+        <p className="hint">
+          Crédito não usado até a data de expiração é perdido, e não é devolvido em dinheiro.
+        </p>
+      }
+    >
+      {packages.map((pacote) => (
+        <RowItem key={pacote.id} top>
+          <RowChip icon={<ReceiptIcon />} tone="icon-money" />
 
-      <ul className="mt-3 flex flex-col gap-3">
-        {packages.map((pacote) => (
-          <li key={pacote.id} className="border-line border-b pb-3 last:border-b-0 last:pb-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{pacote.name}</p>
-                <p className="hint mt-0.5">
-                  {pacote.creditsRemaining === 1
-                    ? '1 crédito restante'
-                    : `${pacote.creditsRemaining} créditos restantes`}
-                  {pacote.petName && ` · ${pacote.petName}`}
-                </p>
-              </div>
-              {pacote.expiringSoon && <Badge tone="danger">Vence logo</Badge>}
-            </div>
-            <p className="hint mt-1">Expira em {data(pacote.expiresAt, timezone)}.</p>
-          </li>
-        ))}
-      </ul>
+          <RowText
+            title={pacote.name}
+            hint={
+              <>
+                {pacote.creditsRemaining === 1
+                  ? '1 crédito restante'
+                  : `${pacote.creditsRemaining} créditos restantes`}
+                {pacote.petName && ` · ${pacote.petName}`}
+              </>
+            }
+          >
+            <span className="hint block">Expira em {data(pacote.expiresAt, timezone)}.</span>
+          </RowText>
 
-      <p className="hint mt-4">
-        Crédito não usado até a data de expiração é perdido, e não é devolvido em
-        dinheiro.
-      </p>
-    </Card>
+          {pacote.expiringSoon && (
+            <RowMeta>
+              <Badge tone="danger">Vence logo</Badge>
+            </RowMeta>
+          )}
+        </RowItem>
+      ))}
+    </RowStack>
   )
 }
 
@@ -213,10 +215,10 @@ function HowToPayCard({
 
   return (
     <Card>
-      <p className="section-eyebrow">Como pagar</p>
+      <SectionHead icon={<PhoneIcon />} tone="icon-brand" title="Como pagar" />
 
       {pixKey && (
-        <div className="mt-3">
+        <div className="mt-4">
           <p className="hint">Chave PIX</p>
           {/*
             `break-all` porque chave aleatória tem 36 caracteres sem espaço e estoura a
@@ -248,11 +250,7 @@ function HowToPayCard({
         </div>
       )}
 
-      {semNada && (
-        <p className="hint mt-3">
-          Fale com o {tenantName} para combinar o pagamento.
-        </p>
-      )}
+      {semNada && <p className="hint mt-3">Fale com o {tenantName} para combinar o pagamento.</p>}
     </Card>
   )
 }

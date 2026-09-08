@@ -55,42 +55,60 @@ export function AppointmentCard({
 
   return (
     <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-base font-medium">{dataHoraLonga(appointment.startsAt, timezone)}</p>
-          <p className="hint mt-0.5">
+      {/*
+        O chip do calendário abre o cartão pelo mesmo desenho que abre a linha do
+        histórico e a linha "Meus agendamentos" do menu: é o mesmo assunto em três
+        alturas de detalhe, e a cor do domínio é o que amarra as três.
+      */}
+      <div className="flex items-start gap-3.5">
+        <span className="icon-chip icon-chip-sm icon-time shrink-0">
+          <CalendarIcon />
+        </span>
+
+        <div className="min-w-0 flex-1">
+          {/*
+            O selo vem **antes** da data, e sozinho na linha. Ao lado dela ele roubava
+            metade da largura do celular e quebrava "Sexta-feira, 12 de setembro" em
+            cinco linhas — e ainda por cima competia com o dado que a pessoa veio ler.
+          */}
+          {appointment.awaitingApproval && (
+            <p className="mb-1">
+              <Badge tone="accent">Aguardando confirmação</Badge>
+            </p>
+          )}
+
+          <p className="text-sm font-semibold">{dataHoraLonga(appointment.startsAt, timezone)}</p>
+          <p className="hint">
             {appointment.petName} · {appointment.services.join(', ')}
           </p>
           <p className="hint">com {appointment.professionalName}</p>
         </div>
-        {appointment.awaitingApproval && <Badge tone="accent">Aguardando confirmação</Badge>}
       </div>
 
       <TaxiStrip rides={appointment.taxi} timezone={timezone} />
 
-      <p className="mt-3 text-sm font-medium">{formatBRL(appointment.totalCents)}</p>
+      {/*
+        O valor e o que dá para fazer descem para um rodapé com fio: acima dele fica o
+        que o compromisso **é**, abaixo o que ele **custa** e o que se pode mudar. Sem a
+        divisão, o preço lia como mais uma legenda do pet.
+      */}
+      <div className="border-line mt-4 flex items-center gap-2 border-t pt-4">
+        <p className="flex-1 text-sm font-semibold">{formatBRL(appointment.totalCents)}</p>
 
-      {(actions.canCancel || actions.canReschedule) && (
-        <div className="mt-4 flex gap-2">
-          {actions.canReschedule && (
-            <Link
-              href={`/portal/agendamentos/${appointment.id}/remarcar`}
-              className="btn btn-ghost h-9 flex-1"
-            >
-              Remarcar
-            </Link>
-          )}
-          {actions.canCancel && (
-            <button
-              type="button"
-              className="btn btn-ghost h-9 flex-1"
-              onClick={() => setAberto(true)}
-            >
-              Cancelar
-            </button>
-          )}
-        </div>
-      )}
+        {actions.canReschedule && (
+          <Link
+            href={`/portal/agendamentos/${appointment.id}/remarcar`}
+            className="btn btn-ghost h-9"
+          >
+            Remarcar
+          </Link>
+        )}
+        {actions.canCancel && (
+          <button type="button" className="btn btn-ghost h-9" onClick={() => setAberto(true)}>
+            Cancelar
+          </button>
+        )}
+      </div>
 
       <Modal
         open={aberto}
@@ -124,9 +142,9 @@ export function AppointmentCard({
       >
         {actions.cancelIsLate && actions.cancelFeeCents > 0 ? (
           <p className="text-sm">
-            Faltam menos de {actions.cancellationWindowHours}h para o horário. Cancelar agora
-            gera uma taxa de <strong>{formatBRL(actions.cancelFeeCents)}</strong>, que entra na
-            sua conta com o estabelecimento.
+            Faltam menos de {actions.cancellationWindowHours}h para o horário. Cancelar agora gera
+            uma taxa de <strong>{formatBRL(actions.cancelFeeCents)}</strong>, que entra na sua conta
+            com o estabelecimento.
           </p>
         ) : (
           <p className="text-sm">
@@ -140,9 +158,7 @@ export function AppointmentCard({
           telefonema.
         */}
         {appointment.taxi.length > 0 && (
-          <p className="hint mt-2">
-            O leva-e-traz deste horário é cancelado junto, sem cobrança.
-          </p>
+          <p className="hint mt-2">O leva-e-traz deste horário é cancelado junto, sem cobrança.</p>
         )}
 
         <FormError message={erro} />
@@ -175,13 +191,7 @@ function dataHoraLonga(instant: string, timeZone: string): string {
  * O texto do status vem pronto do servidor. O rótulo do painel — "Sem motorista",
  * "Atribuída" — é escrito para quem opera, e no celular do tutor leria como falha.
  */
-export function TaxiStrip({
-  rides,
-  timezone,
-}: {
-  rides: PortalTaxiRide[]
-  timezone: string
-}) {
+export function TaxiStrip({ rides, timezone }: { rides: PortalTaxiRide[]; timezone: string }) {
   if (rides.length === 0) return null
 
   return (

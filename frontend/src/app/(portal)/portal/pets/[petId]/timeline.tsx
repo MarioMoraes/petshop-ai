@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import type { PortalTimelineEntry, PortalTimelineResponse } from '@petshop/shared-types'
-import { Card } from '@/components/ui'
+import { SectionHead } from '@/components/ui'
+import { HeartPulseIcon } from '@/components/icons'
+import { RowItem, RowStack } from '../../list'
 import { carregarMais } from './actions'
 
 /**
@@ -50,41 +52,45 @@ export function Timeline({
     })
   }
 
-  if (entradas.length === 0) {
-    return (
-      <Card>
-        <p className="section-eyebrow">Histórico</p>
-        <p className="hint mt-3">
-          O {nome} ainda não tem atendimento registrado. Assim que ele passar por aqui, o
-          que foi feito aparece nesta lista.
-        </p>
-      </Card>
-    )
-  }
+  const head = (
+    <SectionHead
+      icon={<HeartPulseIcon />}
+      tone="icon-health"
+      title="Histórico"
+      description={
+        entradas.length === 0
+          ? `O ${nome} ainda não tem atendimento registrado. Assim que ele passar por aqui, o que foi feito aparece nesta lista.`
+          : undefined
+      }
+    />
+  )
+
+  if (entradas.length === 0) return <RowStack head={head} />
 
   return (
-    <Card>
-      <p className="section-eyebrow">Histórico</p>
+    <RowStack
+      head={head}
+      footer={
+        <>
+          {erro && <p className="text-danger text-sm">{erro}</p>}
 
-      <ol className="mt-4 flex flex-col">
-        {entradas.map((entrada) => (
-          <Entrada key={entrada.id} entrada={entrada} timezone={timezone} />
-        ))}
-      </ol>
-
-      {erro && <p className="text-danger mt-3 text-sm">{erro}</p>}
-
-      {cursor && (
-        <button
-          type="button"
-          className="btn btn-ghost mt-4 w-full"
-          onClick={mais}
-          disabled={carregando}
-        >
-          {carregando ? 'Carregando…' : 'Ver atendimentos anteriores'}
-        </button>
-      )}
-    </Card>
+          {cursor && (
+            <button
+              type="button"
+              className="btn btn-ghost w-full"
+              onClick={mais}
+              disabled={carregando}
+            >
+              {carregando ? 'Carregando…' : 'Ver mais'}
+            </button>
+          )}
+        </>
+      }
+    >
+      {entradas.map((entrada) => (
+        <Entrada key={entrada.id} entrada={entrada} timezone={timezone} />
+      ))}
+    </RowStack>
   )
 }
 
@@ -92,18 +98,19 @@ function Entrada({ entrada, timezone }: { entrada: PortalTimelineEntry; timezone
   const anulado = entrada.voidedAt !== null
 
   return (
-    <li className="border-line flex gap-4 border-b py-4 last:border-0 last:pb-0">
+    <RowItem top>
       {/*
-        A data à esquerda, em coluna fixa: é por ela que o olho desce a lista, e um
-        marcador que muda de largura conforme o mês obriga a reler a cada linha.
+        A data à esquerda, em coluna fixa, no lugar que nas outras listas é do chip: é
+        por ela que o olho desce a lista, e um marcador que muda de largura conforme o
+        mês obriga a reler a cada linha.
       */}
-      <div className="w-14 shrink-0 pt-0.5">
+      <div className="w-11 shrink-0">
         <p className="text-sm font-semibold">{diaEMes(entrada.startedAt, timezone)}</p>
         <p className="text-subtle text-xs">{ano(entrada.startedAt, timezone)}</p>
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className={`font-medium ${anulado ? 'text-subtle line-through' : ''}`}>
+        <p className={`text-sm font-semibold ${anulado ? 'text-subtle line-through' : ''}`}>
           {entrada.services.length > 0 ? entrada.services.join(', ') : rotuloTipo(entrada.type)}
         </p>
 
@@ -146,7 +153,7 @@ function Entrada({ entrada, timezone }: { entrada: PortalTimelineEntry; timezone
           </>
         )}
       </div>
-    </li>
+    </RowItem>
   )
 }
 

@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { TERM_KIND_LABELS, type PortalTerm } from '@petshop/shared-types'
-import { Card } from '@/components/ui'
+import { Card, SectionHead } from '@/components/ui'
+import { ShieldCheckIcon } from '@/components/icons'
 import { TextoDoTermo } from '@/components/term-text'
 import { aceitarTermo } from './actions'
 
@@ -24,13 +25,14 @@ export function Termos({ termos }: { termos: PortalTerm[] }) {
 
   return (
     <Card>
-      <p className="section-eyebrow">Termos</p>
-      <p className="hint mt-1">
-        O que você aceitou, e quando. Aceitar registra a data, a hora e o aparelho — é
-        essa a prova, e ela vale pelo texto que está aqui.
-      </p>
+      <SectionHead
+        icon={<ShieldCheckIcon />}
+        tone="icon-system"
+        title="Termos"
+        description="O que você aceitou, e quando. Aceitar registra a data, a hora e o aparelho — é essa a prova, e ela vale pelo texto que está aqui."
+      />
 
-      <div className="mt-3 flex flex-col">
+      <div className="mt-4 flex flex-col">
         {termos.map((termo) => (
           <Termo key={termo.kind} termo={termo} />
         ))}

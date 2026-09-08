@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import type { PortalChannel, PortalPreferencesResponse } from '@petshop/shared-types'
-import { Card, Choice } from '@/components/ui'
+import { Card, Choice, SectionHead } from '@/components/ui'
+import { BellIcon } from '@/components/icons'
 import { salvarPreferencia } from './actions'
 
 /**
@@ -54,11 +55,12 @@ export function Preferencias({ inicial }: { inicial: PortalPreferencesResponse }
 
   return (
     <Card tone="soft">
-      <p className="section-eyebrow">Novidades e promoções</p>
-      <p className="hint mt-2">
-        Escolha por onde o estabelecimento pode falar de campanhas, pacotes e datas
-        especiais.
-      </p>
+      <SectionHead
+        icon={<BellIcon />}
+        tone="icon-brand"
+        title="Novidades e promoções"
+        description="Escolha por onde o estabelecimento pode falar de campanhas, pacotes e datas especiais."
+      />
 
       <div className="mt-4 flex flex-col gap-2">
         {visiveis.map((item) => (
@@ -85,8 +87,8 @@ export function Preferencias({ inicial }: { inicial: PortalPreferencesResponse }
         execução do serviço que a pessoa contratou.
       */}
       <p className="hint mt-4">
-        Confirmações de horário, lembretes do seu agendamento e avisos do leva-e-traz
-        continuam chegando: eles fazem parte do atendimento e não são promoções.
+        Confirmações de horário, lembretes do seu agendamento e avisos do leva-e-traz continuam
+        chegando: eles fazem parte do atendimento e não são promoções.
       </p>
     </Card>
   )

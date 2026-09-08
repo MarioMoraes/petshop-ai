@@ -288,6 +288,128 @@
       0 8px 18px -12px rgb(35 36 39 / 0.35);
   }
 
+  /*
+   * A pilha de linhas do Portal — o menu do Início, o histórico de horários, o extrato,
+   * as mensagens, os documentos, os pets.
+   *
+   * Antes cada tela resolvia lista do seu jeito: umas empilhavam cartões soltos com um
+   * respiro de 12px entre eles, outras faziam `border-b` dentro de um cartão. Duas
+   * gramáticas para a mesma coisa, e nenhuma das duas com relevo. Aqui a lista é **um
+   * cartão com linhas dentro**, e o relevo é o do resto do sistema: a linha que leva a
+   * algum lugar vira uma pastilha branca elevada quando o dedo chega nela, como o item
+   * ativo do menu lateral do Admin.
+   *
+   * O que separa linha clicável de linha de leitura é a **tag**, e não uma classe extra:
+   * `a` e `button` levantam, `li` e `div` ficam quietos. Uma lista de lançamentos não
+   * pode piscar sob o dedo que só está rolando a tela.
+   */
+  .menu-stack {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem;
+  }
+
+  .menu-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    border-radius: 16px;
+    padding: 0.75rem;
+    color: var(--color-ink);
+    transition:
+      transform 0.25s cubic-bezier(0.2, 0, 0.2, 1),
+      box-shadow 0.25s cubic-bezier(0.2, 0, 0.2, 1),
+      background-color 0.2s;
+  }
+
+  /* Linha alta — a que tem três textos ou um avatar: o chip sobe para a primeira linha. */
+  .menu-row-top {
+    align-items: flex-start;
+  }
+
+  /*
+   * O fio entre linhas é pseudo-elemento e não `border-top`: assim ele recua nos 0.75rem
+   * do texto, em vez de cortar a pastilha de fora a fora, e desaparece sozinho quando a
+   * linha de cima ou a de baixo está elevada.
+   */
+  .menu-row + .menu-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0.75rem;
+    right: 0.75rem;
+    height: 1px;
+    background-color: var(--color-line);
+    transition: opacity 0.2s;
+  }
+
+  /*
+   * A pastilha do hover é branca sobre um cartão branco, então quem a destaca é só a
+   * sombra — e por isso ela é mais funda aqui que a do cartão que a contém: sem o anel
+   * de 1px e a sombra de 26px a linha "levanta" sem que se veja de onde. É o mesmo
+   * truque do `.nav-item-active` sobre o cinza da lateral, com a força que o fundo
+   * branco exige.
+   */
+  a.menu-row:hover,
+  a.menu-row:focus-visible,
+  button.menu-row:hover,
+  button.menu-row:focus-visible {
+    background-color: var(--color-card);
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 0 0 1px rgb(35 36 39 / 0.06),
+      0 12px 26px -12px rgb(35 36 39 / 0.5);
+  }
+
+  a.menu-row:hover::before,
+  a.menu-row:hover + .menu-row::before,
+  a.menu-row:focus-visible::before,
+  a.menu-row:focus-visible + .menu-row::before,
+  button.menu-row:hover::before,
+  button.menu-row:hover + .menu-row::before,
+  button.menu-row:focus-visible::before,
+  button.menu-row:focus-visible + .menu-row::before {
+    opacity: 0;
+  }
+
+  a.menu-row:active,
+  button.menu-row:active {
+    transform: translateY(0);
+    transition-duration: 0.06s;
+    box-shadow: 0 1px 4px -2px rgb(35 36 39 / 0.3);
+  }
+
+  /*
+   * O chevron anda 2px para a direita no hover: é a lista dizendo para onde vai. Classe
+   * própria e não `svg:last-child` — o ícone do chip também é o último filho do span
+   * dele, e o seletor posicional faria os dois se mexerem.
+   */
+  .menu-chevron {
+    color: var(--color-subtle);
+    transition: transform 0.25s cubic-bezier(0.2, 0, 0.2, 1);
+  }
+
+  a.menu-row:hover .menu-chevron,
+  button.menu-row:hover .menu-chevron {
+    transform: translateX(2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-row,
+    .menu-chevron {
+      transition: none;
+    }
+
+    a.menu-row:hover,
+    button.menu-row:hover,
+    a.menu-row:hover .menu-chevron,
+    button.menu-row:hover .menu-chevron {
+      transform: none;
+    }
+  }
+
   /* Elevação em hover, para o card que leva a algum lugar. */
   .card-interactive {
     transition:
@@ -1853,9 +1975,7 @@
 
   @supports (color: oklch(from red l c h)) {
     .avatar-ring {
-      --ring-glow: oklch(
-        from var(--color-focus) calc(l + 0.13) calc(c - 0.06) calc(h + 28)
-      );
+      --ring-glow: oklch(from var(--color-focus) calc(l + 0.13) calc(c - 0.06) calc(h + 28));
     }
   }
 
