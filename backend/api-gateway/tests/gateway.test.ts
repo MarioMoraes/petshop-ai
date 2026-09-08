@@ -2,6 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { SERVICE_HEADERS, verifyServiceHeaders } from '@petshop/service-auth'
 import {
   closeHarness,
+  echoed,
+  getApp,
   getGateway,
   givenToken,
   lastEchoed,
@@ -60,42 +62,50 @@ describe('autenticação', () => {
     expect(response.json().service).toBe('petshop-app')
   })
 
-  it('roteia /v1/tutors para o tutor-service com o contexto assinado', async () => {
+  it('a busca de tutores é atendida aqui; o pacote dele, ainda encaminhado', async () => {
     const tenant = await seedTenant('rotatutor')
     const member = await seedMember(tenant.tenantId, 'RECEPTIONIST')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
-    const response = await call({ url: '/v1/tutors?q=maria', token })
-    expect(response.statusCode).toBe(200)
+    /**
+     * O MOD-TUTOR virou módulo na fatia 6, então `/v1/tutors` não sai mais do
+     * processo. O que continua saindo é `/v1/tutors/:id/packages`, que é do financeiro
+     * — e é essa distinção que o teste guarda: as duas rotas partilham prefixo e vão
+     * para lugares diferentes.
+     */
+    const antes = echoed.length
+    await call({ url: '/v1/tutors?q=maria', token })
+    expect(echoed.length).toBe(antes)
 
+    await call({ url: '/v1/tutors/11111111-1111-4111-8111-111111111111/packages', token })
     const forwarded = lastEchoed()
-    expect(forwarded.url).toBe('/v1/tutors?q=maria')
+    expect(forwarded.url).toContain('/packages')
     const verified = verifyServiceHeaders(forwarded.headers, INTERNAL_SECRET)
     expect(verified.ok).toBe(true)
     if (!verified.ok) return
     expect(verified.context.tenantId).toBe(tenant.tenantId)
-    expect(verified.context.permissions).toContain('tutor:read')
   })
 
-  it('roteia /v1/pets e o catálogo de domínio para o pet-service', async () => {
+  it('/v1/pets e o catálogo de domínio são atendidos aqui, não encaminhados', async () => {
     const tenant = await seedTenant('rotapet')
     const member = await seedMember(tenant.tenantId, 'RECEPTIONIST')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
+    /**
+     * Eram quatro rotas encaminhadas ao pet-service até a fatia 5 da consolidação.
+     * Hoje o módulo responde por elas no próprio processo, e o que este teste guarda
+     * é justamente isso: **nada** sai daqui. Se um dia uma delas voltar a aparecer no
+     * eco, é porque alguém a devolveu ao `resolveTarget` sem querer.
+     */
     for (const url of ['/v1/pets?q=thor', '/v1/species', '/v1/sizes', '/v1/coats']) {
+      const antes = echoed.length
       const response = await call({ url, token })
-      expect(response.statusCode).toBe(200)
-
-      const forwarded = lastEchoed()
-      expect(forwarded.url).toBe(url)
-      const verified = verifyServiceHeaders(forwarded.headers, INTERNAL_SECRET)
-      expect(verified.ok).toBe(true)
-      if (!verified.ok) return
-      expect(verified.context.permissions).toContain('pet:read')
+      expect(response.statusCode).not.toBe(404)
+      expect(echoed.length).toBe(antes)
     }
   })
 
-  it('repassa o upload de foto sem reserializar o multipart', async () => {
+  it('o upload de foto é consumido aqui, com o arquivo inteiro', async () => {
     const tenant = await seedTenant('rotafoto')
     const member = await seedMember(tenant.tenantId, 'RECEPTIONIST')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
@@ -111,6 +121,7 @@ describe('autenticação', () => {
       Buffer.from(`\r\n--${boundary}--\r\n`),
     ])
 
+    const antes = echoed.length
     const response = await call({
       method: 'POST',
       url: `/v1/pets/${'11111111-1111-4111-8111-111111111111'}/photos`,
@@ -118,18 +129,19 @@ describe('autenticação', () => {
       headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
       payload: body,
     })
-    expect(response.statusCode).toBe(200)
 
-    const forwarded = lastEchoed()
-    expect(forwarded.headers['content-type']).toContain(boundary)
-    // O corpo chegou idêntico: o `boundary` do header continua casando com o do corpo.
-    expect(Buffer.isBuffer(forwarded.body)).toBe(true)
-    expect(Buffer.compare(forwarded.body as Buffer, body)).toBe(0)
-
-    const verified = verifyServiceHeaders(forwarded.headers, INTERNAL_SECRET)
-    expect(verified.ok).toBe(true)
-    if (!verified.ok) return
-    expect(verified.context.permissions).toContain('pet:upload_photo')
+    /**
+     * O upload virou rota do módulo na fatia 5, com o `@fastify/multipart` do escopo
+     * dele. O que se prova aqui é que o corpo binário **chega**: um 404 de pet
+     * inexistente ou um 422 de imagem inválida significam que o parser leu o arquivo;
+     * um 400 de multipart quebrado significaria que o parser errado o pegou.
+     *
+     * O repasse byte a byte do escopo do proxy continua registrado, mas hoje não tem
+     * consumidor: nenhum serviço ainda por migrar recebe multipart. Ele sai junto com
+     * o `proxy.ts`, na última fatia.
+     */
+    expect([404, 422]).toContain(response.statusCode)
+    expect(echoed.length).toBe(antes)
   })
 
   it('roteia o prontuário para o medical-record-service, não para o pet-service', async () => {
@@ -150,10 +162,10 @@ describe('autenticação', () => {
       expect(verified.context.permissions).toContain('record:read_alerts')
     }
 
-    // O pet em si continua no pet-service.
-    const pet = await call({ url: `/v1/pets/${petId}`, token })
-    expect(pet.statusCode).toBe(200)
-    expect(lastEchoed().url).toBe(`/v1/pets/${petId}`)
+    // O pet em si é atendido aqui desde a fatia 5, e por isso **não** aparece no eco.
+    const antes = echoed.length
+    await call({ url: `/v1/pets/${petId}`, token })
+    expect(echoed.length).toBe(antes)
   })
 
   it('roteia o catálogo da agenda para o scheduling-service', async () => {
@@ -172,11 +184,15 @@ describe('autenticação', () => {
       expect(verified.context.permissions).toContain('schedule:manage_catalog')
     }
 
-    // `/v1/sizes` é catálogo de pet e continua no pet-service: `matches` compara
-    // segmento inteiro, então `/v1/services` não o captura por prefixo textual.
-    const sizes = await call({ url: '/v1/sizes', token })
-    expect(sizes.statusCode).toBe(200)
-    expect(lastEchoed().url).toBe('/v1/sizes')
+    /**
+     * `/v1/sizes` é catálogo de pet, e desde a fatia 5 é atendido neste processo. O que
+     * o teste guarda continua sendo a mesma distinção de antes: `matches` compara
+     * segmento inteiro, então `/v1/services` **não** captura `/v1/sizes` por prefixo
+     * textual — se capturasse, o porte do pet iria parar na agenda.
+     */
+    const antes = echoed.length
+    await call({ url: '/v1/sizes', token })
+    expect(echoed.length).toBe(antes)
   })
 
   it('devolve 404 para rota sem serviço de destino', async () => {
@@ -414,12 +430,18 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
     const { loadEnv } = await import('../src/config/env.js')
     const env = loadEnv()
 
-    // A checagem por sufixo precisa vir antes de `TUTOR_PREFIXES`; senão esta rota
-    // cairia no tutor-service, que não conhece pacote nenhum.
+    /**
+     * A exceção do financeiro sobreviveu à fatia 6: `/v1/tutors/:id/packages` continua
+     * saindo daqui, porque **nenhuma rota do módulo do tutor casa com ela**. O resto
+     * do tutor é atendido no processo e `resolveTarget` devolve `null`.
+     *
+     * No dia em que alguém registrar `/v1/tutors/:id/packages` no módulo do tutor, o
+     * roteador do Fastify passa a preferi-la e o pacote some sem erro nenhum — este
+     * teste é o que avisa.
+     */
     expect(resolveTarget('/v1/tutors/abc/packages')).toBe(env.BILLING_LEDGER_SERVICE_URL)
-    // E o resto do tutor continua com quem é dele.
-    expect(resolveTarget('/v1/tutors/abc')).toBe(env.TUTOR_SERVICE_URL)
-    expect(resolveTarget('/v1/tutors/abc/overview')).toBe(env.TUTOR_SERVICE_URL)
+    expect(resolveTarget('/v1/tutors/abc')).toBeNull()
+    expect(resolveTarget('/v1/tutors/abc/overview')).toBeNull()
   })
 
   it('`/v1/services` continua sendo da agenda, não do catálogo de pacotes', async () => {
@@ -445,9 +467,45 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
     ]) {
       expect(resolveTarget(`/v1/pets/abc/${suffix}`)).toBe(env.MEDICAL_RECORD_SERVICE_URL)
     }
-    // E o cadastro do pet continua com quem é dele.
-    expect(resolveTarget('/v1/pets/abc')).toBe(env.PET_SERVICE_URL)
-    expect(resolveTarget('/v1/pets/abc/photos')).toBe(env.PET_SERVICE_URL)
+    /**
+     * E o cadastro do pet **não é encaminhado a lugar nenhum**: virou módulo deste
+     * processo na fatia 5 da consolidação, e `resolveTarget` devolve `null`.
+     *
+     * A exceção do prontuário sobreviveu à mudança, e é isso que este teste passou a
+     * provar: `/v1/pets/:id/timeline` continua saindo daqui porque **nenhuma rota do
+     * módulo do pet casa com ela**, e o curinga a leva ao prontuário. No dia em que
+     * alguém registrar `/v1/pets/:id/timeline` no módulo do pet, o roteador do Fastify
+     * passa a preferi-la e a linha do tempo some sem erro nenhum — este teste é o que
+     * avisa.
+     */
+    expect(resolveTarget('/v1/pets/abc')).toBeNull()
+    expect(resolveTarget('/v1/pets/abc/photos')).toBeNull()
+  })
+
+  it('a linha do tempo do pet sai do processo; o cadastro dele, não', async () => {
+    const app = await getApp()
+    const tenant = await seedTenant('rota-pet')
+    const membro = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
+    const token = givenToken({
+      clerkUserId: membro.clerkUserId,
+      clerkOrgId: tenant.clerkOrgId,
+    })
+
+    await app.inject({
+      method: 'GET',
+      url: '/v1/pets/00000000-0000-0000-0000-000000000001/timeline',
+      headers: { authorization: `Bearer ${token}` },
+    })
+    expect(lastEchoed().url).toContain('/timeline')
+
+    const antes = echoed.length
+    await app.inject({
+      method: 'GET',
+      url: '/v1/pets/00000000-0000-0000-0000-000000000001',
+      headers: { authorization: `Bearer ${token}` },
+    })
+    // Nada chegou ao serviço de destino: quem respondeu foi o módulo, aqui dentro.
+    expect(echoed.length).toBe(antes)
   })
 
   it('o atendimento é do prontuário; o agendamento, da agenda', async () => {
@@ -598,8 +656,10 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
 
     expect(resolveTarget('/portal/v1/me')).toBe(env.PORTAL_BFF_URL)
     expect(resolveTarget('/portal/v1/access/challenge')).toBe(env.PORTAL_BFF_URL)
-    // O prefixo administrativo continua onde estava: a separação é o AC-04 de
-    // MOD-PORTAL-11, e é ela que garante que nenhum tutor alcance `/v1`.
-    expect(resolveTarget('/v1/tutors')).toBe(env.TUTOR_SERVICE_URL)
+    // O prefixo administrativo continua separado: a distinção é o AC-04 de
+    // MOD-PORTAL-11, e é ela que garante que nenhum tutor alcance `/v1`. Desde a
+    // fatia 6 `/v1/tutors` é atendido aqui, então o que se prova é que ele **não** cai
+    // no BFF do Portal.
+    expect(resolveTarget('/v1/tutors')).toBeNull()
   })
 })

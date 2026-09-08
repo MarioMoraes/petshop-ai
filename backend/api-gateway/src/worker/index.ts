@@ -1,9 +1,15 @@
 import { createJobScheduler } from '@petshop/job-scheduler'
 import { loadEnv } from '../config/env.js'
 import { logger, recordMetric } from '../shared/logger.js'
+import { startCrmConsumers, stopCrmConsumers } from '../modules/crm/consumers.js'
+import { startPetConsumers, stopPetConsumers } from '../modules/pets/consumers.js'
+import { startTutorConsumers, stopTutorConsumers } from '../modules/tutors/consumers.js'
 import { startSiteConsumers, stopSiteConsumers } from '../modules/site/consumers.js'
 import { startTaxiConsumers, stopTaxiConsumers } from '../modules/taxi/consumers.js'
+import { crmJobs } from './crm-jobs.js'
+import { messagingJobs } from './messaging-jobs.js'
 import { siteJobs } from './site-jobs.js'
+import { tutorJobs } from './tutor-jobs.js'
 import { taxiJobs } from './taxi-jobs.js'
 
 /**
@@ -24,7 +30,7 @@ export const { startJobs, stopJobs, runJobNow } = createJobScheduler({
   logger,
   recordMetric,
   isDisabled: () => loadEnv().DISABLE_JOBS,
-  jobs: [...siteJobs, ...taxiJobs],
+  jobs: [...siteJobs, ...taxiJobs, ...crmJobs, ...messagingJobs, ...tutorJobs],
 })
 
 /**
@@ -37,8 +43,11 @@ export const { startJobs, stopJobs, runJobNow } = createJobScheduler({
 export async function startConsumers(): Promise<void> {
   await startSiteConsumers()
   await startTaxiConsumers()
+  await startCrmConsumers()
+  await startPetConsumers()
+  await startTutorConsumers()
 }
 
 export async function stopConsumers(): Promise<void> {
-  await Promise.all([stopSiteConsumers(), stopTaxiConsumers()])
+  await Promise.all([stopSiteConsumers(), stopTaxiConsumers(), stopCrmConsumers(), stopPetConsumers(), stopTutorConsumers()])
 }

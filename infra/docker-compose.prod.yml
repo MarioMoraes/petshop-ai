@@ -35,13 +35,15 @@ x-backend: &backend
     EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER}
     INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
     IDENTITY_SERVICE_URL: http://identity-service:3001
-    TUTOR_SERVICE_URL: http://tutor-service:3003
-    PET_SERVICE_URL: http://pet-service:3004
+    # O MOD-TUTOR é módulo do backend desde a consolidação; quem ainda o chama por
+    # HTTP é o portal-bff, com contexto assinado.
+    TUTOR_SERVICE_URL: http://api-gateway:3000
     MEDICAL_RECORD_SERVICE_URL: http://medical-record-service:3005
     SCHEDULING_SERVICE_URL: http://scheduling-service:3006
     BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
-    CRM_AUTOMATION_SERVICE_URL: http://crm-automation-service:3009
-    MESSAGING_SERVICE_URL: http://messaging-service:3010
+    # O MOD-NOTIF é módulo do backend desde a consolidação; quem ainda o chama por
+    # HTTP é o portal-bff, com contexto assinado.
+    MESSAGING_SERVICE_URL: http://api-gateway:3000
     # O Taxi Dog é módulo do gateway desde a consolidação; quem ainda o chama
     # por HTTP é o portal-bff (MOD-PORTAL-07), com contexto assinado.
     TAXIDOG_SERVICE_URL: http://api-gateway:3000
@@ -126,7 +128,7 @@ services:
     # atualização silenciosa desconectaria todos os petshops de uma vez.
     #
     # **Sem `ports` e sem rota no Caddyfile**, como o banco: ela manda mensagem pelo
-    # número da empresa, e quem fala com ela é o messaging-service pela rede interna.
+    # número da empresa, e quem fala com ela é o módulo de mensagens, pela rede interna.
     # `evoapicloud`, e não `atendai`: o projeto trocou de organização no Docker Hub em
     # 2025, e o repositório antigo parou na v2.2.3 e deixou de aceitar pull anônimo —
     # um `docker pull` de lá responde "pull access denied", que parece erro de rede.
@@ -213,6 +215,23 @@ services:
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET: ${R2_BUCKET:-petshop-media}
+      # O canal WhatsApp (MOD-CRM-01) e o retorno do Resend (MOD-NOTIF-10), que vieram
+      # com o módulo de mensagens na consolidação.
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      # Para onde a Evolution devolve o pareamento e as quedas de conexão: o próprio
+      # backend, pela rede interna. Este webhook nunca passa pelo Caddy — o do Resend,
+      # sim, porque quem o chama está na internet.
+      EVOLUTION_WEBHOOK_URL: http://api-gateway:3000/internal/v1/whatsapp/webhook
+      # Sem o segredo a rota do Resend recusa **tudo** com 401 — é deliberado: um
+      # webhook aberto é uma porta para suprimir o endereço de qualquer concorrente.
+      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # MOD-TUTOR: a consulta de CEP e a régua de inatividade, que vieram com o módulo.
+      VIACEP_BASE_URL: ${VIACEP_BASE_URL:-https://viacep.com.br/ws}
+      CEP_LOOKUP_TIMEOUT_MS: ${CEP_LOOKUP_TIMEOUT_MS:-3000}
+      INACTIVITY_THRESHOLD_DAYS: ${INACTIVITY_THRESHOLD_DAYS:-90}
     healthcheck:
       test: ['CMD', 'curl', '-sf', 'http://localhost:3000/health']
       interval: 30s
@@ -233,28 +252,6 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-PetShop AI <convites@${APP_DOMAIN}>}
       INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
-
-  tutor-service:
-    <<: *backend
-    command: ['node', 'backend/tutor-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      TUTOR_SERVICE_PORT: 3003
-      VIACEP_BASE_URL: ${VIACEP_BASE_URL:-https://viacep.com.br/ws}
-      CEP_LOOKUP_TIMEOUT_MS: ${CEP_LOOKUP_TIMEOUT_MS:-3000}
-      INACTIVITY_THRESHOLD_DAYS: ${INACTIVITY_THRESHOLD_DAYS:-90}
-
-  pet-service:
-    <<: *backend
-    command: ['node', 'backend/pet-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      PET_SERVICE_PORT: 3004
-      R2_ENDPOINT: ${R2_ENDPOINT}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
-      R2_BUCKET: ${R2_BUCKET}
-      R2_REGION: ${R2_REGION:-auto}
 
   medical-record-service:
     <<: *backend
@@ -285,36 +282,6 @@ services:
       <<: *backend-env
       BILLING_LEDGER_SERVICE_PORT: 3007
 
-
-  crm-automation-service:
-    <<: *backend
-    command: ['node', 'backend/crm-automation-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      CRM_AUTOMATION_SERVICE_PORT: 3009
-
-  messaging-service:
-    <<: *backend
-    command: ['node', 'backend/messaging-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      MESSAGING_SERVICE_PORT: 3010
-      # O canal WhatsApp (MOD-CRM-01). Só este serviço fala com a Evolution.
-      EVOLUTION_API_URL: http://evolution:8080
-      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
-      # Para onde a Evolution devolve o pareamento e as quedas de conexão: o próprio
-      # serviço, pela rede interna. O webhook nunca passa pelo gateway nem pelo Caddy.
-      EVOLUTION_WEBHOOK_URL: http://messaging-service:3010/internal/v1/whatsapp/webhook
-      # O retorno do Resend (MOD-NOTIF-10). Sem o segredo a rota recusa **tudo** com
-      # 401 — é deliberado: um webhook aberto é uma porta para suprimir o endereço de
-      # qualquer concorrente. O valor sai do painel do Resend, no formato `whsec_…`.
-      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
-      # O bucket dos documentos, só para **ler** o anexo do e-mail (MOD-NOTIF-05).
-      # Quem arquiva é o serviço de domínio que emitiu o papel.
-      R2_ENDPOINT: ${R2_ENDPOINT:-}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
-      R2_BUCKET: ${R2_BUCKET:-petshop-media}
 
 
   # O Portal do Tutor (MOD-PORTAL). Porta 3020, fora do bloco 3009-3013: é superfície

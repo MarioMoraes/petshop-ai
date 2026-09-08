@@ -35,9 +35,9 @@
 		-Server
 	}
 
-	# A **única** rota que não é do Next, e a única superfície pública de um serviço
-	# de backend (MOD-NOTIF-10). O Resend é um serviço na internet: ele não alcança a
-	# rede interna do compose, e o callback dele precisa de um endereço de verdade.
+	# A **única** rota que não é do Next, e a única superfície pública do backend
+	# (MOD-NOTIF-10). O Resend é um serviço na internet: ele não alcança a rede
+	# interna do compose, e o callback dele precisa de um endereço de verdade.
 	#
 	# Vale só no domínio da aplicação, nunca nos subdomínios de tenant — o webhook é
 	# da instalação, não de um petshop. O que o protege é inteiramente a assinatura
@@ -47,7 +47,7 @@
 		path /internal/v1/email/webhook
 	}
 	handle @resend {
-		reverse_proxy messaging-service:3010
+		reverse_proxy api-gateway:3000
 	}
 
 	handle {

@@ -1,4 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { signServiceHeaders } from '@petshop/service-auth'
+import type { PermissionKey } from '@petshop/shared-types'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config } from 'dotenv'
@@ -256,6 +258,11 @@ export function useMemoryStorage(): Map<string, { body: Buffer; contentType: str
     async read(key) {
       return objects.get(key) ?? null
     },
+    async signedUrl(key) {
+      // O dublê não assina nada: devolve um endereço reconhecível, que é o que os
+      // testes do álbum conferem. Quem exercita a assinatura de verdade é o R2.
+      return `memoria://${key}`
+    },
     async remove(keys) {
       for (const key of keys) objects.delete(key)
     },
@@ -302,6 +309,32 @@ export interface InjectOptions extends Caller {
 export function authHeaders(caller: Caller): Record<string, string> {
   const token = givenToken({ clerkUserId: caller.clerkUserId, clerkOrgId: caller.clerkOrgId })
   return { authorization: `Bearer ${token}` }
+}
+
+/**
+ * Os headers de uma chamada **de serviço**, pela porta interna.
+ *
+ * É o que um serviço ainda não migrado envia: o contexto já resolvido, assinado com
+ * `INTERNAL_SERVICE_SECRET`. O `app.ts` o reconhece antes de procurar token, e é assim
+ * que o `portal-bff` alcança os módulos que já vivem aqui. Sem `userId` de propósito —
+ * quem chama é um processo, não uma pessoa.
+ */
+export function serviceHeaders(context: {
+  clerkUserId: string
+  tenantId?: string
+  userId?: string
+  permissions?: string[]
+}): Record<string, string> {
+  const secret = process.env.INTERNAL_SERVICE_SECRET ?? ''
+  return signServiceHeaders(
+    {
+      clerkUserId: context.clerkUserId,
+      ...(context.tenantId ? { tenantId: context.tenantId } : {}),
+      ...(context.userId ? { userId: context.userId } : {}),
+      permissions: (context.permissions ?? []) as PermissionKey[],
+    },
+    secret,
+  )
 }
 
 /** Chamada autenticada, como o Admin a faz. */

@@ -74,7 +74,7 @@ services:
     # pareia o **próprio** número por QR code, sem aprovação de template pela Meta e sem
     # custo por mensagem. A contrapartida é o risco de banimento, e é ela que justifica
     # a janela de silêncio, o teto diário, o aquecimento e o jitter que já vivem no
-    # messaging-service.
+    # módulo de mensagens do backend.
     #
     # Tag fixa, nunca `latest`: uma sessão pareada é estado, e trocar de versão sozinho
     # é acordar com todos os petshops desconectados.

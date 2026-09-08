@@ -27,6 +27,16 @@ export const { sanitize, recordAudit } = createAudit({
     'notes',
     'latitude',
     'longitude',
+    // MOD-CRM e MOD-NOTIF
+    'variables',
+    'body',
+    'subject',
+    'to',
+    'address',
+    // MOD-PET
+    'microchip',
+    'microchipEncrypted',
+    'microchipHash',
   ],
 })
 

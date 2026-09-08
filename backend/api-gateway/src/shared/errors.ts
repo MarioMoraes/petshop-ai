@@ -5,6 +5,7 @@ import {
 } from '@petshop/service-kit'
 import type { FastifyInstance } from 'fastify'
 import type { ZodError } from 'zod'
+import { translateMultipartLimit } from '../modules/pets/errors.js'
 import { logger } from './logger.js'
 
 /**
@@ -59,11 +60,21 @@ function rateLimitBranch(error: unknown): AppError | null {
   )
 }
 
+/**
+ * Os ramos de tradução que os módulos trazem.
+ *
+ * Um erro que só um módulo conhece — o estouro de limite do `@fastify/multipart`, que
+ * chega com código da biblioteca — vira o `AppError` do catálogo dele. Enquanto cada
+ * serviço tinha o seu handler, cada um registrava os seus; com um handler só, a lista
+ * é montada aqui, e um módulo novo que precise de tradução própria acrescenta uma linha.
+ */
+const MODULE_BRANCHES = [translateMultipartLimit]
+
 export function registerErrorHandler(app: FastifyInstance): void {
   registerKitErrorHandler(app, {
     logger,
     validationError,
     notFound,
-    branches: [rateLimitBranch],
+    branches: [rateLimitBranch, ...MODULE_BRANCHES],
   })
 }

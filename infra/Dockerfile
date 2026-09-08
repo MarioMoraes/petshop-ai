@@ -51,13 +51,9 @@ RUN pnpm --filter "@petshop/db" generate
 RUN pnpm build --concurrency=2 \
       --filter="@petshop/api-gateway" \
       --filter="@petshop/identity-service" \
-      --filter="@petshop/tutor-service" \
-      --filter="@petshop/pet-service" \
       --filter="@petshop/medical-record-service" \
       --filter="@petshop/scheduling-service" \
       --filter="@petshop/billing-ledger-service" \
-      --filter="@petshop/crm-automation-service" \
-      --filter="@petshop/messaging-service" \
       --filter="@petshop/portal-bff" \
       --filter="@petshop/api-client"
 

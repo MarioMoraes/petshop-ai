@@ -29,12 +29,14 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    * marcador de progresso da consolidação.
    */
   IDENTITY_SERVICE_URL: z.string().url().default('http://localhost:3001'),
-  TUTOR_SERVICE_URL: z.string().url().default('http://localhost:3003'),
-  PET_SERVICE_URL: z.string().url().default('http://localhost:3004'),
   MEDICAL_RECORD_SERVICE_URL: z.string().url().default('http://localhost:3005'),
   SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3006'),
   BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3007'),
-  CRM_AUTOMATION_SERVICE_URL: z.string().url().default('http://localhost:3009'),
+  /**
+   * Destino do encaminhamento **e** do salto do MOD-CRM: o módulo decide quem recebe
+   * a mensagem e pede ao messaging-service que entregue (§5 do PRD). Quando o
+   * messaging migrar, o salto vira chamada de função e sobra só o encaminhamento.
+   */
   MESSAGING_SERVICE_URL: z.string().url().default('http://localhost:3010'),
   PORTAL_BFF_URL: z.string().url().default('http://localhost:3020'),
 
@@ -74,6 +76,60 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   R2_BUCKET: z.string().default('petshop-media'),
   R2_REGION: z.string().default('auto'),
   R2_ENDPOINT: z.string().optional(),
+
+  // ---- MOD-TUTOR (fatia 6 da consolidação) ----
+  VIACEP_BASE_URL: z.string().url().default('https://viacep.com.br/ws'),
+  /** Desliga a consulta de CEP na suíte, que roda sem rede. */
+  DISABLE_CEP_LOOKUP: z.coerce.boolean().default(false),
+  CEP_LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+  /** Dias sem atendimento para um tutor entrar na régua de inatividade. */
+  INACTIVITY_THRESHOLD_DAYS: z.coerce.number().int().positive().default(90),
+
+  /** O gerador de PDF (MOD-DOC). Sem ele o documento fica pendente e o job reprocessa. */
+  GOTENBERG_URL: z.string().optional(),
+  // ---- MOD-NOTIF / MOD-CRM-01 (fatia 4 da consolidação) ----
+
+  /**
+   * `RESEND_API_KEY` e `MAIL_FROM` são opcionais de propósito: sem elas o adaptador de
+   * e-mail vira log e a mensagem é marcada como enviada com `provider = 'log'`. É o
+   * estado de desenvolvimento e o do primeiro deploy — travar a fila porque falta uma
+   * chave transformaria um problema de entrega num problema de fila cheia.
+   */
+  RESEND_API_KEY: z.string().min(1).optional(),
+  /** Remetente com domínio verificado no Resend. Sem ele o provedor recusa tudo. */
+  MAIL_FROM: z.string().min(1).optional(),
+
+  /**
+   * Quantas mensagens o worker tira da fila por passada. Vinte é o teto por minuto
+   * padrão (RN-05) — puxar mais do que se pode enviar só encheria memória.
+   */
+  DISPATCH_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(20),
+
+  /**
+   * Evolution API — o canal WhatsApp (MOD-CRM-01).
+   *
+   * As três são opcionais pela mesma razão que `RESEND_API_KEY`: sem elas o canal fica
+   * **indisponível** e a cascata `AUTO` cai para o e-mail. É o que permite rodar a
+   * suíte inteira e o app de desenvolvimento sem um container de WhatsApp no ar.
+   */
+  EVOLUTION_API_URL: z.string().url().optional(),
+  EVOLUTION_API_KEY: z.string().min(1).optional(),
+  /**
+   * Para onde a Evolution devolve o pareamento e as quedas de conexão. Precisa ser um
+   * endereço que **ela** alcance: em desenvolvimento ela é container e o backend roda
+   * no host (`host.docker.internal`); em produção os dois são containers na mesma rede.
+   */
+  EVOLUTION_WEBHOOK_URL: z.string().url().optional(),
+
+  /**
+   * O segredo do webhook do Resend (MOD-NOTIF-10).
+   *
+   * Opcional como as demais credenciais de provedor: sem ele a rota do webhook
+   * **recusa tudo com 401**, e não o contrário — um endpoint que aceita qualquer
+   * requisição quando falta configuração é uma porta para suprimir o endereço de
+   * qualquer concorrente (AC-03). O painel do Resend o entrega no formato `whsec_…`.
+   */
+  RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
 })
 
 export type Env = ReturnType<typeof loadEnv>

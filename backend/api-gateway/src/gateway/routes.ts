@@ -1,8 +1,23 @@
 import multipart from '@fastify/multipart'
-import { SITE_PHOTO_MAX_BYTES } from '@petshop/shared-types'
+import {
+  MAX_PHOTOS_PER_UPLOAD,
+  MAX_PHOTO_BYTES,
+  SITE_PHOTO_MAX_BYTES,
+} from '@petshop/shared-types'
 import type { FastifyInstance } from 'fastify'
 import { registerPublicSiteRoutes, registerSiteRoutes } from '../modules/site/routes.js'
+import { registerCatalogRoutes } from '../modules/catalog/routes.js'
+import { registerCrmRoutes } from '../modules/crm/routes.js'
+import {
+  registerEmailWebhookRoutes,
+  registerMessagingRoutes,
+  registerWhatsappWebhookRoutes,
+} from '../modules/messaging/routes.js'
+import { registerPetRoutes } from '../modules/pets/routes.js'
+import { registerPhotoRoutes } from '../modules/photos/routes.js'
 import { registerTaxiRoutes } from '../modules/taxi/routes.js'
+import { registerTermRoutes } from '../modules/terms/routes.js'
+import { registerTutorRoutes } from '../modules/tutors/routes.js'
 import { registerModuleAuth } from '../shared/auth-context.js'
 
 /**
@@ -22,6 +37,10 @@ import { registerModuleAuth } from '../shared/auth-context.js'
 export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerSiteModule(app)
   await registerTaxiModule(app)
+  await registerCrmModule(app)
+  await registerMessagingModule(app)
+  await registerPetModule(app)
+  await registerTutorModule(app)
 }
 
 /**
@@ -73,5 +92,85 @@ async function registerTaxiModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerTaxiRoutes(scope)
+  })
+}
+
+/**
+ * MOD-CRM — o relacionamento.
+ *
+ * Só a metade que **decide** quem recebe o quê (`/v1/crm`). Quem **entrega**
+ * (`/v1/messages`, `/v1/messaging`) ainda é o messaging-service, e o módulo continua
+ * falando com ele por HTTP com contexto assinado — o mesmo salto de sempre, agora
+ * partindo daqui.
+ */
+async function registerCrmModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerCrmRoutes(scope)
+  })
+}
+
+/**
+ * MOD-NOTIF e MOD-CRM-01 — a entrega.
+ *
+ * Três superfícies, e as duas primeiras **não** passam pelo escopo autenticado:
+ *
+ * - o callback da Evolution não conhece contrato nenhum nosso; quem o autentica é o
+ *   token da instância, conferido dentro da própria rota;
+ * - o webhook do Resend é autenticado pela assinatura Svix sobre o **corpo cru**, e
+ *   por isso registra um parser próprio no escopo dele;
+ * - o resto (`/v1/messages`, `/v1/messaging`) é da equipe, com o contexto resolvido.
+ *
+ * As duas primeiras moram sob `/internal/`, que o `app.ts` libera do hook de sessão
+ * pelo prefixo. A do Resend é a única superfície de backend que a borda publica.
+ */
+async function registerMessagingModule(app: FastifyInstance): Promise<void> {
+  await app.register(registerWhatsappWebhookRoutes)
+  await app.register(registerEmailWebhookRoutes)
+
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerMessagingRoutes(scope)
+  })
+}
+
+/**
+ * MOD-PET — a ficha do animal, o catálogo e o álbum.
+ *
+ * Três grupos de rota num escopo só: eles compartilham o catálogo de erro e a matriz
+ * de permissão, e separá-los daria três escopos com a mesma configuração.
+ *
+ * O `@fastify/multipart` daqui aceita **dez** arquivos de 10 MB (AC-02 do MOD-PET-04),
+ * contra o único de 5 MB do site. São dois registros do mesmo plugin, em escopos
+ * irmãos, com limites diferentes — que é a razão de o parser ser por escopo e não do
+ * app.
+ */
+async function registerPetModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    scope.register(multipart, {
+      limits: { fileSize: MAX_PHOTO_BYTES, files: MAX_PHOTOS_PER_UPLOAD, fieldSize: 4096 },
+    })
+
+    registerModuleAuth(scope)
+    await registerCatalogRoutes(scope)
+    await registerPetRoutes(scope)
+    await registerPhotoRoutes(scope)
+  })
+}
+
+/**
+ * MOD-TUTOR — a ficha do cliente e os termos.
+ *
+ * O módulo registra `/v1/tutors/…` e `/v1/terms/…`. Duas rotas **debaixo** de
+ * `/v1/tutors/:id` continuam sendo de outros: `/packages` é do financeiro, ainda
+ * encaminhado, e `/messages` é do MOD-NOTIF, que já vive aqui. Nenhuma das duas casa
+ * com uma rota deste módulo, e é isso que as mantém funcionando — a do financeiro pelo
+ * curinga do `proxy.ts`, a de mensagens pelo escopo do outro módulo.
+ */
+async function registerTutorModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerTutorRoutes(scope)
+    await registerTermRoutes(scope)
   })
 }

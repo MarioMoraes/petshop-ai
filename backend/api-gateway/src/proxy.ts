@@ -135,17 +135,8 @@ const IDENTITY_PREFIXES = [
   '/v1/sessions',
 ]
 
-/**
- * `/v1/terms` entra junto (MOD-DOC-06): o texto do termo é publicado nas Configurações,
- * mas quem o valida, apresenta e registra o aceite é o serviço que guarda a prova —
- * `tutor_consents`. O `document-service:3012` do SPEC continua não nascendo.
- */
-const TUTOR_PREFIXES = ['/v1/tutors', '/v1/terms']
-
 // O catálogo de domínio (MOD-PET-03) mora no pet-service: espécie, raça, porte e
 // pelagem só existem para serem referenciados por um pet.
-const PET_PREFIXES = ['/v1/pets', '/v1/species', '/v1/breeds', '/v1/sizes', '/v1/coats']
-
 // MOD-AGENDA. Prefixos distintos, sem sufixo a desempatar: `/v1/services` não colide
 // com `/v1/sizes` (pet-service) porque `matches` compara segmento inteiro.
 const SCHEDULING_PREFIXES = [
@@ -197,14 +188,6 @@ function isRecordPath(path: string): boolean {
 }
 
 /**
- * MOD-CRM. O módulo é um só, partido em dois processos: **decidir** quem recebe o quê
- * (`/v1/crm`) e **entregar** (`/v1/messages`, `/v1/messaging`). O corte de prefixo
- * segue o corte de responsabilidade, e não a ordem em que os serviços nasceram.
- */
-const CRM_PREFIXES = ['/v1/crm']
-const MESSAGING_PREFIXES = ['/v1/messages', '/v1/messaging']
-
-/**
  * MOD-SITE. Só a superfície **administrativa** passa por aqui: o `/public/v1/site` do
  * visitante anônimo não é roteado pelo gateway, e isso é decisão de segurança — o
  * gateway existe para validar sessão do Clerk, e abrir nele um ramo sem autenticação
@@ -241,16 +224,6 @@ function isLedgerTutorPath(path: string): boolean {
   return path.startsWith('/v1/tutors/') && path.endsWith('/packages')
 }
 
-/**
- * O histórico de mensagens de um tutor mora em `/v1/tutors/:tutorId/messages`, porque é
- * da conversa com ele que se fala. Mesmo caso dos pacotes acima: esta checagem precisa
- * vir **antes** de `TUTOR_PREFIXES`, senão a rota cairia no tutor-service, que não
- * conhece mensagem nenhuma.
- */
-function isMessagingTutorPath(path: string): boolean {
-  return path.startsWith('/v1/tutors/') && path.endsWith('/messages')
-}
-
 function matches(path: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
@@ -260,14 +233,9 @@ export function resolveTarget(path: string): string | null {
   if (isPortalPath(path)) return env.PORTAL_BFF_URL
   if (matches(path, IDENTITY_PREFIXES)) return env.IDENTITY_SERVICE_URL
   if (isLedgerTutorPath(path)) return env.BILLING_LEDGER_SERVICE_URL
-  if (isMessagingTutorPath(path)) return env.MESSAGING_SERVICE_URL
-  if (matches(path, TUTOR_PREFIXES)) return env.TUTOR_SERVICE_URL
   if (isRecordPath(path)) return env.MEDICAL_RECORD_SERVICE_URL
   if (matches(path, ATTENDANCE_PREFIXES)) return env.MEDICAL_RECORD_SERVICE_URL
-  if (matches(path, PET_PREFIXES)) return env.PET_SERVICE_URL
   if (matches(path, SCHEDULING_PREFIXES)) return env.SCHEDULING_SERVICE_URL
   if (matches(path, LEDGER_PREFIXES)) return env.BILLING_LEDGER_SERVICE_URL
-  if (matches(path, CRM_PREFIXES)) return env.CRM_AUTOMATION_SERVICE_URL
-  if (matches(path, MESSAGING_PREFIXES)) return env.MESSAGING_SERVICE_URL
   return null
 }

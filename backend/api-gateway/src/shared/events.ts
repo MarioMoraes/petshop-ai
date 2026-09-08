@@ -1,5 +1,11 @@
 import { createEventPublisher } from '@petshop/service-kit'
-import type { SiteEventMap, TaxiEventMap } from '@petshop/shared-types'
+import type {
+  MessagingEventMap,
+  PetEventMap,
+  SiteEventMap,
+  TaxiEventMap,
+  TutorEventMap,
+} from '@petshop/shared-types'
 import { loadEnv } from '../config/env.js'
 import { logger } from './logger.js'
 
@@ -18,7 +24,9 @@ import { logger } from './logger.js'
  * agendamento e o débito nasce do `atendimento.concluido` do MOD-AGENDA (RN-05).
  */
 
-export const { publishEvent, closeEvents } = createEventPublisher<SiteEventMap & TaxiEventMap>({
+export const { publishEvent, closeEvents } = createEventPublisher<
+  SiteEventMap & TaxiEventMap & MessagingEventMap & PetEventMap & TutorEventMap
+>({
   logger,
   getUrl: () => loadEnv().RABBITMQ_URL,
   isDisabled: () => loadEnv().DISABLE_EVENTS,

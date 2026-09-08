@@ -15,7 +15,12 @@ import {
   storageUnavailable,
 } from './errors.js'
 import { refreshSite } from './revalidate.js'
-import { getStorage, objectKey, StorageUnavailableError } from '../../shared/storage.js'
+import { getStorage, StorageUnavailableError } from '../../shared/storage.js'
+
+/** `tenants/{tenantId}/site/{photoId}.webp` — prefixo próprio, segregado por tenant. */
+function objectKey(tenantId: string, photoId: string): string {
+  return `tenants/${tenantId}/site/${photoId}.webp`
+}
 import { tenantOptions, type ActorContext } from './actor.js'
 import { photoUrl } from './photo-url.js'
 import { resolveTenant } from './resolve.js'

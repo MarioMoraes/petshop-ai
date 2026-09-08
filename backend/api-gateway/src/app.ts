@@ -36,6 +36,21 @@ const PUBLIC_PATHS = new Set(['/health', '/ready'])
 const PUBLIC_PREFIX = '/public/'
 
 /**
+ * As superfícies de webhook dos módulos.
+ *
+ * Aqui não chega token do Clerk nem assinatura nossa: quem bate são provedores de
+ * fora (a Evolution no pareamento do WhatsApp, o Resend no retorno de entrega). Cada
+ * rota se autentica sozinha, com o token da instância ou com a assinatura Svix sobre
+ * o corpo cru — e é por isso que elas ficam fora do hook de sessão, não porque sejam
+ * menos sensíveis.
+ *
+ * O nome `/internal/` diz de onde a chamada nasce, não que ela seja privada: a rota do
+ * Resend é a **única** superfície de backend que a borda publica (ver
+ * `infra/Caddyfile`).
+ */
+const WEBHOOK_PREFIX = '/internal/'
+
+/**
  * O header pelo qual o Next diz de que petshop o Portal está falando.
  *
  * O tutor não tem Organization no Clerk, então o tenant **não** pode sair do token: sai
@@ -84,8 +99,10 @@ export async function buildApp(): Promise<FastifyInstance> {
      * único caminho anônimo de escrita, tem teto por tenant **e por IP do visitante** —
      * que é o IP que a Server Action repassa, não o do container.
      */
-    allowList: (request: FastifyRequest) =>
-      (request.url.split('?')[0] ?? '').startsWith(PUBLIC_PREFIX),
+    allowList: (request: FastifyRequest) => {
+      const path = request.url.split('?')[0] ?? ''
+      return path.startsWith(PUBLIC_PREFIX) || path.startsWith(WEBHOOK_PREFIX)
+    },
     keyGenerator: (request: FastifyRequest) => {
       const tenantId = request.authContext?.tenantId
       const userId = request.authContext?.clerkUserId
@@ -105,6 +122,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.addHook('onRequest', async (request: FastifyRequest) => {
     const path = request.url.split('?')[0] ?? ''
     if (PUBLIC_PATHS.has(path) || path.startsWith(PUBLIC_PREFIX)) return
+    if (path.startsWith(WEBHOOK_PREFIX)) return
     if (request.method === 'OPTIONS') return
 
     const internal = resolveInternalRequest(request)

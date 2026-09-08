@@ -12,7 +12,8 @@ import { loadEnv } from '../config/env.js'
  * O MOD-SITE trouxe o lead — nome, telefone, e-mail, mensagem, IP e user-agent de
  * alguém que só perguntou o preço do banho e não tem relação nenhuma com o petshop
  * ainda. O MOD-TAXI trouxe o endereço residencial e as instruções de acesso, o dado
- * mais sensível do sistema e o único que chega ao celular de alguém fora do balcão.
+ * mais sensível do sistema e o único que chega ao celular de alguém fora do balcão. O
+ * MOD-CRM trouxe as variáveis que entram na mensagem — nome do tutor, do pet, horário.
  */
 
 export const { loggerOptions, logger, recordMetric } = createLogger({
@@ -35,6 +36,20 @@ export const { loggerOptions, logger, recordMetric } = createLogger({
     '*.notes',
     '*.latitude',
     '*.longitude',
+    // MOD-CRM e MOD-NOTIF: o insumo da mensagem, o corpo montado e o destinatário.
+    '*.variables',
+    '*.body',
+    '*.subject',
+    '*.to',
+    '*.address',
+    // MOD-PET: o microchip identifica o animal e o telefone mascarado ainda é contato.
+    '*.microchip',
+    '*.phoneMasked',
+    // MOD-TUTOR: a ficha do cliente inteira.
+    '*.phoneAlt',
+    '*.cpf',
+    '*.cnpj',
+    '*.socialName',
   ],
 })
 

@@ -17,7 +17,11 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
   ...serviceEnvShape,
   PORTAL_BFF_PORT: z.coerce.number().int().default(3020),
   APP_DOMAIN: z.string().default('localhost:3002'),
-  MESSAGING_SERVICE_URL: z.string().url().default('http://localhost:3010'),
+  /**
+   * O MOD-NOTIF virou módulo do backend (porta 3000) e não tem mais porta própria.
+   * A chamada continua sendo HTTP com contexto assinado — o que mudou foi o destino.
+   */
+  MESSAGING_SERVICE_URL: z.string().url().default('http://localhost:3000'),
   /**
    * O serviço da agenda, para onde vai todo agendamento marcado pelo Portal.
    *
@@ -58,7 +62,11 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
    * caches da ficha e publica os eventos de consentimento. Ver `modules/portal/
    * tutor-port.ts`.
    */
-  TUTOR_SERVICE_URL: z.string().url().default('http://localhost:3003'),
+  /**
+   * O MOD-TUTOR virou módulo do backend (porta 3000) e não tem mais porta própria.
+   * A chamada continua sendo HTTP com contexto assinado — mudou só o destino.
+   */
+  TUTOR_SERVICE_URL: z.string().url().default('http://localhost:3000'),
 
   /**
    * O bucket das fotos, só para **assinar** o endereço de leitura (`lib/photo-urls.ts`).

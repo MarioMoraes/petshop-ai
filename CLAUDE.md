@@ -73,4 +73,14 @@ identidade entra pela porta da produção — token, `membership` e matriz de pa
 cenário que a matriz não produz sozinha se monta com `tenant_role_overrides`
 (`revokePermission` no harness), que é o mecanismo real do MOD-IDENT-04.
 
-Já migrados: MOD-SITE (`modules/site`) e MOD-TAXI (`modules/taxi`).
+Já migrados: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
+(`modules/crm`), MOD-NOTIF (`modules/messaging`) MOD-PET (`modules/pets`,
+`modules/catalog`, `modules/photos`) e MOD-TUTOR (`modules/tutors`, `modules/terms`,
+`modules/addresses`, `modules/consents`, `modules/tags`) — com as duas metades do CRM juntas,
+o salto HTTP entre elas virou chamada de função.
+
+**Um terceiro prefixo anônimo entrou com o MOD-NOTIF:** `/internal/`, onde moram os
+webhooks dos provedores (Evolution no pareamento do WhatsApp, Resend no retorno de
+entrega). O nome diz de onde a chamada nasce, não que ela seja privada — a rota do
+Resend é a única superfície de backend que a borda publica (`infra/Caddyfile`). Cada uma
+se autentica sozinha, com o token da instância ou a assinatura Svix sobre o corpo cru.

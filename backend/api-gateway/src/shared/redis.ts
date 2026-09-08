@@ -27,9 +27,14 @@ export const CACHE_KEYS = {
    */
   portalTenantBySlug: (slug: string) => `portal:tenant:${slug}`,
   /**
-   * A sessão do Portal. **O nome é contrato entre serviços**, como o `perm:` que o
-   * identity-service invalida: o tutor-service apaga esta chave ao desvincular o acesso,
-   * e é o que faz o AC-05 de MOD-PORTAL-02 valer antes do TTL.
+   * A sessão do Portal.
+   *
+   * O nome era **contrato entre serviços**: o tutor-service declarava o mesmo literal
+   * no cache dele para poder apagar esta chave ao desvincular o acesso, com um
+   * comentário pedindo que os dois ficassem em dia. Com o MOD-TUTOR aqui dentro, a
+   * duplicata sumiu — sobrou uma declaração só, e o AC-05 de MOD-PORTAL-02 continua
+   * valendo antes do TTL. Ainda é contrato para o identity-service, que invalida
+   * `perm:` do lado dele.
    */
   portalSession: (tenantId: string, userId: string) => `portal:session:${tenantId}:${userId}`,
 
@@ -52,6 +57,43 @@ export const CACHE_KEYS = {
   board: (tenantId: string, date: string) => `taxi:board:${tenantId}:${date}`,
   route: (tenantId: string, driverId: string, date: string) =>
     `taxi:route:${tenantId}:${driverId}:${date}`,
+
+  // ---- MOD-NOTIF / MOD-CRM-01 ----
+  messagingSettings: (tenantId: string) => `msgcfg:${tenantId}`,
+  template: (tenantId: string, key: string, channel: string) => `tpl:${tenantId}:${key}:${channel}`,
+  consent: (tenantId: string, tutorId: string) => `consent:${tenantId}:${tutorId}`,
+  /** Janela de um minuto; a chave morre sozinha. */
+  rate: (tenantId: string, minute: string) => `msgrate:${tenantId}:${minute}`,
+  /** Teto diário, no dia civil do fuso do tenant. */
+  dailyCap: (tenantId: string, date: string) => `msgcap:${tenantId}:${date}`,
+
+  // ---- MOD-PET ----
+  pet: (tenantId: string, petId: string) => `pet:${tenantId}:${petId}`,
+  petsByTutor: (tenantId: string, tutorId: string) => `pet:bytutor:${tenantId}:${tutorId}`,
+  catalog: (tenantId: string, type: string) => `catalog:${tenantId}:${type}`,
+  photoUrls: (photoId: string) => `photo:url:${photoId}`,
+
+  // ---- MOD-TUTOR ----
+  tutor: (tenantId: string, tutorId: string) => `tutor:${tenantId}:${tutorId}`,
+  consents: (tenantId: string, tutorId: string) => `tutor:consent:${tenantId}:${tutorId}`,
+  /** Resolução telefone → tutorId, usada pelo agente de IA no WhatsApp. */
+  phone: (tenantId: string, phoneHash: string) => `tutor:phone:${tenantId}:${phoneHash}`,
+  tagCounts: (tenantId: string) => `tutor:tagcount:${tenantId}`,
+  cep: (zipCode: string) => `cep:${zipCode}`,
+  /**
+   * Estado da conexão de WhatsApp. Existe porque a cascata de canal o consulta uma vez
+   * por candidato, por mensagem — e o estado só muda quando um webhook chega, que é
+   * quando esta chave é derrubada.
+   */
+  whatsapp: (tenantId: string) => `wa:${tenantId}`,
+  /**
+   * O QR **corrente** do pareamento.
+   *
+   * A Evolution roda o código a cada ~45s e empurra cada troca pelo webhook. Sem este
+   * cache o evento chegava e era descartado, a tela ficava com o primeiro código para
+   * sempre, e todo pareamento falhava com "tente novamente mais tarde".
+   */
+  whatsappQr: (tenantId: string) => `waqr:${tenantId}`,
 } as const
 
 export const CACHE_TTL_SECONDS = {
@@ -82,6 +124,41 @@ export const CACHE_TTL_SECONDS = {
    * rede móvel a cada parada, e rota velha manda o motorista para o endereço errado.
    */
   route: 15,
+
+  messagingSettings: 600,
+  template: 600,
+  /**
+   * Cinco minutos, e não uma hora: o consentimento é o que separa "mandar" de "não
+   * mandar", e um opt-out registrado no balcão precisa valer antes que o tutor
+   * reclame de novo. Invalidado também por `tutor.updated` (RN-02).
+   */
+  consent: 300,
+  rate: 120,
+
+  pet: 120,
+  petsByTutor: 300,
+  catalog: 86_400,
+  /** Abaixo dos 900s da assinatura: cache nunca deve servir URL prestes a vencer. */
+  photoUrls: 840,
+
+  tutor: 120,
+  consents: 300,
+  phone: 600,
+  tagCounts: 300,
+  cep: 86_400,
+  /**
+   * Um minuto. Curto porque o preço de errar é assimétrico: com o cache velho dizendo
+   * "conectado" a mensagem falha e volta para a fila; dizendo "desconectado" ela cai
+   * para o e-mail sem precisar. O webhook invalida na hora — este TTL cobre o caso em
+   * que ele se perde.
+   */
+  whatsapp: 60,
+  /**
+   * Um pouco mais que o giro do provedor (~45s), para que a chave nunca fique vazia
+   * entre uma troca e a seguinte. Curto assim de propósito: QR é o que mais depressa
+   * apodrece, e um código vencido na tela é pior que nenhum.
+   */
+  whatsappQr: 90,
 } as const
 
 export const { getRedis, cacheGet, cacheSet, cacheDelete, closeRedis } = createCache({
@@ -113,4 +190,87 @@ export async function invalidateSite(tenantId: string, slug?: string): Promise<v
  */
 export async function invalidatePricing(tenantId: string): Promise<void> {
   await cacheDelete(CACHE_KEYS.zones(tenantId), CACHE_KEYS.taxiSettings(tenantId))
+}
+
+/**
+ * Consome uma vaga na janela do minuto corrente (MOD-NOTIF).
+ *
+ * Devolve `false` quando o teto já foi atingido — e `true` quando não há Redis, porque
+ * bloquear o envio inteiro por falta de cache seria trocar uma degradação por uma
+ * parada.
+ */
+export async function consumeRateSlot(tenantId: string, perMinuteCap: number): Promise<boolean> {
+  const redis = getRedis()
+  if (!redis) return true
+
+  const minute = new Date().toISOString().slice(0, 16)
+  const key = CACHE_KEYS.rate(tenantId, minute)
+  try {
+    const used = await redis.incr(key)
+    if (used === 1) await redis.expire(key, CACHE_TTL_SECONDS.rate)
+    return used <= perMinuteCap
+  } catch (error) {
+    logger.warn({ err: error, tenantId }, 'falha ao contar vazão — seguindo sem teto')
+    return true
+  }
+}
+
+/**
+ * Teto diário, cobrado **só de MARKETING** (RN-05): lembrete e aviso de taxi não podem
+ * ser represados por um teto pensado para campanha.
+ */
+export async function consumeDailySlot(
+  tenantId: string,
+  date: string,
+  dailyCap: number,
+): Promise<boolean> {
+  const redis = getRedis()
+  if (!redis) return true
+
+  const key = CACHE_KEYS.dailyCap(tenantId, date)
+  try {
+    const used = await redis.incr(key)
+    // 36h de vida: cobre o dia civil inteiro em qualquer fuso sem precisar calcular a
+    // virada, e a chave do dia seguinte é outra.
+    if (used === 1) await redis.expire(key, 129_600)
+    return used <= dailyCap
+  } catch (error) {
+    logger.warn({ err: error, tenantId }, 'falha ao contar teto diário — seguindo sem teto')
+    return true
+  }
+}
+
+export async function invalidateSettings(tenantId: string): Promise<void> {
+  await cacheDelete(CACHE_KEYS.messagingSettings(tenantId))
+}
+
+/**
+ * Invalida tudo o que depende de um pet (MOD-PET).
+ *
+ * Os tutores entram na lista porque o Portal lista "meus pets" por tutor: mudar o pet
+ * sem invalidar essa chave deixaria o tutor vendo o nome antigo por cinco minutos.
+ */
+export async function invalidatePet(
+  tenantId: string,
+  petId: string,
+  tutorIds: string[] = [],
+): Promise<void> {
+  await cacheDelete(
+    CACHE_KEYS.pet(tenantId, petId),
+    ...tutorIds.map((tutorId) => CACHE_KEYS.petsByTutor(tenantId, tutorId)),
+  )
+}
+
+/** Invalida tudo o que depende de um tutor. Chamado depois de qualquer escrita. */
+export async function invalidateTutor(
+  tenantId: string,
+  tutorId: string,
+  phoneHashes: string[] = [],
+): Promise<void> {
+  await cacheDelete(
+    CACHE_KEYS.tutor(tenantId, tutorId),
+    CACHE_KEYS.consents(tenantId, tutorId),
+    CACHE_KEYS.tagCounts(tenantId),
+    ...phoneHashes.map((hash) => CACHE_KEYS.phone(tenantId, hash)),
+  )
 }

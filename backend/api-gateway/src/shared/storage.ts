@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { loadEnv } from '../config/env.js'
 import { logger } from './logger.js'
 
@@ -26,9 +27,22 @@ export interface StoredObject {
   contentType: string
 }
 
+/**
+ * A porta do bucket de mídia, com as **duas** formas de leitura do sistema.
+ *
+ * `signedUrl` é a do álbum do pet (MOD-PET-04): a foto é dado de cliente, a página que
+ * a mostra exige sessão, e a URL vale 15 minutos (RN-13). `read` é a do site
+ * (MOD-SITE-04): a foto é pública, vive numa página em cache, e quem a repassa ao
+ * visitante é o host do tenant — assinar ali daria uma URL que vence antes do cache.
+ *
+ * Eram duas portas em dois serviços, sobre o mesmo bucket e o mesmo cliente S3. A
+ * consolidação as juntou; o que muda por módulo é qual das duas se usa, e por quê.
+ */
 export interface StoragePort {
   put(key: string, body: Buffer, contentType: string): Promise<void>
   read(key: string): Promise<StoredObject | null>
+  /** URL de leitura assinada. Curta de propósito: 15 minutos é o teto do RN-13. */
+  signedUrl(key: string, expiresInSeconds: number): Promise<string>
   remove(keys: string[]): Promise<void>
 }
 
@@ -109,6 +123,21 @@ const r2Port: StoragePort = {
     }
   },
 
+  async signedUrl(key, expiresInSeconds) {
+    const env = loadEnv()
+    try {
+      // Assinatura é cálculo local: não há ida ao R2 aqui, e por isso assinar as
+      // capas de uma listagem inteira não custa rede.
+      return await getSignedUrl(s3(), new GetObjectCommand({ Bucket: env.R2_BUCKET, Key: key }), {
+        expiresIn: expiresInSeconds,
+      })
+    } catch (error) {
+      if (error instanceof StorageUnavailableError) throw error
+      logger.error({ err: error, key }, 'falha ao assinar URL de leitura')
+      throw new StorageUnavailableError('Falha ao gerar o endereço da imagem', { cause: error })
+    }
+  },
+
   async remove(keys) {
     if (keys.length === 0) return
     const env = loadEnv()
@@ -131,7 +160,11 @@ export function getStorage(): StoragePort {
   return port ?? r2Port
 }
 
-/** `tenants/{tenantId}/site/{photoId}.webp` — prefixo próprio, segregado por tenant. */
-export function objectKey(tenantId: string, photoId: string): string {
-  return `tenants/${tenantId}/site/${photoId}.webp`
-}
+/**
+ * **A montagem da chave é de cada módulo**, e não daqui.
+ *
+ * O álbum do pet e a galeria do site guardam no mesmo bucket, em prefixos próprios, e
+ * cada um tem o seu formato: `tenants/{t}/pets/{pet}/{foto}/{variante}.webp` contra
+ * `tenants/{t}/site/{foto}.webp`. As duas funções se chamavam `objectKey` em serviços
+ * diferentes; juntá-las aqui teria trocado uma pela outra em silêncio.
+ */
