@@ -5,7 +5,7 @@ recomendação do SPEC §3.3: **Organization do Clerk = tenant**, e **Organizati
 Membership = vínculo do usuário com o petshop**.
 
 A suíte de testes não depende de nada disto — o Clerk é substituído por um dublê na
-fronteira de `backend/api-gateway/src/modules/identity/clerk.ts`. O que está aqui é o
+fronteira de `backend/app/src/modules/identity/clerk.ts`. O que está aqui é o
 necessário para o **login funcionar no navegador**.
 
 ## 1. Criar a instância
@@ -103,7 +103,7 @@ valor corrente e, na divergência, relê o papel do banco antes de decidir qualq
 troca de papel já garante que a requisição seguinte use o papel novo. O claim é a
 segunda garantia, para o caso de o Redis ter reiniciado ou uma réplica ter ficado
 particionada. A escolha está comentada em
-`backend/api-gateway/src/auth/session.ts`, em `resolvePermissions`.
+`backend/app/src/auth/session.ts`, em `resolvePermissions`.
 
 **O claim `mfa` é a fonte da exigência do MOD-SEC-02**, e o espelho `users.mfa_enabled`
 não serve para isso: aquele é gravado quando o `ensureLocalUser` sincroniza com o Clerk e

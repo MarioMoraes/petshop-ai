@@ -26,13 +26,13 @@ pnpm dev
 
 | Processo | Porta | O que faz |
 |---|---|---|
-| api-gateway | 3000 | O backend: token do Clerk, tenant, permissões, os módulos já consolidados e o encaminhamento do que falta |
+| app | 3000 | O backend inteiro: token do Clerk, tenant, permissões e os doze módulos de domínio |
 | frontend | 3002 | Admin, Portal do Tutor e site do estabelecimento (Next.js) |
-| portal-bff | 3020 | A superfície do cliente final — ainda não migrado |
 
-A lista de `*_SERVICE_URL` em `backend/api-gateway/src/config/env.ts` é o marcador de
-progresso da consolidação: some uma a cada fatia, e sobrou **uma** — a do `portal-bff`.
-Quando ela sair, o `proxy.ts` sai junto e o diretório passa a se chamar `backend/app/`.
+**A consolidação fechou na fatia 11.** Eram doze microserviços; hoje são doze módulos de
+um processo só, em `backend/app/src/modules/`, com fronteira explícita entre eles para que
+qualquer um possa voltar a ser serviço sem reescrever a lógica. A lista de
+`*_SERVICE_URL` que marcava o progresso esvaziou, e o `proxy.ts` saiu com ela.
 
 Para o login funcionar no navegador é preciso preencher as chaves do Clerk —
 ver **[docs/setup-clerk.md](docs/setup-clerk.md)**. A suíte de testes não depende
@@ -61,14 +61,14 @@ docker exec petshop-postgres psql -U app_user -d petshop -c "SELECT count(*) FRO
 
 ```
 backend/
-  api-gateway/          O backend: autenticação, RBAC, rate limit, os módulos e o proxy
-    src/modules/        Um diretório por módulo consolidado (identity, tutors, pets, …)
+  app/                  O backend inteiro: autenticação, RBAC, rate limit e os módulos
+    src/modules/        Um diretório por módulo (identity, tutors, pets, ledger, portal, …)
     src/worker/         Consumidores de evento e a grade de jobs de todos os módulos
 packages/
   shared-types/         Schemas Zod, matriz de permissões, catálogo de erros, eventos
   db/                   Prisma, migrations, RLS, criptografia de PII, suporte a testes
-  service-auth/         Contrato HMAC entre gateway e microserviços
-  api-client/           Cliente tipado do gateway
+  service-auth/         O contexto de autorização, e o contrato HMAC de quem voltar a ser serviço
+  api-client/           Cliente tipado do backend
   config/               Presets de tsconfig, eslint e vitest
 frontend/               Admin do tenant (Next.js App Router)
 infra/                  docker-compose do ambiente local

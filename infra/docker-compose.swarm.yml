@@ -63,22 +63,6 @@ x-backend: &backend
     ENCRYPTION_KEK: ${ENCRYPTION_KEK:?}
     EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:?}
     INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?}
-    # O MOD-TUTOR é módulo do backend desde a consolidação; quem ainda o chama por
-    # HTTP é o portal-bff, com contexto assinado.
-    TUTOR_SERVICE_URL: http://api-gateway:3000
-    # O MOD-AGENDA é módulo do backend desde a consolidação; quem ainda o chama por
-    # HTTP é o portal-bff, com contexto assinado.
-    SCHEDULING_SERVICE_URL: http://api-gateway:3000
-    # O MOD-LEDGER é módulo do backend desde a consolidação; quem ainda o chama por
-    # HTTP é o portal-bff, com contexto assinado.
-    BILLING_LEDGER_SERVICE_URL: http://api-gateway:3000
-    # O MOD-NOTIF é módulo do backend desde a consolidação; quem ainda o chama por
-    # HTTP é o portal-bff, com contexto assinado.
-    MESSAGING_SERVICE_URL: http://api-gateway:3000
-    # O Taxi Dog é módulo do gateway desde a consolidação; quem ainda o chama
-    # por HTTP é o portal-bff (MOD-PORTAL-07), com contexto assinado.
-    TAXIDOG_SERVICE_URL: http://api-gateway:3000
-    PORTAL_BFF_URL: http://portal-bff:3020
     FRONTEND_INTERNAL_URL: http://frontend:3002
     SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET}
     APP_DOMAIN: ${APP_DOMAIN}
@@ -290,7 +274,7 @@ services:
   api-gateway:
     <<: *backend
     command:
-      ['/app/infra/swarm/aguardar-migracao.sh', 'node', 'backend/api-gateway/dist/src/server.js']
+      ['/app/infra/swarm/aguardar-migracao.sh', 'node', 'backend/app/dist/src/server.js']
     environment:
       <<: *backend-env
       GATEWAY_PORT: 3000
@@ -350,26 +334,6 @@ services:
       # declarar a task morta antes de o gate liberar, e num deploy novo isso
       # vira laço: mata, sobe, espera, mata.
       start_period: 180s
-
-
-
-  # O Portal do Tutor (MOD-PORTAL). Porta 3020, fora do bloco 3009-3013: é superfície
-  # de outro público, e não mais um serviço de domínio. Sem `ports`: quem o alcança é o
-  # gateway, pela rede overlay — o Portal não tem superfície pública própria.
-  portal-bff:
-    <<: *backend
-    command:
-      [
-        '/app/infra/swarm/aguardar-migracao.sh',
-        'node',
-        'backend/portal-bff/dist/src/server.js',
-      ]
-    environment:
-      <<: *backend-env
-      PORTAL_BFF_PORT: 3020
-    healthcheck:
-      <<: *hc-gateway
-      test: ['CMD-SHELL', 'curl -sf http://localhost:3020/health || exit 1']
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:

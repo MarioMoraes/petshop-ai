@@ -49,8 +49,7 @@ RUN pnpm --filter "@petshop/db" generate
 # o `dist` prometido no `exports` nunca é emitido, e o verificar-exports abaixo
 # — que confere os pacotes, não só os serviços — reprova o build.
 RUN pnpm build --concurrency=2 \
-      --filter="@petshop/api-gateway" \
-      --filter="@petshop/portal-bff" \
+      --filter="@petshop/app" \
       --filter="@petshop/api-client"
 
 # A condição `petshop-dist` do campo `exports` só é exercitada aqui dentro — em
@@ -142,7 +141,7 @@ ENV NODE_OPTIONS="--conditions=petshop-dist"
 USER node
 EXPOSE 3000
 # Cada container sobrescreve com o seu serviço; o gateway é só o padrão sensato.
-CMD ["node", "backend/api-gateway/dist/src/server.js"]
+CMD ["node", "backend/app/dist/src/server.js"]
 
 # ─── frontend ─────────────────────────────────────────────────────────────────
 # O standalone já traz o subconjunto de node_modules que o servidor carrega, então

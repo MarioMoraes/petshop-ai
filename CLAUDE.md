@@ -29,45 +29,49 @@ A referência viva é `frontend/src/app/(admin)/tutores/tutor-form.tsx`.
 Admin — o que separa as duas sessões é a resolução do papel, e não o provedor de
 identidade. O grupo entre parênteses não vira segmento de URL.
 
-## Backend — a consolidação em andamento
+## Backend — o monólito modular
 
-O `SPEC.md` e os PRDs descrevem um alvo de doze microserviços. **O repositório está
-migrando esse alvo para um monólito modular**: um backend deployable, com fronteiras de
+O `SPEC.md` e os PRDs descrevem um alvo de doze microserviços. **O repositório
+consolidou esse alvo num monólito modular**: um backend deployable, com fronteiras de
 módulo explícitas, para que cada módulo possa voltar a ser serviço depois sem reescrever
 a lógica. A razão é que os doze serviços sempre compartilharam um schema Prisma e um
 banco — nunca houve fronteira de dados entre eles, só o custo de atravessar processo.
 
-Ao ler "serviço X" no SPEC ou num PRD, traduza para `backend/api-gateway/src/modules/X`
-se o módulo já migrou, ou para `backend/X-service/` se ainda não.
+Ao ler "serviço X" no SPEC ou num PRD, traduza para `backend/app/src/modules/X`.
 
-A migração é por estrangulamento, uma fatia por serviço:
+A migração foi por estrangulamento, uma fatia por serviço, e **fechou na fatia 11**. O
+que ela deixou:
 
-- `backend/api-gateway/` é o processo hospedeiro. Ele registra os módulos que já vivem
-  nele e **encaminha ao serviço** o que ainda não migrou (`src/proxy.ts`).
-- A lista de `*_SERVICE_URL` em `src/config/env.ts` é o marcador de progresso: some uma
-  por fatia. **Sobrou uma, a do `portal-bff`** — e ela é o último destino do
-  `proxy.ts`, que sai junto quando ela sair, com o diretório passando a se chamar
-  `backend/app/`.
+- `backend/app/` é o processo, e é um só. `src/proxy.ts` e o `resolveInternalRequest`
+  do `app.ts` — o encaminhamento e a porta interna assinada em HMAC — existiam só
+  enquanto durava a migração, e saíram com ela. **A porta de entrada é uma: o token do
+  Clerk.**
 - `src/gateway/routes.ts` é onde as rotas de módulo são compostas. **A separação entre
   superfície pública e autenticada é por escopo do Fastify**, não por convenção de nome:
   rota administrativa registrada fora do escopo autenticado nasce aberta.
 - `src/worker/` reúne os consumidores de evento e a grade de jobs de todos os módulos,
   num agendador só. O lease é por nome do job, então juntar as grades não muda quem
   roda o quê.
-- **O processo tem duas portas de entrada enquanto a migração dura.** Pela de fora
-  chega o token do Clerk. Pela de dentro chega um serviço que ainda não migrou, com o
-  contexto já resolvido e assinado em HMAC — é por ela que o `portal-bff` alcança o Taxi
-  Dog, a agenda, o financeiro, o MOD-TUTOR e o MOD-NOTIF, todos sem porta própria. Ver
-  `resolveInternalRequest` em `src/app.ts`; ela sai junto com o `proxy.ts` na última
-  fatia, que é a do próprio `portal-bff`.
+- **Chamada entre módulos passa por uma porta declarada**, nunca por import solto de
+  serviço a serviço. O MOD-PORTAL tem cinco (`modules/portal/*-port.ts`), o MOD-CRM tem
+  uma, o MOD-PET tem a da agenda. Cada uma é uma interface + a implementação em processo
+  + um `setXPort` que os testes dublam — e a lista de métodos é o que mantém legível o
+  que um módulo deixa outro fazer em seu nome.
 - **Os testes ficam por módulo.** `tests/harness.ts` guarda o núcleo (app, banco, token,
   chamadores por papel) e `tests/<modulo>/fixtures.ts` o cenário de cada um, porque os
   nomes colidem: todo módulo tem um `givenTenant` com as configurações que ele precisa.
   Cada `fixtures.ts` reexporta o núcleo, então o teste importa de um lugar só.
 
-**Nomes que atravessam processo não acompanham a migração**: fila do RabbitMQ, chave de
-cache e nome de job são identidade em infraestrutura. Renomeá-los junto com o código
-cria fila órfã e cache frio, e o sintoma nunca é um erro no log.
+**Nomes que atravessam processo não acompanharam a migração**: fila do RabbitMQ, chave
+de cache e nome de job são identidade em infraestrutura. Renomeá-los junto com o código
+cria fila órfã e cache frio, e o sintoma nunca é um erro no log. É por isso que as filas
+ainda se chamam `<serviço>-service.events` e que `INTERNAL_SERVICE_SECRET` continua
+exigido na subida sem ter leitor.
+
+**Salto HTTP entre módulos virou chamada de função, passando pelo mesmo schema Zod que a
+rota usava.** O schema não só valida: ele preenche defaults — `source` do aceite de
+termo, `purpose` da transição de consentimento, `urgent` da mensagem — que a chamada
+direta pularia. É a diferença que a serialização do salto de rede escondia.
 
 **As permissões dos testes saem da matriz, não de uma lista.** Enquanto eram serviços,
 os harnesses assinavam um contexto com as permissões que o teste quisesse. Agora a
@@ -75,17 +79,21 @@ identidade entra pela porta da produção — token, `membership` e matriz de pa
 cenário que a matriz não produz sozinha se monta com `tenant_role_overrides`
 (`revokePermission` no harness), que é o mecanismo real do MOD-IDENT-04.
 
-Já migrados: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
-(`modules/crm`), MOD-NOTIF (`modules/messaging`) MOD-PET (`modules/pets`,
+Os módulos: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
+(`modules/crm`), MOD-NOTIF (`modules/messaging`), MOD-PET (`modules/pets`,
 `modules/catalog`, `modules/photos`), MOD-TUTOR (`modules/tutors`, `modules/terms`,
 `modules/addresses`, `modules/consents`, `modules/tags`), MOD-IDENT
 (`modules/identity`), MOD-PRONT (`modules/records`, `modules/attendances`,
 `modules/prescriptions`), MOD-AGENDA (`modules/scheduling`,
-`modules/schedule-catalog`) e MOD-LEDGER (`modules/ledger`) — com as duas metades do
-CRM juntas, o salto HTTP entre elas virou chamada de função.
+`modules/schedule-catalog`), MOD-LEDGER (`modules/ledger`), MOD-SEC
+(`modules/security`) e MOD-PORTAL (`modules/portal`).
 
-**Falta um: o `portal-bff`.** É o maior e o único com muitas chamadas de saída, e por
-isso ficou por último.
+**O MOD-PORTAL é o único que lê de todos os outros e escreve por porta.** Ele agrega: as
+leituras são banco direto, porque ler é escolher um recorte; as escritas passam pelas
+cinco portas, porque gravar é aplicar regra. Cada porta **eleva permissão de propósito**
+— o papel `TUTOR` não tem `tutor:update`, `schedule:write_all`, `taxi:operate` nem
+`finance:read` —, e o que as contém é sempre o mesmo: o `tutorId` vem de
+`requireOwnScope` e nunca do corpo, e a lista de métodos é curta e nomeada.
 
 **O nome `modules/schedule-catalog` é o registro de uma colisão.** O MOD-AGENDA tinha
 `catalog` e `scheduling` enquanto era serviço, e aqui `modules/catalog` já é o catálogo
@@ -100,14 +108,20 @@ agendamento futuro não se transfere — estava escrito e testado desde o MOD-PE
 porta que responde por ele só era ligada em teste. Com a agenda no mesmo processo,
 `setSchedulingPort` entrou no registro do módulo e a regra passou a valer.
 
-**As exceções de prefixo do `proxy.ts` acabaram, e o arquivo já não roteia nada de
-`/v1`.** Eram duas, do mesmo desenho frágil: o prontuário pendurava rotas sob
-`/v1/pets/:petId/…` e o financeiro sob `/v1/tutors/:tutorId/packages`, e as duas eram
-desempatadas por **sufixo**, conferido antes do prefixo do outro módulo. Funcionavam por
-coincidência — nenhuma rota do módulo dono do espaço casava com aqueles sufixos —, e o
-dia em que alguém registrasse uma que casasse, o Fastify preferiria a do módulo e a rota
-sumiria sem erro nenhum. Com todos na mesma árvore, quem desempata é o roteador, que
-reclama no boot. **O único destino que sobrou no `proxy.ts` é o `portal-bff`.**
+**As exceções de prefixo do `proxy.ts` acabaram com ele.** Eram duas, do mesmo desenho
+frágil: o prontuário pendurava rotas sob `/v1/pets/:petId/…` e o financeiro sob
+`/v1/tutors/:tutorId/packages`, e as duas eram desempatadas por **sufixo**, conferido
+antes do prefixo do outro módulo. Funcionavam por coincidência — nenhuma rota do módulo
+dono do espaço casava com aqueles sufixos —, e o dia em que alguém registrasse uma que
+casasse, o Fastify preferiria a do módulo e a rota sumiria sem erro nenhum. Com todos na
+mesma árvore, quem desempata é o roteador, que reclama no boot.
+
+**O prefixo `/portal/v1` continua separado de `/v1`, e não por herança.** É a decisão de
+segurança do AC-04 de MOD-PORTAL-11: a superfície do cliente final tem resolução de
+sessão e rate limit próprios, e **nenhum papel `TUTOR` alcança o `/v1` administrativo**.
+A sessão do Portal não sai do token — o tutor não tem Organization no Clerk —, sai do
+host que o Next serviu, pelo header `x-petshop-tenant-slug`. Ver `isPortalPath` em
+`modules/portal/routes.ts` e `resolvePortalSession` em `src/auth/portal-session.ts`.
 
 **Nome de parâmetro de rota não precisa acompanhar a migração.** O MOD-PRONT usa
 `:petId` onde o MOD-PET usa `:id`, na mesma posição, e o `find-my-way` aceita — foi
@@ -120,8 +134,8 @@ handler, com `requireTenantContext` — e nos testes esse chamador é o `asStran
 `tests/identity/fixtures.ts`, um token válido sem Organization.
 
 **O gate de MFA roda na porta, não no módulo.** A exigência de segundo fator do
-`TENANT_ADMIN` (MOD-SEC-02) fica em `src/auth/session.ts`, antes do roteamento — é o que
-a faz valer também para o que ainda é encaminhado a outro processo. A decisão sai do
+`TENANT_ADMIN` (MOD-SEC-02) fica em `src/auth/session.ts`, antes do roteamento — e é por
+isso que corpo inválido numa rota bloqueada responde 423, e não o 422 que o módulo daria. A decisão sai do
 **claim do token**, nunca de `users.mfa_enabled`, que é espelho e pode estar velho; a
 carência mora em `memberships.mfa_grace_until` e é escrita quando o **papel** é
 atribuído. O catálogo de erro é do módulo (`modules/security/errors.ts`) e o host o

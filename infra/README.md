@@ -10,7 +10,7 @@ impede migrar para orquestrador depois — as imagens são as mesmas.
 |---|---|---|
 | `caddy` | 80, 443 | **sim** — o único |
 | `frontend` | 3002 | não |
-| `api-gateway` | 3000 | não |
+| `api-gateway` | 3000 | não — o backend inteiro |
 | `postgres` / `redis` / `rabbitmq` / `gotenberg` | — | não |
 | `evolution` | 8080 | não — **nem por rota no Caddy** |
 | `migrator` | — | roda uma vez e morre |
@@ -18,7 +18,7 @@ impede migrar para orquestrador depois — as imagens são as mesmas.
 A Evolution API (canal WhatsApp, MOD-CRM-01) é a única dependência que merece uma
 frase à parte: ela envia mensagem pelo número do próprio petshop, então publicá-la
 seria oferecer isso à internet com uma chave de API entre ela e o mundo. Quem fala
-com ela é só o `messaging-service`, pela rede interna; para depurar, use um túnel
+com ela é só o módulo de mensageria, pela rede interna; para depurar, use um túnel
 SSH. O database dela é separado (`evolution`, na mesma instância de Postgres) e é
 o `migrator` que o cria — em produção não há `docker-entrypoint-initdb.d` montado.
 
