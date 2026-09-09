@@ -297,6 +297,61 @@ describe('MOD-TUTOR-05 — tags', () => {
     expect(tutor.json().tags).toHaveLength(1)
   })
 
+  /**
+   * O evento que sobreviveu ao próprio sujeito.
+   *
+   * A fila é durável e guarda o nome desde antes da consolidação: um
+   * `inadimplencia.detectada` publicado ontem pode ser consumido depois de a ficha ter
+   * sido excluída. Isso não é falha de processamento — é o desfecho normal de um evento
+   * que envelheceu, e o handler precisa passar por ele em silêncio.
+   *
+   * Sem a guarda, o `create` violava `tutor_tag_assignments_tutor_id_fkey`, o consumidor
+   * dava `nack` e a mensagem ia para uma DLX sem fila ligada, que a descarta. Apareceu
+   * como `prisma:error` no primeiro `pnpm dev` depois da fatia 11.
+   */
+  it('evento de inadimplência para ficha que não existe mais não quebra o consumidor', async () => {
+    const fantasma = '11111111-1111-4111-8111-111111111111'
+
+    await expect(
+      handleInadimplenciaDetectada({ tenantId: tenant.tenantId, tutorId: fantasma }),
+    ).resolves.toBeUndefined()
+
+    // E nada foi gravado: nem atribuição, nem evento de tag aplicada.
+    const atribuicoes = await ownerPrisma.tutorTagAssignment.count({
+      where: { tutorId: fantasma },
+    })
+    expect(atribuicoes).toBe(0)
+  })
+
+  /**
+   * A mesma guarda, do outro lado da fronteira de tenant.
+   *
+   * A consulta do tutor passa pelo RLS, então uma ficha que existe **em outro
+   * estabelecimento** é indistinguível de uma que não existe — que é a resposta certa
+   * para um `tutorId` que não é deste tenant.
+   */
+  it('evento com ficha de outro estabelecimento é ignorado, não aplicado', async () => {
+    const outro = await givenTenant()
+    const alheio = await callApi({
+      ...asAdmin(outro),
+      method: 'POST',
+      url: '/v1/tutors',
+      payload: {
+        fullName: 'João Alheio',
+        phone: '11911112222',
+        consents: { whatsapp: true, email: true, terms: true },
+      },
+    })
+    const alheioId = alheio.json().id as string
+
+    // O evento diz o tenant errado para aquela ficha — é o formato de um payload forjado
+    // ou de um bug de publicação, e o RLS o resolve sem o handler precisar saber.
+    await handleInadimplenciaDetectada({ tenantId: tenant.tenantId, tutorId: alheioId })
+
+    const atribuicoes = await ownerPrisma.tutorTagAssignment.count({ where: { tutorId: alheioId } })
+    expect(atribuicoes).toBe(0)
+  })
+
   it('RN-10: `petsCount` é recontado por MOD-PET e sobrevive à entrega repetida', async () => {
     const catalog = await givenPetCatalog()
     const petId = await givenPet(catalog, tutorId)

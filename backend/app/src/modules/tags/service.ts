@@ -196,14 +196,45 @@ export async function setSystemTag(
   const tag = await ensureSystemTag(tx, params.tenantId, params.key)
 
   if (params.applied) {
-    const existing = await tx.tutorTagAssignment.findUnique({
-      where: { tutorId_tagId: { tutorId: params.tutorId, tagId: tag.id } },
+    /**
+     * **O tutor pode não existir mais, e isso não é falha.**
+     *
+     * O evento que chega aqui foi publicado no passado e a fila é durável: entre a
+     * publicação e o consumo, a ficha pode ter sido excluída. Sem esta guarda o `create`
+     * viola a FK, o handler dá `nack`, e um desfecho normal vai para a DLX — que não tem
+     * fila ligada e o descarta. O sintoma é um `prisma:error` no log de quem sobe o app
+     * com fila acumulada.
+     *
+     * É o idioma que os outros handlers deste módulo já usam sem perceber:
+     * `handleLancamentoCriado` escreve com `updateMany`, `handleAtendimentoConcluido`
+     * apaga com `deleteMany`, e os dois são no-op silencioso sobre sujeito que sumiu.
+     * `create` era o único que exigia a linha do outro lado.
+     *
+     * A consulta passa pelo RLS, então ficha de outro tenant também conta como
+     * inexistente — que é a resposta certa para um `tutorId` que não é deste
+     * estabelecimento.
+     */
+    const tutor = await tx.tutor.findFirst({
+      where: { id: params.tutorId },
+      select: { id: true },
     })
-    if (existing) return false
-    await tx.tutorTagAssignment.create({
-      data: { tenantId: params.tenantId, tutorId: params.tutorId, tagId: tag.id, assignedBy: null },
+    if (!tutor) return false
+
+    /**
+     * `createMany` com `skipDuplicates`, e não ler-antes-de-escrever.
+     *
+     * O par anterior — `findUnique` e depois `create` — não era atômico: duas réplicas
+     * processando a mesma reentrega passavam as duas pelo `findUnique` vazio e a segunda
+     * violava a PK. O teste da reentrega passava porque chamava os dois handlers em
+     * sequência, no mesmo processo.
+     */
+    const { count } = await tx.tutorTagAssignment.createMany({
+      data: [
+        { tenantId: params.tenantId, tutorId: params.tutorId, tagId: tag.id, assignedBy: null },
+      ],
+      skipDuplicates: true,
     })
-    return true
+    return count > 0
   }
 
   const removed = await tx.tutorTagAssignment.deleteMany({
