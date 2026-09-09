@@ -162,6 +162,33 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   /** Teto de tempo por execução do expurgo. O que sobrar fica para amanhã. */
   AUDIT_RETENTION_MAX_MS: z.coerce.number().int().positive().default(5 * 60_000),
 
+  // ---- MOD-ADMIN ----
+
+  /**
+   * O primeiro administrador de plataforma (AC-06 de MOD-ADMIN-01).
+   *
+   * **Opcional de propósito, e sem valor padrão.** Sem ela a tabela nasce vazia e
+   * `/platform/v1` fica inalcançável até alguém semear por `psql` — que é o estado correto
+   * em produção, não um erro: semear pelo banco deixa rastro no acesso ao banco, que é
+   * auditado por fora do produto.
+   *
+   * Só vale quando **não há nenhum** administrador ativo; depois disso a concessão passa a
+   * ser pela rota, com trilha. Trocar o valor não promove ninguém.
+   */
+  PLATFORM_ADMIN_BOOTSTRAP_EMAIL: z.string().email().optional(),
+
+  /**
+   * MOD-ADMIN-02 — teto do prazo que o estabelecimento pode conceder ao suporte.
+   *
+   * **Teto, e não valor.** O petshop escolhe quantas horas quer dar; o servidor recusa
+   * acima disto. Sem teto, um grant de mil horas seria acesso permanente com outro nome —
+   * e a decisão de quanto é demais não pode ser de quem está pedindo o acesso.
+   *
+   * Setenta e duas horas cobrem o chamado que atravessa um fim de semana, que é o caso
+   * limite real do suporte.
+   */
+  SUPPORT_GRANT_MAX_HOURS: z.coerce.number().int().min(1).max(168).default(72),
+
   /**
    * MOD-SEC-09 — teto do balde de `/internal/`.
    *

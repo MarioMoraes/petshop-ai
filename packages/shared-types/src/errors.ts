@@ -258,6 +258,31 @@ export const SECURITY_ERRORS = {
 export type SecurityErrorCode = keyof typeof SECURITY_ERRORS
 
 /**
+ * Erros da administração da plataforma (MOD-ADMIN).
+ *
+ * **`ERR_ADMIN_001` é 404 de propósito, e é a decisão que atravessa o módulo** (RN-01):
+ * quem não é da equipe recebe "não encontrado" ao tocar em `/platform/v1`, e não
+ * "proibido". Um 403 confirmaria a quem está varrendo que a superfície existe — é a
+ * mesma escolha que o MOD-PORTAL faz para recurso de outro tutor, pela mesma razão.
+ */
+export const ADMIN_ERRORS = {
+  ERR_ADMIN_001: { status: 404, title: 'Não encontrado' },
+  /**
+   * O suporte tem o papel e não tem a autorização daquele estabelecimento.
+   *
+   * 403 e não 404: aqui a existência já é conhecida — quem chegou aqui é da plataforma,
+   * e o que falta é o consentimento do controlador. O corpo traz o caminho para pedi-lo.
+   */
+  ERR_ADMIN_002: { status: 403, title: 'Acesso de suporte não autorizado' },
+  ERR_ADMIN_003: { status: 403, title: 'Acesso de suporte é somente de leitura' },
+  ERR_ADMIN_004: { status: 409, title: 'A plataforma ficaria sem administrador' },
+  ERR_ADMIN_005: { status: 422, title: 'Dados de entrada inválidos' },
+  ERR_ADMIN_006: { status: 409, title: 'Operação incompatível com o estado atual' },
+} as const
+
+export type AdminErrorCode = keyof typeof ADMIN_ERRORS
+
+/**
  * Erros da plataforma, não de um módulo.
  *
  * `ERR_RATE_LIMITED` já saía na resposta do gateway antes de existir aqui — era um
@@ -283,6 +308,7 @@ export const ERROR_CATALOG = {
   ...PORTAL_ERRORS,
   ...DOCUMENT_ERRORS,
   ...SECURITY_ERRORS,
+  ...ADMIN_ERRORS,
   ...PLATFORM_ERRORS,
 } as const
 

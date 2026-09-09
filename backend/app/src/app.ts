@@ -3,13 +3,21 @@ import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import { getPrisma, setDbLogger } from '@petshop/db'
 import { SERVICE_HEADERS, type ServiceAuthContext } from '@petshop/service-auth'
-import { AppError } from '@petshop/shared-types'
+import { AppError, ROLE_PERMISSIONS } from '@petshop/shared-types'
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
-import { InvalidTokenError, verifySessionToken } from './auth/clerk-token.js'
+import { InvalidTokenError, verifySessionToken, type SessionClaims } from './auth/clerk-token.js'
 import { resolvePortalSession, resolvePortalTenant } from './auth/portal-session.js'
 import { resolveSession } from './auth/session.js'
 import { listFromEnv, loadEnv } from './config/env.js'
 import { registerModules } from './gateway/routes.js'
+import { isPlatformPath } from './modules/platform/routes.js'
+import { resolvePlatformAdmin } from './modules/platform/service.js'
+import { findActiveGrant, recordSupportRead } from './modules/platform/grants.js'
+import {
+  needsGrant,
+  notFound as platformNotFound,
+  readOnly,
+} from './modules/platform/errors.js'
 import { isPortalPath } from './modules/portal/routes.js'
 import { registerErrorHandler } from './shared/errors.js'
 import { recordSecurityEvent } from './shared/security-events.js'
@@ -60,6 +68,21 @@ const WEBHOOK_PREFIX = '/internal/'
  * ficha *naquele* tenant —, e o header é descartado antes de seguir ao serviço.
  */
 const TENANT_SLUG_HEADER = 'x-petshop-tenant-slug'
+
+/**
+ * O header pelo qual a equipe da plataforma diz em que estabelecimento está agindo
+ * (MOD-ADMIN-02).
+ *
+ * Mesmo mecanismo do Portal, e pela mesma razão: quem chega não tem Organization no token,
+ * então o tenant não sai dele. **Forjá-lo não leva a lugar nenhum** — o contexto resultante
+ * só existe se houver `support_access_grant` vivo daquele suporte naquele tenant, e o grant
+ * é o estabelecimento que o cria.
+ *
+ * Não confundir com `x-petshop-tenant-id`, que o `proxy.ts` descartava e que o
+ * `auditForgedTenantHeader` ainda vigia: aquele era um contexto forjado; este é um pedido
+ * de contexto, que a autorização do tenant concede ou não.
+ */
+const PLATFORM_TENANT_HEADER = 'x-petshop-acting-tenant'
 
 /**
  * A única rota do Portal que responde sem sessão: a identidade visual que a tela de
@@ -142,9 +165,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (path.startsWith(WEBHOOK_PREFIX)) return
     if (request.method === 'OPTIONS') return
 
-    const context = isPortalPath(path)
-      ? await resolvePortalRequest(request, path)
-      : await resolveAdminRequest(request, path)
+    const context = isPlatformPath(path)
+      ? await resolvePlatformRequest(request, path)
+      : isPortalPath(path)
+        ? await resolvePortalRequest(request, path)
+        : await resolveAdminRequest(request, path)
 
     request.authContext = context
 
@@ -171,6 +196,49 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerModules(app)
 
   return app
+}
+
+/**
+ * A sessão da **equipe da plataforma** (MOD-ADMIN-01).
+ *
+ * É o terceiro caminho de resolução do processo, e a diferença dos outros dois não é de
+ * implementação, é de modelo: a sessão da equipe do petshop sai da Organization do Clerk e
+ * de `memberships`; a do tutor sai do host e de `tutors.portal_user_id`; esta sai de
+ * `platform_admins`, uma tabela **sem `tenant_id`**.
+ *
+ * **Token com Organization nunca resolve aqui** (AC-03). Quem é da plataforma e também tem
+ * ficha de administrador num petshop precisa trocar de contexto no Clerk para entrar; o
+ * crachá de plataforma não se soma ao papel de tenant, e nenhum dos dois amplia o outro.
+ * É a mesma fronteira que o Portal desenha com o header de host, e pela mesma razão.
+ *
+ * **A recusa é 404, e não 403** (RN-01). Um 403 confirmaria a quem está varrendo que a
+ * superfície da plataforma existe; quem não é da equipe não recebe a informação de que há
+ * uma equipe. É a mesma escolha que o MOD-PORTAL faz para recurso de outro tutor.
+ */
+async function resolvePlatformRequest(
+  request: FastifyRequest,
+  path: string,
+): Promise<ServiceAuthContext> {
+  const claims = await verifyBearer(request, path)
+  if (claims.clerkOrgId) throw platformNotFound()
+
+  const admin = await resolvePlatformAdmin(claims.clerkUserId)
+  if (!admin) {
+    request.log.warn({ path, clerkUserId: claims.clerkUserId }, 'acesso à plataforma recusado')
+    throw platformNotFound()
+  }
+
+  /**
+   * Sem `tenantId`, e é o que separa esta sessão de todas as outras: ela não pertence a
+   * estabelecimento nenhum. As rotas de `/platform/v1` não tocam tabela com RLS — as que
+   * tocarem, no MOD-ADMIN-02, o farão sob o grant e com o tenant resolvido ali.
+   */
+  return {
+    clerkUserId: admin.clerkUserId,
+    userId: admin.userId,
+    role: 'SUPER_ADMIN',
+    permissions: [...ROLE_PERMISSIONS.SUPER_ADMIN],
+  }
 }
 
 /**
@@ -216,6 +284,19 @@ async function auditForgedTenantHeader(
  */
 async function resolveAdminRequest(request: FastifyRequest, path: string) {
   const claims = await verifyBearer(request, path)
+
+  /**
+   * O suporte da plataforma agindo dentro de um estabelecimento (MOD-ADMIN-02).
+   *
+   * Vem **antes** de `resolveSession` porque não há sessão de tenant a resolver: o token
+   * não tem Organization, e `resolveSession` devolveria um contexto sem `tenantId` que
+   * toda rota recusaria. O caminho é outro, e curto — grant vivo, leitura só, e uma linha
+   * na trilha do estabelecimento.
+   */
+  if (!claims.clerkOrgId && request.headers[PLATFORM_TENANT_HEADER]) {
+    return resolveSupportRequest(request, claims, path)
+  }
+
   const { context, mfa } = await resolveSession(claims, {
     method: request.method,
     ipAddress: request.ip,
@@ -232,6 +313,85 @@ async function resolveAdminRequest(request: FastifyRequest, path: string) {
 
   return context
 }
+
+/**
+ * A sessão de **suporte dentro de um estabelecimento** (MOD-ADMIN-02).
+ *
+ * É a única forma de alguém de fora do petshop alcançar o dado dele, e o que a torna
+ * defensável são três coisas conferidas aqui, nesta ordem:
+ *
+ * 1. **quem** — linha viva em `platform_admins`, ou 404 como em toda a superfície da
+ *    plataforma: quem não é da equipe não descobre que a equipe existe;
+ * 2. **autorização** — `support_access_grant` `ACTIVE` e no prazo, lido do banco **a cada
+ *    requisição**, sem cache. É o que faz a revogação valer no clique seguinte (RN-03);
+ * 3. **o quê** — só `GET`. O grant é de leitura, e a recusa de escrita é aqui, na porta,
+ *    não espalhada por noventa handlers (AC-07).
+ *
+ * O contexto que sai daqui é o do **tenant**, com as permissões do `SUPER_ADMIN`: daí para
+ * a frente a requisição é indistinguível de uma da equipe do petshop, e o RLS a limita ao
+ * estabelecimento como limita qualquer outra. É o que faz o Admin inteiro funcionar para o
+ * suporte sem uma tela nova.
+ */
+async function resolveSupportRequest(
+  request: FastifyRequest,
+  claims: SessionClaims,
+  path: string,
+): Promise<ServiceAuthContext> {
+  const raw = request.headers[PLATFORM_TENANT_HEADER]
+  const tenantId = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? ''
+
+  const admin = await resolvePlatformAdmin(claims.clerkUserId)
+  if (!admin) {
+    request.log.warn({ path, clerkUserId: claims.clerkUserId }, 'acesso de suporte recusado')
+    throw platformNotFound()
+  }
+
+  const grant = await findActiveGrant(admin.userId, tenantId)
+  if (!grant) {
+    throw needsGrant(undefined, { tenantId, grantPath: '/platform/v1/tenants/' + tenantId + '/support-access' })
+  }
+
+  /**
+   * A recusa de escrita, e ela é total.
+   *
+   * `HEAD` e `OPTIONS` passam junto com `GET` porque não mudam nada; qualquer outro método
+   * é recusado sem chegar ao roteador. Suporte que precisa corrigir dado pede ao
+   * estabelecimento que corrija — um terceiro escrevendo na ficha do cliente é
+   * indefensável na primeira reclamação.
+   */
+  if (!SUPPORT_READ_METHODS.has(request.method)) {
+    throw readOnly()
+  }
+
+  /**
+   * A prova, e ela é gravada **sem `await`** de propósito.
+   *
+   * A linha vai para a trilha do estabelecimento numa transação própria; esperá-la somaria
+   * uma ida ao banco ao caminho de toda leitura do suporte. O helper engole a própria
+   * falha e a registra em log, então nada aqui depende do resultado — e uma leitura que
+   * não pôde ser registrada é um problema de observabilidade, não de autorização.
+   */
+  void recordSupportRead({
+    tenantId,
+    grantId: grant.id,
+    adminUserId: admin.userId,
+    method: request.method,
+    path,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'] ?? undefined,
+  })
+
+  return {
+    clerkUserId: admin.clerkUserId,
+    userId: admin.userId,
+    tenantId,
+    role: 'SUPER_ADMIN',
+    permissions: [...ROLE_PERMISSIONS.SUPER_ADMIN],
+  }
+}
+
+/** Os métodos que o grant libera: os que não mudam nada. */
+const SUPPORT_READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 /**
  * A sessão do Portal (MOD-PORTAL-02).

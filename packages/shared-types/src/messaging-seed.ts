@@ -616,6 +616,35 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'aparece, fale com quem administra a conta.',
     },
   },
+  {
+    key: 'support_access_requested',
+    label: 'Pedido de acesso do suporte',
+    /**
+     * `TRANSACTIONAL`, e é o que o torna imune ao interruptor de marketing: um pedido de
+     * acesso à base de clientes precisa chegar mesmo ao petshop que desligou tudo o mais.
+     * Silenciá-lo transformaria o consentimento em acesso por decurso de prazo.
+     */
+    category: 'TRANSACTIONAL',
+    variables: [...TEAM_VARIABLES, 'suporte.motivo', 'suporte.solicitante'],
+    audience: 'USER',
+    authored: 'SYSTEM',
+    subject: 'Pedido de acesso da equipe {{petshop.nome}}',
+    body: {
+      WHATSAPP:
+        '{{usuario.primeiro_nome}}, o suporte pediu acesso de leitura aos dados do ' +
+        '{{petshop.nome}}.\n\nMotivo: {{suporte.motivo}}\n\n' +
+        'Aprove ou recuse em {{petshop.link_admin}}. Sem a sua aprovação, ninguém entra.',
+      EMAIL:
+        'Olá, {{usuario.primeiro_nome}}.\n\n' +
+        '{{suporte.solicitante}}, da equipe PetShop AI, pediu acesso **de leitura** aos ' +
+        'dados do {{petshop.nome}}.\n\n' +
+        'Motivo informado: {{suporte.motivo}}\n\n' +
+        'Nada é acessado sem a sua aprovação, o acesso tem prazo, é somente de leitura e ' +
+        'toda consulta fica registrada na sua trilha de auditoria. Você pode revogar a ' +
+        'qualquer momento.\n\n' +
+        'Para decidir: {{petshop.link_admin}}',
+    },
+  },
 ]
 
 const BY_KEY = new Map(MESSAGE_TEMPLATES.map((template) => [template.key, template]))

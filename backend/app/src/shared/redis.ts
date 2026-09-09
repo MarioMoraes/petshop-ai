@@ -141,6 +141,21 @@ export const CACHE_KEYS = {
    */
   whatsappQr: (tenantId: string) => `waqr:${tenantId}`,
 
+  // ---- MOD-ADMIN ----
+  /**
+   * O vínculo de plataforma de um login.
+   *
+   * Consultada uma vez por sessão **sem Organization**, e o caso comum é o negativo —
+   * toda equipe de todo petshop que troque de contexto no Clerk passa por aqui e não é da
+   * plataforma. Por isso o `null` também vai a cache: sem isso, a resposta mais frequente
+   * seria a única a consultar o banco sempre.
+   *
+   * O grant de suporte, ao contrário, **não entra em cache nenhum** (RN-03 do PRD 14): ele
+   * existe para o caso em que o estabelecimento quer que o acesso pare agora, e cinco
+   * minutos de chave quente dariam ao suporte cinco minutos depois do clique.
+   */
+  platformAdmin: (clerkUserId: string) => `platform:admin:${clerkUserId}`,
+
   // ---- MOD-LEDGER ----
   /**
    * O saldo e os pacotes do tutor, e as políticas de cobrança do tenant.
@@ -251,6 +266,8 @@ export const CACHE_TTL_SECONDS = {
    * apodrece, e um código vencido na tela é pior que nenhum.
    */
   whatsappQr: 90,
+
+  platformAdmin: 300,
 
   balance: 60,
   packages: 300,

@@ -45,6 +45,13 @@ const OnboardingConcluidoSchema = z.object({
   adminUserId: z.uuid().nullish(),
 })
 
+const SuporteAcessoSolicitadoSchema = z.object({
+  tenantId: z.uuid(),
+  grantId: z.uuid(),
+  reason: z.string(),
+  requestedBy: z.string(),
+})
+
 const ConviteAceitoSchema = z.object({
   tenantId: z.uuid(),
   invitationId: z.uuid(),
@@ -162,6 +169,50 @@ export async function handleConviteAceito(payload: unknown): Promise<void> {
     dedupeKey: `user-welcome:${event.invitationId}`,
     variables: { 'equipe.papel': roleLabel(event.roleKey) },
   })
+}
+
+/**
+ * MOD-ADMIN-02, AC-01 — o suporte pediu acesso, e o estabelecimento precisa saber.
+ *
+ * **Vai para todos os `TENANT_ADMIN` ativos**, e não para um só: o pedido fica parado até
+ * alguém responder, e mandar para um administrador que está de férias transformaria o
+ * consentimento em silêncio. É o único aviso do sistema que se dirige a mais de uma
+ * pessoa de propósito.
+ *
+ * O `dedupeKey` inclui o destinatário porque a chave é por mensagem, não por evento: sem
+ * ele, o segundo administrador não receberia nada.
+ */
+export async function handleSuporteAcessoSolicitado(payload: unknown): Promise<void> {
+  const event = SuporteAcessoSolicitadoSchema.parse(payload)
+
+  const admins = await withTenant(event.tenantId, (tx) =>
+    tx.membership.findMany({
+      where: { roleKey: 'TENANT_ADMIN', status: 'ACTIVE' },
+      select: { userId: true },
+    }),
+  )
+
+  if (admins.length === 0) {
+    // Sem administrador ativo não há quem aprove, e o pedido morre por decurso de prazo.
+    // A linha existe para que isso apareça no log em vez de virar um chamado de suporte
+    // que "não recebeu resposta".
+    logger.warn({ tenantId: event.tenantId }, 'pedido de acesso sem administrador a avisar')
+    return
+  }
+
+  for (const admin of admins) {
+    await getMessagingPort().enqueue({
+      tenantId: event.tenantId,
+      recipientKind: 'USER',
+      userId: admin.userId,
+      templateKey: 'support_access_requested',
+      dedupeKey: `support-access:${event.grantId}:${admin.userId}`,
+      variables: {
+        'suporte.motivo': event.reason,
+        'suporte.solicitante': event.requestedBy,
+      },
+    })
+  }
 }
 
 function documentLabel(kind: DocumentKind): string {

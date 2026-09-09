@@ -66,6 +66,10 @@ x-backend: &backend
     FRONTEND_INTERNAL_URL: http://frontend:3002
     SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET}
     APP_DOMAIN: ${APP_DOMAIN}
+    # MOD-ADMIN: o primeiro administrador de plataforma, e só enquanto não houver nenhum.
+    # Vazia é o estado normal depois do primeiro deploy.
+    PLATFORM_ADMIN_BOOTSTRAP_EMAIL: ${PLATFORM_ADMIN_BOOTSTRAP_EMAIL:-}
+    SUPPORT_GRANT_MAX_HOURS: ${SUPPORT_GRANT_MAX_HOURS:-72}
     GOTENBERG_URL: http://gotenberg:3000
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     MAIL_FROM: ${MAIL_FROM:-}

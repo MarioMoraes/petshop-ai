@@ -35,6 +35,7 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   'TenantRoleOverride',
   'AuditLog',
   'SecurityEvent',
+  'SupportAccessGrant',
   'DataKey',
   'Tutor',
   'TutorAddress',

@@ -17,6 +17,8 @@ import {
   registerWhatsappWebhookRoutes,
 } from '../modules/messaging/routes.js'
 import { registerPetRoutes } from '../modules/pets/routes.js'
+import { registerPlatformRoutes } from '../modules/platform/routes.js'
+import { registerSupportAccessRoutes } from '../modules/platform/tenant-routes.js'
 import {
   registerPortalRoutes,
   registerPublicPortalRoutes,
@@ -56,6 +58,7 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerScheduleModule(app)
   await registerLedgerModule(app)
   await registerPortalModule(app)
+  await registerPlatformModule(app)
 }
 
 /**
@@ -223,6 +226,38 @@ async function registerSecurityModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerSecurityRoutes(scope)
+  })
+}
+
+/**
+ * MOD-ADMIN — a superfície da equipe da plataforma.
+ *
+ * **Escopo próprio, e um hook a menos que os outros.** `registerModuleAuth` exige contexto
+ * resolvido, e o contexto desta superfície é resolvido em `app.ts` por
+ * `resolvePlatformRequest` — que já recusou com 404 quem não é da plataforma antes de o
+ * roteador ser consultado. O escopo fica assim mesmo, pela razão de sempre: é ele que
+ * torna visível o dia em que alguém registrar uma rota fora dele.
+ *
+ * Estas rotas não tocam tabela com `tenant_id`. As que tocarem — o acesso de suporte do
+ * MOD-ADMIN-02 — passam pelo grant, e o tenant é resolvido lá.
+ */
+async function registerPlatformModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerPlatformRoutes(scope)
+  })
+
+  /**
+   * O outro lado do grant, na superfície do **estabelecimento**.
+   *
+   * Escopo separado porque o público é outro: aqui quem chega é o administrador do
+   * petshop, com `membership` e permissão da matriz, e não a equipe da plataforma. As duas
+   * metades do MOD-ADMIN-02 vivem no mesmo módulo e em prefixos diferentes de propósito —
+   * é o prefixo que diz de quem é a tela.
+   */
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerSupportAccessRoutes(scope)
   })
 }
 

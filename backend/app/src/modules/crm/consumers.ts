@@ -13,6 +13,7 @@ import {
   handleOnboardingConcluido,
   handlePrescricaoEmitida,
   handleReciboEmitido,
+  handleSuporteAcessoSolicitado,
 } from './notifications.js'
 
 /**
@@ -249,6 +250,7 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'recibo.emitido': handleReciboEmitido,
   'prescricao.emitida': handlePrescricaoEmitida,
   'tenant.onboarding.concluido': handleOnboardingConcluido,
+  'suporte.acesso.solicitado': handleSuporteAcessoSolicitado,
   'convite.aceito': handleConviteAceito,
 }
 

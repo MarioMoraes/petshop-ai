@@ -159,6 +159,9 @@ model Tenant {
   documents    Document[]
   termVersions TermVersion[]
 
+  /// MOD-ADMIN-02: os acessos de suporte que este estabelecimento autorizou.
+  supportGrants SupportAccessGrant[]
+
   @@index([status])
   @@map("tenants")
 }
@@ -255,8 +258,84 @@ model User {
   memberships Membership[]
   /// MOD-NOTIF-01: o que o produto mandou a esta pessoa **como membro da equipe**.
   messages    Message[]
+  /// MOD-ADMIN-01: o vínculo com a plataforma, que não é membership de tenant nenhum.
+  platformAdmin PlatformAdmin[]
+  /// MOD-ADMIN-02: os acessos de suporte que esta pessoa pediu.
+  supportGrants SupportAccessGrant[]
 
   @@map("users")
+}
+
+/// O papel de plataforma (MOD-ADMIN-01).
+///
+/// **Sem `tenant_id`, e portanto fora do RLS.** É a diferença que define a tabela: o
+/// papel é da equipe PetShop AI, não de um estabelecimento, e uma política por tenant
+/// esconderia a linha de quem precisa lê-la para resolver a própria sessão. Fica ao lado
+/// de `users` e do catálogo global, e **não** entra em `RLS_MODELS`.
+///
+/// Revogação é soft e a unicidade é parcial (`idx_platform_admins_vivo`, na migration):
+/// conceder de novo a quem já foi revogado é o caminho normal, e o que não pode existir
+/// é a segunda linha viva.
+model PlatformAdmin {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  /// Nulo só na linha de bootstrap: não havia quem concedesse.
+  grantedBy String?  @map("granted_by") @db.Uuid
+  grantedAt DateTime @default(now()) @map("granted_at") @db.Timestamptz(6)
+
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedBy String?   @map("revoked_by") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("platform_admins")
+}
+
+/// A autorização do estabelecimento para o suporte ler o dado dele (MOD-ADMIN-02).
+///
+/// **Tem `tenant_id`, ao contrário de `platform_admins`** — e a diferença é o ponto: o
+/// papel de plataforma é da equipe PetShop AI; o grant é do estabelecimento que autoriza.
+/// É ele quem precisa vê-lo na própria tela, e por isso a tabela entra no RLS como
+/// qualquer outra de negócio.
+///
+/// `reason` fica **em claro**: é o que o admin do petshop lê para decidir se aprova. É o
+/// único campo do módulo que precisa ser legível, e não descreve o titular — descreve o
+/// chamado.
+model SupportAccessGrant {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  adminUserId String @map("admin_user_id") @db.Uuid
+  reason      String @db.VarChar(300)
+
+  status SupportGrantStatus @default(REQUESTED)
+
+  approvedBy String?   @map("approved_by") @db.Uuid
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(6)
+  /// Preenchido na aprovação, nunca no pedido: quem define o prazo é quem autoriza.
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(6)
+
+  revokedBy String?   @map("revoked_by") @db.Uuid
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  admin  User   @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@map("support_access_grants")
+}
+
+enum SupportGrantStatus {
+  REQUESTED
+  ACTIVE
+  DENIED
+  EXPIRED
+  REVOKED
 }
 
 /// Vínculo usuário ↔ tenant com papel (MOD-IDENT-05).

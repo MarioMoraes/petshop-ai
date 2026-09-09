@@ -1076,3 +1076,37 @@ export interface PortalEventMap {
   'tutor.portal_desvinculado': TutorPortalDesvinculadoEvent
   'portal.acesso_suspeito': PortalAcessoSuspeitoEvent
 }
+
+// ─── MOD-ADMIN — administração da plataforma ─────────────────────────────────
+
+/**
+ * O suporte pediu acesso ao dado de um estabelecimento (MOD-ADMIN-02).
+ *
+ * `reason` viaja no evento porque é o que o administrador do petshop **lê para decidir**:
+ * uma notificação que só diz "alguém pediu acesso" não dá base para aprovar nem para
+ * recusar. É o único evento do sistema em que o texto livre é o conteúdo, e não metadado.
+ */
+export interface SuporteAcessoSolicitadoEvent extends BaseEvent {
+  tenantId: string
+  grantId: string
+  reason: string
+  requestedBy: string
+}
+
+export interface SuporteAcessoConcedidoEvent extends BaseEvent {
+  tenantId: string
+  grantId: string
+  expiresAt: string
+}
+
+export interface SuporteAcessoDecididoEvent extends BaseEvent {
+  tenantId: string
+  grantId: string
+}
+
+export interface AdminEventMap {
+  'suporte.acesso.solicitado': SuporteAcessoSolicitadoEvent
+  'suporte.acesso.concedido': SuporteAcessoConcedidoEvent
+  'suporte.acesso.negado': SuporteAcessoDecididoEvent
+  'suporte.acesso.revogado': SuporteAcessoDecididoEvent
+}
