@@ -165,27 +165,25 @@ describe('autenticação', () => {
     expect(echoed.length).toBe(antes)
   })
 
-  it('roteia o prontuário para o medical-record-service, não para o pet-service', async () => {
+  /**
+   * A asserção que a fatia 8 inverteu.
+   *
+   * Ela guardava a exceção por sufixo: as rotas do prontuário moram sob
+   * `/v1/pets/:petId/…` e o `proxy.ts` precisava desempatá-las contra o prefixo do pet
+   * **antes** de rotear. O desempate era uma lista escrita à mão, e funcionava por
+   * coincidência. Com o MOD-PRONT dentro, quem desempata é o roteador, e o que resta a
+   * provar é que nada sob `/v1/pets/` procura destino externo.
+   */
+  it('nem o pet nem o prontuário dele saem do processo', async () => {
     const tenant = await seedTenant('rotapront')
     const member = await seedMember(tenant.tenantId, 'VET')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
     const petId = '11111111-1111-4111-8111-111111111111'
 
-    // As rotas do prontuário moram debaixo de `/v1/pets/:petId/…`, então o
-    // roteamento é por sufixo e precisa ganhar do prefixo de pets.
-    for (const suffix of ['/allergies', '/temperament', '/medical-alerts', '/safety-record', '/alerts']) {
-      const response = await call({ url: `/v1/pets/${petId}${suffix}`, token })
-      expect(response.statusCode).toBe(200)
-
-      const verified = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
-      expect(verified.ok).toBe(true)
-      if (!verified.ok) return
-      expect(verified.context.permissions).toContain('record:read_alerts')
-    }
-
-    // O pet em si é atendido aqui desde a fatia 5, e por isso **não** aparece no eco.
     const antes = echoed.length
-    await call({ url: `/v1/pets/${petId}`, token })
+    for (const suffix of ['/allergies', '/temperament', '/medical-alerts', '/safety-record', '/alerts', '']) {
+      await call({ url: `/v1/pets/${petId}${suffix}`, token })
+    }
     expect(echoed.length).toBe(antes)
   })
 
@@ -467,10 +465,20 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
     expect(resolveTarget('/v1/services')).toBe(loadEnv().SCHEDULING_SERVICE_URL)
   })
 
-  it('o prontuário vence o prefixo de pets, inclusive na linha do tempo e no resumo', async () => {
+  /**
+   * A asserção que se inverteu na fatia 8, e a mais importante desta suíte.
+   *
+   * Até aqui, `/v1/pets/:id/timeline` **saía** do processo: o `proxy.ts` tinha uma lista
+   * de sufixos conferida antes do prefixo do pet, e o teste anterior guardava a exceção.
+   * Ela funcionava por coincidência — nenhuma rota do módulo do pet casava com aqueles
+   * sufixos — e o dia em que alguém registrasse uma que casasse, o Fastify preferiria a
+   * do módulo e a rota do prontuário sumiria sem erro nenhum, em produção.
+   *
+   * Com o MOD-PRONT dentro, a lista sumiu e o desempate passou a ser o roteador. O que
+   * este teste guarda agora é que **nada** sob `/v1/pets/` tem destino externo.
+   */
+  it('nem o cadastro do pet nem o prontuário dele saem do processo', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/config/env.js')
-    const env = loadEnv()
 
     for (const suffix of [
       'timeline',
@@ -478,27 +486,15 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
       'allergies',
       'alerts',
       'safety-record',
-      // MOD-DOC-04: o receituário do pet é do prontuário, não do cadastro.
       'prescriptions',
     ]) {
-      expect(resolveTarget(`/v1/pets/abc/${suffix}`)).toBe(env.MEDICAL_RECORD_SERVICE_URL)
+      expect(resolveTarget(`/v1/pets/abc/${suffix}`)).toBeNull()
     }
-    /**
-     * E o cadastro do pet **não é encaminhado a lugar nenhum**: virou módulo deste
-     * processo na fatia 5 da consolidação, e `resolveTarget` devolve `null`.
-     *
-     * A exceção do prontuário sobreviveu à mudança, e é isso que este teste passou a
-     * provar: `/v1/pets/:id/timeline` continua saindo daqui porque **nenhuma rota do
-     * módulo do pet casa com ela**, e o curinga a leva ao prontuário. No dia em que
-     * alguém registrar `/v1/pets/:id/timeline` no módulo do pet, o roteador do Fastify
-     * passa a preferi-la e a linha do tempo some sem erro nenhum — este teste é o que
-     * avisa.
-     */
     expect(resolveTarget('/v1/pets/abc')).toBeNull()
     expect(resolveTarget('/v1/pets/abc/photos')).toBeNull()
   })
 
-  it('a linha do tempo do pet sai do processo; o cadastro dele, não', async () => {
+  it('a linha do tempo e o cadastro do pet são atendidos aqui, sem sair', async () => {
     const app = await getApp()
     const tenant = await seedTenant('rota-pet')
     const membro = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
@@ -507,38 +503,40 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
       clerkOrgId: tenant.clerkOrgId,
     })
 
-    await app.inject({
-      method: 'GET',
-      url: '/v1/pets/00000000-0000-0000-0000-000000000001/timeline',
-      headers: { authorization: `Bearer ${token}` },
-    })
-    expect(lastEchoed().url).toContain('/timeline')
-
     const antes = echoed.length
-    await app.inject({
-      method: 'GET',
-      url: '/v1/pets/00000000-0000-0000-0000-000000000001',
-      headers: { authorization: `Bearer ${token}` },
-    })
+    for (const url of [
+      '/v1/pets/00000000-0000-0000-0000-000000000001/timeline',
+      '/v1/pets/00000000-0000-0000-0000-000000000001',
+    ]) {
+      await app.inject({ method: 'GET', url, headers: { authorization: `Bearer ${token}` } })
+    }
     // Nada chegou ao serviço de destino: quem respondeu foi o módulo, aqui dentro.
     expect(echoed.length).toBe(antes)
   })
 
-  it('o atendimento é do prontuário; o agendamento, da agenda', async () => {
+  it('o atendimento é atendido aqui; o agendamento ainda vai para a agenda', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
     const { loadEnv } = await import('../src/config/env.js')
     const env = loadEnv()
 
-    expect(resolveTarget('/v1/attendances')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
-    expect(resolveTarget('/v1/attendances/abc/addendum')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
-    // MOD-DOC-04: o receituário é documento, mas quem sabe o que é uma prescrição é o
-    // prontuário — o `document-service:3012` do SPEC não nasce.
-    expect(resolveTarget('/v1/attendances/abc/prescriptions')).toBe(
-      env.MEDICAL_RECORD_SERVICE_URL,
-    )
-    expect(resolveTarget('/v1/prescriptions/abc')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
-    expect(resolveTarget('/v1/prescriptions/abc/void')).toBe(env.MEDICAL_RECORD_SERVICE_URL)
-    // O encaixe cria agendamento: é da agenda, apesar de o registro clínico não ser.
+    // O prontuário virou módulo na fatia 8: nada dele sai mais.
+    for (const path of [
+      '/v1/attendances',
+      '/v1/attendances/abc/addendum',
+      '/v1/attendances/abc/prescriptions',
+      '/v1/prescriptions/abc',
+      '/v1/prescriptions/abc/void',
+    ]) {
+      expect(resolveTarget(path)).toBeNull()
+    }
+
+    /**
+     * **A distinção que este teste sempre guardou continua valendo, e agora ela é a
+     * única coisa que ele guarda.** `/v1/attendances` e `/v1/appointments` não colidem,
+     * mas a proximidade dos dois é o tipo de coisa que alguém "consolida" um dia: o
+     * registro clínico é do prontuário, o horário é da agenda. O encaixe cria
+     * agendamento, então é da agenda — apesar de o registro que ele gera não ser.
+     */
     expect(resolveTarget('/v1/appointments/walk-in')).toBe(env.SCHEDULING_SERVICE_URL)
     expect(resolveTarget('/v1/appointments/abc/checkout')).toBe(env.SCHEDULING_SERVICE_URL)
   })

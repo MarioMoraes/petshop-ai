@@ -141,42 +141,18 @@ const SCHEDULING_PREFIXES = [
 ]
 
 /**
- * O prontuário pendura suas rotas debaixo de `/v1/pets/:petId/…`, porque é do pet
- * que se fala. O roteamento é por **sufixo**, então precisa vir antes do prefixo de
- * pets — senão `/v1/pets/x/allergies` cairia no pet-service.
- */
-const RECORD_SUFFIXES = [
-  '/safety-record',
-  '/alerts',
-  '/allergies',
-  '/allergy-check',
-  '/temperament',
-  '/medical-alerts',
-  // MOD-PRONT-02 e 11.
-  '/timeline',
-  '/summary',
-  // MOD-DOC-04: o receituário do pet.
-  '/prescriptions',
-]
-
-/**
- * O atendimento (MOD-PRONT-01) tem prefixo próprio, e ele precisa ser avaliado
- * **antes** do da agenda: `/v1/attendances` não colide com `/v1/appointments`, mas a
- * proximidade dos dois é justamente o tipo de coisa que alguém "consolida" um dia.
- * O registro é do prontuário; o horário é da agenda.
+ * **A exceção por sufixo do prontuário saiu na fatia 8, e vale registrar por quê.**
  *
- * `/v1/prescriptions` entra junto (MOD-DOC-04): o receituário é documento, mas quem o
- * emite é quem sabe o que é uma prescrição — e isso é o prontuário. O
- * `document-service:3012` do SPEC não nasce.
+ * Enquanto o MOD-PRONT era serviço, as rotas dele penduravam-se sob `/v1/pets/:petId/…`
+ * e o roteamento era por **sufixo** — `/safety-record`, `/alerts`, `/timeline` e mais
+ * seis —, conferido antes do prefixo do pet. Aquilo funcionava por coincidência: nenhuma
+ * rota do módulo de pets casava com esses sufixos, e no dia em que alguém registrasse
+ * uma que casasse, o Fastify preferiria a do módulo e a rota do prontuário sumiria sem
+ * erro nenhum, em produção.
+ *
+ * Com os dois módulos na mesma árvore de rotas, o desempate deixou de ser uma lista aqui
+ * e passou a ser o roteador — que reclama no boot em vez de escolher em silêncio.
  */
-const ATTENDANCE_PREFIXES = ['/v1/attendances', '/v1/prescriptions']
-
-function isRecordPath(path: string): boolean {
-  if (!path.startsWith('/v1/pets/')) return false
-  return RECORD_SUFFIXES.some(
-    (suffix) => path.endsWith(suffix) || path.includes(`${suffix}/`),
-  )
-}
 
 /**
  * MOD-SITE. Só a superfície **administrativa** passa por aqui: o `/public/v1/site` do
@@ -223,8 +199,6 @@ export function resolveTarget(path: string): string | null {
   const env = loadEnv()
   if (isPortalPath(path)) return env.PORTAL_BFF_URL
   if (isLedgerTutorPath(path)) return env.BILLING_LEDGER_SERVICE_URL
-  if (isRecordPath(path)) return env.MEDICAL_RECORD_SERVICE_URL
-  if (matches(path, ATTENDANCE_PREFIXES)) return env.MEDICAL_RECORD_SERVICE_URL
   if (matches(path, SCHEDULING_PREFIXES)) return env.SCHEDULING_SERVICE_URL
   if (matches(path, LEDGER_PREFIXES)) return env.BILLING_LEDGER_SERVICE_URL
   return null

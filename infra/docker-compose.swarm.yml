@@ -66,7 +66,6 @@ x-backend: &backend
     # O MOD-TUTOR é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
     TUTOR_SERVICE_URL: http://api-gateway:3000
-    MEDICAL_RECORD_SERVICE_URL: http://medical-record-service:3005
     SCHEDULING_SERVICE_URL: http://scheduling-service:3006
     BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
     # O MOD-NOTIF é módulo do backend desde a consolidação; quem ainda o chama por
@@ -347,28 +346,6 @@ services:
       # declarar a task morta antes de o gate liberar, e num deploy novo isso
       # vira laço: mata, sobe, espera, mata.
       start_period: 180s
-
-  medical-record-service:
-    <<: *backend
-    command:
-      [
-        '/app/infra/swarm/aguardar-migracao.sh',
-        'node',
-        'backend/medical-record-service/dist/src/server.js',
-      ]
-    environment:
-      <<: *backend-env
-      MEDICAL_RECORD_SERVICE_PORT: 3005
-      # MOD-DOC-04: o receituário é arquivado como qualquer documento formal. O
-      # `GOTENBERG_URL` já vem do bloco comum.
-      R2_ENDPOINT: ${R2_ENDPOINT:?}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?}
-      R2_BUCKET: ${R2_BUCKET:-petshop-media}
-      R2_REGION: ${R2_REGION:-auto}
-    healthcheck:
-      <<: *hc-gateway
-      test: ['CMD-SHELL', 'curl -sf http://localhost:3005/health || exit 1']
 
   scheduling-service:
     <<: *backend

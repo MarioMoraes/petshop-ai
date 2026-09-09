@@ -3,6 +3,7 @@ import type {
   IdentityEventMap,
   MessagingEventMap,
   PetEventMap,
+  RecordEventMap,
   SiteEventMap,
   TaxiEventMap,
   TutorEventMap,
@@ -26,7 +27,13 @@ import { logger } from './logger.js'
  */
 
 export const { publishEvent, closeEvents } = createEventPublisher<
-  SiteEventMap & TaxiEventMap & MessagingEventMap & PetEventMap & TutorEventMap & IdentityEventMap
+  SiteEventMap &
+    TaxiEventMap &
+    MessagingEventMap &
+    PetEventMap &
+    TutorEventMap &
+    IdentityEventMap &
+    RecordEventMap
 >({
   logger,
   getUrl: () => loadEnv().RABBITMQ_URL,

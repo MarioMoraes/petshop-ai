@@ -3,11 +3,13 @@ import { loadEnv } from '../config/env.js'
 import { logger, recordMetric } from '../shared/logger.js'
 import { startCrmConsumers, stopCrmConsumers } from '../modules/crm/consumers.js'
 import { startPetConsumers, stopPetConsumers } from '../modules/pets/consumers.js'
+import { startRecordConsumers, stopRecordConsumers } from '../modules/attendances/consumers.js'
 import { startTutorConsumers, stopTutorConsumers } from '../modules/tutors/consumers.js'
 import { startSiteConsumers, stopSiteConsumers } from '../modules/site/consumers.js'
 import { startTaxiConsumers, stopTaxiConsumers } from '../modules/taxi/consumers.js'
 import { crmJobs } from './crm-jobs.js'
 import { identityJobs } from './identity-jobs.js'
+import { recordJobs } from './record-jobs.js'
 import { securityJobs } from './security-jobs.js'
 import { messagingJobs } from './messaging-jobs.js'
 import { siteJobs } from './site-jobs.js'
@@ -40,6 +42,7 @@ export const { startJobs, stopJobs, runJobNow } = createJobScheduler({
     ...tutorJobs,
     ...identityJobs,
     ...securityJobs,
+    ...recordJobs,
   ],
 })
 
@@ -56,8 +59,16 @@ export async function startConsumers(): Promise<void> {
   await startCrmConsumers()
   await startPetConsumers()
   await startTutorConsumers()
+  await startRecordConsumers()
 }
 
 export async function stopConsumers(): Promise<void> {
-  await Promise.all([stopSiteConsumers(), stopTaxiConsumers(), stopCrmConsumers(), stopPetConsumers(), stopTutorConsumers()])
+  await Promise.all([
+    stopSiteConsumers(),
+    stopTaxiConsumers(),
+    stopCrmConsumers(),
+    stopPetConsumers(),
+    stopTutorConsumers(),
+    stopRecordConsumers(),
+  ])
 }

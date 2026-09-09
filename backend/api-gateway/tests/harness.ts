@@ -103,7 +103,6 @@ export async function getApp(): Promise<FastifyInstance> {
   const upstreamAddress = await startUpstream()
   process.env.TUTOR_SERVICE_URL = upstreamAddress
   process.env.PET_SERVICE_URL = upstreamAddress
-  process.env.MEDICAL_RECORD_SERVICE_URL = upstreamAddress
   process.env.SCHEDULING_SERVICE_URL = upstreamAddress
   process.env.BILLING_LEDGER_SERVICE_URL = upstreamAddress
   process.env.PORTAL_BFF_URL = upstreamAddress

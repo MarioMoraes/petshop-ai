@@ -50,6 +50,11 @@ export const { loggerOptions, logger, recordMetric } = createLogger({
     '*.cpf',
     '*.cnpj',
     '*.socialName',
+    // MOD-PRONT: conteúdo clínico é dado sensível por si só — a reação que a alergia
+    // provoca e a posologia da prescrição descrevem a saúde do animal, e um deles chega
+    // a sair impresso num receituário assinado.
+    '*.reaction',
+    '*.instructions',
   ],
 })
 

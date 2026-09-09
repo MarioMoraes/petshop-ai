@@ -76,9 +76,22 @@ cenário que a matriz não produz sozinha se monta com `tenant_role_overrides`
 Já migrados: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
 (`modules/crm`), MOD-NOTIF (`modules/messaging`) MOD-PET (`modules/pets`,
 `modules/catalog`, `modules/photos`), MOD-TUTOR (`modules/tutors`, `modules/terms`,
-`modules/addresses`, `modules/consents`, `modules/tags`) e MOD-IDENT
-(`modules/identity`) — com as duas metades do CRM juntas, o salto HTTP entre elas virou
-chamada de função.
+`modules/addresses`, `modules/consents`, `modules/tags`), MOD-IDENT
+(`modules/identity`) e MOD-PRONT (`modules/records`, `modules/attendances`,
+`modules/prescriptions`) — com as duas metades do CRM juntas, o salto HTTP entre elas
+virou chamada de função.
+
+**A exceção de prefixo do `proxy.ts` acabou com o MOD-PRONT.** Enquanto o prontuário era
+serviço, as rotas dele penduravam-se sob `/v1/pets/:petId/…` e o roteamento era por
+**sufixo**, conferido antes do prefixo do pet — e funcionava por coincidência: nenhuma
+rota do módulo do pet casava com aqueles sufixos, e o dia em que alguém registrasse uma
+que casasse, o Fastify preferiria a do módulo e a rota sumiria sem erro nenhum. Com os
+dois na mesma árvore, quem desempata é o roteador. Sobrou uma exceção só,
+`/v1/tutors/:id/packages`, para o financeiro.
+
+**Nome de parâmetro de rota não precisa acompanhar a migração.** O MOD-PRONT usa
+`:petId` onde o MOD-PET usa `:id`, na mesma posição, e o `find-my-way` aceita — foi
+verificado antes da fatia, não presumido.
 
 **O MOD-IDENT é o único módulo cujas rotas não exigem tenant no hook.** Três delas
 existem justamente para quem ainda não é membro de estabelecimento nenhum: criar o

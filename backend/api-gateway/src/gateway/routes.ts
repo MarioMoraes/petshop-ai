@@ -9,6 +9,7 @@ import { registerPublicSiteRoutes, registerSiteRoutes } from '../modules/site/ro
 import { registerCatalogRoutes } from '../modules/catalog/routes.js'
 import { registerCrmRoutes } from '../modules/crm/routes.js'
 import { registerIdentityRoutes } from '../modules/identity/routes.js'
+import { registerMedicalRecordRoutes } from '../modules/records/routes-module.js'
 import {
   registerEmailWebhookRoutes,
   registerMessagingRoutes,
@@ -45,6 +46,7 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerTutorModule(app)
   await registerIdentityModule(app)
   await registerSecurityModule(app)
+  await registerMedicalRecordModule(app)
 }
 
 /**
@@ -211,5 +213,22 @@ async function registerSecurityModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerSecurityRoutes(scope)
+  })
+}
+
+/**
+ * MOD-PRONT — o prontuário, o atendimento e o receituário.
+ *
+ * Registrado **depois do MOD-PET**, e a ordem é o que torna a fatia legível: as rotas
+ * deste módulo penduram-se sob `/v1/pets/:petId/…`, o mesmo espaço que o módulo do
+ * animal ocupa. Enquanto era serviço, quem as separava era uma lista de sufixos no
+ * `proxy.ts`, conferida antes do prefixo do pet e frágil por construção. Agora as duas
+ * famílias estão na mesma árvore, e um conflito real aparece no boot em vez de fazer uma
+ * rota sumir em silêncio.
+ */
+async function registerMedicalRecordModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerMedicalRecordRoutes(scope)
   })
 }

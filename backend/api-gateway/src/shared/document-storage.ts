@@ -3,14 +3,17 @@ import { loadEnv } from '../config/env.js'
 import { logger } from './logger.js'
 
 /**
- * O bucket dos documentos, visto **de fora** (MOD-NOTIF-05).
+ * O bucket dos documentos.
  *
- * Mesma fábrica que o ledger, o prontuário e o tutor-service usam para arquivar — e o
- * único serviço que a abre para **ler**. O anexo é a única entrega do sistema que não
- * pode sair por URL assinada: o Resend quer o conteúdo em base64 no corpo do POST.
+ * Mesma fábrica que o ledger e o portal-bff ainda usam nos processos deles, com as
+ * mesmas credenciais. **Este arquivo abre as duas metades**, e desde a fatia 8 as duas
+ * são usadas aqui dentro:
  *
- * Não há `put` aqui por desenho, e não por esquecimento: este serviço não emite
- * documento nenhum. Quem escreve é quem sabe montar o papel.
+ * - **ler** — o anexo do MOD-NOTIF-05 é a única entrega do sistema que não pode sair
+ *   por URL assinada, porque o Resend quer o conteúdo em base64 no corpo do POST;
+ * - **escrever** — o receituário do MOD-PRONT e o termo do MOD-DOC-06 arquivam por
+ *   aqui. Até a fatia 7 este processo não emitia documento nenhum, e o comentário
+ *   original dizia isso; o prontuário mudou o fato.
  */
 
 const storage = createDocumentStorage({

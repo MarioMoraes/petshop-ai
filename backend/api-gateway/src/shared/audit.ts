@@ -37,6 +37,12 @@ export const { sanitize, recordAudit } = createAudit({
     'microchip',
     'microchipEncrypted',
     'microchipHash',
+    // MOD-PRONT — a trilha registra **que** a alergia mudou e quem mudou, nunca a
+    // descrição da reação nem a posologia.
+    'reaction',
+    'reactionEncrypted',
+    'instructions',
+    'instructionsEncrypted',
   ],
 })
 

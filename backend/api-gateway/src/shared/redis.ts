@@ -83,6 +83,16 @@ export const CACHE_KEYS = {
 
   // ---- MOD-PET ----
   pet: (tenantId: string, petId: string) => `pet:${tenantId}:${petId}`,
+
+  // ---- MOD-PRONT ----
+  /**
+   * Alertas agregados do pet — alergia, temperamento e alerta médico.
+   *
+   * O item mais quente do prontuário: é lido em toda abertura de ficha, em todo
+   * agendamento e em todo check-in. O TTL é o mais curto do módulo de propósito —
+   * alerta de segurança desatualizado é pior que ausência de cache.
+   */
+  alerts: (tenantId: string, petId: string) => `pront:alerts:${tenantId}:${petId}`,
   petsByTutor: (tenantId: string, tutorId: string) => `pet:bytutor:${tenantId}:${tutorId}`,
   catalog: (tenantId: string, type: string) => `catalog:${tenantId}:${type}`,
   photoUrls: (photoId: string) => `photo:url:${photoId}`,
@@ -154,6 +164,8 @@ export const CACHE_TTL_SECONDS = {
   rate: 120,
 
   pet: 120,
+  /** RN-02 do MOD-PRONT exige alerta fresco na agenda e no check-in. */
+  alerts: 120,
   petsByTutor: 300,
   catalog: 86_400,
   /** Abaixo dos 900s da assinatura: cache nunca deve servir URL prestes a vencer. */
@@ -277,6 +289,19 @@ export async function invalidatePet(
     CACHE_KEYS.pet(tenantId, petId),
     ...tutorIds.map((tutorId) => CACHE_KEYS.petsByTutor(tenantId, tutorId)),
   )
+}
+
+/**
+ * Invalida o alerta do pet **e** o cache do próprio pet, que embute `alerts[]`.
+ *
+ * As duas chaves eram de serviços diferentes, e apagá-las juntas era deliberado: o
+ * evento `prontuario.alerta.alterado` também invalida a do pet, mas o consumidor é
+ * assíncrono, e dois segundos de alerta errado bastam para alguém usar o shampoo
+ * errado. Com os dois módulos no mesmo processo a corrida some, e a chamada dupla
+ * continua sendo a mais barata — não há motivo para depender do evento aqui.
+ */
+export async function invalidateAlerts(tenantId: string, petId: string): Promise<void> {
+  await cacheDelete(CACHE_KEYS.alerts(tenantId, petId), CACHE_KEYS.pet(tenantId, petId))
 }
 
 /** Invalida tudo o que depende de um tutor. Chamado depois de qualquer escrita. */
