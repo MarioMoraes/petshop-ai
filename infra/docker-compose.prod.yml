@@ -34,7 +34,6 @@ x-backend: &backend
     ENCRYPTION_KEK: ${ENCRYPTION_KEK}
     EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER}
     INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
-    IDENTITY_SERVICE_URL: http://identity-service:3001
     # O MOD-TUTOR é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
     TUTOR_SERVICE_URL: http://api-gateway:3000
@@ -232,26 +231,17 @@ services:
       VIACEP_BASE_URL: ${VIACEP_BASE_URL:-https://viacep.com.br/ws}
       CEP_LOOKUP_TIMEOUT_MS: ${CEP_LOOKUP_TIMEOUT_MS:-3000}
       INACTIVITY_THRESHOLD_DAYS: ${INACTIVITY_THRESHOLD_DAYS:-90}
+      # MOD-IDENT: o link do convite e o prazo dele, que vieram com o módulo na
+      # fatia 7. `APP_URL` é a URL pública completa e **não** o `APP_DOMAIN`: o
+      # convite vai num e-mail que uma pessoa clica, fora desta rede.
+      APP_URL: https://${APP_DOMAIN}
+      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
     healthcheck:
       test: ['CMD', 'curl', '-sf', 'http://localhost:3000/health']
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 20s
-
-  identity-service:
-    <<: *backend
-    command: ['node', 'backend/identity-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      IDENTITY_SERVICE_PORT: 3001
-      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
-      # MOD-IDENT-06 — o link do convite aponta para o domínio público, e não para
-      # o nome de container: quem clica está num navegador, fora desta rede.
-      APP_URL: https://${APP_DOMAIN}
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      MAIL_FROM: ${MAIL_FROM:-PetShop AI <convites@${APP_DOMAIN}>}
-      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
 
   medical-record-service:
     <<: *backend

@@ -106,7 +106,7 @@ export async function givenTenant(name = 'Petshop Teste'): Promise<TenantFixture
    *
    * Sem elas nenhum tutor é criado: desde o MOD-DOC-06 toda linha de `tutor_consents`
    * tem a versão conferida contra `term_versions`. O fixture repete o que o
-   * `seedTenantDomain` do identity-service faz, porque o tenant daqui nasce por INSERT
+   * `seedTenantDomain` do MOD-IDENT faz, porque o tenant daqui nasce por INSERT
    * e não pelo provisionamento.
    */
   await ownerPrisma.termVersion.createMany({

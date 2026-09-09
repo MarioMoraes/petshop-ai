@@ -5,7 +5,7 @@ import type { ChannelPort, SendRequest, SendResult } from './registry.js'
 /**
  * E-mail via Resend, chamado pela API HTTP com `fetch` — não pelo SDK.
  *
- * Mesma escolha do `mailer.ts` do identity-service, pela mesma razão: são dois campos
+ * Mesma escolha do `modules/identity/mailer.ts`, pela mesma razão: são dois campos
  * num POST, e um pacote a mais no `node_modules` (a imagem de backend é uma só) não se
  * paga por isso. **Quando o MOD-NOTIF for implementado, é o convite de equipe que
  * migra para cá**, não o contrário — este é o motor único de saída.

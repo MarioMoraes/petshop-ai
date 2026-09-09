@@ -435,6 +435,22 @@ export const MeResponseSchema = z.object({
   memberships: z.array(MembershipSummarySchema),
   permissions: z.array(z.string()),
   permVersion: z.number().int(),
+  /**
+   * MOD-SEC-02 — o estado de segundo fator desta sessão.
+   *
+   * `required` só é `true` para `TENANT_ADMIN`. Com `enabled: false`, `graceEndsAt` no
+   * futuro pede a faixa de aviso e no passado (ou `null`) pede a tela de bloqueio — e é
+   * a mesma conta que o backend fez para deixar ou não a escrita passar.
+   *
+   * **`user.mfaEnabled` continua sendo outra coisa.** Aquele é o espelho do Clerk
+   * gravado em `users`, que a lista de equipe usa e que pode estar horas atrasado. Este
+   * sai do claim do token, e é o que decide.
+   */
+  mfa: z.object({
+    required: z.boolean(),
+    enabled: z.boolean(),
+    graceEndsAt: z.iso.datetime().nullable(),
+  }),
 })
 export type MeResponse = z.infer<typeof MeResponseSchema>
 

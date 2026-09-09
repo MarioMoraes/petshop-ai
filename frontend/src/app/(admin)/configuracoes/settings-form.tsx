@@ -8,7 +8,9 @@ import {
   formatPhoneBR,
   type Branding,
   type BusinessHours,
+  type AuditLogEntry,
   type DeletionRequestResponse,
+  type SecurityEventSummary,
   type Species,
   type TenantAddress,
   type TenantResponse,
@@ -36,6 +38,7 @@ import {
 import { BreedCatalog } from './breed-catalog'
 import { Documentos } from './documentos'
 import { Privacidade } from './privacidade'
+import { Seguranca } from './seguranca'
 
 /**
  * Configurações do estabelecimento (MOD-IDENT-08, parcial).
@@ -99,6 +102,16 @@ const PRIVACY_TAB = { id: 'privacidade', label: 'Privacidade' }
  */
 const DOCUMENTS_TAB = { id: 'documentos', label: 'Documentos' }
 
+/**
+ * MOD-SEC-06: a trilha de auditoria e os eventos de segurança.
+ *
+ * **Aba própria, e não uma seção da Privacidade.** Aquela é a fila de exclusão, gateada
+ * por `tutor:delete`, e serve a quem atende o titular; esta é gateada por `audit:read` e
+ * serve a quem administra a equipe. Juntá-las mostraria a trilha a quem tem o primeiro
+ * gate e não o segundo.
+ */
+const SECURITY_TAB = { id: 'seguranca', label: 'Segurança' }
+
 export interface SettingsFormProps {
   tenant: TenantResponse
   settings: TenantSettings
@@ -118,6 +131,14 @@ export interface SettingsFormProps {
   canResolveDeletions: boolean
   /** As versões de termo publicadas (MOD-DOC-06). */
   termVersions: TermVersionView[]
+  /**
+   * A trilha, já com a primeira página lida no servidor. Vazia quando o perfil não tem
+   * `audit:read` — e nesse caso a aba também não é desenhada.
+   */
+  auditLogs: AuditLogEntry[]
+  auditCursor: string | null
+  securitySummary: SecurityEventSummary[]
+  canReadAudit: boolean
   /**
    * A aba que abre, quando a URL a nomeia.
    *
@@ -152,6 +173,10 @@ export function SettingsForm({
   deletionRequests,
   canResolveDeletions,
   termVersions,
+  auditLogs,
+  auditCursor,
+  securitySummary,
+  canReadAudit,
   abaInicial,
 }: SettingsFormProps) {
   const [active, setActive] = useState(abaInicial ?? 'dados')
@@ -198,6 +223,7 @@ export function SettingsForm({
           DOCUMENTS_TAB,
           ...(canManageCatalog ? [CATALOG_TAB] : []),
           ...(canResolveDeletions ? [PRIVACY_TAB] : []),
+          ...(canReadAudit ? [SECURITY_TAB] : []),
         ]}
         active={active}
         onSelect={selectTab}
@@ -226,6 +252,14 @@ export function SettingsForm({
         {active === 'documentos' && <Documentos versions={termVersions} canEdit={canEdit} />}
         {/* Também sem o `shared`: cada pedido é respondido na própria linha. */}
         {active === 'privacidade' && <Privacidade pedidos={deletionRequests} />}
+
+        {active === 'seguranca' && (
+          <Seguranca
+            trilhaInicial={auditLogs}
+            cursorInicial={auditCursor}
+            resumoInicial={securitySummary}
+          />
+        )}
       </div>
     </div>
   )

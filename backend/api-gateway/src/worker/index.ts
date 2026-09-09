@@ -7,6 +7,8 @@ import { startTutorConsumers, stopTutorConsumers } from '../modules/tutors/consu
 import { startSiteConsumers, stopSiteConsumers } from '../modules/site/consumers.js'
 import { startTaxiConsumers, stopTaxiConsumers } from '../modules/taxi/consumers.js'
 import { crmJobs } from './crm-jobs.js'
+import { identityJobs } from './identity-jobs.js'
+import { securityJobs } from './security-jobs.js'
 import { messagingJobs } from './messaging-jobs.js'
 import { siteJobs } from './site-jobs.js'
 import { tutorJobs } from './tutor-jobs.js'
@@ -30,7 +32,15 @@ export const { startJobs, stopJobs, runJobNow } = createJobScheduler({
   logger,
   recordMetric,
   isDisabled: () => loadEnv().DISABLE_JOBS,
-  jobs: [...siteJobs, ...taxiJobs, ...crmJobs, ...messagingJobs, ...tutorJobs],
+  jobs: [
+    ...siteJobs,
+    ...taxiJobs,
+    ...crmJobs,
+    ...messagingJobs,
+    ...tutorJobs,
+    ...identityJobs,
+    ...securityJobs,
+  ],
 })
 
 /**

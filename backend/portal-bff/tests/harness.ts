@@ -205,7 +205,7 @@ export async function givenTenant(options: TenantOptions = {}): Promise<TenantFi
   /**
    * As três versões `1.0` da plataforma, como o provisionamento semeia (MOD-DOC-06).
    *
-   * O tenant daqui nasce por INSERT e não pelo `seedTenantDomain` do identity-service,
+   * O tenant daqui nasce por INSERT e não pelo `seedTenantDomain` do MOD-IDENT,
    * então o fixture repete o seed. Sem ele, "Meus documentos" não teria termo nenhum a
    * apresentar e todo aceite seria recusado por versão inexistente.
    */

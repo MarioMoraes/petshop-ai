@@ -16,6 +16,7 @@ import {
   PawPrintIcon,
   ReceiptIcon,
   SettingsIcon,
+  ShieldCheckIcon,
   UsersIcon,
   VanIcon,
   WalletIcon,
@@ -23,7 +24,7 @@ import {
   type IconTone,
 } from './icons'
 import { TenantSwitcher } from './tenant-switcher'
-import { Badge, Logo } from './ui'
+import { Alert, Badge, Logo } from './ui'
 
 /**
  * Moldura das telas internas: menu lateral fixo, topbar e área de conteúdo.
@@ -341,6 +342,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
          */}
         <main className={`relative flex-1 px-4 pb-16 pt-8 sm:px-8 ${atmosphere ? 'overflow-hidden' : ''}`}>
           {atmosphere && <Atmosphere />}
+          <MfaAviso mfa={me.mfa} />
           {/* `z-10`: elemento posicionado pinta sobre bloco não posicionado — sem isso
               os blooms cobririam o texto. */}
           <div className="relative z-10">{children}</div>
@@ -348,6 +350,58 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
       </div>
     </div>
   )
+}
+
+/**
+ * O aviso de segundo fator pendente (MOD-SEC-02 e 03).
+ *
+ * **Em toda tela, e não só nas Configurações.** A pessoa a quem isto se dirige é a que
+ * mais navega, e um aviso que só aparece onde ela raramente vai chegaria depois do
+ * bloqueio. Some sozinho no instante em que o token seguinte trouxer o segundo fator
+ * ligado — não há botão de dispensar, de propósito: dispensável é como se aprende a
+ * ignorar.
+ *
+ * Dentro da carência é `status`, que espera o leitor de tela terminar a frase; depois
+ * dela é `alert`, que interrompe. A diferença é a mesma que o produto faz: antes do
+ * prazo é um lembrete, depois é a razão pela qual nada salva.
+ */
+function MfaAviso({ mfa }: { mfa: MeResponse['mfa'] }) {
+  if (!mfa.required || mfa.enabled) return null
+
+  const bloqueado = mfa.graceEndsAt === null || new Date(mfa.graceEndsAt).getTime() <= Date.now()
+
+  return (
+    <div className="relative z-10 mb-6">
+      <Alert
+        tone={bloqueado ? 'danger' : 'accent'}
+        icon={<ShieldCheckIcon />}
+        title={
+          bloqueado
+            ? 'Ative a verificação em duas etapas para voltar a operar'
+            : 'Ative a verificação em duas etapas'
+        }
+        role={bloqueado ? 'alert' : 'status'}
+      >
+        {bloqueado ? (
+          <>
+            Nada é salvo enquanto a conta do administrador não tiver segundo fator. A
+            consulta continua liberada. Abra o menu da sua conta, no canto superior
+            direito, e ative a verificação em duas etapas.
+          </>
+        ) : (
+          <>
+            O perfil de administrador passa a exigir segundo fator
+            {mfa.graceEndsAt ? ` a partir de ${prazo(mfa.graceEndsAt)}` : ''}. Ative pelo
+            menu da sua conta, no canto superior direito.
+          </>
+        )}
+      </Alert>
+    </div>
+  )
+}
+
+function prazo(iso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' }).format(new Date(iso))
 }
 
 /**

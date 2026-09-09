@@ -240,6 +240,23 @@ export const DOCUMENT_ERRORS = {
 
 export type DocumentErrorCode = keyof typeof DOCUMENT_ERRORS
 
+/** PRD seguranca_compliance_13 §5. */
+export const SECURITY_ERRORS = {
+  /**
+   * 423 — escrita recusada por falta de segundo fator (MOD-SEC-02).
+   *
+   * Mesmo status do tenant suspenso, e pela mesma razão: não é falta de permissão nem
+   * credencial inválida. A conta é legítima, o papel é o certo, e a porta está trancada
+   * até que uma condição fora da requisição seja satisfeita. Um 403 mandaria o frontend
+   * mostrar "seu perfil não permite", que é falso e não leva a lugar nenhum.
+   */
+  ERR_SEC_001: { status: 423, title: 'Verificação em duas etapas obrigatória' },
+  ERR_SEC_002: { status: 422, title: 'Consulta inválida' },
+  ERR_SEC_003: { status: 403, title: 'Permissão insuficiente' },
+} as const
+
+export type SecurityErrorCode = keyof typeof SECURITY_ERRORS
+
 /**
  * Erros da plataforma, não de um módulo.
  *
@@ -265,6 +282,7 @@ export const ERROR_CATALOG = {
   ...SITE_ERRORS,
   ...PORTAL_ERRORS,
   ...DOCUMENT_ERRORS,
+  ...SECURITY_ERRORS,
   ...PLATFORM_ERRORS,
 } as const
 

@@ -75,9 +75,31 @@ cenário que a matriz não produz sozinha se monta com `tenant_role_overrides`
 
 Já migrados: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
 (`modules/crm`), MOD-NOTIF (`modules/messaging`) MOD-PET (`modules/pets`,
-`modules/catalog`, `modules/photos`) e MOD-TUTOR (`modules/tutors`, `modules/terms`,
-`modules/addresses`, `modules/consents`, `modules/tags`) — com as duas metades do CRM juntas,
-o salto HTTP entre elas virou chamada de função.
+`modules/catalog`, `modules/photos`), MOD-TUTOR (`modules/tutors`, `modules/terms`,
+`modules/addresses`, `modules/consents`, `modules/tags`) e MOD-IDENT
+(`modules/identity`) — com as duas metades do CRM juntas, o salto HTTP entre elas virou
+chamada de função.
+
+**O MOD-IDENT é o único módulo cujas rotas não exigem tenant no hook.** Três delas
+existem justamente para quem ainda não é membro de estabelecimento nenhum: criar o
+primeiro tenant, espiar um convite e aceitá-lo. Quem exige contexto de tenant é cada
+handler, com `requireTenantContext` — e nos testes esse chamador é o `asStranger` de
+`tests/identity/fixtures.ts`, um token válido sem Organization.
+
+**O gate de MFA roda na porta, não no módulo.** A exigência de segundo fator do
+`TENANT_ADMIN` (MOD-SEC-02) fica em `src/auth/session.ts`, antes do roteamento — é o que
+a faz valer também para o que ainda é encaminhado a outro processo. A decisão sai do
+**claim do token**, nunca de `users.mfa_enabled`, que é espelho e pode estar velho; a
+carência mora em `memberships.mfa_grace_until` e é escrita quando o **papel** é
+atribuído. O catálogo de erro é do módulo (`modules/security/errors.ts`) e o host o
+importa, como já fazia com o ramo de multipart do MOD-PET.
+
+**A trilha de auditoria agora tem leitor.** `modules/security` só lê — `GET
+/v1/audit-logs` e `GET /v1/security-events`, sob `audit:read`, paginados por cursor e
+com janela máxima de 92 dias. Uma rota de escrita nesse módulo seria a porta pela qual a
+prova deixa de ser prova. `audit_logs` continua append-only com **uma** exceção nomeada
+no schema: `DELETE` para `app_maintenance`, que é o expurgo de 24 meses; `UPDATE` segue
+barrado para todos.
 
 **Um terceiro prefixo anônimo entrou com o MOD-NOTIF:** `/internal/`, onde moram os
 webhooks dos provedores (Evolution no pareamento do WhatsApp, Resend no retorno de

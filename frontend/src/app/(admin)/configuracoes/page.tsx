@@ -14,7 +14,7 @@ import { SettingsForm } from './settings-form'
  *
  * O gate de permissão é duplo por construção: `tenant:read_settings` decide se a tela
  * abre, `tenant:configure` decide se ela salva. As duas checagens valem aqui pela
- * experiência — quem manda é o `requirePermission` do identity-service.
+ * experiência — quem manda é o `requirePermission` do MOD-IDENT.
  */
 
 export const dynamic = 'force-dynamic'
@@ -38,8 +38,14 @@ export default async function ConfiguracoesPage({
    * tomá-las produziria trabalho visível e não resolvível. É o mesmo recorte do sino.
    */
   const canResolveDeletions = me.permissions.includes('tutor:delete')
+  /**
+   * MOD-SEC-06: a trilha usa `audit:read`, que na matriz do MOD-IDENT-04 só o
+   * administrador tem. É outro gate e outro leitor que o da fila de exclusão — quem
+   * atende o titular não é necessariamente quem audita a equipe.
+   */
+  const canReadAudit = me.permissions.includes('audit:read')
 
-  const [tenant, settings, species, deletion, terms] = await Promise.all([
+  const [tenant, settings, species, deletion, terms, audit, security] = await Promise.all([
     serverApi().getTenant(),
     serverApi().getSettings(),
     // A aba de raças só existe para quem pode mexer nela; sem a permissão, nem a
@@ -58,6 +64,18 @@ export default async function ConfiguracoesPage({
     serverApi()
       .listTermVersions()
       .catch(() => ({ versions: [] })),
+    // A trilha é moldura, como a fila de exclusão: uma consulta lenta ou fora do ar não
+    // pode derrubar as Configurações inteiras junto com a aba.
+    canReadAudit
+      ? serverApi()
+          .listAuditLogs({ limit: 50 })
+          .catch(() => ({ items: [], nextCursor: null }))
+      : Promise.resolve({ items: [], nextCursor: null }),
+    canReadAudit
+      ? serverApi()
+          .summarizeSecurityEvents()
+          .catch(() => ({ items: [] }))
+      : Promise.resolve({ items: [] }),
   ])
 
   const { aba } = await searchParams
@@ -68,7 +86,7 @@ export default async function ConfiguracoesPage({
         <PageHeader
           eyebrow="Estabelecimento"
           title="Configurações"
-          subtitle="Dados, horário de funcionamento, políticas de agendamento, identidade visual, catálogo de raças e pedidos de privacidade."
+          subtitle="Dados, horário de funcionamento, políticas de agendamento, identidade visual, catálogo de raças, privacidade e trilha de auditoria."
         />
 
         <div className="mt-10">
@@ -82,6 +100,10 @@ export default async function ConfiguracoesPage({
             deletionRequests={deletion.items}
             canResolveDeletions={canResolveDeletions}
             termVersions={terms.versions}
+            auditLogs={audit.items}
+            auditCursor={audit.nextCursor}
+            securitySummary={security.items}
+            canReadAudit={canReadAudit}
             abaInicial={aba}
           />
         </div>

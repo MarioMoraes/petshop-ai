@@ -101,7 +101,6 @@ export async function getApp(): Promise<FastifyInstance> {
   // Todos os serviços apontam para o mesmo eco: o que está sob teste é o roteamento
   // e a assinatura do contexto, não quem responde do outro lado.
   const upstreamAddress = await startUpstream()
-  process.env.IDENTITY_SERVICE_URL = upstreamAddress
   process.env.TUTOR_SERVICE_URL = upstreamAddress
   process.env.PET_SERVICE_URL = upstreamAddress
   process.env.MEDICAL_RECORD_SERVICE_URL = upstreamAddress
@@ -147,12 +146,23 @@ export function givenToken(claims: {
   clerkUserId: string
   clerkOrgId?: string | null
   permVersion?: number | null
+  /**
+   * O claim de segundo fator (MOD-SEC-01).
+   *
+   * **O padrão é `true`, e não `false`.** Um token de teste representa uma sessão que
+   * já entrou; deixá-lo sem MFA faria toda escrita de administrador nas 37 suítes
+   * depender da carência, e a suíte passaria a medir o relógio em vez do que
+   * pretende. Quem exercita o gate diz `mfaEnabled: false` explicitamente. `null` é a
+   * terceira posição: o template do Clerk sem o claim.
+   */
+  mfaEnabled?: boolean | null
 }): string {
   const token = `tok_${randomBytes(8).toString('hex')}`
   tokens.set(token, {
     clerkUserId: claims.clerkUserId,
     clerkOrgId: claims.clerkOrgId ?? null,
     permVersion: claims.permVersion ?? null,
+    mfaEnabled: claims.mfaEnabled === undefined ? true : claims.mfaEnabled,
     expiresAt: Math.floor(Date.now() / 1000) + 3600,
   })
   return token
@@ -236,7 +246,20 @@ export async function seedMember(
     },
   })
   const membership = await ownerPrisma.membership.create({
-    data: { tenantId, userId: user.id, roleKey, status: 'ACTIVE' },
+    data: {
+      tenantId,
+      userId: user.id,
+      roleKey,
+      status: 'ACTIVE',
+      /**
+       * MOD-SEC-03 — o mesmo prazo que o produto concede a quem vira administrador.
+       *
+       * Sem isto, todo `TENANT_ADMIN` semeado nasceria com a coluna nula, que é o
+       * estado de "sem prazo" — e as escritas das outras 37 suítes passariam a
+       * depender do claim de MFA do token em vez do que cada uma pretende provar.
+       */
+      mfaGraceUntil: roleKey === 'TENANT_ADMIN' ? new Date(Date.now() + 7 * 86_400_000) : null,
+    },
   })
   return { userId: user.id, clerkUserId, membershipId: membership.id }
 }
@@ -290,7 +313,23 @@ export interface TenantRef {
 
 export interface Caller {
   clerkUserId: string
-  clerkOrgId: string
+  /**
+   * A Organization ativa no token — o tenant.
+   *
+   * `null` é um estado legítimo, e não a ausência de um dado: é quem está autenticado
+   * e ainda não é membro de estabelecimento nenhum. O MOD-IDENT tem três rotas que só
+   * existem para essa pessoa (criar o primeiro tenant, espiar um convite, aceitá-lo), e
+   * `resolveSession` trata o caso desde sempre. Antes da fatia 7 nenhum teste do
+   * gateway precisava expressá-lo.
+   */
+  clerkOrgId: string | null
+  /**
+   * O claim de segundo fator (MOD-SEC-01).
+   *
+   * Ausente quer dizer `true`, que é o estado de quem já entrou. Quem exercita o gate
+   * do MOD-SEC-02 diz `false` — ou `null`, para o template do Clerk sem o claim.
+   */
+  mfaEnabled?: boolean | null
 }
 
 export interface InjectOptions extends Caller {
@@ -307,7 +346,11 @@ export interface InjectOptions extends Caller {
  * onde antes iam os seis headers assinados com HMAC do contrato gateway→serviço.
  */
 export function authHeaders(caller: Caller): Record<string, string> {
-  const token = givenToken({ clerkUserId: caller.clerkUserId, clerkOrgId: caller.clerkOrgId })
+  const token = givenToken({
+    clerkUserId: caller.clerkUserId,
+    clerkOrgId: caller.clerkOrgId,
+    ...(caller.mfaEnabled !== undefined ? { mfaEnabled: caller.mfaEnabled } : {}),
+  })
   return { authorization: `Bearer ${token}` }
 }
 

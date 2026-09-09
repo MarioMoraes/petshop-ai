@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import { getPrisma, setDbLogger } from '@petshop/db'
-import { verifyServiceHeaders, type ServiceAuthContext } from '@petshop/service-auth'
+import { SERVICE_HEADERS, verifyServiceHeaders, type ServiceAuthContext } from '@petshop/service-auth'
 import { AppError, MAX_PHOTOS_PER_UPLOAD, MAX_PHOTO_BYTES } from '@petshop/shared-types'
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
 import { InvalidTokenError, verifySessionToken } from './auth/clerk-token.js'
@@ -11,6 +11,7 @@ import { resolveSession } from './auth/session.js'
 import { listFromEnv, loadEnv } from './config/env.js'
 import { registerModules } from './gateway/routes.js'
 import { registerErrorHandler } from './shared/errors.js'
+import { recordSecurityEvent } from './shared/security-events.js'
 import { logger, loggerOptions } from './shared/logger.js'
 import { isPortalPath, proxyRequest, resolveTarget } from './proxy.js'
 
@@ -86,7 +87,6 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // SPEC §7.3 — rate limit por IP e por tenant/usuário.
   await app.register(rateLimit, {
-    max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW_MS,
     /**
      * A superfície anônima fica **fora** deste balde, e a razão é o formato do
@@ -101,9 +101,26 @@ export async function buildApp(): Promise<FastifyInstance> {
      */
     allowList: (request: FastifyRequest) => {
       const path = request.url.split('?')[0] ?? ''
-      return path.startsWith(PUBLIC_PREFIX) || path.startsWith(WEBHOOK_PREFIX)
+      return path.startsWith(PUBLIC_PREFIX)
     },
+    /**
+     * MOD-SEC-09 — o webhook tem teto próprio, e mais folgado.
+     *
+     * Ele estava inteiramente **fora** do balde até a Fase 7, e a assinatura era a
+     * defesa inteira: nada limitava quantas assinaturas inválidas alguém podia tentar
+     * por segundo. O teto é maior que o do Admin porque provedor legítimo entrega em
+     * rajada — a Evolution empurra um QR novo a cada ~45s durante o pareamento, e o
+     * Resend agrupa retornos de entrega. Estreitá-lo até o teto do Admin transformaria
+     * um pareamento normal em 429.
+     */
+    max: (_request: FastifyRequest, key: string) =>
+      key.startsWith('webhook:') ? env.WEBHOOK_RATE_LIMIT_MAX : env.RATE_LIMIT_MAX,
     keyGenerator: (request: FastifyRequest) => {
+      const path = request.url.split('?')[0] ?? ''
+      // Prefixo no lugar de uma configuração separada: o `@fastify/rate-limit` é um
+      // registro só, e o que separa os baldes é a chave.
+      if (path.startsWith(WEBHOOK_PREFIX)) return `webhook:${request.ip}`
+
       const tenantId = request.authContext?.tenantId
       const userId = request.authContext?.clerkUserId
       if (tenantId && userId) return `${tenantId}:${userId}`
@@ -125,7 +142,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (path.startsWith(WEBHOOK_PREFIX)) return
     if (request.method === 'OPTIONS') return
 
-    const internal = resolveInternalRequest(request)
+    const internal = await resolveInternalRequest(request)
     const context = internal
       ? internal
       : isPortalPath(path)
@@ -217,7 +234,9 @@ export async function buildApp(): Promise<FastifyInstance> {
  * **Some com a última fatia.** Quando nenhum serviço sobrar, não há mais quem assine,
  * e esta função sai junto com o `proxy.ts`.
  */
-function resolveInternalRequest(request: FastifyRequest): ServiceAuthContext | null {
+async function resolveInternalRequest(
+  request: FastifyRequest,
+): Promise<ServiceAuthContext | null> {
   const result = verifyServiceHeaders(request.headers, loadEnv().INTERNAL_SERVICE_SECRET)
   if (result.ok) return result.context
 
@@ -228,7 +247,68 @@ function resolveInternalRequest(request: FastifyRequest): ServiceAuthContext | n
   // divergente entre serviços, ou tentativa de forjar. Nenhuma delas deve virar
   // silenciosamente uma tentativa de ler token que não existe.
   request.log.warn({ reason: result.reason, path: request.url }, 'assinatura de serviço inválida')
+
+  /**
+   * AC-02 de MOD-SEC-07 — a recusa vira registro, e não só uma linha de log.
+   *
+   * `tenantId` é `null` porque não há tenant a atribuir: a assinatura era justamente o
+   * que diria de quem se trata, e ela não vale. A linha é da instalação e só a
+   * plataforma a enxerga.
+   *
+   * **Com `await`**, e é o que torna esta função assíncrona: uma requisição recusada
+   * devolve a resposta em milissegundos, e um registro disparado sem espera perderia a
+   * corrida com o fim do processo numa réplica encerrando. O helper já engole a própria
+   * falha, então esperar não acrescenta modo de erro nenhum.
+   *
+   * **Quem impede que isto vire amplificação de escrita é o balde de `/internal/`**
+   * (MOD-SEC-09), registrado acima e portanto executado antes deste hook: sem ele,
+   * assinatura inválida em rajada encheria `security_events` de graça. As demais rotas
+   * já estavam no balde do Admin.
+   */
+  await recordSecurityEvent({
+    tenantId: null,
+    type: 'WEBHOOK_SIGNATURE_INVALID',
+    targetEntity: 'internal_request',
+    targetId: request.url.split('?')[0] ?? null,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'] ?? null,
+    metadata: { reason: result.reason, method: request.method },
+  })
+
   throw new AppError('ERR_IDENT_005', 'Requisição não autenticada')
+}
+
+/**
+ * AC-01 de MOD-SEC-07 — o cliente que se declara de outro estabelecimento.
+ *
+ * O `proxy.ts` **descarta** os headers `x-petshop-*` que chegam de fora antes de
+ * encaminhar, e é isso que torna a tentativa inofensiva. Só que descartar em silêncio
+ * também a torna invisível: alguém pode varrer a instalação a semana inteira mandando
+ * `x-petshop-tenant-id` de terceiros e não deixar rastro nenhum.
+ *
+ * Uma requisição legítima **nunca** carrega esse header pela porta de fora — quem o
+ * envia com assinatura válida entra por `resolveInternalRequest`, que retorna antes
+ * daqui. Então a presença dele já é a anomalia; o `!==` só separa o engano de
+ * configuração da tentativa de alcançar outro tenant.
+ */
+async function auditForgedTenantHeader(
+  request: FastifyRequest,
+  context: ServiceAuthContext,
+): Promise<void> {
+  const raw = request.headers[SERVICE_HEADERS.tenantId]
+  const claimed = (Array.isArray(raw) ? raw[0] : raw)?.trim()
+  if (!claimed || claimed === context.tenantId) return
+
+  await recordSecurityEvent({
+    tenantId: context.tenantId ?? null,
+    type: 'CROSS_TENANT_ATTEMPT',
+    actorUserId: context.userId ?? null,
+    targetEntity: 'tenant',
+    targetId: claimed,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'] ?? null,
+    metadata: { path: request.url.split('?')[0], method: request.method },
+  })
 }
 
 /**
@@ -241,7 +321,14 @@ function resolveInternalRequest(request: FastifyRequest): ServiceAuthContext | n
  */
 async function resolveAdminRequest(request: FastifyRequest, path: string) {
   const claims = await verifyBearer(request, path)
-  const { context } = await resolveSession(claims, request.method)
+  const { context, mfa } = await resolveSession(claims, {
+    method: request.method,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'] ?? null,
+  })
+  request.mfa = mfa
+
+  await auditForgedTenantHeader(request, context)
 
   if (context.tutorId) {
     request.log.warn({ path, tutorId: context.tutorId }, 'sessão de tutor barrada fora do Portal')

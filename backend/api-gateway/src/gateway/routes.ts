@@ -8,12 +8,14 @@ import type { FastifyInstance } from 'fastify'
 import { registerPublicSiteRoutes, registerSiteRoutes } from '../modules/site/routes.js'
 import { registerCatalogRoutes } from '../modules/catalog/routes.js'
 import { registerCrmRoutes } from '../modules/crm/routes.js'
+import { registerIdentityRoutes } from '../modules/identity/routes.js'
 import {
   registerEmailWebhookRoutes,
   registerMessagingRoutes,
   registerWhatsappWebhookRoutes,
 } from '../modules/messaging/routes.js'
 import { registerPetRoutes } from '../modules/pets/routes.js'
+import { registerSecurityRoutes } from '../modules/security/routes.js'
 import { registerPhotoRoutes } from '../modules/photos/routes.js'
 import { registerTaxiRoutes } from '../modules/taxi/routes.js'
 import { registerTermRoutes } from '../modules/terms/routes.js'
@@ -41,6 +43,8 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerMessagingModule(app)
   await registerPetModule(app)
   await registerTutorModule(app)
+  await registerIdentityModule(app)
+  await registerSecurityModule(app)
 }
 
 /**
@@ -172,5 +176,40 @@ async function registerTutorModule(app: FastifyInstance): Promise<void> {
     registerModuleAuth(scope)
     await registerTutorRoutes(scope)
     await registerTermRoutes(scope)
+  })
+}
+
+/**
+ * MOD-IDENT — a identidade, o tenant e a equipe.
+ *
+ * Registrado **por último**, e a ordem não é estética: o módulo declara
+ * `/v1/tenants/…` e `/v1/memberships/…`, prefixos que nenhum outro toca, mas também o
+ * `/v1/roles` e o `/v1/me`, que são a raiz de tudo o que o frontend pergunta primeiro.
+ * Deixá-los depois dos módulos de domínio garante que uma rota de domínio com o mesmo
+ * prefixo apareça no boot como conflito do Fastify, e não como uma rota que some.
+ *
+ * Escopo autenticado, como os demais — mas aqui vale reler o que o hook faz e o que
+ * não faz: `registerModuleAuth` exige **sessão**, nunca tenant. Três rotas do módulo
+ * existem para quem ainda não tem tenant nenhum, e é `requireTenantContext`, dentro de
+ * cada handler, que separa as duas coisas.
+ */
+async function registerIdentityModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerIdentityRoutes(scope)
+  })
+}
+
+/**
+ * MOD-SEC — a leitura da trilha e dos eventos de segurança.
+ *
+ * Escopo autenticado próprio, com duas rotas de leitura e nenhuma de escrita. O gate de
+ * MFA do módulo **não** mora aqui: ele roda em `auth/session.ts`, antes do roteamento,
+ * porque precisa valer também para as rotas que ainda são encaminhadas a outro processo.
+ */
+async function registerSecurityModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerSecurityRoutes(scope)
   })
 }

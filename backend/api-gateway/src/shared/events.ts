@@ -1,5 +1,6 @@
 import { createEventPublisher } from '@petshop/service-kit'
 import type {
+  IdentityEventMap,
   MessagingEventMap,
   PetEventMap,
   SiteEventMap,
@@ -25,7 +26,7 @@ import { logger } from './logger.js'
  */
 
 export const { publishEvent, closeEvents } = createEventPublisher<
-  SiteEventMap & TaxiEventMap & MessagingEventMap & PetEventMap & TutorEventMap
+  SiteEventMap & TaxiEventMap & MessagingEventMap & PetEventMap & TutorEventMap & IdentityEventMap
 >({
   logger,
   getUrl: () => loadEnv().RABBITMQ_URL,

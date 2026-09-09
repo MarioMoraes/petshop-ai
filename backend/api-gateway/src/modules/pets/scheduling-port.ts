@@ -11,7 +11,7 @@ import type { TenantTransaction } from '@petshop/db'
  * desde já; o que falta é a implementação, que hoje responde "nenhum agendamento".
  * Quando MOD-AGENDA chegar, é `setSchedulingPort` no `app.ts` e nada mais muda.
  *
- * Mesmo padrão da porta do Clerk no identity-service e da do ViaCEP no tutor-service.
+ * Mesmo padrão da porta do Clerk no MOD-IDENT e da do ViaCEP no MOD-TUTOR.
  */
 
 export interface FutureAppointment {

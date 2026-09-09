@@ -1,4 +1,5 @@
 import { AppError, type FieldError } from '@petshop/shared-types'
+import { TenantContextMissingError } from '@petshop/db'
 import {
   registerErrorHandler as registerKitErrorHandler,
   zodToFieldErrors,
@@ -7,6 +8,7 @@ import type { FastifyInstance } from 'fastify'
 import type { ZodError } from 'zod'
 import { translateMultipartLimit } from '../modules/pets/errors.js'
 import { logger } from './logger.js'
+import { recordSecurityEvent } from './security-events.js'
 
 /**
  * O error handler do processo — **um só**, no nível do app.
@@ -61,6 +63,33 @@ function rateLimitBranch(error: unknown): AppError | null {
 }
 
 /**
+ * AC-03 de MOD-SEC-07 — a consulta que escapou do `withTenant`.
+ *
+ * **É o mais grave dos três eventos**, e o mais fácil de não perceber: significa que uma
+ * consulta alcançou tabela com RLS sem contexto, e o isolamento foi a última linha de
+ * defesa em vez da segunda. O `service-kit` já o traduz em 404 e loga em nível de erro;
+ * o que faltava era a linha em `security_events`, que é onde o padrão fica visível.
+ *
+ * O ramo **devolve `null` de propósito**: ele observa e deixa o erro seguir para a
+ * tradução de sempre. Traduzi-lo aqui duplicaria a decisão de responder 404, que é do
+ * kit e precisa continuar sendo.
+ *
+ * `tenantId` é `null` porque, por definição deste erro, não havia contexto de tenant.
+ */
+function observeMissingTenantContext(error: unknown): AppError | null {
+  if (!(error instanceof TenantContextMissingError)) return null
+
+  void recordSecurityEvent({
+    tenantId: null,
+    type: 'TENANT_CONTEXT_MISSING',
+    targetEntity: 'query',
+    targetId: error.message.slice(0, 200),
+  })
+
+  return null
+}
+
+/**
  * Os ramos de tradução que os módulos trazem.
  *
  * Um erro que só um módulo conhece — o estouro de limite do `@fastify/multipart`, que
@@ -68,7 +97,7 @@ function rateLimitBranch(error: unknown): AppError | null {
  * serviço tinha o seu handler, cada um registrava os seus; com um handler só, a lista
  * é montada aqui, e um módulo novo que precise de tradução própria acrescenta uma linha.
  */
-const MODULE_BRANCHES = [translateMultipartLimit]
+const MODULE_BRANCHES = [observeMissingTenantContext, translateMultipartLimit]
 
 export function registerErrorHandler(app: FastifyInstance): void {
   registerKitErrorHandler(app, {

@@ -28,16 +28,9 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    * Some um por fatia. Quando a lista esvaziar, o `proxy.ts` inteiro sai junto — é o
    * marcador de progresso da consolidação.
    */
-  IDENTITY_SERVICE_URL: z.string().url().default('http://localhost:3001'),
   MEDICAL_RECORD_SERVICE_URL: z.string().url().default('http://localhost:3005'),
   SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3006'),
   BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3007'),
-  /**
-   * Destino do encaminhamento **e** do salto do MOD-CRM: o módulo decide quem recebe
-   * a mensagem e pede ao messaging-service que entregue (§5 do PRD). Quando o
-   * messaging migrar, o salto vira chamada de função e sobra só o encaminhamento.
-   */
-  MESSAGING_SERVICE_URL: z.string().url().default('http://localhost:3010'),
   PORTAL_BFF_URL: z.string().url().default('http://localhost:3020'),
 
   /**
@@ -130,6 +123,59 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    * qualquer concorrente (AC-03). O painel do Resend o entrega no formato `whsec_…`.
    */
   RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+  // ---- MOD-IDENT (fatia 7 da consolidação) ----
+
+  /** Duração do trial (questão 3 do PRD §11; assumido 14 dias). */
+  TRIAL_DAYS: z.coerce.number().int().positive().default(14),
+  /** AC-03 de MOD-IDENT-01: 5 tentativas antes de PROVISIONING_FAILED. */
+  PROVISIONING_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  /**
+   * `PROVISIONING_RETRY_INTERVAL_MS` **não** veio junto, e a ausência é deliberada: ela
+   * era do `setInterval` que o `@petshop/job-scheduler` substituiu, e já não era lida
+   * por ninguém já quando isto era serviço à parte. A cadência mora na expressão cron de
+   * `worker/identity-jobs.ts`; trazê-la daria a impressão de que dá para ajustar o
+   * intervalo pelo ambiente, e não dá.
+   */
+
+  /**
+   * Base pública do frontend, para montar o link do convite (MOD-IDENT-06).
+   *
+   * **Não é o `APP_DOMAIN`.** Aquele é o domínio nu, de que o Portal deriva o host de
+   * cada tenant para conferir o `authorizedParties`; este é a URL completa, com
+   * esquema, que entra num e-mail que uma pessoa vai clicar. Eram duas variáveis nos
+   * dois serviços e continuam sendo duas.
+   */
+  APP_URL: z.string().url().default('http://localhost:3002'),
+  /** AC-01 de MOD-IDENT-06: o convite vale 7 dias. */
+  INVITATION_TTL_DAYS: z.coerce.number().int().positive().default(7),
+
+  // ---- MOD-SEC (Fase 7) ----
+
+  /**
+   * MOD-SEC-03 — dias de carência para o administrador ligar o segundo fator.
+   *
+   * Sete é uma semana de trabalho: quem abre o Admin em qualquer dia útil vê o aviso
+   * antes de ser barrado. O valor entra na coluna `mfa_grace_until` no momento em que o
+   * papel é atribuído, então mudá-lo aqui **não** move prazo já concedido.
+   */
+  MFA_GRACE_DAYS: z.coerce.number().int().min(0).default(7),
+
+  /** MOD-SEC-08 — retenção da trilha e dos eventos de segurança. */
+  AUDIT_RETENTION_MONTHS: z.coerce.number().int().positive().default(24),
+  /** Linhas por lote do expurgo. Um DELETE único sobre dois anos segura o lock. */
+  AUDIT_RETENTION_BATCH: z.coerce.number().int().positive().default(5_000),
+  /** Teto de tempo por execução do expurgo. O que sobrar fica para amanhã. */
+  AUDIT_RETENTION_MAX_MS: z.coerce.number().int().positive().default(5 * 60_000),
+
+  /**
+   * MOD-SEC-09 — teto do balde de `/internal/`.
+   *
+   * Mais folgado que o do Admin porque provedor legítimo entrega em rajada: a Evolution
+   * empurra um QR novo a cada ~45s durante o pareamento, e o Resend agrupa retornos de
+   * entrega. Estreitá-lo até o teto do Admin transformaria um pareamento normal em 429.
+   */
+  WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),
 })
 
 export type Env = ReturnType<typeof loadEnv>

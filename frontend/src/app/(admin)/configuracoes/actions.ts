@@ -16,6 +16,8 @@ import {
   type ManagedBreed,
   type TenantResponse,
   type TenantSettings,
+  type AuditLogPage,
+  type SecurityEventPage,
   type TermVersionView,
 } from '@petshop/shared-types'
 import { z } from 'zod'
@@ -112,7 +114,7 @@ export async function saveContactAction(input: unknown): Promise<ActionResult<Te
  * Preenchimento por CEP, reaproveitando a mesma rota do MOD-TUTOR
  * (`/v1/tutors/cep-lookup`, protegida por `tutor:read`, que o admin tem).
  *
- * Não vale a pena um segundo endpoint no identity-service: é a mesma consulta, com o
+ * Não vale a pena um segundo endpoint no MOD-IDENT: é a mesma consulta, com o
  * mesmo cache de 24h e a mesma porta injetável. `null` quando o CEP não existe ou o
  * ViaCEP está fora — os dois dão no mesmo para quem está preenchendo, que segue no
  * braço.
@@ -293,6 +295,37 @@ export async function resolveDeletionRequestAction(
     revalidatePath('/configuracoes')
     revalidatePath('/dashboard')
     return { ok: true, data: pedido }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── MOD-SEC-06 — a aba Segurança ──────────────────────────────────────────
+
+/**
+ * Uma página da trilha.
+ *
+ * **Sem `revalidatePath`.** As duas ações abaixo só leem; revalidar aqui derrubaria o
+ * cache da tela inteira toda vez que alguém clicasse em "Carregar mais", e recarregaria
+ * as configurações, os termos e a fila de exclusão junto — para trocar de página numa
+ * lista.
+ */
+export async function loadAuditPageAction(input: {
+  from?: string
+  cursor?: string
+}): Promise<ActionResult<AuditLogPage>> {
+  try {
+    return { ok: true, data: await serverApi().listAuditLogs(input) }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function loadSecurityEventsAction(input: {
+  from?: string
+}): Promise<ActionResult<SecurityEventPage>> {
+  try {
+    return { ok: true, data: await serverApi().listSecurityEvents(input) }
   } catch (error) {
     return toFailure(error)
   }

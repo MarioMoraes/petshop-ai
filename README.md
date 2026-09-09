@@ -3,7 +3,9 @@
 Micro-SaaS multi-tenant para petshops. Monorepo com frontend, microserviços e pacotes
 compartilhados, conforme `SPEC.md`.
 
-**Estado:** Fase 1 — Cadastros Core.
+**Estado:** Fase 6 concluída (documentos e notificações). O backend está em
+consolidação: os doze microserviços do SPEC estão virando módulos de um processo só —
+ver a seção "Backend" do `CLAUDE.md`.
 
 - `docs/prd/identidade_tenancy_01.md` — MOD-IDENT-01 (provisionamento), 02 (onboarding),
   04 (RBAC) e 07 (isolamento RLS).
@@ -22,15 +24,17 @@ pnpm db:migrate && pnpm db:seed
 pnpm dev
 ```
 
-| Serviço | Porta | O que faz |
+| Processo | Porta | O que faz |
 |---|---|---|
-| api-gateway | 3000 | Valida o token do Clerk, resolve tenant e permissões, encaminha aos serviços |
-| identity-service | 3001 | Tenants, onboarding, RBAC, auditoria |
-| frontend | 3002 | Admin do tenant (Next.js) |
-| tutor-service | 3003 | Tutores, endereços, consentimento, tags e deduplicação |
+| api-gateway | 3000 | O backend: token do Clerk, tenant, permissões, os módulos já consolidados e o encaminhamento do que falta |
+| frontend | 3002 | Admin, Portal do Tutor e site do estabelecimento (Next.js) |
+| medical-record-service | 3005 | Prontuário — ainda não migrado |
+| scheduling-service | 3006 | Agenda e operação — ainda não migrado |
+| billing-ledger-service | 3007 | Conta corrente do tutor — ainda não migrado |
+| portal-bff | 3020 | A superfície do cliente final — ainda não migrado |
 
-O PRD do MOD-TUTOR aponta a porta 3002 para o tutor-service, mas ela já é do frontend;
-o serviço ficou em 3003 e o gateway resolve por `TUTOR_SERVICE_URL`.
+A lista de `*_SERVICE_URL` em `backend/api-gateway/src/config/env.ts` é o marcador de
+progresso da consolidação: some uma a cada fatia.
 
 Para o login funcionar no navegador é preciso preencher as chaves do Clerk —
 ver **[docs/setup-clerk.md](docs/setup-clerk.md)**. A suíte de testes não depende
@@ -45,8 +49,8 @@ pnpm test
 ```
 
 Os testes de banco sobem contra o Postgres do `docker compose`, cada pacote no seu
-próprio banco (`petshop_test_db`, `petshop_test_identity`, `petshop_test_gateway`,
-`petshop_test_tutor`), criado automaticamente na primeira execução.
+próprio banco (`petshop_test_db`, `petshop_test_gateway`, e um por serviço ainda não
+migrado), criado automaticamente na primeira execução.
 
 Para conferir o isolamento RLS à mão, conectado como a role da aplicação e **sem**
 contexto de tenant — deve devolver zero linhas:
@@ -59,9 +63,9 @@ docker exec petshop-postgres psql -U app_user -d petshop -c "SELECT count(*) FRO
 
 ```
 backend/
-  api-gateway/          Entrada única: autenticação, RBAC, rate limit, proxy
-  identity-service/     Tenants, onboarding, papéis e permissões, auditoria
-  tutor-service/        Tutores: cadastro, dedupe, endereço, consentimento e tags
+  api-gateway/          O backend: autenticação, RBAC, rate limit, os módulos e o proxy
+    src/modules/        Um diretório por módulo consolidado (identity, tutors, pets, …)
+    src/worker/         Consumidores de evento e a grade de jobs de todos os módulos
 packages/
   shared-types/         Schemas Zod, matriz de permissões, catálogo de erros, eventos
   db/                   Prisma, migrations, RLS, criptografia de PII, suporte a testes

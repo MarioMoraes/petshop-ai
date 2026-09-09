@@ -238,6 +238,11 @@ import {
   type UpdateTenantSettingsInput,
   type CreatePrescriptionInput,
   type UpdateTutorInput,
+  AuditLogPageSchema,
+  SecurityEventPageSchema,
+  SecurityEventSummaryResponseSchema,
+  type AuditLogQuery,
+  type SecurityEventQuery,
 } from '@petshop/shared-types'
 import { z, type ZodType } from 'zod'
 
@@ -1025,6 +1030,42 @@ export function createApiClient(options: ApiClientOptions) {
         path: `/v1/attendances/${id}/void`,
         body: input,
         schema: AttendanceSchema,
+      }),
+
+    // ─── Segurança e compliance (MOD-SEC-04 e 05) ──────────────────────────
+
+    /**
+     * A trilha de auditoria do estabelecimento.
+     *
+     * Paginada por cursor, e sem total: contar dois anos de trilha a cada abertura de
+     * tela é uma varredura por curiosidade. A janela máxima é de 92 dias por consulta.
+     */
+    listAuditLogs: (query: Partial<AuditLogQuery> = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/audit-logs${toQueryString(query)}`,
+        schema: AuditLogPageSchema,
+      }),
+
+    listSecurityEvents: (query: Partial<Omit<SecurityEventQuery, 'summary'>> = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/security-events${toQueryString(query)}`,
+        schema: SecurityEventPageSchema,
+      }),
+
+    /**
+     * A contagem por tipo no período.
+     *
+     * É o que a tela mostra antes de alguém pedir o detalhe: uma linha isolada de
+     * `PERMISSION_DENIED` não diz nada, e trinta num dia dizem que alguém está tentando
+     * chegar onde não deve.
+     */
+    summarizeSecurityEvents: (query: Partial<Omit<SecurityEventQuery, 'summary'>> = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/security-events${toQueryString({ ...query, summary: true })}`,
+        schema: SecurityEventSummaryResponseSchema,
       }),
 
     // ─── Termos versionados e aceites (MOD-DOC-06, 07 e 08) ────────────────

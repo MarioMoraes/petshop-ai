@@ -62,6 +62,27 @@ describe('autenticação', () => {
     expect(response.json().service).toBe('petshop-app')
   })
 
+  /**
+   * O que a fatia 7 mudou de lugar.
+   *
+   * As seis famílias de rota do MOD-IDENT saíam do processo até aqui. A asserção se
+   * inverte a cada fatia — de "vai para o serviço X" para "não sai" — e é assim que
+   * deve ser: é o único sinal de que o encaminhamento sumiu de fato, e não que a rota
+   * sumiu junto.
+   */
+  it('as rotas de identidade não saem mais do processo', async () => {
+    const tenant = await seedTenant('rotaident')
+    const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
+    const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
+
+    const antes = echoed.length
+    for (const url of ['/v1/me', '/v1/roles', '/v1/memberships', '/v1/invitations']) {
+      const response = await call({ url, token })
+      expect(response.statusCode).toBe(200)
+    }
+    expect(echoed.length).toBe(antes)
+  })
+
   it('a busca de tutores é atendida aqui; o pacote dele, ainda encaminhado', async () => {
     const tenant = await seedTenant('rotatutor')
     const member = await seedMember(tenant.tenantId, 'RECEPTIONIST')
@@ -213,7 +234,7 @@ describe('propagação do contexto ao serviço', () => {
       permVersion: 1,
     })
 
-    const response = await call({ url: '/v1/memberships', token })
+    const response = await call({ url: '/v1/professionals', token })
     expect(response.statusCode).toBe(200)
 
     const forwarded = lastEchoed()
@@ -234,7 +255,7 @@ describe('propagação do contexto ao serviço', () => {
     const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
-    await call({ url: '/v1/roles', token })
+    await call({ url: '/v1/professionals', token })
 
     // O serviço de destino nunca vê o token do usuário.
     expect(lastEchoed().headers.authorization).toBeUndefined()
@@ -248,7 +269,7 @@ describe('propagação do contexto ao serviço', () => {
 
     // O cliente tenta se declarar admin de outro tenant.
     await call({
-      url: '/v1/roles',
+      url: '/v1/professionals',
       token,
       headers: {
         [SERVICE_HEADERS.tenantId]: outro.tenantId,
@@ -270,12 +291,7 @@ describe('propagação do contexto ao serviço', () => {
   it('encaminha sem tenant quando o usuário ainda não tem Organization', async () => {
     const token = givenToken({ clerkUserId: 'user_novo', clerkOrgId: null })
 
-    const response = await call({
-      method: 'POST',
-      url: '/v1/tenants',
-      token,
-      payload: { name: 'Petshop Novo', slug: 'petshopnovo' },
-    })
+    const response = await call({ url: '/v1/professionals', token })
     expect(response.statusCode).toBe(200)
 
     const verified = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
@@ -291,14 +307,14 @@ describe('propagação do contexto ao serviço', () => {
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
     await call({
-      method: 'PATCH',
-      url: '/v1/tenants/me',
+      method: 'POST',
+      url: '/v1/services',
       token,
-      payload: { name: 'Novo Nome' },
+      payload: { name: 'Banho Novo' },
     })
 
     const forwarded = lastEchoed()
-    expect(forwarded.body).toEqual({ name: 'Novo Nome' })
+    expect(forwarded.body).toEqual({ name: 'Banho Novo' })
     expect(forwarded.headers['x-request-id']).toBeTruthy()
   })
 })
@@ -315,7 +331,7 @@ describe('AC-03 de MOD-IDENT-04 — papel alterado com sessão ativa', () => {
       permVersion: 1,
     })
 
-    const before = await call({ url: '/v1/roles', token })
+    const before = await call({ url: '/v1/professionals', token })
     expect(before.statusCode).toBe(200)
     const permissionsBefore = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
     expect(permissionsBefore.ok && permissionsBefore.context.permissions).toContain('tutor:delete')
@@ -327,7 +343,7 @@ describe('AC-03 de MOD-IDENT-04 — papel alterado com sessão ativa', () => {
     })
 
     // Mesmo token de antes: o gateway detecta e aplica o papel novo.
-    const after = await call({ url: '/v1/roles', token })
+    const after = await call({ url: '/v1/professionals', token })
     expect(after.statusCode).toBe(200)
     const permissionsAfter = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
     expect(permissionsAfter.ok).toBe(true)
@@ -347,7 +363,7 @@ describe('AC-03 de MOD-IDENT-04 — papel alterado com sessão ativa', () => {
       data: { status: 'REMOVED' },
     })
 
-    await call({ url: '/v1/roles', token })
+    await call({ url: '/v1/professionals', token })
     const verified = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
     expect(verified.ok).toBe(true)
     if (!verified.ok) return
@@ -363,8 +379,8 @@ describe('RN-04 — tenant suspenso', () => {
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
     const response = await call({
-      method: 'PATCH',
-      url: '/v1/tenants/me',
+      method: 'POST',
+      url: '/v1/services',
       token,
       payload: { name: 'Tentativa' },
     })
@@ -379,7 +395,7 @@ describe('RN-04 — tenant suspenso', () => {
     const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
-    const response = await call({ url: '/v1/tenants/me', token })
+    const response = await call({ url: '/v1/professionals', token })
     expect(response.statusCode).toBe(200)
   })
 
@@ -389,8 +405,8 @@ describe('RN-04 — tenant suspenso', () => {
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
     const response = await call({
-      method: 'PATCH',
-      url: '/v1/tenants/me',
+      method: 'POST',
+      url: '/v1/services',
       token,
       payload: { name: 'Permitido' },
     })
@@ -661,5 +677,9 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
     // fatia 6 `/v1/tutors` é atendido aqui, então o que se prova é que ele **não** cai
     // no BFF do Portal.
     expect(resolveTarget('/v1/tutors')).toBeNull()
+    // E, desde a fatia 7, nenhuma rota de identidade tem destino.
+    for (const path of ['/v1/me', '/v1/roles', '/v1/memberships', '/v1/invitations', '/v1/tenants']) {
+      expect(resolveTarget(path)).toBeNull()
+    }
   })
 })

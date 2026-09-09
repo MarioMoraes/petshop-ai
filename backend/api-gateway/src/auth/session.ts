@@ -3,10 +3,13 @@ import {
   listUserMemberships,
   resolveEffectivePermissions,
   resolveTenantByClerkOrgId,
+  withTenant,
 } from '@petshop/db'
-import { AppError, type PermissionKey, type RoleKey } from '@petshop/shared-types'
+import { AppError, type MfaState, type PermissionKey, type RoleKey } from '@petshop/shared-types'
 import type { ServiceAuthContext } from '@petshop/service-auth'
 import { logger, recordMetric } from '../shared/logger.js'
+import { recordSecurityEvent } from '../shared/security-events.js'
+import { mfaRequired } from '../modules/security/errors.js'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../shared/redis.js'
 import type { SessionClaims } from './clerk-token.js'
 
@@ -38,15 +41,43 @@ interface CachedPermissions {
 const BLOCKED_STATUSES = new Set(['SUSPENDED', 'TERMINATED'])
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
+/**
+ * RN-01 de MOD-SEC — o único papel a que a exigência de MFA se aplica.
+ *
+ * É política da plataforma, e não configuração de tenant: uma proteção que o cliente
+ * pode desligar fica desligada. E é só o administrador porque é o único papel que
+ * anonimiza cliente, movimenta a conta corrente e convida gente — exigir de toda a
+ * recepção multiplicaria o suporte sem mudar o que alguém faz com uma conta tomada.
+ */
+const MFA_REQUIRED_ROLES = new Set<RoleKey>(['TENANT_ADMIN'])
+
 export interface ResolveSessionResult {
   context: ServiceAuthContext
   tenantStatus: string | null
+  /**
+   * O estado de MFA desta sessão (MOD-SEC-02 AC-04).
+   *
+   * **Fica fora do `ServiceAuthContext` de propósito.** Aquele é o contrato assinado
+   * que atravessa para os serviços ainda não migrados, e o segundo fator é uma
+   * condição da **porta**, verificada aqui, antes de qualquer roteamento. Um serviço
+   * atrás dela não tem decisão a tomar com esse dado, e acrescentá-lo ao payload
+   * canônico mudaria a assinatura HMAC sem que ninguém a lesse.
+   */
+  mfa: MfaState
+}
+
+/** De onde a requisição veio — prova de origem para o evento de segurança. */
+export interface RequestOrigin {
+  method: string
+  ipAddress?: string | null
+  userAgent?: string | null
 }
 
 export async function resolveSession(
   claims: SessionClaims,
-  method: string,
+  origin: RequestOrigin,
 ): Promise<ResolveSessionResult> {
+  const { method } = origin
   const userId = await resolveLocalUserId(claims.clerkUserId)
 
   const context: ServiceAuthContext = {
@@ -59,7 +90,7 @@ export async function resolveSession(
     // Usuário autenticado sem Organization ativa: é o estado normal de quem ainda
     // vai criar o primeiro tenant (`POST /v1/tenants`).
     if (userId) await warnIfOrgClaimMissing(claims.clerkUserId, userId)
-    return { context, tenantStatus: null }
+    return { context, tenantStatus: null, mfa: notApplicable(claims) }
   }
 
   const tenant = await resolveTenant(claims.clerkOrgId)
@@ -67,7 +98,7 @@ export async function resolveSession(
     // Organization existe no Clerk mas não tem tenant local: provisionamento
     // incompleto. Segue sem tenant, e o serviço decide.
     logger.warn({ clerkOrgId: claims.clerkOrgId }, 'Organization sem tenant local')
-    return { context, tenantStatus: null }
+    return { context, tenantStatus: null, mfa: notApplicable(claims) }
   }
 
   if (BLOCKED_STATUSES.has(tenant.status) && !READ_METHODS.has(method)) {
@@ -90,7 +121,99 @@ export async function resolveSession(
     }
   }
 
-  return { context, tenantStatus: tenant.status }
+  const mfa = await resolveMfaState(claims, tenant.id, userId, context.role)
+  if (mfa.required && !mfa.enabled && !READ_METHODS.has(method) && graceExpired(mfa)) {
+    /**
+     * AC-06 de MOD-SEC-02 — a recusa vira evento de segurança, e **não** entra na
+     * trilha de auditoria: `audit_logs` registra o que mudou, e aqui nada mudou. Um
+     * administrador sem MFA clicando pela tela encheria a trilha de ruído e empurraria
+     * o expurgo para cima. Padrão de tentativa mora em `security_events`.
+     */
+    await recordSecurityEvent({
+      tenantId: tenant.id,
+      type: 'MFA_REQUIRED',
+      actorUserId: userId ?? null,
+      ipAddress: origin.ipAddress ?? null,
+      userAgent: origin.userAgent ?? null,
+      metadata: { method },
+    })
+    recordMetric({ metric: 'mfa_write_blocked', tenantId: tenant.id, value: 1, unit: 'count' })
+
+    // O catálogo é do módulo, e o host o importa — como já faz com o ramo de multipart
+    // do MOD-PET em `shared/errors.ts`. Escrever o código à mão aqui abriria a porta
+    // para ele divergir do que o §5 do PRD promete.
+    throw mfaRequired()
+  }
+
+  return { context, tenantStatus: tenant.status, mfa }
+}
+
+/** Sem tenant não há papel, e sem papel a exigência não se aplica. */
+function notApplicable(claims: SessionClaims): MfaState {
+  return { required: false, enabled: claims.mfaEnabled === true, graceEndsAt: null }
+}
+
+function graceExpired(mfa: MfaState): boolean {
+  return mfa.graceEndsAt === null || new Date(mfa.graceEndsAt).getTime() <= Date.now()
+}
+
+/**
+ * O estado de segundo fator desta sessão (MOD-SEC-01 e MOD-SEC-03).
+ *
+ * **A decisão sai do claim, nunca de `users.mfa_enabled`.** Aquele campo é espelho,
+ * gravado quando o `ensureLocalUser` sincroniza com o Clerk, e pode estar horas
+ * atrasado. Decidir por espelho velho barraria justamente quem acabou de fazer o que o
+ * produto pediu — o pior defeito que este gate pode ter.
+ *
+ * **A consulta ao membership só acontece no caminho de quem falta cumprir.** Papel que
+ * não é administrador, ou administrador já com segundo fator, sai daqui sem tocar no
+ * banco: o caminho quente do produto, que o SLO do PRD §10 mede em 15ms, não paga nada
+ * por este módulo. É também o que dispensa mexer no cache `perm:` — mudar a forma dele
+ * faria toda sessão quente de antes do deploy ler um campo que não existe.
+ */
+async function resolveMfaState(
+  claims: SessionClaims,
+  tenantId: string,
+  userId: string | undefined,
+  role: RoleKey | undefined,
+): Promise<MfaState> {
+  const enabled = claims.mfaEnabled === true
+  if (!role || !MFA_REQUIRED_ROLES.has(role)) {
+    return { required: false, enabled, graceEndsAt: null }
+  }
+
+  if (claims.mfaEnabled === null) {
+    // AC-02 de MOD-SEC-01: "não sei" libera, e grita. Zero é o único valor aceitável
+    // desta métrica — qualquer outro é o JWT template desatualizado.
+    logger.warn(
+      { clerkUserId: claims.clerkUserId, tenantId },
+      'token sem o claim `mfa` para papel administrativo — confira o JWT template `petshop` (docs/setup-clerk.md §3)',
+    )
+    recordMetric({ metric: 'mfa_claim_missing', tenantId, value: 1, unit: 'count' })
+    return { required: false, enabled: false, graceEndsAt: null }
+  }
+
+  if (enabled || !userId) return { required: true, enabled, graceEndsAt: null }
+
+  /**
+   * **Dentro de `withTenant`, e não em `getPrisma()` direto.** `memberships` tem RLS:
+   * a consulta crua responde `TenantContextMissingError`, que o handler traduz em 404 —
+   * e o sintoma seria o administrador sem segundo fator recebendo "não encontrado" em
+   * toda rota, inclusive nas de leitura. Foi assim que este defeito apareceu, e o que o
+   * denunciou foi o `TENANT_CONTEXT_MISSING` do MOD-SEC-07, ligado na mesma fatia.
+   */
+  const membership = await withTenant(tenantId, (tx) =>
+    tx.membership.findFirst({
+      where: { tenantId, userId, status: 'ACTIVE' },
+      select: { mfaGraceUntil: true },
+    }),
+  )
+
+  return {
+    required: true,
+    enabled: false,
+    graceEndsAt: membership?.mfaGraceUntil?.toISOString() ?? null,
+  }
 }
 
 /**
@@ -154,8 +277,8 @@ async function resolveLocalUserId(clerkUserId: string): Promise<string | undefin
     select: { id: true },
   })
   if (!user) {
-    // Primeiro acesso: o espelho local ainda não existe. O identity-service o cria
-    // sob demanda a partir do `clerkUserId` que segue nos headers.
+    // Primeiro acesso: o espelho local ainda não existe. Quem o cria sob demanda é
+    // o `ensureLocalUser` do MOD-IDENT, na primeira rota que precisar de um `userId`.
     return undefined
   }
 

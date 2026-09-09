@@ -28,6 +28,18 @@ export interface SessionClaims {
    * cache na troca de papel, que já basta — ver `resolvePermissions` em session.ts.
    */
   permVersion: number | null
+  /**
+   * `mfa` — publicado pelo JWT template a partir de `user.two_factor_enabled`
+   * (ver `docs/setup-clerk.md`). MOD-SEC-01.
+   *
+   * **`null` significa "não sei", e não "não tem".** Um template que ainda não declara
+   * o claim produz token válido sem ele, e tratar isso como ausência de segundo fator
+   * transformaria um deploy com template desatualizado em indisponibilidade total do
+   * Admin — sem nada no corpo da resposta que explicasse por quê. A exigência do
+   * MOD-SEC-02 só é aplicada sobre um `false` explícito; o `null` sai no log e na
+   * métrica `mfa_claim_missing`.
+   */
+  mfaEnabled: boolean | null
   expiresAt: number | null
 }
 
@@ -155,8 +167,23 @@ async function verifyWithClerk(
     clerkUserId: sub,
     clerkOrgId: typeof payload.org_id === 'string' ? payload.org_id : null,
     permVersion: readPermVersion(payload),
+    mfaEnabled: readMfa(payload),
     expiresAt: typeof payload.exp === 'number' ? payload.exp : null,
   }
+}
+
+/**
+ * Lê o claim de segundo fator, aceitando as duas formas que um template do Clerk
+ * produz: booleano de verdade, quando o valor vem de `{{user.two_factor_enabled}}`, e
+ * string, quando alguém o escreve entre aspas no editor de template. Qualquer outra
+ * coisa é `null` — inclusive o claim ausente.
+ */
+function readMfa(payload: Record<string, unknown>): boolean | null {
+  const value = payload.mfa
+  if (typeof value === 'boolean') return value
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return null
 }
 
 function readPermVersion(payload: Record<string, unknown>): number | null {

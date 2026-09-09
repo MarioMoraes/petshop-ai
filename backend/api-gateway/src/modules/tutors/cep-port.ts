@@ -7,7 +7,7 @@ import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../../shared/
 /**
  * Consulta de CEP (MOD-TUTOR-03, questão 2 do PRD §11 — decidido: ViaCEP).
  *
- * Atrás de uma porta injetável, como o Clerk no identity-service: é o que permite a
+ * Atrás de uma porta injetável, como o Clerk no MOD-IDENT: é o que permite a
  * suíte rodar sem rede e sem depender da disponibilidade de um serviço de terceiro.
  *
  * A resposta é cacheada por 24h: CEP praticamente não muda, e o ViaCEP não tem SLA.

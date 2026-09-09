@@ -76,6 +76,8 @@ enum SecurityEventType {
   TENANT_CONTEXT_MISSING
   WEBHOOK_SIGNATURE_INVALID
   LOGIN_FAILED
+  /// MOD-SEC-02 — escrita recusada por falta de segundo fator.
+  MFA_REQUIRED
 }
 
 /// Um petshop. Raiz do isolamento multi-tenant.
@@ -275,6 +277,17 @@ model Membership {
   invitedBy String?  @map("invited_by") @db.Uuid
   joinedAt  DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
 
+  /// MOD-SEC-03 — fim da carência para ligar o segundo fator.
+  ///
+  /// Não-nulo apenas em membership `TENANT_ADMIN`, o único papel a que a exigência se
+  /// aplica (RN-01). É escrito quando o **papel** é atribuído, e não quando a pessoa
+  /// entra: uma recepcionista promovida a administradora em março tem `joined_at` de
+  /// janeiro, e derivar o prazo dali a barraria no instante em que ganhou o papel.
+  ///
+  /// Ligar o MFA não limpa a coluna — ela registra o prazo que foi concedido, e
+  /// desligar o segundo fator depois não devolve prazo nenhum.
+  mfaGraceUntil DateTime? @map("mfa_grace_until") @db.Timestamptz(6)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -386,6 +399,11 @@ model AuditLog {
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([entity, entityId, createdAt(sort: Desc)])
+  /// MOD-SEC-04 — o filtro por ator da trilha.
+  @@index([tenantId, actorUserId, createdAt(sort: Desc)])
+  /// MOD-SEC-08 — o expurgo varre por data **sem** tenant: ele é cross-tenant por
+  /// definição, e um índice que começa por tenant não serve a essa varredura.
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
@@ -409,6 +427,8 @@ model SecurityEvent {
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([type, createdAt(sort: Desc)])
+  /// MOD-SEC-08 — o expurgo, pela mesma razão de `audit_logs`.
+  @@index([createdAt])
   @@map("security_events")
 }
 

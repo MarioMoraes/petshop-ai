@@ -11,9 +11,6 @@ impede migrar para orquestrador depois — as imagens são as mesmas.
 | `caddy` | 80, 443 | **sim** — o único |
 | `frontend` | 3002 | não |
 | `api-gateway` | 3000 | não |
-| `identity-service` | 3001 | não |
-| `tutor-service` | 3003 | não |
-| `pet-service` | 3004 | não |
 | `medical-record-service` | 3005 | não |
 | `scheduling-service` | 3006 | não |
 | `billing-ledger-service` | 3007 | não |

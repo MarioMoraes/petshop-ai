@@ -20,10 +20,22 @@ export const CACHE_KEYS = {
   tenantByOrg: (clerkOrgId: string) => `tenant:org:${clerkOrgId}`,
   tenantStatus: (tenantId: string) => `tenant:status:${tenantId}`,
   userByClerkId: (clerkUserId: string) => `user:clerk:${clerkUserId}`,
+
+  // ---- MOD-IDENT ----
+  tenantSettings: (tenantId: string) => `tenant:settings:${tenantId}`,
   /**
-   * Namespace `portal:` de propósito. O identity-service já declara um
-   * `tenant:slug:{slug}`, e duas chaves com o mesmo nome e formatos diferentes é o tipo
-   * de colisão que só aparece quando as duas estão quentes ao mesmo tempo.
+   * **Declarada e não usada, de propósito.** Veio assim do identity-service: nenhum
+   * caminho escreve ou lê `tenant:slug:`. Ela fica porque o namespace continua
+   * reservado — é o que o `portalTenantBySlug` logo abaixo evita colidir — e apagá-la
+   * faria a próxima pessoa a precisar de um cache por slug escolher justamente este
+   * nome, sem o aviso.
+   */
+  tenantSlug: (slug: string) => `tenant:slug:${slug}`,
+
+  /**
+   * Namespace `portal:` de propósito. O MOD-IDENT já declara um `tenant:slug:{slug}`
+   * logo acima, e duas chaves com o mesmo nome e formatos diferentes é o tipo de
+   * colisão que só aparece quando as duas estão quentes ao mesmo tempo.
    */
   portalTenantBySlug: (slug: string) => `portal:tenant:${slug}`,
   /**
@@ -33,8 +45,10 @@ export const CACHE_KEYS = {
    * no cache dele para poder apagar esta chave ao desvincular o acesso, com um
    * comentário pedindo que os dois ficassem em dia. Com o MOD-TUTOR aqui dentro, a
    * duplicata sumiu — sobrou uma declaração só, e o AC-05 de MOD-PORTAL-02 continua
-   * valendo antes do TTL. Ainda é contrato para o identity-service, que invalida
-   * `perm:` do lado dele.
+   * valendo antes do TTL. Com o MOD-IDENT dentro na fatia 7, o `perm:` também deixou
+   * de ser declarado em dois lugares: **nenhuma chave deste arquivo é mais contrato
+   * entre processos.** O que sobra são as réplicas, que compartilham o mesmo Redis —
+   * renomear continua sendo migração, não refino.
    */
   portalSession: (tenantId: string, userId: string) => `portal:session:${tenantId}:${userId}`,
 
@@ -102,6 +116,10 @@ export const CACHE_TTL_SECONDS = {
   tenantByOrg: 3600,
   tenantStatus: 60,
   userByClerkId: 300,
+
+  tenantSettings: 600,
+  tenantSlug: 3600,
+
   portalTenantBySlug: 3600,
   /**
    * Curto de propósito. É o mecanismo que substitui o `permVersion` na sessão do

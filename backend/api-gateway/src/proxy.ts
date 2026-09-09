@@ -124,17 +124,8 @@ export async function proxyRequest(
 }
 
 /**
- * Roteamento por prefixo. A tabela cresce à medida que os serviços do SPEC §2 chegam.
+ * Roteamento por prefixo. A tabela **encolhe** a cada fatia da consolidação.
  */
-const IDENTITY_PREFIXES = [
-  '/v1/tenants',
-  '/v1/memberships',
-  '/v1/invitations',
-  '/v1/roles',
-  '/v1/me',
-  '/v1/sessions',
-]
-
 // O catálogo de domínio (MOD-PET-03) mora no pet-service: espécie, raça, porte e
 // pelagem só existem para serem referenciados por um pet.
 // MOD-AGENDA. Prefixos distintos, sem sufixo a desempatar: `/v1/services` não colide
@@ -231,7 +222,6 @@ function matches(path: string, prefixes: string[]): boolean {
 export function resolveTarget(path: string): string | null {
   const env = loadEnv()
   if (isPortalPath(path)) return env.PORTAL_BFF_URL
-  if (matches(path, IDENTITY_PREFIXES)) return env.IDENTITY_SERVICE_URL
   if (isLedgerTutorPath(path)) return env.BILLING_LEDGER_SERVICE_URL
   if (isRecordPath(path)) return env.MEDICAL_RECORD_SERVICE_URL
   if (matches(path, ATTENDANCE_PREFIXES)) return env.MEDICAL_RECORD_SERVICE_URL

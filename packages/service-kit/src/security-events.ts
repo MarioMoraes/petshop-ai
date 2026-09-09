@@ -1,4 +1,4 @@
-import { withTenant, type SecurityEventType } from '@petshop/db'
+import { getMaintenancePrisma, withTenant, type SecurityEventType } from '@petshop/db'
 import type { Logger } from 'pino'
 import type { BusinessMetric } from './logger.js'
 
@@ -13,7 +13,16 @@ import type { BusinessMetric } from './logger.js'
  */
 
 export interface SecurityEventInput {
-  tenantId: string
+  /**
+   * O estabelecimento a que o evento pertence, ou `null` quando não há nenhum.
+   *
+   * `null` não é ausência de dado: é o evento **da instalação**. Uma assinatura de
+   * serviço forjada e uma consulta que escapou do `withTenant` acontecem antes de
+   * existir tenant a atribuir, e são justamente os dois casos mais graves. A linha é
+   * gravada por `app_maintenance`, fica invisível a todo tenant por RLS, e é a
+   * plataforma quem a lê.
+   */
+  tenantId: string | null
   type: SecurityEventType
   actorUserId?: string | null
   targetEntity?: string | null
@@ -32,21 +41,26 @@ export function createSecurityEvents(config: SecurityEventsConfig) {
   const { logger, recordMetric } = config
 
   return async function recordSecurityEvent(input: SecurityEventInput): Promise<void> {
+    const data = {
+      tenantId: input.tenantId,
+      type: input.type,
+      actorUserId: input.actorUserId ?? null,
+      targetEntity: input.targetEntity ?? null,
+      targetId: input.targetId ?? null,
+      ipAddress: input.ipAddress ?? null,
+      userAgent: input.userAgent ?? null,
+      metadata: (input.metadata ?? {}) as object,
+    }
+
     try {
-      await withTenant(input.tenantId, (tx) =>
-        tx.securityEvent.create({
-          data: {
-            tenantId: input.tenantId,
-            type: input.type,
-            actorUserId: input.actorUserId ?? null,
-            targetEntity: input.targetEntity ?? null,
-            targetId: input.targetId ?? null,
-            ipAddress: input.ipAddress ?? null,
-            userAgent: input.userAgent ?? null,
-            metadata: (input.metadata ?? {}) as object,
-          },
-        }),
-      )
+      // Sem tenant, a política de RLS recusaria a linha: `tenant_id = current_tenant_id()`
+      // é falso para NULL. A escrita de plataforma passa por `app_maintenance`, que tem
+      // BYPASSRLS — é o mesmo caminho dos jobs cross-tenant.
+      if (input.tenantId === null) {
+        await getMaintenancePrisma().securityEvent.create({ data })
+      } else {
+        await withTenant(input.tenantId, (tx) => tx.securityEvent.create({ data }))
+      }
     } catch (error) {
       // Nunca deixar a falha do registro mascarar a negação que o originou.
       logger.error({ err: error, type: input.type }, 'Falha ao registrar evento de segurança')
@@ -66,7 +80,7 @@ export function createSecurityEvents(config: SecurityEventsConfig) {
       )
       recordMetric({
         metric: 'cross_tenant_attempt_total',
-        tenantId: input.tenantId,
+        tenantId: input.tenantId ?? undefined,
         value: 1,
         unit: 'count',
       })
@@ -75,7 +89,7 @@ export function createSecurityEvents(config: SecurityEventsConfig) {
     if (input.type === 'PERMISSION_DENIED') {
       recordMetric({
         metric: 'auth_permission_denied_total',
-        tenantId: input.tenantId,
+        tenantId: input.tenantId ?? undefined,
         value: 1,
         unit: 'count',
       })

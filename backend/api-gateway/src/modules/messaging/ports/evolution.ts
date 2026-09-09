@@ -4,7 +4,7 @@ import { logger } from '../../../shared/logger.js'
 /**
  * O provedor de WhatsApp, atrás de porta injetável (MOD-CRM-01).
  *
- * Mesmo desenho de `identity-service/src/lib/clerk.ts` e pela mesma razão: a suíte
+ * Mesmo desenho de `modules/identity/clerk.ts` e pela mesma razão: a suíte
  * inteira roda sem um container de WhatsApp no ar, e o teste do pareamento exercita o
  * **nosso** código — a máquina de estados, o token do webhook, a cifra da chave — em
  * vez de exercitar a Evolution.

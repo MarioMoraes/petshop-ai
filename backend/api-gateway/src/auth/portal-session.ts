@@ -153,8 +153,9 @@ async function resolveLinkedTutor(tenantId: string, userId: string): Promise<str
  * Aviso do modo de falha silencioso do Portal.
  *
  * Uma conta do Clerk sem espelho local acontece no primeiro acesso e se resolve
- * sozinha; uma que persiste assim é sinal de que o identity-service não está criando o
- * espelho, e o sintoma para o tutor é uma tela de vínculo que nunca completa.
+ * sozinha; uma que persiste assim é sinal de que o `ensureLocalUser` do MOD-IDENT não
+ * está criando o espelho, e o sintoma para o tutor é uma tela de vínculo que nunca
+ * completa.
  */
 export function warnUnlinkedSession(clerkUserId: string, slug: string): void {
   logger.debug({ clerkUserId, slug }, 'sessão do Portal sem ficha vinculada')
