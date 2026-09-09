@@ -23,13 +23,13 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
    */
   MESSAGING_SERVICE_URL: z.string().url().default('http://localhost:3000'),
   /**
-   * O serviço da agenda, para onde vai todo agendamento marcado pelo Portal.
+   * O MOD-AGENDA virou módulo do backend (porta 3000) e não tem mais porta própria.
+   * A chamada continua sendo HTTP com contexto assinado — o que mudou foi o destino.
    *
-   * O BFF fala com ele **direto**, e não pelo gateway: o gateway existe para validar
-   * JWT do Clerk e resolver tenant, e o BFF já tem as duas coisas resolvidas. Passar
-   * por ele só somaria um salto e um ponto de falha.
+   * O nome da variável fica: é o que o compose e os segredos do swarm carregam, e a
+   * consolidação não é motivo para mexer neles.
    */
-  SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3006'),
+  SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3000'),
 
   /**
    * O serviço financeiro, para **emitir** o recibo do pagamento (MOD-PORTAL-08).

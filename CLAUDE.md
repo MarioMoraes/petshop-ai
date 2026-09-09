@@ -77,9 +77,23 @@ Já migrados: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
 (`modules/crm`), MOD-NOTIF (`modules/messaging`) MOD-PET (`modules/pets`,
 `modules/catalog`, `modules/photos`), MOD-TUTOR (`modules/tutors`, `modules/terms`,
 `modules/addresses`, `modules/consents`, `modules/tags`), MOD-IDENT
-(`modules/identity`) e MOD-PRONT (`modules/records`, `modules/attendances`,
-`modules/prescriptions`) — com as duas metades do CRM juntas, o salto HTTP entre elas
-virou chamada de função.
+(`modules/identity`), MOD-PRONT (`modules/records`, `modules/attendances`,
+`modules/prescriptions`) e MOD-AGENDA (`modules/scheduling`,
+`modules/schedule-catalog`) — com as duas metades do CRM juntas, o salto HTTP entre
+elas virou chamada de função.
+
+**O nome `modules/schedule-catalog` é o registro de uma colisão.** O MOD-AGENDA tinha
+`catalog` e `scheduling` enquanto era serviço, e aqui `modules/catalog` já é o catálogo
+de domínio do MOD-PET — espécie, raça, porte e pelagem. Juntar os dois num diretório só
+trocaria o significado de "catálogo" no meio do processo. A fronteira entre as duas
+metades continua sendo a **porta**, e não a pasta: o catálogo não sabe que
+`appointments` existe, e as três regras que dependem disso perguntam pela
+`AppointmentsPort`.
+
+**A fatia 9 ligou uma regra que estava inerte.** O AC-02 de MOD-PET-05 — pet com
+agendamento futuro não se transfere — estava escrito e testado desde o MOD-PET, mas a
+porta que responde por ele só era ligada em teste. Com a agenda no mesmo processo,
+`setSchedulingPort` entrou no registro do módulo e a regra passou a valer.
 
 **A exceção de prefixo do `proxy.ts` acabou com o MOD-PRONT.** Enquanto o prontuário era
 serviço, as rotas dele penduravam-se sob `/v1/pets/:petId/…` e o roteamento era por

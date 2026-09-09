@@ -707,8 +707,10 @@ async function warnOnProbableDuplicate(
 
 /**
  * AC-02 e AC-04: histórico financeiro ou agenda futura bloqueiam a exclusão.
- * Enquanto MOD-LEDGER e MOD-AGENDA não existem, o saldo denormalizado é o que há —
- * e ele já é escrito pelo consumidor de `lancamento.criado`.
+ * O saldo lido é o denormalizado de `tutors.balance_cents`, escrito pelo consumidor de
+ * `lancamento.criado` — e continua sendo depois da fatia 10, de propósito: ler
+ * `ledger_accounts` daqui trocaria uma coluna que já está na linha por um join, sem
+ * mudar a resposta.
  */
 async function assertNoBlockingHistory(tx: TenantTransaction, row: Tutor): Promise<void> {
   if (row.balanceCents !== 0) {
@@ -724,9 +726,9 @@ async function assertNoBlockingHistory(tx: TenantTransaction, row: Tutor): Promi
  * AC-04 de MOD-TUTOR-08: tutor com agendamento futuro não é excluído.
  *
  * A leitura é direta em `appointments`, sob RLS — o mesmo acoplamento assumido que o
- * tutor-service já tem com `pet_tutors`. A alternativa seria uma chamada HTTP ao
- * scheduling-service dentro da transação de exclusão, o que atrelaria a exclusão à
- * disponibilidade de outro serviço sem ganhar consistência nenhuma.
+ * módulo já tem com `pet_tutors`. Foi escrita assim quando a agenda era outro processo,
+ * justamente para não atrelar a exclusão à disponibilidade dele; com os dois módulos
+ * juntos desde a fatia 9, a decisão deixou de ter custo e continua valendo.
  *
  * "Futuro" é relativo a agora e só conta o que ainda ocupa lugar na agenda: um
  * agendamento já cancelado não impede exclusão nenhuma.

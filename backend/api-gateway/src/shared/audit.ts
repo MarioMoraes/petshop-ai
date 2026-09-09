@@ -43,6 +43,11 @@ export const { sanitize, recordAudit } = createAudit({
     'reactionEncrypted',
     'instructions',
     'instructionsEncrypted',
+    // MOD-AGENDA — o motivo do cancelamento é campo livre, e o §9 o classifica como
+    // risco: "não vou porque o cachorro está com um caroço" é dado de saúde escrito
+    // no balcão.
+    'cancelReason',
+    'cancelReasonEncrypted',
   ],
 })
 

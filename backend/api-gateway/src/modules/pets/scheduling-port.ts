@@ -4,12 +4,15 @@ import type { TenantTransaction } from '@petshop/db'
  * Agenda, atrás de uma porta (AC-02 de MOD-PET-05).
  *
  * O AC exige recusar a transferência de um pet com agendamento futuro, listando quais
- * são. MOD-AGENDA ainda não existe — mas a regra existe, e escondê-la até lá faria
- * com que, no dia em que a agenda chegasse, alguém tivesse de lembrar de voltar aqui.
+ * são. A regra foi escrita antes de existir quem respondesse, e a porta é o que
+ * permitiu isso — mas o padrão vazio abaixo **valeu em produção da entrega do MOD-PET
+ * até a fatia 9 da consolidação**, e nesse período o AC estava inerte: a lista sempre
+ * vinha vazia, então nada bloqueava.
  *
- * A porta inverte isso: a regra está escrita, testada e no caminho da transferência
- * desde já; o que falta é a implementação, que hoje responde "nenhum agendamento".
- * Quando MOD-AGENDA chegar, é `setSchedulingPort` no `app.ts` e nada mais muda.
+ * Quem responde agora é `modules/scheduling/pet-port.ts`, ligado em
+ * `registerSchedulingModule`. O padrão vazio fica para os testes que dublam a porta e
+ * como o comportamento correto de um processo sem o módulo da agenda — não é mais o
+ * estado normal do sistema.
  *
  * Mesmo padrão da porta do Clerk no MOD-IDENT e da do ViaCEP no MOD-TUTOR.
  */
@@ -29,7 +32,7 @@ export interface SchedulingPort {
   ): Promise<FutureAppointment[]>
 }
 
-/** Enquanto MOD-AGENDA não existe, nenhum pet tem agendamento futuro. */
+/** Sem o módulo da agenda ligado, nenhum pet tem agendamento futuro. */
 const emptyPort: SchedulingPort = {
   async listFuturePetAppointments() {
     return []

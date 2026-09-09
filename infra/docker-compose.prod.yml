@@ -37,7 +37,9 @@ x-backend: &backend
     # O MOD-TUTOR é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
     TUTOR_SERVICE_URL: http://api-gateway:3000
-    SCHEDULING_SERVICE_URL: http://scheduling-service:3006
+    # O MOD-AGENDA é módulo do backend desde a consolidação; quem ainda o chama por
+    # HTTP é o portal-bff, com contexto assinado.
+    SCHEDULING_SERVICE_URL: http://api-gateway:3000
     BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
     # O MOD-NOTIF é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
@@ -241,13 +243,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-
-  scheduling-service:
-    <<: *backend
-    command: ['node', 'backend/scheduling-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      SCHEDULING_SERVICE_PORT: 3006
 
   billing-ledger-service:
     <<: *backend

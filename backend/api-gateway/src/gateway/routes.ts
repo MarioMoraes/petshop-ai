@@ -16,6 +16,7 @@ import {
   registerWhatsappWebhookRoutes,
 } from '../modules/messaging/routes.js'
 import { registerPetRoutes } from '../modules/pets/routes.js'
+import { registerSchedulingModule } from '../modules/scheduling/routes-module.js'
 import { registerSecurityRoutes } from '../modules/security/routes.js'
 import { registerPhotoRoutes } from '../modules/photos/routes.js'
 import { registerTaxiRoutes } from '../modules/taxi/routes.js'
@@ -47,6 +48,7 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerIdentityModule(app)
   await registerSecurityModule(app)
   await registerMedicalRecordModule(app)
+  await registerScheduleModule(app)
 }
 
 /**
@@ -184,11 +186,11 @@ async function registerTutorModule(app: FastifyInstance): Promise<void> {
 /**
  * MOD-IDENT — a identidade, o tenant e a equipe.
  *
- * Registrado **por último**, e a ordem não é estética: o módulo declara
- * `/v1/tenants/…` e `/v1/memberships/…`, prefixos que nenhum outro toca, mas também o
- * `/v1/roles` e o `/v1/me`, que são a raiz de tudo o que o frontend pergunta primeiro.
- * Deixá-los depois dos módulos de domínio garante que uma rota de domínio com o mesmo
- * prefixo apareça no boot como conflito do Fastify, e não como uma rota que some.
+ * Registrado **depois dos módulos de domínio**, e a ordem não é estética: além de
+ * `/v1/tenants/…` e `/v1/memberships/…`, que nenhum outro toca, o módulo declara
+ * `/v1/roles` e `/v1/me`, que são a raiz de tudo o que o frontend pergunta primeiro.
+ * Deixá-los depois garante que uma rota de domínio com o mesmo prefixo apareça no boot
+ * como conflito do Fastify, e não como uma rota que some.
  *
  * Escopo autenticado, como os demais — mas aqui vale reler o que o hook faz e o que
  * não faz: `registerModuleAuth` exige **sessão**, nunca tenant. Três rotas do módulo
@@ -213,6 +215,23 @@ async function registerSecurityModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerSecurityRoutes(scope)
+  })
+}
+
+/**
+ * MOD-AGENDA — o catálogo da agenda e os agendamentos.
+ *
+ * Escopo autenticado, sem superfície anônima: o Portal marca horário pelo `portal-bff`,
+ * que chega com o contexto já resolvido pela porta interna, e não por aqui.
+ *
+ * **Registrado depois do MOD-PET, como o MOD-PRONT.** Os prefixos são distintos —
+ * `/v1/services` e `/v1/sizes` não colidem —, mas a ordem mantém a mesma leitura: os
+ * módulos que penduram rota no espaço de outro vêm depois de quem define o espaço.
+ */
+async function registerScheduleModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerSchedulingModule(scope)
   })
 }
 

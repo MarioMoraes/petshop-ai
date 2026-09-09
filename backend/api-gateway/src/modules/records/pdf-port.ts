@@ -11,7 +11,7 @@ import { logger } from '../../shared/logger.js'
  * Gotenberg, e criar uma segunda variável para dizer a mesma coisa só daria a alguém a
  * chance de configurá-las em desacordo.
  *
- * Mesma forma do `billing-ledger-service/src/lib/pdf.ts`. As duas cabem em cinco linhas
+ * Mesma forma do `modules/ledger/pdf-port.ts`. As duas cabem em cinco linhas
  * porque o que é comum já foi extraído.
  */
 

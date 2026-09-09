@@ -28,8 +28,8 @@ import { assertWritable, WITH_DOMAIN } from './service.js'
  * `pet_tutors` ficam com `unlinked_at` preenchido, e é por elas que o Portal
  * continua mostrando os recibos dos serviços que ele pagou.
  *
- * O AC-02 — agendamento futuro bloqueia — entra pela porta de `lib/scheduling.ts`,
- * que hoje responde vazio porque MOD-AGENDA ainda não existe.
+ * O AC-02 — agendamento futuro bloqueia — entra pela porta de `scheduling-port.ts`,
+ * que desde a fatia 9 é respondida pelo módulo da agenda no mesmo processo.
  */
 
 export async function transferPet(
@@ -72,8 +72,8 @@ export async function transferPet(
       }
 
       // AC-02: agendamento futuro bloqueia a transferência. A pergunta vai à porta da
-      // agenda — hoje respondida com uma lista vazia, porque MOD-AGENDA não existe.
-      // A regra fica escrita e no caminho desde já; o que falta é quem responda.
+      // agenda, que desde a fatia 9 é uma consulta de verdade a `appointments` — antes
+      // dela a regra estava no caminho mas respondia sempre "nenhum".
       const upcoming = await getScheduling().listFuturePetAppointments(tx, actor.tenantId, petId)
       if (upcoming.length > 0) {
         throw blockedByLink(

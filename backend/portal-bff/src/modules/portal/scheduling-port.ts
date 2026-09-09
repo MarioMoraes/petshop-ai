@@ -13,7 +13,12 @@ import { logger } from '../../lib/logger.js'
 import { upstreamUnavailable } from '../../lib/errors.js'
 
 /**
- * A porta para o scheduling-service.
+ * A porta para o MOD-AGENDA.
+ *
+ * O módulo da agenda virou módulo do backend na consolidação e não tem mais porta
+ * própria: `SCHEDULING_SERVICE_URL` aponta para a porta 3000, e o contexto assinado
+ * entra pela porta interna do processo (`resolveInternalRequest`). O contrato é o mesmo
+ * de sempre — mudou o destino, não o que viaja.
  *
  * **Por que HTTP, se o BFF lê o banco direto no resto do módulo.** Ler é escolher um
  * recorte; agendar é aplicar regra. A criação do agendamento tem transação
@@ -121,7 +126,7 @@ function createHttpPort(): SchedulingPort {
     } catch (error) {
       // Rede, DNS ou timeout. Não há resposta nenhuma para interpretar, e inventar uma
       // lista de horários vazia diria ao tutor que o petshop não tem vaga.
-      logger.error({ err: error, path }, 'falha ao falar com o scheduling-service')
+      logger.error({ err: error, path }, 'falha ao falar com o módulo da agenda')
       throw upstreamUnavailable()
     } finally {
       clearTimeout(timeout)

@@ -15,7 +15,7 @@ import type { PortalAdoption } from '@petshop/shared-types'
  * número.
  *
  * O KPI do PRD-mãe — a fatia de agendamentos vinda do Portal — **não está aqui**: esse
- * é `appointments`, tabela do scheduling-service, e ali a regra vale inteira. A tela
+ * é `appointments`, tabela do MOD-AGENDA, e ali a regra vale inteira. A tela
  * compõe os dois, como já faz com o resto do painel.
  */
 export async function portalAdoption(

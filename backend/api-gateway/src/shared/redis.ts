@@ -104,6 +104,26 @@ export const CACHE_KEYS = {
   phone: (tenantId: string, phoneHash: string) => `tutor:phone:${tenantId}:${phoneHash}`,
   tagCounts: (tenantId: string) => `tutor:tagcount:${tenantId}`,
   cep: (zipCode: string) => `cep:${zipCode}`,
+  // ---- MOD-AGENDA ----
+  /**
+   * O catálogo da agenda — serviços, profissionais e a jornada de cada um.
+   *
+   * **As três são declaradas e nenhuma é lida hoje**, e vieram assim do
+   * scheduling-service: só `invalidateScheduleCatalog` as toca, apagando chaves que
+   * ninguém escreve. Ficam pela mesma razão que o `tenantSlug` acima — o namespace
+   * `agenda:` continua reservado, e apagá-las faria a próxima pessoa a colocar o
+   * catálogo em cache escolher justamente estes nomes sem o aviso. O §10 do PRD
+   * agenda_operacao_06 as prevê: o catálogo muda quase nunca e é lido em toda abertura
+   * do formulário de agendamento.
+   *
+   * A agenda do dia deliberadamente **não** tem chave: ela muda a cada check-in, e
+   * agenda velha na tela da recepção é pior que agenda lenta.
+   */
+  services: (tenantId: string) => `agenda:services:${tenantId}`,
+  professionals: (tenantId: string) => `agenda:professionals:${tenantId}`,
+  schedule: (tenantId: string, professionalId: string) =>
+    `agenda:schedule:${tenantId}:${professionalId}`,
+
   /**
    * Estado da conexão de WhatsApp. Existe porque a cascata de canal o consulta uma vez
    * por candidato, por mensagem — e o estado só muda quando um webhook chega, que é
@@ -176,6 +196,11 @@ export const CACHE_TTL_SECONDS = {
   phone: 600,
   tagCounts: 300,
   cep: 86_400,
+
+  services: 3_600,
+  professionals: 3_600,
+  schedule: 3_600,
+
   /**
    * Um minuto. Curto porque o preço de errar é assimétrico: com o cache velho dizendo
    * "conectado" a mensagem falha e volta para a fila; dizendo "desconectado" ela cai
@@ -302,6 +327,30 @@ export async function invalidatePet(
  */
 export async function invalidateAlerts(tenantId: string, petId: string): Promise<void> {
   await cacheDelete(CACHE_KEYS.alerts(tenantId, petId), CACHE_KEYS.pet(tenantId, petId))
+}
+
+/**
+ * Invalida o catálogo da agenda inteiro do tenant (MOD-AGENDA).
+ *
+ * Grosso de propósito: mudar um serviço mexe em quem pode executá-lo, e mudar um
+ * profissional mexe em que serviços aparecem no seletor. Invalidar as três chaves
+ * custa três `DEL` e evita a classe inteira de bug em que a habilitação some da lista
+ * mas continua valendo no cálculo.
+ *
+ * **O nome ganhou o prefixo `Schedule` na fatia 9**, e não é cosmético: o processo já
+ * tem um `CACHE_KEYS.catalog`, que é o catálogo de domínio do MOD-PET — espécie, raça,
+ * porte e pelagem. Um `invalidateCatalog` ao lado dele leria como se apagasse aquele, e
+ * é exatamente o tipo de colisão que não dá erro nenhum.
+ */
+export async function invalidateScheduleCatalog(
+  tenantId: string,
+  professionalIds: string[] = [],
+): Promise<void> {
+  await cacheDelete(
+    CACHE_KEYS.services(tenantId),
+    CACHE_KEYS.professionals(tenantId),
+    ...professionalIds.map((id) => CACHE_KEYS.schedule(tenantId, id)),
+  )
 }
 
 /** Invalida tudo o que depende de um tutor. Chamado depois de qualquer escrita. */

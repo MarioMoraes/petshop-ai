@@ -66,7 +66,9 @@ x-backend: &backend
     # O MOD-TUTOR é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
     TUTOR_SERVICE_URL: http://api-gateway:3000
-    SCHEDULING_SERVICE_URL: http://scheduling-service:3006
+    # O MOD-AGENDA é módulo do backend desde a consolidação; quem ainda o chama por
+    # HTTP é o portal-bff, com contexto assinado.
+    SCHEDULING_SERVICE_URL: http://api-gateway:3000
     BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
     # O MOD-NOTIF é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
@@ -346,21 +348,6 @@ services:
       # declarar a task morta antes de o gate liberar, e num deploy novo isso
       # vira laço: mata, sobe, espera, mata.
       start_period: 180s
-
-  scheduling-service:
-    <<: *backend
-    command:
-      [
-        '/app/infra/swarm/aguardar-migracao.sh',
-        'node',
-        'backend/scheduling-service/dist/src/server.js',
-      ]
-    environment:
-      <<: *backend-env
-      SCHEDULING_SERVICE_PORT: 3006
-    healthcheck:
-      <<: *hc-gateway
-      test: ['CMD-SHELL', 'curl -sf http://localhost:3006/health || exit 1']
 
   billing-ledger-service:
     <<: *backend

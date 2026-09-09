@@ -20,7 +20,7 @@ import { refreshSite } from './revalidate.js'
  * Nota sobre o nome do evento do catálogo: o PRD §8 pede `servico.criado` /
  * `.atualizado` / `.removido` e diz que não existem. Existem, desde o MOD-AGENDA:
  * são um evento só, `agenda.servico.alterado`, com `action` no payload
- * (`scheduling-service/src/modules/catalog/service.ts`). Um evento com ação basta
+ * (`modules/schedule-catalog/service.ts`). Um evento com ação basta
  * aqui — a reação é a mesma para os três.
  */
 

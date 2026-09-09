@@ -50,7 +50,6 @@ RUN pnpm --filter "@petshop/db" generate
 # — que confere os pacotes, não só os serviços — reprova o build.
 RUN pnpm build --concurrency=2 \
       --filter="@petshop/api-gateway" \
-      --filter="@petshop/scheduling-service" \
       --filter="@petshop/billing-ledger-service" \
       --filter="@petshop/portal-bff" \
       --filter="@petshop/api-client"

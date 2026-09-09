@@ -187,30 +187,30 @@ describe('autenticação', () => {
     expect(echoed.length).toBe(antes)
   })
 
-  it('roteia o catálogo da agenda para o scheduling-service', async () => {
+  /**
+   * O que a fatia 9 inverteu.
+   *
+   * As sete famílias de rota do MOD-AGENDA saíam para o scheduling-service, e o teste
+   * anterior conferia a assinatura do contexto no caminho. Agora elas são atendidas
+   * aqui, e o que se guarda é isto: nada da agenda tem destino externo, e `/v1/services`
+   * continua sem capturar `/v1/sizes`, que é catálogo de pet.
+   */
+  it('as rotas da agenda não saem mais do processo', async () => {
     const tenant = await seedTenant('rotaagenda')
     const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
-    for (const path of ['/v1/services', '/v1/professionals', '/v1/calendar-blocks']) {
+    const antes = echoed.length
+    for (const path of [
+      '/v1/services',
+      '/v1/professionals',
+      // O bloqueio é consultado por período, e o módulo exige a janela — 422 sem ela.
+      '/v1/calendar-blocks?from=2030-01-01T00:00:00.000Z&to=2030-01-02T00:00:00.000Z',
+      '/v1/sizes',
+    ]) {
       const response = await call({ url: path, token })
       expect(response.statusCode).toBe(200)
-      expect(lastEchoed().url).toBe(path)
-
-      const verified = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
-      expect(verified.ok).toBe(true)
-      if (!verified.ok) return
-      expect(verified.context.permissions).toContain('schedule:manage_catalog')
     }
-
-    /**
-     * `/v1/sizes` é catálogo de pet, e desde a fatia 5 é atendido neste processo. O que
-     * o teste guarda continua sendo a mesma distinção de antes: `matches` compara
-     * segmento inteiro, então `/v1/services` **não** captura `/v1/sizes` por prefixo
-     * textual — se capturasse, o porte do pet iria parar na agenda.
-     */
-    const antes = echoed.length
-    await call({ url: '/v1/sizes', token })
     expect(echoed.length).toBe(antes)
   })
 
@@ -222,8 +222,22 @@ describe('autenticação', () => {
   })
 })
 
-describe('propagação do contexto ao serviço', () => {
-  it('assina os headers com o contexto resolvido', async () => {
+/**
+ * A resolução do contexto da sessão.
+ *
+ * **Esta suíte perdeu o veículo na fatia 9, e o que ela prova ficou mais forte.** Até
+ * aqui ela chamava `/v1/professionals`, que era encaminhado, e inspecionava os headers
+ * assinados no caminho — o que mostrava o contexto, mas não que alguém o obedecia. Sem
+ * nenhuma rota administrativa saindo do processo, a prova passa a ser o **efeito**: o
+ * papel que a matriz concede é o que a rota deixa fazer.
+ *
+ * A assinatura do contexto continua exercitada de ponta a ponta na suíte do Portal, que
+ * é o último destino do `proxy.ts`.
+ */
+const SERVICO_VALIDO = { name: 'Banho Novo', category: 'BATH', baseDurationMin: 60 }
+
+describe('resolução do contexto da sessão', () => {
+  it('o papel resolvido é o que decide o que a rota deixa fazer', async () => {
     const tenant = await seedTenant('propaga')
     const member = await seedMember(tenant.tenantId, 'RECEPTIONIST')
     const token = givenToken({
@@ -232,88 +246,80 @@ describe('propagação do contexto ao serviço', () => {
       permVersion: 1,
     })
 
-    const response = await call({ url: '/v1/professionals', token })
-    expect(response.statusCode).toBe(200)
+    // A recepção agenda o dia inteiro: `schedule:read_all` está na matriz do §9.
+    const leitura = await call({ url: '/v1/services', token })
+    expect(leitura.statusCode).toBe(200)
 
-    const forwarded = lastEchoed()
-    const verified = verifyServiceHeaders(forwarded.headers, INTERNAL_SECRET)
-    expect(verified.ok).toBe(true)
-    if (!verified.ok) return
-
-    expect(verified.context.clerkUserId).toBe(member.clerkUserId)
-    expect(verified.context.userId).toBe(member.userId)
-    expect(verified.context.tenantId).toBe(tenant.tenantId)
-    expect(verified.context.role).toBe('RECEPTIONIST')
-    expect(verified.context.permissions).toContain('tutor:read')
-    expect(verified.context.permissions).not.toContain('tutor:delete')
+    // Mas não decide quanto custa um banho: `schedule:manage_catalog` é do admin.
+    const escrita = await call({
+      method: 'POST',
+      url: '/v1/services',
+      token,
+      payload: SERVICO_VALIDO,
+    })
+    expect(escrita.statusCode).toBe(403)
+    expect(escrita.json().code).toBe('ERR_AGENDA_003')
   })
 
-  it('não repassa o Authorization do cliente adiante', async () => {
-    const tenant = await seedTenant('semauth')
+  it('o mesmo token com papel de admin passa pela mesma rota', async () => {
+    const tenant = await seedTenant('propagaadmin')
     const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
-    await call({ url: '/v1/professionals', token })
-
-    // O serviço de destino nunca vê o token do usuário.
-    expect(lastEchoed().headers.authorization).toBeUndefined()
+    const response = await call({
+      method: 'POST',
+      url: '/v1/services',
+      token,
+      payload: SERVICO_VALIDO,
+    })
+    expect(response.statusCode).toBe(201)
   })
 
-  it('descarta headers internos forjados pelo cliente', async () => {
+  /**
+   * AC-01 de MOD-SEC-07 — o cliente que se declara de outro estabelecimento.
+   *
+   * O `proxy.ts` descartava esses headers antes de encaminhar, e era isso que o teste
+   * anterior conferia. Sem encaminhamento administrativo, o que resta provar é o que
+   * sempre importou de verdade: **o contexto que vale é o que o gateway resolveu**, e a
+   * tentativa deixa rastro em `security_events` em vez de sumir em silêncio.
+   */
+  it('o header de tenant forjado não muda o contexto e vira evento de segurança', async () => {
     const tenant = await seedTenant('forjado')
     const outro = await seedTenant('vitima')
     const member = await seedMember(tenant.tenantId, 'BATHER')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
-    // O cliente tenta se declarar admin de outro tenant.
-    await call({
-      url: '/v1/professionals',
+    const response = await call({
+      url: '/v1/services',
       token,
       headers: {
         [SERVICE_HEADERS.tenantId]: outro.tenantId,
         [SERVICE_HEADERS.role]: 'TENANT_ADMIN',
-        [SERVICE_HEADERS.permissions]: 'tutor:delete,finance:refund',
+        [SERVICE_HEADERS.permissions]: 'tutor:delete,schedule:manage_catalog',
       },
     })
 
-    const verified = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
-    expect(verified.ok).toBe(true)
-    if (!verified.ok) return
+    // O banhista não tem `schedule:read_all`: prevalece o papel que o gateway resolveu,
+    // e não o que o cliente afirmou.
+    expect(response.statusCode).toBe(403)
 
-    // Prevalece o que o gateway resolveu, não o que o cliente afirmou.
-    expect(verified.context.tenantId).toBe(tenant.tenantId)
-    expect(verified.context.role).toBe('BATHER')
-    expect(verified.context.permissions).not.toContain('tutor:delete')
-  })
-
-  it('encaminha sem tenant quando o usuário ainda não tem Organization', async () => {
-    const token = givenToken({ clerkUserId: 'user_novo', clerkOrgId: null })
-
-    const response = await call({ url: '/v1/professionals', token })
-    expect(response.statusCode).toBe(200)
-
-    const verified = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
-    expect(verified.ok).toBe(true)
-    if (!verified.ok) return
-    expect(verified.context.tenantId).toBeUndefined()
-    expect(verified.context.clerkUserId).toBe('user_novo')
-  })
-
-  it('repassa o corpo e o request id', async () => {
-    const tenant = await seedTenant('corpo')
-    const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
-    const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
-
-    await call({
-      method: 'POST',
-      url: '/v1/services',
-      token,
-      payload: { name: 'Banho Novo' },
+    const evento = await ownerPrisma.securityEvent.findFirst({
+      where: { type: 'CROSS_TENANT_ATTEMPT', tenantId: tenant.tenantId },
     })
+    expect(evento?.targetId).toBe(outro.tenantId)
+  })
 
-    const forwarded = lastEchoed()
-    expect(forwarded.body).toEqual({ name: 'Banho Novo' })
-    expect(forwarded.headers['x-request-id']).toBeTruthy()
+  it('quem não tem Organization ativa segue sem tenant, e a agenda recusa', async () => {
+    const tenant = await seedTenant('semorg')
+    const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
+
+    // O token não traz Organization: é a sessão de quem ainda vai criar o primeiro
+    // estabelecimento, ou de quem trocou de contexto no Clerk e ainda não escolheu um.
+    const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: null })
+
+    // Sem tenant não há de que agenda se fala — e o papel do outro tenant não vale.
+    const agenda = await call({ url: '/v1/services', token })
+    expect(agenda.statusCode).toBe(403)
   })
 })
 
@@ -329,10 +335,13 @@ describe('AC-03 de MOD-IDENT-04 — papel alterado com sessão ativa', () => {
       permVersion: 1,
     })
 
-    const before = await call({ url: '/v1/professionals', token })
-    expect(before.statusCode).toBe(200)
-    const permissionsBefore = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
-    expect(permissionsBefore.ok && permissionsBefore.context.permissions).toContain('tutor:delete')
+    const antes = await call({
+      method: 'POST',
+      url: '/v1/services',
+      token,
+      payload: SERVICO_VALIDO,
+    })
+    expect(antes.statusCode).toBe(201)
 
     // O admin rebaixa o usuário; permVersion vai para 2.
     await ownerPrisma.membership.update({
@@ -341,17 +350,17 @@ describe('AC-03 de MOD-IDENT-04 — papel alterado com sessão ativa', () => {
     })
 
     // Mesmo token de antes: o gateway detecta e aplica o papel novo.
-    const after = await call({ url: '/v1/professionals', token })
-    expect(after.statusCode).toBe(200)
-    const permissionsAfter = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
-    expect(permissionsAfter.ok).toBe(true)
-    if (!permissionsAfter.ok) return
-    expect(permissionsAfter.context.role).toBe('RECEPTIONIST')
-    expect(permissionsAfter.context.permissions).not.toContain('tutor:delete')
-    expect(permissionsAfter.context.permVersion).toBe(2)
+    const depois = await call({
+      method: 'POST',
+      url: '/v1/services',
+      token,
+      payload: { ...SERVICO_VALIDO, name: 'Banho Rebaixado' },
+    })
+    expect(depois.statusCode).toBe(403)
+    expect(depois.json().code).toBe('ERR_AGENDA_003')
   })
 
-  it('não envia permissão nenhuma quando o membership foi removido', async () => {
+  it('não sobra permissão nenhuma quando o membership foi removido', async () => {
     const tenant = await seedTenant('removido')
     const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
@@ -361,12 +370,9 @@ describe('AC-03 de MOD-IDENT-04 — papel alterado com sessão ativa', () => {
       data: { status: 'REMOVED' },
     })
 
-    await call({ url: '/v1/professionals', token })
-    const verified = verifyServiceHeaders(lastEchoed().headers, INTERNAL_SECRET)
-    expect(verified.ok).toBe(true)
-    if (!verified.ok) return
-    expect(verified.context.permissions).toEqual([])
-    expect(verified.context.role).toBeUndefined()
+    // Nem a leitura mais larga da agenda sobrevive: sem membership não há papel.
+    const response = await call({ url: '/v1/services', token })
+    expect(response.statusCode).toBe(403)
   })
 })
 
@@ -380,9 +386,11 @@ describe('RN-04 — tenant suspenso', () => {
       method: 'POST',
       url: '/v1/services',
       token,
-      payload: { name: 'Tentativa' },
+      payload: SERVICO_VALIDO,
     })
 
+    // O gate do tenant suspenso roda no hook de sessão, **antes** do roteamento — e é
+    // por isso que ele continua valendo igual depois de a rota virar módulo daqui.
     expect(response.statusCode).toBe(423)
     expect(response.json().code).toBe('ERR_IDENT_008')
     expect(response.json().detail).toContain('Regularize a assinatura')
@@ -406,9 +414,9 @@ describe('RN-04 — tenant suspenso', () => {
       method: 'POST',
       url: '/v1/services',
       token,
-      payload: { name: 'Permitido' },
+      payload: SERVICO_VALIDO,
     })
-    expect(response.statusCode).toBe(200)
+    expect(response.statusCode).toBe(201)
   })
 })
 
@@ -458,11 +466,21 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
     expect(resolveTarget('/v1/tutors/abc/overview')).toBeNull()
   })
 
-  it('`/v1/services` continua sendo da agenda, não do catálogo de pacotes', async () => {
+  it('nada da agenda tem destino externo desde a fatia 9', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/config/env.js')
 
-    expect(resolveTarget('/v1/services')).toBe(loadEnv().SCHEDULING_SERVICE_URL)
+    for (const path of [
+      '/v1/services',
+      '/v1/services/abc/pricing',
+      '/v1/professionals',
+      '/v1/calendar-blocks',
+      '/v1/availability',
+      '/v1/agenda/day',
+      '/v1/appointments',
+      '/v1/recurrences',
+    ]) {
+      expect(resolveTarget(path)).toBeNull()
+    }
   })
 
   /**
@@ -514,10 +532,8 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
     expect(echoed.length).toBe(antes)
   })
 
-  it('o atendimento é atendido aqui; o agendamento ainda vai para a agenda', async () => {
+  it('nem o atendimento nem o agendamento saem do processo', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/config/env.js')
-    const env = loadEnv()
 
     // O prontuário virou módulo na fatia 8: nada dele sai mais.
     for (const path of [
@@ -531,14 +547,15 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
     }
 
     /**
-     * **A distinção que este teste sempre guardou continua valendo, e agora ela é a
-     * única coisa que ele guarda.** `/v1/attendances` e `/v1/appointments` não colidem,
-     * mas a proximidade dos dois é o tipo de coisa que alguém "consolida" um dia: o
-     * registro clínico é do prontuário, o horário é da agenda. O encaixe cria
-     * agendamento, então é da agenda — apesar de o registro que ele gera não ser.
+     * **A distinção que este teste guardava agora vive na árvore de rotas.**
+     * `/v1/attendances` e `/v1/appointments` não colidem, mas a proximidade dos dois é o
+     * tipo de coisa que alguém "consolida" um dia: o registro clínico é do prontuário, o
+     * horário é da agenda, e o encaixe cria agendamento — apesar de o registro que ele
+     * gera não ser. Com os dois módulos no mesmo processo desde a fatia 9, um conflito
+     * apareceria no boot; o que sobra aqui é provar que nenhum dos dois sai.
      */
-    expect(resolveTarget('/v1/appointments/walk-in')).toBe(env.SCHEDULING_SERVICE_URL)
-    expect(resolveTarget('/v1/appointments/abc/checkout')).toBe(env.SCHEDULING_SERVICE_URL)
+    expect(resolveTarget('/v1/appointments/walk-in')).toBeNull()
+    expect(resolveTarget('/v1/appointments/abc/checkout')).toBeNull()
   })
 
   it('rota desconhecida não é roteada para lugar nenhum', async () => {

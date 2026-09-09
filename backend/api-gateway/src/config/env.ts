@@ -28,7 +28,6 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    * Some um por fatia. Quando a lista esvaziar, o `proxy.ts` inteiro sai junto — é o
    * marcador de progresso da consolidação.
    */
-  SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3006'),
   BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3007'),
   PORTAL_BFF_URL: z.string().url().default('http://localhost:3020'),
 

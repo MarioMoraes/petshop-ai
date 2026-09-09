@@ -126,19 +126,14 @@ export async function proxyRequest(
 /**
  * Roteamento por prefixo. A tabela **encolhe** a cada fatia da consolidação.
  */
-// O catálogo de domínio (MOD-PET-03) mora no pet-service: espécie, raça, porte e
-// pelagem só existem para serem referenciados por um pet.
-// MOD-AGENDA. Prefixos distintos, sem sufixo a desempatar: `/v1/services` não colide
-// com `/v1/sizes` (pet-service) porque `matches` compara segmento inteiro.
-const SCHEDULING_PREFIXES = [
-  '/v1/services',
-  '/v1/professionals',
-  '/v1/calendar-blocks',
-  '/v1/availability',
-  '/v1/agenda',
-  '/v1/appointments',
-  '/v1/recurrences',
-]
+/**
+ * **A tabela do MOD-AGENDA saiu na fatia 9.** Eram sete prefixos — `/v1/services`,
+ * `/v1/professionals`, `/v1/calendar-blocks`, `/v1/availability`, `/v1/agenda`,
+ * `/v1/appointments` e `/v1/recurrences` —, todos distintos e nenhum precisando de
+ * sufixo para desempatar. A distinção que eles guardavam era contra `/v1/sizes`, do
+ * catálogo de domínio do MOD-PET, e ela sobrevive na árvore de rotas: são prefixos
+ * diferentes, e um conflito real apareceria no boot.
+ */
 
 /**
  * **A exceção por sufixo do prontuário saiu na fatia 8, e vale registrar por quê.**
@@ -199,7 +194,6 @@ export function resolveTarget(path: string): string | null {
   const env = loadEnv()
   if (isPortalPath(path)) return env.PORTAL_BFF_URL
   if (isLedgerTutorPath(path)) return env.BILLING_LEDGER_SERVICE_URL
-  if (matches(path, SCHEDULING_PREFIXES)) return env.SCHEDULING_SERVICE_URL
   if (matches(path, LEDGER_PREFIXES)) return env.BILLING_LEDGER_SERVICE_URL
   return null
 }

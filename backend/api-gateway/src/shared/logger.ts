@@ -55,6 +55,9 @@ export const { loggerOptions, logger, recordMetric } = createLogger({
     // a sair impresso num receituário assinado.
     '*.reaction',
     '*.instructions',
+    // MOD-AGENDA: o motivo do cancelamento, campo livre que o §9 marca como risco.
+    // `*.notes` já estava na lista, e é o mesmo campo do agendamento.
+    '*.cancelReason',
   ],
 })
 

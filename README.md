@@ -28,7 +28,6 @@ pnpm dev
 |---|---|---|
 | api-gateway | 3000 | O backend: token do Clerk, tenant, permissões, os módulos já consolidados e o encaminhamento do que falta |
 | frontend | 3002 | Admin, Portal do Tutor e site do estabelecimento (Next.js) |
-| scheduling-service | 3006 | Agenda e operação — ainda não migrado |
 | billing-ledger-service | 3007 | Conta corrente do tutor — ainda não migrado |
 | portal-bff | 3020 | A superfície do cliente final — ainda não migrado |
 
