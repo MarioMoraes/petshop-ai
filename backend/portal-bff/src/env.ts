@@ -32,13 +32,14 @@ export const { loadEnv, resetEnvCache } = defineEnv('portal-bff', {
   SCHEDULING_SERVICE_URL: z.string().url().default('http://localhost:3000'),
 
   /**
-   * O serviço financeiro, para **emitir** o recibo do pagamento (MOD-PORTAL-08).
+   * O MOD-LEDGER virou módulo do backend (porta 3000) e não tem mais porta própria.
+   * A chamada continua sendo HTTP com contexto assinado — mudou só o destino.
    *
    * O extrato e o saldo não passam por aqui — são leitura, e o BFF lê o banco direto.
-   * Esta URL existe só para o `GET /v1/payments/:id/receipt`, que gera o PDF quando
-   * ele ainda não existe. Ver `modules/portal/ledger-port.ts`.
+   * Esta URL existe para o `GET /v1/payments/:id/receipt` e para o extrato em PDF, que
+   * geram o documento quando ele ainda não existe. Ver `modules/portal/ledger-port.ts`.
    */
-  BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3007'),
+  BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3000'),
 
   /**
    * O Taxi Dog, para cotar e pedir o leva-e-traz junto do agendamento (MOD-PORTAL-07).

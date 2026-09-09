@@ -11,7 +11,11 @@ import { upstreamUnavailable } from '../../lib/errors.js'
 import { logger } from '../../lib/logger.js'
 
 /**
- * A porta para o `billing-ledger-service`, e só para o recibo.
+ * A porta para o MOD-LEDGER, e só para o documento.
+ *
+ * O módulo do financeiro virou módulo do backend na consolidação e não tem mais porta
+ * própria: `BILLING_LEDGER_SERVICE_URL` aponta para a porta 3000, e o contexto assinado
+ * entra pela porta interna do processo. O contrato é o mesmo — mudou o destino.
  *
  * **Por que HTTP, se o extrato lê o banco direto.** Porque pedir o recibo não é ler: o
  * `GET /v1/payments/:id/receipt` do ledger **emite** o PDF quando ele ainda não existe
@@ -109,7 +113,7 @@ function createHttpPort(): LedgerPort {
           { method: 'GET', headers, signal: controller.signal },
         )
       } catch (error) {
-        logger.error({ err: error, paymentId }, 'falha ao falar com o billing-ledger-service')
+        logger.error({ err: error, paymentId }, 'falha ao falar com o módulo do financeiro')
         throw upstreamUnavailable('Não foi possível obter o recibo agora. Tente em instantes.')
       } finally {
         clearTimeout(timeout)

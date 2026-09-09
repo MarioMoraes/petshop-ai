@@ -83,28 +83,20 @@ describe('autenticação', () => {
     expect(echoed.length).toBe(antes)
   })
 
-  it('a busca de tutores é atendida aqui; o pacote dele, ainda encaminhado', async () => {
+  it('nem a busca de tutores nem o pacote dele saem do processo', async () => {
     const tenant = await seedTenant('rotatutor')
     const member = await seedMember(tenant.tenantId, 'RECEPTIONIST')
     const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
 
     /**
-     * O MOD-TUTOR virou módulo na fatia 6, então `/v1/tutors` não sai mais do
-     * processo. O que continua saindo é `/v1/tutors/:id/packages`, que é do financeiro
-     * — e é essa distinção que o teste guarda: as duas rotas partilham prefixo e vão
-     * para lugares diferentes.
+     * O MOD-TUTOR virou módulo na fatia 6 e o MOD-LEDGER na 10. As duas rotas
+     * partilhavam prefixo e iam para lugares diferentes — era a última exceção do
+     * `proxy.ts`, e é por isso que este teste continua exercitando as duas juntas.
      */
     const antes = echoed.length
     await call({ url: '/v1/tutors?q=maria', token })
-    expect(echoed.length).toBe(antes)
-
     await call({ url: '/v1/tutors/11111111-1111-4111-8111-111111111111/packages', token })
-    const forwarded = lastEchoed()
-    expect(forwarded.url).toContain('/packages')
-    const verified = verifyServiceHeaders(forwarded.headers, INTERNAL_SECRET)
-    expect(verified.ok).toBe(true)
-    if (!verified.ok) return
-    expect(verified.context.tenantId).toBe(tenant.tenantId)
+    expect(echoed.length).toBe(antes)
   })
 
   it('/v1/pets e o catálogo de domínio são atendidos aqui, não encaminhados', async () => {
@@ -429,10 +421,8 @@ describe('RN-04 — tenant suspenso', () => {
  * chega, alguém responde 404, e ninguém desconfia do gateway.
  */
 describe('resolveTarget — a que serviço cada rota pertence', () => {
-  it('manda o financeiro para o billing-ledger-service', async () => {
+  it('nada do financeiro tem destino externo desde a fatia 10', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/config/env.js')
-    const ledger = loadEnv().BILLING_LEDGER_SERVICE_URL
 
     for (const path of [
       '/v1/ledger/accounts/abc',
@@ -443,27 +433,42 @@ describe('resolveTarget — a que serviço cada rota pertence', () => {
       '/v1/packages/abc/purchases',
       '/v1/billing-settings',
     ]) {
-      expect(resolveTarget(path)).toBe(ledger)
+      expect(resolveTarget(path)).toBeNull()
     }
   })
 
-  it('os pacotes do tutor vencem o prefixo de tutores', async () => {
+  /**
+   * **A última exceção de prefixo, e a asserção que ela deixou.**
+   *
+   * `/v1/tutors/:tutorId/packages` saía daqui até a fatia 10, desempatada por uma
+   * checagem de sufixo conferida antes do prefixo dos tutores. Ela funcionava porque
+   * nenhuma rota do MOD-TUTOR casava com ela — e o dia em que alguém registrasse uma que
+   * casasse, o pacote sumiria sem erro nenhum, em produção.
+   *
+   * Agora quem desempata é o roteador. O que este teste guarda é que a rota continua
+   * existindo e sendo atendida aqui: `:tutorId` do financeiro convivendo com `:id` do
+   * tutor na mesma posição é a coisa que alguém "arruma" um dia sem saber que pode.
+   */
+  it('os pacotes do tutor são atendidos aqui, ao lado das rotas do tutor', async () => {
     const { resolveTarget } = await import('../src/proxy.js')
-    const { loadEnv } = await import('../src/config/env.js')
-    const env = loadEnv()
 
-    /**
-     * A exceção do financeiro sobreviveu à fatia 6: `/v1/tutors/:id/packages` continua
-     * saindo daqui, porque **nenhuma rota do módulo do tutor casa com ela**. O resto
-     * do tutor é atendido no processo e `resolveTarget` devolve `null`.
-     *
-     * No dia em que alguém registrar `/v1/tutors/:id/packages` no módulo do tutor, o
-     * roteador do Fastify passa a preferi-la e o pacote some sem erro nenhum — este
-     * teste é o que avisa.
-     */
-    expect(resolveTarget('/v1/tutors/abc/packages')).toBe(env.BILLING_LEDGER_SERVICE_URL)
+    expect(resolveTarget('/v1/tutors/abc/packages')).toBeNull()
     expect(resolveTarget('/v1/tutors/abc')).toBeNull()
     expect(resolveTarget('/v1/tutors/abc/overview')).toBeNull()
+
+    const tenant = await seedTenant('rotapacote')
+    const member = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
+    const token = givenToken({ clerkUserId: member.clerkUserId, clerkOrgId: tenant.clerkOrgId })
+    const tutorId = '11111111-1111-4111-8111-111111111111'
+
+    const antes = echoed.length
+    for (const url of [`/v1/tutors/${tutorId}/packages`, `/v1/tutors/${tutorId}/overview`]) {
+      const response = await call({ url, token })
+      // 404 do RLS (o tutor não existe), e não 404 de rota inexistente: as duas foram
+      // encontradas pelo roteador.
+      expect(response.json().code).not.toBe('ERR_IDENT_001')
+    }
+    expect(echoed.length).toBe(antes)
   })
 
   it('nada da agenda tem destino externo desde a fatia 9', async () => {

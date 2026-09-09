@@ -9,6 +9,7 @@ import { registerPublicSiteRoutes, registerSiteRoutes } from '../modules/site/ro
 import { registerCatalogRoutes } from '../modules/catalog/routes.js'
 import { registerCrmRoutes } from '../modules/crm/routes.js'
 import { registerIdentityRoutes } from '../modules/identity/routes.js'
+import { registerLedgerRoutes } from '../modules/ledger/routes.js'
 import { registerMedicalRecordRoutes } from '../modules/records/routes-module.js'
 import {
   registerEmailWebhookRoutes,
@@ -49,6 +50,7 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerSecurityModule(app)
   await registerMedicalRecordModule(app)
   await registerScheduleModule(app)
+  await registerLedgerModule(app)
 }
 
 /**
@@ -107,9 +109,9 @@ async function registerTaxiModule(app: FastifyInstance): Promise<void> {
  * MOD-CRM — o relacionamento.
  *
  * Só a metade que **decide** quem recebe o quê (`/v1/crm`). Quem **entrega**
- * (`/v1/messages`, `/v1/messaging`) ainda é o messaging-service, e o módulo continua
- * falando com ele por HTTP com contexto assinado — o mesmo salto de sempre, agora
- * partindo daqui.
+ * (`/v1/messages`, `/v1/messaging`) é o MOD-NOTIF, logo abaixo — as duas metades
+ * chegaram em fatias diferentes, e desde a 4 o salto HTTP entre elas é chamada de
+ * função.
  */
 async function registerCrmModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
@@ -170,10 +172,11 @@ async function registerPetModule(app: FastifyInstance): Promise<void> {
  * MOD-TUTOR — a ficha do cliente e os termos.
  *
  * O módulo registra `/v1/tutors/…` e `/v1/terms/…`. Duas rotas **debaixo** de
- * `/v1/tutors/:id` continuam sendo de outros: `/packages` é do financeiro, ainda
- * encaminhado, e `/messages` é do MOD-NOTIF, que já vive aqui. Nenhuma das duas casa
- * com uma rota deste módulo, e é isso que as mantém funcionando — a do financeiro pelo
- * curinga do `proxy.ts`, a de mensagens pelo escopo do outro módulo.
+ * `/v1/tutors/:id` são de outros módulos: `/packages` é do MOD-LEDGER e `/messages` é do
+ * MOD-NOTIF. Nenhuma das duas casa com uma rota deste módulo, e desde a fatia 10 as
+ * duas são atendidas pela árvore de rotas — um conflito real apareceria no boot, em vez
+ * de uma delas sumir em silêncio como acontecia enquanto o desempate era uma checagem
+ * de sufixo no `proxy.ts`.
  */
 async function registerTutorModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
@@ -215,6 +218,25 @@ async function registerSecurityModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerSecurityRoutes(scope)
+  })
+}
+
+/**
+ * MOD-LEDGER — a conta corrente do tutor.
+ *
+ * A última fatia de domínio da consolidação, e a que apagou a **última exceção de
+ * prefixo do `proxy.ts`**: `/v1/tutors/:tutorId/packages` mora debaixo do espaço do
+ * MOD-TUTOR e era desempatada por uma checagem de sufixo conferida antes do prefixo do
+ * tutor. Com os dois na mesma árvore, quem desempata é o roteador — e `:tutorId` aqui
+ * convive com `:id` lá, como o `:petId` do prontuário já convivia.
+ *
+ * Registrado depois do MOD-TUTOR, pela mesma razão que o MOD-PRONT vem depois do
+ * MOD-PET: quem pendura rota no espaço de outro vem depois de quem define o espaço.
+ */
+async function registerLedgerModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerLedgerRoutes(scope)
   })
 }
 

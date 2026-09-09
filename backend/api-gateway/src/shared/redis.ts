@@ -104,6 +104,40 @@ export const CACHE_KEYS = {
   phone: (tenantId: string, phoneHash: string) => `tutor:phone:${tenantId}:${phoneHash}`,
   tagCounts: (tenantId: string) => `tutor:tagcount:${tenantId}`,
   cep: (zipCode: string) => `cep:${zipCode}`,
+  /**
+   * Estado da conexão de WhatsApp. Existe porque a cascata de canal o consulta uma vez
+   * por candidato, por mensagem — e o estado só muda quando um webhook chega, que é
+   * quando esta chave é derrubada.
+   */
+  whatsapp: (tenantId: string) => `wa:${tenantId}`,
+  /**
+   * O QR **corrente** do pareamento.
+   *
+   * A Evolution roda o código a cada ~45s e empurra cada troca pelo webhook. Sem este
+   * cache o evento chegava e era descartado, a tela ficava com o primeiro código para
+   * sempre, e todo pareamento falhava com "tente novamente mais tarde".
+   */
+  whatsappQr: (tenantId: string) => `waqr:${tenantId}`,
+
+  // ---- MOD-LEDGER ----
+  /**
+   * O saldo e os pacotes do tutor, e as políticas de cobrança do tenant.
+   *
+   * **O saldo nunca é servido do cache em operação de escrita**: lançamento, pagamento e
+   * consumo de crédito leem a conta com `SELECT … FOR UPDATE` direto no Postgres. Estas
+   * chaves existem para leitura de tela, onde alguns segundos de defasagem custam menos
+   * que a latência somada em cada abertura da ficha do tutor.
+   *
+   * `ledgerSettings` ganhou o prefixo do módulo na fatia 10 — o literal que vai para o
+   * Redis continua `ledger:settings:{tenantId}`, que é o que importa em infraestrutura.
+   * O nome no objeto mudou porque o processo já tem `tenantSettings`, `taxiSettings` e
+   * `messagingSettings`: um `settings` solto entre eles seria o único que não diz de
+   * quem é.
+   */
+  balance: (tenantId: string, tutorId: string) => `ledger:balance:${tenantId}:${tutorId}`,
+  packages: (tenantId: string, tutorId: string) => `ledger:packages:${tenantId}:${tutorId}`,
+  ledgerSettings: (tenantId: string) => `ledger:settings:${tenantId}`,
+
   // ---- MOD-AGENDA ----
   /**
    * O catálogo da agenda — serviços, profissionais e a jornada de cada um.
@@ -124,20 +158,6 @@ export const CACHE_KEYS = {
   schedule: (tenantId: string, professionalId: string) =>
     `agenda:schedule:${tenantId}:${professionalId}`,
 
-  /**
-   * Estado da conexão de WhatsApp. Existe porque a cascata de canal o consulta uma vez
-   * por candidato, por mensagem — e o estado só muda quando um webhook chega, que é
-   * quando esta chave é derrubada.
-   */
-  whatsapp: (tenantId: string) => `wa:${tenantId}`,
-  /**
-   * O QR **corrente** do pareamento.
-   *
-   * A Evolution roda o código a cada ~45s e empurra cada troca pelo webhook. Sem este
-   * cache o evento chegava e era descartado, a tela ficava com o primeiro código para
-   * sempre, e todo pareamento falhava com "tente novamente mais tarde".
-   */
-  whatsappQr: (tenantId: string) => `waqr:${tenantId}`,
 } as const
 
 export const CACHE_TTL_SECONDS = {
@@ -196,11 +216,6 @@ export const CACHE_TTL_SECONDS = {
   phone: 600,
   tagCounts: 300,
   cep: 86_400,
-
-  services: 3_600,
-  professionals: 3_600,
-  schedule: 3_600,
-
   /**
    * Um minuto. Curto porque o preço de errar é assimétrico: com o cache velho dizendo
    * "conectado" a mensagem falha e volta para a fila; dizendo "desconectado" ela cai
@@ -214,6 +229,14 @@ export const CACHE_TTL_SECONDS = {
    * apodrece, e um código vencido na tela é pior que nenhum.
    */
   whatsappQr: 90,
+
+  balance: 60,
+  packages: 300,
+  ledgerSettings: 900,
+
+  services: 3_600,
+  professionals: 3_600,
+  schedule: 3_600,
 } as const
 
 export const { getRedis, cacheGet, cacheSet, cacheDelete, closeRedis } = createCache({
@@ -327,6 +350,33 @@ export async function invalidatePet(
  */
 export async function invalidateAlerts(tenantId: string, petId: string): Promise<void> {
   await cacheDelete(CACHE_KEYS.alerts(tenantId, petId), CACHE_KEYS.pet(tenantId, petId))
+}
+
+/**
+ * Invalidação **ativa** do saldo, não só por TTL (MOD-LEDGER).
+ *
+ * Sessenta segundos de defasagem são aceitáveis para quem abre a ficha; não são para
+ * quem acabou de registrar o pagamento e olha para a tela esperando o saldo zerar.
+ */
+export async function invalidateAccount(tenantId: string, tutorId: string): Promise<void> {
+  await cacheDelete(CACHE_KEYS.balance(tenantId, tutorId))
+}
+
+/** Muda um pacote → some o saldo junto: compra e resgate mexem nos dois. */
+export async function invalidatePackages(tenantId: string, tutorId: string): Promise<void> {
+  await cacheDelete(CACHE_KEYS.packages(tenantId, tutorId), CACHE_KEYS.balance(tenantId, tutorId))
+}
+
+/**
+ * As políticas de cobrança do tenant (MOD-LEDGER).
+ *
+ * O nome não é `invalidateSettings`: esse já é do MOD-NOTIF, logo acima, e apaga a
+ * configuração de mensageria. Duas funções com o mesmo nome em `shared/` significaria
+ * que uma delas apaga a chave errada — e uma configuração de cobrança que não invalida
+ * é um método de pagamento desligado que continua aceitando por quinze minutos.
+ */
+export async function invalidateLedgerSettings(tenantId: string): Promise<void> {
+  await cacheDelete(CACHE_KEYS.ledgerSettings(tenantId))
 }
 
 /**

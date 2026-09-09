@@ -69,7 +69,9 @@ x-backend: &backend
     # O MOD-AGENDA é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
     SCHEDULING_SERVICE_URL: http://api-gateway:3000
-    BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
+    # O MOD-LEDGER é módulo do backend desde a consolidação; quem ainda o chama por
+    # HTTP é o portal-bff, com contexto assinado.
+    BILLING_LEDGER_SERVICE_URL: http://api-gateway:3000
     # O MOD-NOTIF é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
     MESSAGING_SERVICE_URL: http://api-gateway:3000
@@ -348,21 +350,6 @@ services:
       # declarar a task morta antes de o gate liberar, e num deploy novo isso
       # vira laço: mata, sobe, espera, mata.
       start_period: 180s
-
-  billing-ledger-service:
-    <<: *backend
-    command:
-      [
-        '/app/infra/swarm/aguardar-migracao.sh',
-        'node',
-        'backend/billing-ledger-service/dist/src/server.js',
-      ]
-    environment:
-      <<: *backend-env
-      BILLING_LEDGER_SERVICE_PORT: 3007
-    healthcheck:
-      <<: *hc-gateway
-      test: ['CMD-SHELL', 'curl -sf http://localhost:3007/health || exit 1']
 
 
 

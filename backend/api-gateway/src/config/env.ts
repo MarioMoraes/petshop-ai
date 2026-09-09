@@ -23,12 +23,11 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   CLERK_AUTHORIZED_PARTIES: z.string().default(''),
 
   /**
-   * Os serviços que **ainda não migraram**.
+   * O serviço que **ainda não migrou** — sobrou um.
    *
-   * Some um por fatia. Quando a lista esvaziar, o `proxy.ts` inteiro sai junto — é o
-   * marcador de progresso da consolidação.
+   * Era a lista inteira de `*_SERVICE_URL`, e sumia uma por fatia. Quando esta última
+   * sair, o `proxy.ts` inteiro sai junto e o diretório passa a se chamar `backend/app/`.
    */
-  BILLING_LEDGER_SERVICE_URL: z.string().url().default('http://localhost:3007'),
   PORTAL_BFF_URL: z.string().url().default('http://localhost:3020'),
 
   /**

@@ -124,8 +124,13 @@ export async function proxyRequest(
 }
 
 /**
- * Roteamento por prefixo. A tabela **encolhe** a cada fatia da consolidação.
+ * Roteamento por prefixo — **e não sobrou mais nenhum de `/v1`**.
+ *
+ * A tabela encolheu a cada fatia da consolidação e, depois da 10, o único destino é o
+ * Portal. O que ficou abaixo é o registro das três formas que ela tinha, porque cada uma
+ * documenta uma armadilha que o roteador do Fastify passou a cobrir sozinho.
  */
+
 /**
  * **A tabela do MOD-AGENDA saiu na fatia 9.** Eram sete prefixos — `/v1/services`,
  * `/v1/professionals`, `/v1/calendar-blocks`, `/v1/availability`, `/v1/agenda`,
@@ -169,22 +174,21 @@ export function isPortalPath(path: string): boolean {
   return matches(path, PORTAL_PREFIXES)
 }
 
-const LEDGER_PREFIXES = [
-  '/v1/ledger',
-  '/v1/payments',
-  '/v1/packages',
-  '/v1/billing-settings',
-]
-
 /**
- * Os pacotes de um tutor moram em `/v1/tutors/:tutorId/packages`, porque é da conta
- * dele que se fala. Mesmo problema do prontuário: o roteamento é por prefixo, então
- * esta checagem precisa vir **antes** de `TUTOR_PREFIXES` — senão a rota cairia no
- * tutor-service, que não conhece pacote nenhum.
+ * **A última exceção de prefixo saiu na fatia 10, e com ela a última tabela.**
+ *
+ * O MOD-LEDGER tinha quatro prefixos — `/v1/ledger`, `/v1/payments`, `/v1/packages` e
+ * `/v1/billing-settings` — e uma exceção por sufixo: `/v1/tutors/:tutorId/packages`, que
+ * mora debaixo do espaço do MOD-TUTOR porque é da conta do tutor que se fala. Aquela
+ * checagem precisava vir **antes** do prefixo dos tutores, e era o mesmo desenho frágil
+ * que o prontuário tinha: funcionava porque nenhuma rota do MOD-TUTOR casava com ela.
+ *
+ * Com os dois módulos na mesma árvore, quem desempata é o roteador — e `:tutorId` aqui
+ * convive com `:id` lá, como o `find-my-way` já provava com o `:petId` do prontuário.
+ *
+ * **Sobrou um destino só: o `portal-bff`.** Quando ele migrar, este arquivo sai inteiro,
+ * junto com o `resolveInternalRequest` do `app.ts`.
  */
-function isLedgerTutorPath(path: string): boolean {
-  return path.startsWith('/v1/tutors/') && path.endsWith('/packages')
-}
 
 function matches(path: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
@@ -193,7 +197,5 @@ function matches(path: string, prefixes: string[]): boolean {
 export function resolveTarget(path: string): string | null {
   const env = loadEnv()
   if (isPortalPath(path)) return env.PORTAL_BFF_URL
-  if (isLedgerTutorPath(path)) return env.BILLING_LEDGER_SERVICE_URL
-  if (matches(path, LEDGER_PREFIXES)) return env.BILLING_LEDGER_SERVICE_URL
   return null
 }

@@ -28,11 +28,11 @@ pnpm dev
 |---|---|---|
 | api-gateway | 3000 | O backend: token do Clerk, tenant, permissões, os módulos já consolidados e o encaminhamento do que falta |
 | frontend | 3002 | Admin, Portal do Tutor e site do estabelecimento (Next.js) |
-| billing-ledger-service | 3007 | Conta corrente do tutor — ainda não migrado |
 | portal-bff | 3020 | A superfície do cliente final — ainda não migrado |
 
 A lista de `*_SERVICE_URL` em `backend/api-gateway/src/config/env.ts` é o marcador de
-progresso da consolidação: some uma a cada fatia.
+progresso da consolidação: some uma a cada fatia, e sobrou **uma** — a do `portal-bff`.
+Quando ela sair, o `proxy.ts` sai junto e o diretório passa a se chamar `backend/app/`.
 
 Para o login funcionar no navegador é preciso preencher as chaves do Clerk —
 ver **[docs/setup-clerk.md](docs/setup-clerk.md)**. A suíte de testes não depende

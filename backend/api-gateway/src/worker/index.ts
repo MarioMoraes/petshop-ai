@@ -2,6 +2,7 @@ import { createJobScheduler } from '@petshop/job-scheduler'
 import { loadEnv } from '../config/env.js'
 import { logger, recordMetric } from '../shared/logger.js'
 import { startCrmConsumers, stopCrmConsumers } from '../modules/crm/consumers.js'
+import { startLedgerConsumers, stopLedgerConsumers } from '../modules/ledger/consumers.js'
 import { startPetConsumers, stopPetConsumers } from '../modules/pets/consumers.js'
 import { startRecordConsumers, stopRecordConsumers } from '../modules/attendances/consumers.js'
 import {
@@ -14,6 +15,7 @@ import { startTaxiConsumers, stopTaxiConsumers } from '../modules/taxi/consumers
 import { crmJobs } from './crm-jobs.js'
 import { identityJobs } from './identity-jobs.js'
 import { recordJobs } from './record-jobs.js'
+import { ledgerJobs } from './ledger-jobs.js'
 import { schedulingJobs } from './scheduling-jobs.js'
 import { securityJobs } from './security-jobs.js'
 import { messagingJobs } from './messaging-jobs.js'
@@ -49,6 +51,7 @@ export const { startJobs, stopJobs, runJobNow } = createJobScheduler({
     ...securityJobs,
     ...recordJobs,
     ...schedulingJobs,
+    ...ledgerJobs,
   ],
 })
 
@@ -67,6 +70,7 @@ export async function startConsumers(): Promise<void> {
   await startTutorConsumers()
   await startRecordConsumers()
   await startSchedulingConsumers()
+  await startLedgerConsumers()
 }
 
 export async function stopConsumers(): Promise<void> {
@@ -78,5 +82,6 @@ export async function stopConsumers(): Promise<void> {
     stopTutorConsumers(),
     stopRecordConsumers(),
     stopSchedulingConsumers(),
+    stopLedgerConsumers(),
   ])
 }

@@ -40,7 +40,9 @@ x-backend: &backend
     # O MOD-AGENDA é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
     SCHEDULING_SERVICE_URL: http://api-gateway:3000
-    BILLING_LEDGER_SERVICE_URL: http://billing-ledger-service:3007
+    # O MOD-LEDGER é módulo do backend desde a consolidação; quem ainda o chama por
+    # HTTP é o portal-bff, com contexto assinado.
+    BILLING_LEDGER_SERVICE_URL: http://api-gateway:3000
     # O MOD-NOTIF é módulo do backend desde a consolidação; quem ainda o chama por
     # HTTP é o portal-bff, com contexto assinado.
     MESSAGING_SERVICE_URL: http://api-gateway:3000
@@ -243,13 +245,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-
-  billing-ledger-service:
-    <<: *backend
-    command: ['node', 'backend/billing-ledger-service/dist/src/server.js']
-    environment:
-      <<: *backend-env
-      BILLING_LEDGER_SERVICE_PORT: 3007
 
 
 

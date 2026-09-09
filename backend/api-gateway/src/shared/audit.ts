@@ -48,6 +48,16 @@ export const { sanitize, recordAudit } = createAudit({
     // no balcão.
     'cancelReason',
     'cancelReasonEncrypted',
+    // MOD-LEDGER — o módulo em que a trilha mais importa, e onde o campo livre é o
+    // que menos deve entrar nela: `internal_notes` carrega juízo de valor sobre o
+    // titular, e `proof_url` pode exibir dado bancário de terceiro.
+    'internalNotes',
+    'internalNotesEncrypted',
+    'notesEncrypted',
+    'proofUrl',
+    'proofUrlEncrypted',
+    'suspensionReason',
+    'suspensionReasonEncrypted',
   ],
 })
 

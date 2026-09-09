@@ -58,6 +58,13 @@ export const { loggerOptions, logger, recordMetric } = createLogger({
     // MOD-AGENDA: o motivo do cancelamento, campo livre que o §9 marca como risco.
     // `*.notes` já estava na lista, e é o mesmo campo do agendamento.
     '*.cancelReason',
+    // MOD-LEDGER: `*.notes` já estava; o resto do §9 do financeiro entra aqui.
+    '*.internalNotes',
+    '*.internalNotesEncrypted',
+    '*.notesEncrypted',
+    '*.proofUrl',
+    '*.proofUrlEncrypted',
+    '*.suspensionReason',
   ],
 })
 

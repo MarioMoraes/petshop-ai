@@ -11,7 +11,6 @@ impede migrar para orquestrador depois — as imagens são as mesmas.
 | `caddy` | 80, 443 | **sim** — o único |
 | `frontend` | 3002 | não |
 | `api-gateway` | 3000 | não |
-| `billing-ledger-service` | 3007 | não |
 | `postgres` / `redis` / `rabbitmq` / `gotenberg` | — | não |
 | `evolution` | 8080 | não — **nem por rota no Caddy** |
 | `migrator` | — | roda uma vez e morre |

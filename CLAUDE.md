@@ -45,7 +45,8 @@ A migração é por estrangulamento, uma fatia por serviço:
 - `backend/api-gateway/` é o processo hospedeiro. Ele registra os módulos que já vivem
   nele e **encaminha ao serviço** o que ainda não migrou (`src/proxy.ts`).
 - A lista de `*_SERVICE_URL` em `src/config/env.ts` é o marcador de progresso: some uma
-  por fatia. Quando esvaziar, o `proxy.ts` sai junto e o diretório passa a se chamar
+  por fatia. **Sobrou uma, a do `portal-bff`** — e ela é o último destino do
+  `proxy.ts`, que sai junto quando ela sair, com o diretório passando a se chamar
   `backend/app/`.
 - `src/gateway/routes.ts` é onde as rotas de módulo são compostas. **A separação entre
   superfície pública e autenticada é por escopo do Fastify**, não por convenção de nome:
@@ -55,9 +56,10 @@ A migração é por estrangulamento, uma fatia por serviço:
   roda o quê.
 - **O processo tem duas portas de entrada enquanto a migração dura.** Pela de fora
   chega o token do Clerk. Pela de dentro chega um serviço que ainda não migrou, com o
-  contexto já resolvido e assinado em HMAC — é como o `portal-bff` alcança o Taxi Dog
-  agora que o Taxi Dog não tem porta própria. Ver `resolveInternalRequest` em
-  `src/app.ts`; ela sai junto com o `proxy.ts` na última fatia.
+  contexto já resolvido e assinado em HMAC — é por ela que o `portal-bff` alcança o Taxi
+  Dog, a agenda, o financeiro, o MOD-TUTOR e o MOD-NOTIF, todos sem porta própria. Ver
+  `resolveInternalRequest` em `src/app.ts`; ela sai junto com o `proxy.ts` na última
+  fatia, que é a do próprio `portal-bff`.
 - **Os testes ficam por módulo.** `tests/harness.ts` guarda o núcleo (app, banco, token,
   chamadores por papel) e `tests/<modulo>/fixtures.ts` o cenário de cada um, porque os
   nomes colidem: todo módulo tem um `givenTenant` com as configurações que ele precisa.
@@ -78,9 +80,12 @@ Já migrados: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
 `modules/catalog`, `modules/photos`), MOD-TUTOR (`modules/tutors`, `modules/terms`,
 `modules/addresses`, `modules/consents`, `modules/tags`), MOD-IDENT
 (`modules/identity`), MOD-PRONT (`modules/records`, `modules/attendances`,
-`modules/prescriptions`) e MOD-AGENDA (`modules/scheduling`,
-`modules/schedule-catalog`) — com as duas metades do CRM juntas, o salto HTTP entre
-elas virou chamada de função.
+`modules/prescriptions`), MOD-AGENDA (`modules/scheduling`,
+`modules/schedule-catalog`) e MOD-LEDGER (`modules/ledger`) — com as duas metades do
+CRM juntas, o salto HTTP entre elas virou chamada de função.
+
+**Falta um: o `portal-bff`.** É o maior e o único com muitas chamadas de saída, e por
+isso ficou por último.
 
 **O nome `modules/schedule-catalog` é o registro de uma colisão.** O MOD-AGENDA tinha
 `catalog` e `scheduling` enquanto era serviço, e aqui `modules/catalog` já é o catálogo
@@ -95,13 +100,14 @@ agendamento futuro não se transfere — estava escrito e testado desde o MOD-PE
 porta que responde por ele só era ligada em teste. Com a agenda no mesmo processo,
 `setSchedulingPort` entrou no registro do módulo e a regra passou a valer.
 
-**A exceção de prefixo do `proxy.ts` acabou com o MOD-PRONT.** Enquanto o prontuário era
-serviço, as rotas dele penduravam-se sob `/v1/pets/:petId/…` e o roteamento era por
-**sufixo**, conferido antes do prefixo do pet — e funcionava por coincidência: nenhuma
-rota do módulo do pet casava com aqueles sufixos, e o dia em que alguém registrasse uma
-que casasse, o Fastify preferiria a do módulo e a rota sumiria sem erro nenhum. Com os
-dois na mesma árvore, quem desempata é o roteador. Sobrou uma exceção só,
-`/v1/tutors/:id/packages`, para o financeiro.
+**As exceções de prefixo do `proxy.ts` acabaram, e o arquivo já não roteia nada de
+`/v1`.** Eram duas, do mesmo desenho frágil: o prontuário pendurava rotas sob
+`/v1/pets/:petId/…` e o financeiro sob `/v1/tutors/:tutorId/packages`, e as duas eram
+desempatadas por **sufixo**, conferido antes do prefixo do outro módulo. Funcionavam por
+coincidência — nenhuma rota do módulo dono do espaço casava com aqueles sufixos —, e o
+dia em que alguém registrasse uma que casasse, o Fastify preferiria a do módulo e a rota
+sumiria sem erro nenhum. Com todos na mesma árvore, quem desempata é o roteador, que
+reclama no boot. **O único destino que sobrou no `proxy.ts` é o `portal-bff`.**
 
 **Nome de parâmetro de rota não precisa acompanhar a migração.** O MOD-PRONT usa
 `:petId` onde o MOD-PET usa `:id`, na mesma posição, e o `find-my-way` aceita — foi
