@@ -11,7 +11,7 @@ import {
   type Plan,
   type TeamMember,
 } from '@petshop/shared-types'
-import { Badge, Card, Field, FormError } from '@/components/ui'
+import { Badge, Button, Card, Field, FormError } from '@/components/ui'
 import { UsersIcon } from '@/components/icons'
 import {
   changeRoleAction,
@@ -157,15 +157,22 @@ export function TeamManager({ members, invitations, currentUserId, plan, canInvi
               </Field>
             </div>
 
-            <button type="submit" className="btn btn-accent mb-1" disabled={pending || semAssento}>
-              {pending ? 'Enviando…' : 'Enviar convite'}
-            </button>
+            <Button
+              type="submit"
+              variant="accent"
+              className="mb-1"
+              busy={pending}
+              disabled={semAssento}
+              busyLabel="Enviando…"
+            >
+              Enviar convite
+            </Button>
           </form>
 
           {semAssento && (
             <p className="hint mt-3">
-              Os assentos do plano acabaram. Cancele um convite pendente, remova alguém da equipe
-              ou faça upgrade para convidar mais gente.
+              Os assentos do plano acabaram. Cancele um convite pendente, remova alguém da equipe ou
+              faça upgrade para convidar mais gente.
             </p>
           )}
 
@@ -261,22 +268,25 @@ export function TeamManager({ members, invitations, currentUserId, plan, canInvi
                   </div>
 
                   <div className="flex shrink-0 gap-2">
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost"
+                      variant="ghost"
+                      busy={pending}
                       onClick={() => reenviar(invitation.id)}
-                      disabled={pending}
+                      busyLabel="Reenviando…"
                     >
                       Reenviar
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
-                      className="btn btn-ghost text-danger"
+                      variant="ghost"
+                      className="text-danger"
+                      busy={pending}
                       onClick={() => revogar(invitation.id)}
-                      disabled={pending}
+                      busyLabel="Cancelando…"
                     >
                       Cancelar
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -312,15 +322,15 @@ function LinkDoConvite({ email, url }: { email: string; url: string }) {
           onFocus={(event) => event.target.select()}
           aria-label="Link do convite"
         />
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost"
+          variant="ghost"
           onClick={() => {
             void navigator.clipboard?.writeText(url).then(() => setCopiado(true))
           }}
         >
           {copiado ? 'Copiado' : 'Copiar'}
-        </button>
+        </Button>
       </div>
     </div>
   )

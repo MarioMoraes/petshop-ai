@@ -10,7 +10,7 @@ import type {
   TaxiRideResponse,
 } from '@petshop/shared-types'
 import { VanIcon } from '@/components/icons'
-import { Field, FormError } from '@/components/ui'
+import { Button, Field, FormError } from '@/components/ui'
 import { lookupCepAction } from '@/app/(admin)/tutores/actions'
 import {
   createRidesAction,
@@ -145,9 +145,7 @@ export function TaxiPanel({
   )
   const [pickupEnd, setPickupEnd] = useState(localTime(appointment.startsAt, timezone))
   const [dropoffStart, setDropoffStart] = useState(localTime(appointment.endsAt, timezone))
-  const [dropoffEnd, setDropoffEnd] = useState(
-    shifted(appointment.endsAt, windowMinutes, timezone),
-  )
+  const [dropoffEnd, setDropoffEnd] = useState(shifted(appointment.endsAt, windowMinutes, timezone))
 
   const [mode, setMode] = useState<'inherit' | 'custom'>('inherit')
   const [address, setAddress] = useState(EMPTY_ADDRESS)
@@ -408,8 +406,8 @@ export function TaxiPanel({
               </label>
             ) : (
               <p className="error-text" role="alert">
-                Este tutor não tem endereço principal cadastrado. Informe abaixo para onde
-                o motorista deve ir.
+                Este tutor não tem endereço principal cadastrado. Informe abaixo para onde o
+                motorista deve ir.
               </p>
             )}
 
@@ -446,9 +444,7 @@ export function TaxiPanel({
                     inputMode="numeric"
                     placeholder="01310100"
                     value={address.zipCode}
-                    onChange={(event) =>
-                      setAddress((c) => ({ ...c, zipCode: event.target.value }))
-                    }
+                    onChange={(event) => setAddress((c) => ({ ...c, zipCode: event.target.value }))}
                     onBlur={handleCepBlur}
                   />
                 </Field>
@@ -462,9 +458,7 @@ export function TaxiPanel({
                     id={`num-${appointment.id}`}
                     className="field"
                     value={address.number}
-                    onChange={(event) =>
-                      setAddress((c) => ({ ...c, number: event.target.value }))
-                    }
+                    onChange={(event) => setAddress((c) => ({ ...c, number: event.target.value }))}
                   />
                 </Field>
 
@@ -477,9 +471,7 @@ export function TaxiPanel({
                     id={`rua-${appointment.id}`}
                     className="field"
                     value={address.street}
-                    onChange={(event) =>
-                      setAddress((c) => ({ ...c, street: event.target.value }))
-                    }
+                    onChange={(event) => setAddress((c) => ({ ...c, street: event.target.value }))}
                   />
                 </Field>
 
@@ -519,9 +511,7 @@ export function TaxiPanel({
                       id={`cidade-${appointment.id}`}
                       className="field"
                       value={address.city}
-                      onChange={(event) =>
-                        setAddress((c) => ({ ...c, city: event.target.value }))
-                      }
+                      onChange={(event) => setAddress((c) => ({ ...c, city: event.target.value }))}
                     />
                   </Field>
                   <Field
@@ -534,9 +524,7 @@ export function TaxiPanel({
                       className="field"
                       maxLength={2}
                       value={address.state}
-                      onChange={(event) =>
-                        setAddress((c) => ({ ...c, state: event.target.value }))
-                      }
+                      onChange={(event) => setAddress((c) => ({ ...c, state: event.target.value }))}
                     />
                   </Field>
                 </div>
@@ -597,12 +585,12 @@ export function TaxiPanel({
         encanamento para ganhar 12px de alinhamento.
       */}
       <div className="flex flex-wrap justify-end gap-2">
-        <button type="button" className="btn btn-ghost" disabled={enviando} onClick={onClose}>
+        <Button type="button" variant="ghost" disabled={enviando} onClick={onClose}>
           Voltar
-        </button>
-        <button type="button" className="btn btn-primary" disabled={enviando} onClick={confirmar}>
-          {enviando ? 'Pedindo…' : 'Pedir corrida'}
-        </button>
+        </Button>
+        <Button type="button" busy={enviando} onClick={confirmar} busyLabel="Pedindo…">
+          Pedir corrida
+        </Button>
       </div>
     </div>
   )

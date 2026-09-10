@@ -23,6 +23,8 @@ import {
   WaveIcon,
   type IconTone,
 } from './icons'
+import { NavLink, NavPill } from './links'
+import { RouteProgress } from './route-progress'
 import { TenantSwitcher } from './tenant-switcher'
 import { Alert, Badge, Logo } from './ui'
 
@@ -208,9 +210,7 @@ export interface AppShellProps {
 export async function AppShell({ active, me, atmosphere = false, children }: AppShellProps) {
   // O menu não oferece o que a página recusaria: um link que sempre devolve o usuário
   // ao início é pior do que link nenhum.
-  const items = NAV.filter(
-    (item) => !item.requires || me.permissions.includes(item.requires),
-  )
+  const items = NAV.filter((item) => !item.requires || me.permissions.includes(item.requires))
 
   /*
    * As duas leituras da moldura, juntas.
@@ -239,9 +239,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
   // período —, então ler só a data faz um tenant já ACTIVE continuar anunciando
   // "2 dias de teste" até o prazo antigo vencer. Quem manda é o status.
   const trialDaysLeft =
-    me.currentTenant?.status === 'TRIAL'
-      ? trialDaysLeftOf(me.currentTenant.trialEndsAt)
-      : null
+    me.currentTenant?.status === 'TRIAL' ? trialDaysLeftOf(me.currentTenant.trialEndsAt) : null
   const roleLabel = roleLabelOf(me)
 
   // `--color-focus` chega de `/v1/me` como a cor de marca do tenant corrente
@@ -253,6 +251,13 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
 
   return (
     <div className="flex min-h-[100svh] bg-surface" style={brandStyle}>
+      {/*
+       * Dentro do `brandStyle`, e não fora: a barra se pinta com `--color-focus`, que é
+       * onde a cor de marca do tenant chega. Montada aqui, ela vale para todas as telas
+       * do Admin sem cada uma lembrar de pedi-la.
+       */}
+      <RouteProgress />
+
       <Sidebar active={active} items={items} tenantName={me.currentTenant?.name ?? null} />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -323,16 +328,12 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
         {/* Navegação de bolso: abaixo de `lg` a lateral some e vira esta faixa. */}
         <nav className="flex gap-1 overflow-x-auto border-b border-line px-4 py-2 text-sm lg:hidden">
           {items.map((item) => (
-            <Link
+            <NavPill
               key={item.key}
               href={item.href}
-              aria-current={item.key === active ? 'page' : undefined}
-              className={`btn btn-ghost shrink-0 px-3 py-1.5 ${
-                item.key === active ? 'bg-card text-ink' : ''
-              }`}
-            >
-              {item.label}
-            </Link>
+              label={item.label}
+              active={item.key === active}
+            />
           ))}
         </nav>
 
@@ -340,7 +341,9 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
          * `overflow-hidden` só com atmosfera: os blooms sangram para fora da caixa e,
          * sem o recorte, criariam rolagem horizontal na página.
          */}
-        <main className={`relative flex-1 px-4 pb-16 pt-8 sm:px-8 ${atmosphere ? 'overflow-hidden' : ''}`}>
+        <main
+          className={`relative flex-1 px-4 pb-16 pt-8 sm:px-8 ${atmosphere ? 'overflow-hidden' : ''}`}
+        >
           {atmosphere && <Atmosphere />}
           <MfaAviso mfa={me.mfa} />
           {/* `z-10`: elemento posicionado pinta sobre bloco não posicionado — sem isso
@@ -384,15 +387,15 @@ function MfaAviso({ mfa }: { mfa: MeResponse['mfa'] }) {
       >
         {bloqueado ? (
           <>
-            Nada é salvo enquanto a conta do administrador não tiver segundo fator. A
-            consulta continua liberada. Abra o menu da sua conta, no canto superior
-            direito, e ative a verificação em duas etapas.
+            Nada é salvo enquanto a conta do administrador não tiver segundo fator. A consulta
+            continua liberada. Abra o menu da sua conta, no canto superior direito, e ative a
+            verificação em duas etapas.
           </>
         ) : (
           <>
             O perfil de administrador passa a exigir segundo fator
-            {mfa.graceEndsAt ? ` a partir de ${prazo(mfa.graceEndsAt)}` : ''}. Ative pelo
-            menu da sua conta, no canto superior direito.
+            {mfa.graceEndsAt ? ` a partir de ${prazo(mfa.graceEndsAt)}` : ''}. Ative pelo menu da
+            sua conta, no canto superior direito.
           </>
         )}
       </Alert>
@@ -503,16 +506,16 @@ function Sidebar({
 
       <nav className="mt-8 flex flex-col gap-1 text-sm">
         {items.map((item) => (
-          <Link
+          // O tom não muda com o estado: azul é Agenda em repouso, em hover, ativa e
+          // carregando. O que muda é o desenho — ver `NavLink`.
+          <NavLink
             key={item.key}
             href={item.href}
-            aria-current={item.key === active ? 'page' : undefined}
-            className={`nav-item ${item.key === active ? 'nav-item-active' : ''}`}
-          >
-            {/* O tom não muda com o estado: azul é Agenda em repouso, em hover e ativa. */}
-            <span className={`icon-tint shrink-0 ${item.tone}`}>{item.icon}</span>
-            {item.label}
-          </Link>
+            label={item.label}
+            icon={item.icon}
+            tone={item.tone}
+            active={item.key === active}
+          />
         ))}
       </nav>
     </aside>

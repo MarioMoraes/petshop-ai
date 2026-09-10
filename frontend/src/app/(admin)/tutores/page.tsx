@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Badge, EmptyState, PageHeader } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
 import { serverApi } from '@/lib/api'
 import { TutorSearch } from './tutor-search'
 
@@ -33,14 +34,8 @@ export default async function TutoresPage({ searchParams }: PageProps) {
       <PageHeader
         eyebrow="Cadastros"
         title="Tutores"
-        subtitle={
-          result.total === 1 ? '1 tutor cadastrado' : `${result.total} tutores cadastrados`
-        }
-        actions={
-          <Link href="/tutores/novo" className="btn btn-primary">
-            Novo tutor
-          </Link>
-        }
+        subtitle={result.total === 1 ? '1 tutor cadastrado' : `${result.total} tutores cadastrados`}
+        actions={<ButtonLink href="/tutores/novo">Novo tutor</ButtonLink>}
       />
 
       <TutorSearch tags={tags} initialQuery={params.q ?? ''} activeTag={params.tag ?? ''} />
@@ -55,11 +50,7 @@ export default async function TutoresPage({ searchParams }: PageProps) {
           <EmptyState
             title="Sua base começa aqui"
             description="O cadastro do tutor é o ponto de partida de tudo: pets, agenda e conta corrente."
-            action={
-              <Link href="/tutores/novo" className="btn btn-primary">
-                Cadastrar o primeiro tutor
-              </Link>
-            }
+            action={<ButtonLink href="/tutores/novo">Cadastrar o primeiro tutor</ButtonLink>}
           />
         )
       ) : (
@@ -150,9 +141,9 @@ function PageLink({
   search.set('page', String(page))
 
   return (
-    <Link href={`/tutores?${search.toString()}`} className="btn btn-ghost">
+    <ButtonLink href={`/tutores?${search.toString()}`} variant="ghost">
       {children}
-    </Link>
+    </ButtonLink>
   )
 }
 

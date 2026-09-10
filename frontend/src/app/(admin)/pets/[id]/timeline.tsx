@@ -14,7 +14,7 @@ import {
   type TimelineKind,
   type TimelinePage,
 } from '@petshop/shared-types'
-import { Badge, EmptyState, Field, FormError } from '@/components/ui'
+import { Badge, Button, EmptyState, Field, FormError } from '@/components/ui'
 import { HeartPulseIcon } from '@/components/icons'
 import { Modal } from '@/components/modal'
 import {
@@ -137,8 +137,7 @@ export function TimelineTab({
       <ol className="space-y-2">
         {entries.map((entry, index) => {
           const primeiroDoDia =
-            index === 0 ||
-            dayLabel(entries[index - 1]!.occurredAt) !== dayLabel(entry.occurredAt)
+            index === 0 || dayLabel(entries[index - 1]!.occurredAt) !== dayLabel(entry.occurredAt)
 
           return (
             <li key={`${entry.kind}-${entry.id}`}>
@@ -165,14 +164,16 @@ export function TimelineTab({
       </ol>
 
       {cursor && (
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost w-full"
-          disabled={carregando}
+          variant="ghost"
+          className="w-full"
+          busy={carregando}
           onClick={carregarMais}
+          busyLabel="Carregando…"
         >
-          {carregando ? 'Carregando…' : 'Carregar mais'}
-        </button>
+          Carregar mais
+        </Button>
       )}
     </div>
   )
@@ -379,9 +380,7 @@ function AttendanceDetail({
         ))}
       </ul>
 
-      {attendance.observations && (
-        <p className="text-sm">{attendance.observations}</p>
-      )}
+      {attendance.observations && <p className="text-sm">{attendance.observations}</p>}
 
       <BeforeAfter
         petId={petId}
@@ -438,19 +437,26 @@ function AttendanceDetail({
 
       <div className="flex flex-wrap gap-2">
         {canWrite && (
-          <button type="button" className="btn btn-ghost" disabled={salvando} onClick={salvar}>
+          <Button
+            type="button"
+            variant="ghost"
+            busy={salvando}
+            onClick={salvar}
+            busyLabel="Salvando…"
+          >
             {attendance.editable ? 'Salvar correção' : 'Adicionar adendo'}
-          </button>
+          </Button>
         )}
 
         {canVoid && !anulando && (
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost text-danger"
+            variant="ghost"
+            className="text-danger"
             onClick={() => setAnulando(true)}
           >
             Anular atendimento
-          </button>
+          </Button>
         )}
       </div>
 
@@ -458,8 +464,8 @@ function AttendanceDetail({
         <div className="space-y-2 rounded-xl border border-danger/40 bg-danger-soft px-3 py-3">
           <p className="text-sm font-medium">Anular este atendimento</p>
           <p className="hint">
-            O registro não é apagado: fica riscado no histórico, e o débito
-            correspondente é estornado na conta do tutor.
+            O registro não é apagado: fica riscado no histórico, e o débito correspondente é
+            estornado na conta do tutor.
           </p>
           <textarea
             className="field min-h-16"
@@ -468,17 +474,23 @@ function AttendanceDetail({
             onChange={(event) => setMotivo(event.target.value)}
           />
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn btn-accent" disabled={salvando} onClick={anular}>
-              Confirmar anulação
-            </button>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="accent"
+              busy={salvando}
+              onClick={anular}
+              busyLabel="Anulando…"
+            >
+              Confirmar anulação
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
               disabled={salvando}
               onClick={() => setAnulando(false)}
             >
               Voltar
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -678,9 +690,9 @@ function Prescriptions({
       <FormError message={erro} />
 
       {canPrescribe && (
-        <button type="button" className="btn btn-ghost" onClick={() => setEmitindo(true)}>
+        <Button type="button" variant="ghost" onClick={() => setEmitindo(true)}>
           Emitir receituário
-        </button>
+        </Button>
       )}
 
       {emitindo && (
@@ -786,8 +798,8 @@ function PrescriptionRow({
       {anulando && (
         <div className="mt-2 space-y-2 rounded-xl border border-danger/40 bg-danger-soft px-3 py-3">
           <p className="hint">
-            O receituário continua no histórico, riscado e com o motivo. O tutor pode já
-            ter levado o papel — anular não o traz de volta.
+            O receituário continua no histórico, riscado e com o motivo. O tutor pode já ter levado
+            o papel — anular não o traz de volta.
           </p>
           <textarea
             className="field min-h-16"
@@ -796,17 +808,19 @@ function PrescriptionRow({
             onChange={(event) => setMotivo(event.target.value)}
           />
           <div className="flex flex-wrap gap-2">
-            <button
+            <Button
               type="button"
-              className="btn btn-accent"
-              disabled={pendente || motivo.trim().length < 5}
+              variant="accent"
+              busy={pendente}
+              disabled={motivo.trim().length < 5}
               onClick={() => onVoid(motivo.trim())}
+              busyLabel="Anulando…"
             >
               Confirmar anulação
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={() => setAnulando(false)}>
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setAnulando(false)}>
               Voltar
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -893,17 +907,18 @@ function PrescriptionForm({
       subtitle="Sai com o seu nome e o seu CRMV, e não pode ser editado depois de emitido — a correção é anular e emitir outro."
       footer={
         <>
-          <button type="button" className="btn btn-ghost" disabled={salvando} onClick={onCancel}>
+          <Button type="button" variant="ghost" disabled={salvando} onClick={onCancel}>
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn btn-primary"
-            disabled={salvando || incompleto}
+            busy={salvando}
+            disabled={incompleto}
             onClick={emitir}
+            busyLabel="Emitindo…"
           >
-            {salvando ? 'Emitindo…' : 'Emitir receituário'}
-          </button>
+            Emitir receituário
+          </Button>
         </>
       }
     >
@@ -990,13 +1005,13 @@ function PrescriptionForm({
 
         {items.length < 20 && (
           <div>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => setItems((atual) => [...atual, novoItem()])}
             >
               Adicionar medicamento
-            </button>
+            </Button>
           </div>
         )}
 

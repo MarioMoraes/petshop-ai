@@ -13,7 +13,7 @@ import {
   type TenantResponse,
   type TenantSettings,
 } from '@petshop/shared-types'
-import { FormError, StepProgress } from '@/components/ui'
+import { Button, FormError, StepProgress } from '@/components/ui'
 import type { ActionResult } from './actions'
 import { StepBusinessHours } from './steps/step-business-hours'
 import { StepBranding } from './steps/step-branding'
@@ -107,14 +107,15 @@ export function Wizard({ tenant, settings, hostSuffix }: WizardProps) {
       </div>
 
       {step > 1 && (
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost mt-6"
+          variant="ghost"
+          className="mt-6"
           onClick={() => setStep(step - 1)}
           disabled={pending}
         >
           ← Voltar
-        </button>
+        </Button>
       )}
     </div>
   )

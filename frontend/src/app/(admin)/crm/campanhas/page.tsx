@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { CampaignsBoard } from './campaigns-board'
 
 /**
@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function CampanhasPage() {
   const [me, campaigns] = await Promise.all([
-    serverApi().me(),
+    carregarMe(),
     serverApi()
       .listCampaigns()
       .then((response) => response.data)

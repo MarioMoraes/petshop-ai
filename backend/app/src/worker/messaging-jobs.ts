@@ -1,5 +1,10 @@
 import type { JobDefinition } from '@petshop/job-scheduler'
-import { checkQueueHealth, purgeExpiredBodies, runDispatch } from '../modules/messaging/jobs.js'
+import {
+  checkQueueHealth,
+  purgeExpiredBodies,
+  reapLeases,
+  runDispatch,
+} from '../modules/messaging/jobs.js'
 
 /**
  * A grade do relacionamento.
@@ -27,9 +32,18 @@ export const messagingJobs: JobDefinition[] = [
     run: (now) => checkQueueHealth(now),
   },
   {
+    // Cinco minutos, e não junto do despacho: a varredura procura por `SENDING`, que
+    // é um estado que deveria estar sempre vazio, e repeti-la de trinta em trinta
+    // segundos custaria uma busca a mais no caminho mais quente do sistema para não
+    // achar nada. O atraso que isto acrescenta é irrelevante perto dos dez minutos
+    // que a mensagem já esperou para ser considerada abandonada.
+    name: 'messaging.reap-leases',
+    schedule: '*/5 * * * *',
+    run: (now) => reapLeases(now),
+  },
+  {
     name: 'messaging.retention',
     schedule: '20 3 * * *',
     run: (now) => purgeExpiredBodies(now),
   },
-  
 ]

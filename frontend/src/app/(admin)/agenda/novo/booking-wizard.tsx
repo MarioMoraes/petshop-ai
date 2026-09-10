@@ -7,7 +7,7 @@ import type {
   ProfessionalResponse,
   ServiceResponse,
 } from '@petshop/shared-types'
-import { Badge, Card, Field } from '@/components/ui'
+import { Badge, Button, Card, Field } from '@/components/ui'
 import {
   availabilityAction,
   createAppointmentAction,
@@ -102,9 +102,7 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
   const [nextAvailable, setNextAvailable] = useState<string | null>(null)
   // Até a primeira resposta chegar, o fuso do próprio navegador é o palpite menos
   // errado: quase sempre é o mesmo do petshop, e nada é exibido antes disso.
-  const [timezone, setTimezone] = useState(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
-  )
+  const [timezone, setTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone)
   const [chosen, setChosen] = useState<Slot | null>(null)
   const [notes, setNotes] = useState('')
   const [failure, setFailure] = useState<ActionFailure | null>(null)
@@ -209,9 +207,9 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
                 </p>
                 <p className="hint">{pet.tutorName}</p>
               </div>
-              <button type="button" className="btn btn-ghost" onClick={() => setPet(null)}>
+              <Button type="button" variant="ghost" onClick={() => setPet(null)}>
                 Trocar
-              </button>
+              </Button>
             </div>
             {pet.tutorId && <DebtNotice tutorId={pet.tutorId} amountCents={total} />}
           </>
@@ -233,7 +231,9 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
                   type="button"
                   aria-pressed={on}
                   className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                    on ? 'border-accent bg-accent/10 text-fg' : 'border-line text-subtle hover:text-fg'
+                    on
+                      ? 'border-accent bg-accent/10 text-fg'
+                      : 'border-line text-subtle hover:text-fg'
                   }`}
                   onClick={() =>
                     setServiceIds((current) =>
@@ -289,8 +289,8 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
 
           {eligible.length === 0 && (
             <p className="error-text mt-3" role="alert">
-              Ninguém está habilitado em todos os serviços escolhidos. Ajuste as habilitações
-              em Profissionais.
+              Ninguém está habilitado em todos os serviços escolhidos. Ajuste as habilitações em
+              Profissionais.
             </p>
           )}
 
@@ -300,7 +300,9 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
             ) : slots && slots.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {slots.map((slot) => {
-                  const on = chosen?.startsAt === slot.startsAt && chosen.professionalId === slot.professionalId
+                  const on =
+                    chosen?.startsAt === slot.startsAt &&
+                    chosen.professionalId === slot.professionalId
                   return (
                     <button
                       key={`${slot.professionalId}-${slot.startsAt}`}
@@ -323,14 +325,14 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
               <div className="hint">
                 <p>Nenhum horário livre neste dia.</p>
                 {nextAvailable && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-ghost mt-2"
+                    variant="ghost"
+                    className="mt-2"
                     onClick={() => setDate(dayKey(nextAvailable, timezone))}
                   >
-                    Ir para {dayLabel(nextAvailable, timezone)}, às{' '}
-                    {hour(nextAvailable, timezone)}
-                  </button>
+                    Ir para {dayLabel(nextAvailable, timezone)}, às {hour(nextAvailable, timezone)}
+                  </Button>
                 )}
               </div>
             )}
@@ -368,17 +370,21 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
             </Field>
           </div>
 
-          {failure && <GateBanner failure={failure} reason={overrideReason} onReason={setOverrideReason} onConfirm={confirm} pending={pending} timezone={timezone} />}
+          {failure && (
+            <GateBanner
+              failure={failure}
+              reason={overrideReason}
+              onReason={setOverrideReason}
+              onConfirm={confirm}
+              pending={pending}
+              timezone={timezone}
+            />
+          )}
 
           <div className="mt-5 flex justify-end">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={pending}
-              onClick={() => confirm()}
-            >
-              {pending ? 'Marcando…' : 'Marcar horário'}
-            </button>
+            <Button type="button" busy={pending} onClick={() => confirm()} busyLabel="Marcando…">
+              Marcar horário
+            </Button>
           </div>
         </Card>
       )}
@@ -460,14 +466,15 @@ function GateBanner({
         <p className="hint mt-2">
           O agendamento pode seguir, e fica registrado quem assumiu o risco.
         </p>
-        <button
+        <Button
           type="button"
-          className="btn btn-primary mt-3"
-          disabled={pending}
+          className="mt-3"
+          busy={pending}
           onClick={() => onConfirm({ acknowledgedAlerts: true })}
+          busyLabel="Marcando…"
         >
           A equipe está ciente — marcar mesmo assim
-        </button>
+        </Button>
       </div>
     )
   }
@@ -486,14 +493,16 @@ function GateBanner({
           value={reason}
           onChange={(event) => onReason(event.target.value)}
         />
-        <button
+        <Button
           type="button"
-          className="btn btn-primary mt-3"
-          disabled={pending || reason.trim().length < 10}
+          className="mt-3"
+          busy={pending}
+          disabled={reason.trim().length < 10}
           onClick={() => onConfirm({ override: { reason: reason.trim() } })}
+          busyLabel="Marcando…"
         >
           Liberar e marcar
-        </button>
+        </Button>
       </div>
     )
   }
@@ -503,8 +512,7 @@ function GateBanner({
       <p className="font-medium">{failure.message}</p>
       {failure.suggestions && failure.suggestions.length > 0 && (
         <p className="hint mt-1">
-          Horários próximos:{' '}
-          {failure.suggestions.map((s) => hour(s.startsAt, timezone)).join(', ')}
+          Horários próximos: {failure.suggestions.map((s) => hour(s.startsAt, timezone)).join(', ')}
         </p>
       )}
     </div>

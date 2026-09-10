@@ -11,6 +11,8 @@ import {
   TrendingUpIcon,
   type IconTone,
 } from '@/components/icons'
+import { ButtonLink, NavLink, NavPill } from '@/components/links'
+import { RouteProgress } from '@/components/route-progress'
 import { Badge, Logo } from '@/components/ui'
 import { ContaPessoal } from './conta-pessoal'
 
@@ -101,6 +103,8 @@ const NAV: NavItem[] = [
 export function PlataformaShell({ active, children }: { active: NavKey; children: ReactNode }) {
   return (
     <div className="flex min-h-[100svh] bg-surface">
+      <RouteProgress />
+
       <aside className="sticky top-0 hidden h-[100svh] w-[260px] shrink-0 flex-col border-r border-line px-4 py-5 lg:flex">
         <Link href="/plataforma" aria-label="Ir para a saúde" className="block min-w-0 px-2 py-1">
           <Logo />
@@ -116,15 +120,14 @@ export function PlataformaShell({ active, children }: { active: NavKey; children
 
         <nav className="mt-8 flex flex-col gap-1 text-sm">
           {NAV.map((item) => (
-            <Link
+            <NavLink
               key={item.key}
               href={item.href}
-              aria-current={item.key === active ? 'page' : undefined}
-              className={`nav-item ${item.key === active ? 'nav-item-active' : ''}`}
-            >
-              <span className={`icon-tint shrink-0 ${item.tone}`}>{item.icon}</span>
-              {item.label}
-            </Link>
+              label={item.label}
+              icon={item.icon}
+              tone={item.tone}
+              active={item.key === active}
+            />
           ))}
         </nav>
       </aside>
@@ -151,16 +154,12 @@ export function PlataformaShell({ active, children }: { active: NavKey; children
 
         <nav className="flex gap-1 overflow-x-auto border-b border-line px-4 py-2 text-sm lg:hidden">
           {NAV.map((item) => (
-            <Link
+            <NavPill
               key={item.key}
               href={item.href}
-              aria-current={item.key === active ? 'page' : undefined}
-              className={`btn btn-ghost shrink-0 px-3 py-1.5 ${
-                item.key === active ? 'bg-card text-ink' : ''
-              }`}
-            >
-              {item.label}
-            </Link>
+              label={item.label}
+              active={item.key === active}
+            />
           ))}
         </nav>
 
@@ -200,27 +199,27 @@ export async function SemAcesso() {
         {orgId ? (
           <>
             <p className="hint mx-auto mt-2 max-w-sm">
-              Você está com um estabelecimento aberto, e a sessão da plataforma é justamente
-              a que não tem nenhum. Volte para a sua conta pessoal para entrar.
+              Você está com um estabelecimento aberto, e a sessão da plataforma é justamente a que
+              não tem nenhum. Volte para a sua conta pessoal para entrar.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
               <ContaPessoal />
-              <Link href="/dashboard" className="btn btn-ghost">
+              <ButtonLink href="/dashboard" variant="ghost">
                 Ir para o meu petshop
-              </Link>
+              </ButtonLink>
             </div>
           </>
         ) : (
           <>
             <p className="hint mx-auto mt-2 max-w-sm">
-              Sua sessão já é a conta pessoal, e mesmo assim o console não abriu: esta conta
-              não está na equipe da plataforma. Quem já está pode conceder o acesso pelo
-              próprio console, em Equipe.
+              Sua sessão já é a conta pessoal, e mesmo assim o console não abriu: esta conta não
+              está na equipe da plataforma. Quem já está pode conceder o acesso pelo próprio
+              console, em Equipe.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-              <Link href="/dashboard" className="btn btn-ghost">
+              <ButtonLink href="/dashboard" variant="ghost">
                 Ir para o meu petshop
-              </Link>
+              </ButtonLink>
             </div>
           </>
         )}

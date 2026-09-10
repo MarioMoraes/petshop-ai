@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { PortalAddress, PortalMeDataResponse } from '@petshop/shared-types'
-import { Choice, Field, FormError } from '@/components/ui'
+import { Button, Choice, Field, FormError } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { MapPinIcon } from '@/components/icons'
 import { corrigirEndereco, salvarEndereco } from './actions'
@@ -72,9 +72,9 @@ export function EnderecoModal({
 
   return (
     <>
-      <button type="button" className="btn btn-ghost h-9" onClick={abrir}>
+      <Button type="button" variant="ghost" className="h-9" onClick={abrir}>
         {endereco ? 'Editar' : 'Adicionar'}
-      </button>
+      </Button>
 
       <Modal
         open={aberto}
@@ -87,22 +87,17 @@ export function EnderecoModal({
         subtitle="É por ele que a van encontra você no leva-e-traz."
         footer={
           <>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => setAberto(false)}
               disabled={salvando}
             >
               Cancelar
-            </button>
-            <button
-              type="submit"
-              form="portal-endereco-form"
-              className="btn btn-primary"
-              disabled={salvando}
-            >
-              {salvando ? 'Salvando…' : 'Salvar'}
-            </button>
+            </Button>
+            <Button type="submit" form="portal-endereco-form" busy={salvando} busyLabel="Salvando…">
+              Salvar
+            </Button>
           </>
         }
       >

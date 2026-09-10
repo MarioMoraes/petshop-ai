@@ -329,6 +329,46 @@ export async function refreshQrCode(
     throw invalidTransition('Não há conexão de WhatsApp para reabrir. Conecte primeiro.')
   }
 
+  /**
+   * O endereço de retorno é reafirmado **antes** do QR, e não só na criação.
+   *
+   * O webhook vive do lado da Evolution, escrito uma vez quando a instância nasceu.
+   * Mudar `EVOLUTION_WEBHOOK_URL` — a consolidação em monólito mudou a porta do
+   * backend, e foi exatamente isso — deixa toda instância antiga falando com um
+   * endereço morto. O sintoma é cruel de diagnosticar porque não há sintoma: o QR
+   * aparece, o celular escaneia, e o `connection.update` que contaria o sucesso cai
+   * num `ECONNREFUSED` dentro do contêiner do provedor. A tela fica em "Aguardando
+   * leitura do QR" e o banco guarda para sempre o último estado que chegou.
+   *
+   * O token é novo a cada reabertura porque o banco guarda só o hash — não há como
+   * reafirmar o anterior. Girar não custa nada: quem resolve o dono é o hash, e o
+   * token velho morre com o webhook velho.
+   *
+   * **Falhar aqui interrompe a reabertura**, de propósito. Sem canal de volta o QR é
+   * decorativo, e um pareamento que não pode terminar é pior que um erro na tela.
+   */
+  const token = randomBytes(32).toString('base64url')
+  try {
+    await getEvolutionPort().setWebhook({
+      instanceName: credentials.instanceName,
+      apiKey: credentials.apiKey,
+      webhookUrl: webhookUrl(),
+      webhookToken: token,
+    })
+  } catch (error) {
+    throw toProviderError(error, 'Não foi possível reafirmar o endereço de retorno no provedor')
+  }
+
+  await withTenant(
+    actor.tenantId,
+    (tx) =>
+      tx.whatsappInstance.update({
+        where: { tenantId: actor.tenantId },
+        data: { webhookTokenHash: hashToken(token) },
+      }),
+    tenantOptions(actor),
+  )
+
   let qrCode: string | null
   try {
     qrCode = await getEvolutionPort().requestQrCode(credentials.instanceName, credentials.apiKey)

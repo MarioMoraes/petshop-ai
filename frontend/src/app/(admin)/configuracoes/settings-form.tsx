@@ -19,7 +19,7 @@ import {
   type TermVersionView,
   type Weekday,
 } from '@petshop/shared-types'
-import { Badge, Card, Choice, Field, FormError, SectionHead, Tabs } from '@/components/ui'
+import { Badge, Button, Card, Choice, Field, FormError, SectionHead, Tabs } from '@/components/ui'
 import {
   CalendarIcon,
   IdCardIcon,
@@ -313,14 +313,15 @@ function SaveButton({
           Salvo
         </span>
       )}
-      <button
+      <Button
         type="button"
-        className="btn btn-primary"
-        disabled={state.pending || disabled}
+        busy={state.pending}
+        disabled={disabled}
         onClick={onClick}
+        busyLabel="Salvando…"
       >
-        {state.pending ? 'Salvando…' : 'Salvar alterações'}
-      </button>
+        Salvar alterações
+      </Button>
     </div>
   )
 }

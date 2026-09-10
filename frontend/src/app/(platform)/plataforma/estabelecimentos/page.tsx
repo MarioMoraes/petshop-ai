@@ -1,10 +1,10 @@
-import Link from 'next/link'
 import {
   PLATFORM_PLANS,
   PLATFORM_TENANT_STATUSES,
   type TenantListQuery,
 } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
 import { serverApi } from '@/lib/api'
 import { ler } from '@/lib/platform'
 import { Falha, PlataformaShell, SemAcesso } from '../frame'
@@ -110,12 +110,9 @@ function Paginacao({
   return (
     <nav className="flex items-center justify-between gap-4" aria-label="Paginação">
       {page > 1 ? (
-        <Link
-          href={`/plataforma/estabelecimentos?${busca(query, page - 1)}`}
-          className="btn btn-ghost"
-        >
+        <ButtonLink href={`/plataforma/estabelecimentos?${busca(query, page - 1)}`} variant="ghost">
           Anterior
-        </Link>
+        </ButtonLink>
       ) : (
         <span />
       )}
@@ -125,12 +122,9 @@ function Paginacao({
       </p>
 
       {page < ultima ? (
-        <Link
-          href={`/plataforma/estabelecimentos?${busca(query, page + 1)}`}
-          className="btn btn-ghost"
-        >
+        <ButtonLink href={`/plataforma/estabelecimentos?${busca(query, page + 1)}`} variant="ghost">
           Próxima
-        </Link>
+        </ButtonLink>
       ) : (
         <span />
       )}

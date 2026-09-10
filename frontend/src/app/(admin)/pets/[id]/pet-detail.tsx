@@ -18,7 +18,8 @@ import {
   type PetWeightRecord,
   type TransferReason,
 } from '@petshop/shared-types'
-import { Card, DataRow, Field, FormError, Tabs } from '@/components/ui'
+import { Button, Card, DataRow, Field, FormError, Tabs } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
 import { SafetyRecordTab } from './safety-record'
 import { TimelineTab } from './timeline'
 import {
@@ -82,10 +83,13 @@ export function PetDetailView(props: Props) {
         no topo das abas porque vale para o pet inteiro, não para uma seção.
       */}
       {pet.status === 'DECEASED' && (
-        <div className="rounded-2xl border border-danger/20 bg-danger/5 px-5 py-4 text-sm" role="status">
+        <div
+          className="rounded-2xl border border-danger/20 bg-danger/5 px-5 py-4 text-sm"
+          role="status"
+        >
           <strong>{pet.name} está registrado como falecido</strong>
-          {pet.deceasedAt ? ` em ${formatDate(pet.deceasedAt)}` : ''}. As campanhas para os
-          tutores foram suprimidas e o cadastro não aceita mais edição.
+          {pet.deceasedAt ? ` em ${formatDate(pet.deceasedAt)}` : ''}. As campanhas para os tutores
+          foram suprimidas e o cadastro não aceita mais edição.
         </div>
       )}
 
@@ -103,8 +107,7 @@ export function PetDetailView(props: Props) {
           }`}
           role="status"
         >
-          <strong>Atenção ao manuseio:</strong>{' '}
-          {pet.alerts.map((alert) => alert.label).join(' · ')}
+          <strong>Atenção ao manuseio:</strong> {pet.alerts.map((alert) => alert.label).join(' · ')}
         </div>
       )}
 
@@ -114,8 +117,8 @@ export function PetDetailView(props: Props) {
           className="rounded-2xl bg-accent-soft px-5 py-4 text-sm text-accent-ink"
           role="status"
         >
-          {warning.message} — {pet.weightKg} kg com porte {pet.size.label}. Ajuste o porte se
-          foi engano; se estiver certo, pode ignorar.
+          {warning.message} — {pet.weightKg} kg com porte {pet.size.label}. Ajuste o porte se foi
+          engano; se estiver certo, pode ignorar.
         </div>
       ))}
 
@@ -139,9 +142,7 @@ export function PetDetailView(props: Props) {
 
       {tab === 'dados' && <DadosTab {...props} />}
       {tab === 'responsaveis' && <ResponsaveisTab {...props} />}
-      {tab === 'peso' && (
-        <PesoTab petId={pet.id} pet={pet} weights={weights} canWeigh={canWeigh} />
-      )}
+      {tab === 'peso' && <PesoTab petId={pet.id} pet={pet} weights={weights} canWeigh={canWeigh} />}
       {tab === 'fotos' && <FotosTab {...props} />}
       {tab === 'historico' && (
         <TimelineTab
@@ -211,9 +212,7 @@ function DadosTab({ pet, canUpdate, canDelete, canManageLifecycle }: Props) {
           <DataRow label="Cor">{pet.color ?? '—'}</DataRow>
           <DataRow label="Nascimento">
             {pet.birthDate ? formatDate(pet.birthDate) : '—'}
-            {pet.birthDatePrecision === 'ESTIMATED' && (
-              <span className="hint"> · estimada</span>
-            )}
+            {pet.birthDatePrecision === 'ESTIMATED' && <span className="hint"> · estimada</span>}
           </DataRow>
           <DataRow label="Idade">{pet.ageLabel ?? 'Não informada'}</DataRow>
           <DataRow label="Peso">{pet.weightKg === null ? '—' : `${pet.weightKg} kg`}</DataRow>
@@ -229,14 +228,16 @@ function DadosTab({ pet, canUpdate, canDelete, canManageLifecycle }: Props) {
               <span className="flex items-center gap-3">
                 <span className="font-mono">{pet.microchipMasked}</span>
                 {canUpdate && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-ghost px-3 py-1 text-xs"
-                    disabled={pending}
+                    variant="ghost"
+                    className="px-3 py-1 text-xs"
+                    busy={pending}
                     onClick={reveal}
+                    busyLabel="Buscando…"
                   >
                     Ver completo
-                  </button>
+                  </Button>
                 )}
               </span>
             )}
@@ -256,21 +257,18 @@ function DadosTab({ pet, canUpdate, canDelete, canManageLifecycle }: Props) {
 
       {!isTerminal && (
         <div className="flex flex-wrap items-center gap-3">
-          {canUpdate && (
-            <Link href={`/pets/${pet.id}/editar`} className="btn btn-primary">
-              Editar
-            </Link>
-          )}
+          {canUpdate && <ButtonLink href={`/pets/${pet.id}/editar`}>Editar</ButtonLink>}
           {canUpdate && <DeathPanel pet={pet} />}
           {canDelete && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost text-danger"
+              variant="ghost"
+              className="text-danger"
               disabled={pending}
               onClick={() => setConfirmingDelete((value) => !value)}
             >
               Excluir
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -281,20 +279,22 @@ function DadosTab({ pet, canUpdate, canDelete, canManageLifecycle }: Props) {
         <Card className="space-y-3 border border-danger/20">
           <h3 className="font-semibold text-danger">Excluir {pet.name}?</h3>
           <p className="hint">
-            O cadastro sai das listas e da agenda. O microchip volta a ficar livre, então o
-            mesmo animal pode ser recadastrado se isto for um engano.
+            O cadastro sai das listas e da agenda. O microchip volta a ficar livre, então o mesmo
+            animal pode ser recadastrado se isto for um engano.
           </p>
           <div className="flex flex-wrap gap-3">
-            <button type="button" className="btn btn-accent" disabled={pending} onClick={remove}>
-              {pending ? 'Excluindo…' : 'Confirmar exclusão'}
-            </button>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
-              onClick={() => setConfirmingDelete(false)}
+              variant="accent"
+              busy={pending}
+              onClick={remove}
+              busyLabel="Excluindo…"
             >
+              Confirmar exclusão
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setConfirmingDelete(false)}>
               Cancelar
-            </button>
+            </Button>
           </div>
         </Card>
       )}
@@ -326,16 +326,16 @@ function ResponsaveisTab({ pet, transfers, canUpdate, canDelete, canManageLifecy
 
       {!hasPrimary && (
         <div className="rounded-2xl bg-accent-soft px-5 py-4 text-sm text-accent-ink">
-          Este pet está sem responsável principal. Promova alguém — é para a conta dele que
-          os serviços são lançados.
+          Este pet está sem responsável principal. Promova alguém — é para a conta dele que os
+          serviços são lançados.
         </div>
       )}
 
       {pet.tutors.length === 0 ? (
         <Card>
           <p className="hint">
-            Nenhum responsável vinculado. Acontece quando o único tutor foi anonimizado a
-            pedido do titular: o pet e o histórico dele permanecem.
+            Nenhum responsável vinculado. Acontece quando o único tutor foi anonimizado a pedido do
+            titular: o pet e o histórico dele permanecem.
           </p>
         </Card>
       ) : (
@@ -377,10 +377,11 @@ function ResponsaveisTab({ pet, transfers, canUpdate, canDelete, canManageLifecy
                       }
                     />
 
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost px-3 py-1 text-xs"
-                      disabled={pending}
+                      variant="ghost"
+                      className="px-3 py-1 text-xs"
+                      busy={pending}
                       onClick={() =>
                         run(() =>
                           updatePetTutorAction(pet.id, link.linkId, {
@@ -388,21 +389,22 @@ function ResponsaveisTab({ pet, transfers, canUpdate, canDelete, canManageLifecy
                           }),
                         )
                       }
+                      busyLabel="Salvando…"
                     >
-                      {link.canAuthorizeProcedures
-                        ? 'Retirar autorização'
-                        : 'Permitir autorizar'}
-                    </button>
+                      {link.canAuthorizeProcedures ? 'Retirar autorização' : 'Permitir autorizar'}
+                    </Button>
 
                     {canDelete && (
-                      <button
+                      <Button
                         type="button"
-                        className="btn btn-ghost px-3 py-1 text-xs text-danger"
-                        disabled={pending}
+                        variant="ghost"
+                        className="px-3 py-1 text-xs text-danger"
+                        busy={pending}
                         onClick={() => run(() => unlinkTutorAction(pet.id, link.linkId))}
+                        busyLabel="Desvinculando…"
                       >
                         Desvincular
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}
@@ -466,32 +468,35 @@ function RoleButton({
 }) {
   if (link.role === 'PRIMARY') {
     return (
-      <button
+      <Button
         type="button"
-        className="btn btn-ghost px-3 py-1 text-xs"
-        disabled={pending}
+        variant="ghost"
+        className="px-3 py-1 text-xs"
+        busy={pending}
         onClick={() => onChange('SECONDARY')}
         title="Rebaixar antes de promover outro responsável"
+        busyLabel="Salvando…"
       >
         Deixar de ser principal
-      </button>
+      </Button>
     )
   }
 
   return (
-    <button
+    <Button
       type="button"
-      className="btn btn-ghost px-3 py-1 text-xs"
-      disabled={pending || hasPrimary}
+      variant="ghost"
+      className="px-3 py-1 text-xs"
+      busy={pending}
+      disabled={hasPrimary}
       onClick={() => onChange('PRIMARY')}
       title={
-        hasPrimary
-          ? 'Rebaixe o responsável principal atual antes de promover este'
-          : undefined
+        hasPrimary ? 'Rebaixe o responsável principal atual antes de promover este' : undefined
       }
+      busyLabel="Salvando…"
     >
       Tornar principal
-    </button>
+    </Button>
   )
 }
 
@@ -550,8 +555,8 @@ function PesoTab({
         <Card className="space-y-3">
           <h3 className="font-semibold">Registrar pesagem</h3>
           <p className="hint">
-            Entra no histórico e vira o peso atual do pet. Se a variação for grande, o
-            prontuário avisa o veterinário.
+            Entra no histórico e vira o peso atual do pet. Se a variação for grande, o prontuário
+            avisa o veterinário.
           </p>
           <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
             <Field label="Peso (kg)" htmlFor="weight">
@@ -564,9 +569,9 @@ function PesoTab({
                 placeholder="12,4"
               />
             </Field>
-            <button type="submit" className="btn btn-primary" disabled={pending}>
-              {pending ? 'Registrando…' : 'Registrar'}
-            </button>
+            <Button type="submit" busy={pending} busyLabel="Registrando…">
+              Registrar
+            </Button>
           </form>
         </Card>
       )}
@@ -574,8 +579,7 @@ function PesoTab({
       {weights.length === 0 ? (
         <Card>
           <p className="hint">
-            Nenhuma pesagem registrada. A primeira costuma sair no cadastro ou no check-in
-            do banho.
+            Nenhuma pesagem registrada. A primeira costuma sair no cadastro ou no check-in do banho.
           </p>
         </Card>
       ) : (
@@ -692,8 +696,8 @@ function FotosTab({ pet, album, canUploadPhoto, canUpdate }: Props) {
       {album.photos.length === 0 ? (
         <Card>
           <p className="hint">
-            Nenhuma foto ainda. A primeira vira a capa e aparece na busca do balcão —
-            é o jeito mais rápido de não confundir dois pets de mesmo nome.
+            Nenhuma foto ainda. A primeira vira a capa e aparece na busca do balcão — é o jeito mais
+            rápido de não confundir dois pets de mesmo nome.
           </p>
         </Card>
       ) : (
@@ -735,24 +739,29 @@ function FotosTab({ pet, album, canUploadPhoto, canUpdate }: Props) {
                 {canUpdate && (
                   <div className="flex flex-wrap gap-1">
                     {!photo.isCover && (
-                      <button
+                      <Button
                         type="button"
-                        className="btn btn-ghost px-2 py-1 text-[11px]"
-                        disabled={pending}
-                        onClick={() => run(() => updatePhotoAction(pet.id, photo.id, { isCover: true }))}
+                        variant="ghost"
+                        className="px-2 py-1 text-[11px]"
+                        busy={pending}
+                        onClick={() =>
+                          run(() => updatePhotoAction(pet.id, photo.id, { isCover: true }))
+                        }
+                        busyLabel="Salvando…"
                       >
                         Tornar capa
-                      </button>
+                      </Button>
                     )}
 
                     {/*
                       RN-14: a autorização é conferida no servidor, no momento da
                       marcação. O botão pede — quem responde "não" é o 403.
                     */}
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost px-2 py-1 text-[11px]"
-                      disabled={pending}
+                      variant="ghost"
+                      className="px-2 py-1 text-[11px]"
+                      busy={pending}
                       onClick={() =>
                         run(() =>
                           updatePhotoAction(pet.id, photo.id, {
@@ -760,18 +769,21 @@ function FotosTab({ pet, album, canUploadPhoto, canUpdate }: Props) {
                           }),
                         )
                       }
+                      busyLabel="Salvando…"
                     >
                       {photo.marketingUse ? 'Tirar da campanha' : 'Usar em campanha'}
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost px-2 py-1 text-[11px] text-danger"
-                      disabled={pending}
+                      variant="ghost"
+                      className="px-2 py-1 text-[11px] text-danger"
+                      busy={pending}
                       onClick={() => run(() => deletePhotoAction(pet.id, photo.id))}
+                      busyLabel="Excluindo…"
                     >
                       Excluir
-                    </button>
+                    </Button>
                   </div>
                 )}
               </Card>
@@ -824,9 +836,9 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
             Adoção, venda ou falecimento do tutor. O prontuário continua com o pet.
           </p>
         </div>
-        <button type="button" className="btn btn-ghost" onClick={() => setOpen(true)}>
+        <Button type="button" variant="ghost" onClick={() => setOpen(true)}>
           Transferir
-        </button>
+        </Button>
       </Card>
     )
   }
@@ -859,8 +871,8 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
       <div>
         <h3 className="font-semibold">Transferir {pet.name}</h3>
         <p className="hint">
-          Os responsáveis atuais deixam de ver o pet e o novo tutor vira o principal. Os
-          recibos de quem pagou continuam com quem pagou.
+          Os responsáveis atuais deixam de ver o pet e o novo tutor vira o principal. Os recibos de
+          quem pagou continuam com quem pagou.
         </p>
       </div>
 
@@ -869,13 +881,14 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
       {toTutor ? (
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-medium">{toTutor.displayName}</span>
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost px-3 py-1 text-xs"
+            variant="ghost"
+            className="px-3 py-1 text-xs"
             onClick={() => setToTutor(null)}
           >
             Trocar
-          </button>
+          </Button>
         </div>
       ) : (
         <TutorPicker
@@ -924,17 +937,19 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
       </Field>
 
       <div className="flex flex-wrap gap-3">
-        <button
+        <Button
           type="button"
-          className="btn btn-accent"
-          disabled={pending || confirmation !== TRANSFER_CONFIRMATION || !toTutor}
+          variant="accent"
+          busy={pending}
+          disabled={confirmation !== TRANSFER_CONFIRMATION || !toTutor}
           onClick={submit}
+          busyLabel="Transferindo…"
         >
-          {pending ? 'Transferindo…' : 'Confirmar transferência'}
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+          Confirmar transferência
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </Card>
   )
@@ -995,9 +1010,9 @@ function DeathPanel({ pet }: { pet: PetResponse }) {
 
   if (!open) {
     return (
-      <button type="button" className="btn btn-ghost" onClick={() => setOpen(true)}>
+      <Button type="button" variant="ghost" onClick={() => setOpen(true)}>
         Registrar óbito
-      </button>
+      </Button>
     )
   }
 
@@ -1006,8 +1021,8 @@ function DeathPanel({ pet }: { pet: PetResponse }) {
       <div>
         <h3 className="font-semibold">Registrar o óbito de {pet.name}</h3>
         <p className="hint">
-          Os agendamentos futuros são cancelados sem cobrança e nenhuma campanha volta a
-          citar o pet. Um administrador pode reverter em até 30 dias.
+          Os agendamentos futuros são cancelados sem cobrança e nenhuma campanha volta a citar o
+          pet. Um administrador pode reverter em até 30 dias.
         </p>
       </div>
 
@@ -1035,12 +1050,18 @@ function DeathPanel({ pet }: { pet: PetResponse }) {
       </Field>
 
       <div className="flex flex-wrap gap-3">
-        <button type="button" className="btn btn-accent" disabled={pending} onClick={submit}>
-          {pending ? 'Registrando…' : 'Confirmar óbito'}
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+        <Button
+          type="button"
+          variant="accent"
+          busy={pending}
+          onClick={submit}
+          busyLabel="Registrando…"
+        >
+          Confirmar óbito
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </Card>
   )
@@ -1073,9 +1094,9 @@ function DeathReversalPanel({ pet }: { pet: PetResponse }) {
           <h3 className="font-semibold">Registro feito por engano?</h3>
           <p className="hint">A reversão é permitida em até 30 dias, com justificativa.</p>
         </div>
-        <button type="button" className="btn btn-ghost" onClick={() => setOpen(true)}>
+        <Button type="button" variant="ghost" onClick={() => setOpen(true)}>
           Reverter óbito
-        </button>
+        </Button>
       </Card>
     )
   }
@@ -1100,17 +1121,18 @@ function DeathReversalPanel({ pet }: { pet: PetResponse }) {
       </Field>
 
       <div className="flex flex-wrap gap-3">
-        <button
+        <Button
           type="button"
-          className="btn btn-primary"
-          disabled={pending || justification.trim().length < 10}
+          busy={pending}
+          disabled={justification.trim().length < 10}
           onClick={submit}
+          busyLabel="Revertendo…"
         >
-          {pending ? 'Revertendo…' : 'Confirmar reversão'}
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+          Confirmar reversão
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </Card>
   )

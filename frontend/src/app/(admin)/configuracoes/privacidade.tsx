@@ -7,7 +7,16 @@ import {
   type DeletionRequestResponse,
   type DeletionRequestStatus,
 } from '@petshop/shared-types'
-import { Alert, Card, EmptyState, Field, FormError, SectionHead, Segmented } from '@/components/ui'
+import {
+  Alert,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  FormError,
+  SectionHead,
+  Segmented,
+} from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { AlertTriangleIcon, ShieldCheckIcon } from '@/components/icons'
 import { resolveDeletionRequestAction } from './actions'
@@ -32,9 +41,7 @@ export function Privacidade({ pedidos }: { pedidos: DeletionRequestResponse[] })
   const [lista, setLista] = useState(pedidos)
 
   function substituir(atualizado: DeletionRequestResponse) {
-    setLista((atual) =>
-      atual.map((item) => (item.id === atualizado.id ? atualizado : item)),
-    )
+    setLista((atual) => atual.map((item) => (item.id === atualizado.id ? atualizado : item)))
   }
 
   const abertos = lista.filter((item) => item.status === 'OPEN')
@@ -138,14 +145,12 @@ function Pedido({
           </p>
         </div>
 
-        <button type="button" className="btn btn-primary h-9" onClick={() => setAberto(true)}>
+        <Button type="button" className="h-9" onClick={() => setAberto(true)}>
           Responder
-        </button>
+        </Button>
       </div>
 
-      {pedido.reason && (
-        <p className="text-muted mt-3 text-sm">“{pedido.reason}”</p>
-      )}
+      {pedido.reason && <p className="text-muted mt-3 text-sm">“{pedido.reason}”</p>}
 
       {/*
         O saldo devedor é a informação que muda a resposta, e por isso aparece na linha e
@@ -160,9 +165,8 @@ function Pedido({
             title={`Conta em aberto: ${formatBRL(-pedido.balanceCents)}`}
             role="status"
           >
-            Cadastro com débito ou documento fiscal em guarda não pode ser anonimizado por
-            inteiro. Registre a recusa explicando o motivo — o titular lê esta resposta no
-            Portal.
+            Cadastro com débito ou documento fiscal em guarda não pode ser anonimizado por inteiro.
+            Registre a recusa explicando o motivo — o titular lê esta resposta no Portal.
           </Alert>
         </div>
       )}
@@ -191,22 +195,23 @@ function Pedido({
         subtitle="O que você escrever aqui aparece para o titular no Portal."
         footer={
           <>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => setAberto(false)}
               disabled={salvando}
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               form={`resposta-${pedido.id}`}
-              className="btn btn-primary"
-              disabled={salvando || resposta.trim().length < 3}
+              busy={salvando}
+              disabled={resposta.trim().length < 3}
+              busyLabel="Registrando…"
             >
-              {salvando ? 'Registrando…' : 'Registrar resposta'}
-            </button>
+              Registrar resposta
+            </Button>
           </>
         }
       >
@@ -258,7 +263,5 @@ function Pedido({
 
 function data(iso: string | null): string {
   if (!iso) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(
-    new Date(iso),
-  )
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(iso))
 }

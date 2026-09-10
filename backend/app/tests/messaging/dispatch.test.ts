@@ -1,6 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { withTenant } from '@petshop/db'
-import { dispatchTenant } from '../../src/modules/messaging/dispatch.js'
+import {
+  dispatchTenant,
+  reclaimAbandonedLeases,
+} from '../../src/modules/messaging/dispatch.js'
 import {
   asAdmin,
   callAsStaff,
@@ -169,6 +172,101 @@ describe('despacho', () => {
     port.failNext({ permanent: true })
     await dispatchTenant(fixture.tenantId, { jitter: false })
     expect((await readMessage(id)).status).toBe('DEAD')
+
+    const response = await callApi({
+      ...asAdmin(fixture),
+      method: 'POST',
+      url: `/v1/messages/${id}/retry`,
+    })
+
+    expect(response.statusCode).toBe(204)
+    const message = await readMessage(id)
+    expect(message.status).toBe('QUEUED')
+    expect(message.attempts).toBe(0)
+  })
+})
+
+describe('posse abandonada do worker', () => {
+  /**
+   * O estado que nenhum caminho desfazia.
+   *
+   * `SENDING` é escrito pela posse do worker e apagado pelo resultado do envio, no
+   * mesmo `dispatchOne`. Processo morto entre os dois — deploy, contêiner reciclado —
+   * deixava a linha ali para sempre: o reenvio manual a recusava, nenhum job olhava
+   * para ela, e quem notava era o alerta da plataforma, dias depois.
+   */
+  async function givenAbandonada(overrides: { attempts?: number } = {}) {
+    const tutorId = await givenTutor(fixture)
+    const id = await enqueue(tutorId)
+    await withTenant(fixture.tenantId, (tx) =>
+      tx.message.update({
+        where: { id },
+        data: { status: 'SENDING', attempts: overrides.attempts ?? 0 },
+      }),
+    )
+    return id
+  }
+
+  /** Onze minutos adiante: um a mais que o limite da posse. */
+  function depoisDoLimite() {
+    return new Date(Date.now() + 11 * 60_000)
+  }
+
+  it('devolve à fila contando a tentativa', async () => {
+    await enableMessaging(fixture)
+    const id = await givenAbandonada()
+
+    const { reclaimed } = await reclaimAbandonedLeases(depoisDoLimite())
+
+    expect(reclaimed).toBe(1)
+    const message = await readMessage(id)
+    expect(message.status).toBe('QUEUED')
+    // A tentativa é contada de propósito: sem isso, um corpo que derruba o processo
+    // no meio do envio seria recolhido e retomado para sempre.
+    expect(message.attempts).toBe(1)
+    expect(message.errorCode).toBe('LEASE_EXPIRED')
+  })
+
+  it('não toca no envio que ainda está em curso', async () => {
+    await enableMessaging(fixture)
+    const id = await givenAbandonada()
+
+    // Agora: a posse acabou de ser tomada, e os dois provedores desistem em menos de
+    // treze segundos. Recolher aqui abortaria um envio de verdade.
+    const { reclaimed } = await reclaimAbandonedLeases(new Date())
+
+    expect(reclaimed).toBe(0)
+    expect((await readMessage(id)).status).toBe('SENDING')
+  })
+
+  it('mata na quinta tentativa em vez de recolher outra vez', async () => {
+    await enableMessaging(fixture)
+    const id = await givenAbandonada({ attempts: 4 })
+
+    await reclaimAbandonedLeases(depoisDoLimite())
+
+    const message = await readMessage(id)
+    // `DEAD` é um estado que alguém vê — no painel de falhas e no sino de pendências.
+    expect(message.status).toBe('DEAD')
+    expect(message.attempts).toBe(5)
+    expect(message.scheduledFor).toBeNull()
+  })
+
+  it('registra a falha na trilha de entrega', async () => {
+    await enableMessaging(fixture)
+    const id = await givenAbandonada()
+
+    await reclaimAbandonedLeases(depoisDoLimite())
+
+    const events = await withTenant(fixture.tenantId, (tx) =>
+      tx.messageEvent.findMany({ where: { messageId: id } }),
+    )
+    expect(events.map((event) => event.event)).toContain('FAILED')
+  })
+
+  it('aceita reenvio manual de uma posse presa (é o que a tela oferece)', async () => {
+    await enableMessaging(fixture)
+    const id = await givenAbandonada({ attempts: 3 })
 
     const response = await callApi({
       ...asAdmin(fixture),

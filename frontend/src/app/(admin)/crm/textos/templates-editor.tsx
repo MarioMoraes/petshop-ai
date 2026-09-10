@@ -10,7 +10,7 @@ import {
   type ResolvedTemplate,
   type TemplatePreview,
 } from '@petshop/shared-types'
-import { Badge, Card, Field, FormError } from '@/components/ui'
+import { Badge, Button, Card, Field, FormError } from '@/components/ui'
 import { previewTemplateAction, resetTemplateAction, saveTemplateAction } from '../config-actions'
 
 /**
@@ -135,7 +135,8 @@ function TemplateForm({ template }: { template: ResolvedTemplate }) {
 
   const limit = MESSAGE_BODY_LIMITS[template.channel]
   const isEmail = template.channel === 'EMAIL'
-  const dirty = body !== template.body || subject !== (template.subject ?? '') || active !== template.active
+  const dirty =
+    body !== template.body || subject !== (template.subject ?? '') || active !== template.active
 
   function save() {
     setError(null)
@@ -240,34 +241,37 @@ function TemplateForm({ template }: { template: ResolvedTemplate }) {
       </label>
       {!active && (
         <p className="hint">
-          Desligado, este canal deixa de ser usado para esta situação — a mensagem tenta o
-          outro canal, se houver.
+          Desligado, este canal deixa de ser usado para esta situação — a mensagem tenta o outro
+          canal, se houver.
         </p>
       )}
 
       {preview && <PreviewPanel preview={preview} isEmail={isEmail} />}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={pending || !dirty}
-          onClick={save}
-        >
+        <Button type="button" busy={pending} disabled={!dirty} onClick={save} busyLabel="Salvando…">
           Salvar
-        </button>
-        <button type="button" className="btn btn-ghost" disabled={pending} onClick={runPreview}>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          busy={pending}
+          onClick={runPreview}
+          busyLabel="Gerando…"
+        >
           Ver como fica
-        </button>
+        </Button>
         {!template.isDefault && (
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost text-danger"
-            disabled={pending}
+            variant="ghost"
+            className="text-danger"
+            busy={pending}
             onClick={reset}
+            busyLabel="Restaurando…"
           >
             Voltar ao texto padrão
-          </button>
+          </Button>
         )}
         {saved && !dirty && <span className="text-sm text-success">Salvo.</span>}
       </div>
@@ -298,14 +302,12 @@ function PreviewPanel({ preview, isEmail }: { preview: TemplatePreview; isEmail:
   return (
     <div className="rounded-xl border border-dashed border-line px-4 py-3">
       <p className="hint">Com dados de exemplo</p>
-      {isEmail && preview.subject && (
-        <p className="mt-2 text-sm font-medium">{preview.subject}</p>
-      )}
+      {isEmail && preview.subject && <p className="mt-2 text-sm font-medium">{preview.subject}</p>}
       <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{preview.body}</p>
       {preview.missing.length > 0 && (
         <p className="mt-3 text-sm text-danger">
-          Sem valor de exemplo: {preview.missing.join(', ')}. Na mensagem real elas são
-          preenchidas — aqui o buraco na frase mostra onde cada uma entra.
+          Sem valor de exemplo: {preview.missing.join(', ')}. Na mensagem real elas são preenchidas
+          — aqui o buraco na frase mostra onde cada uma entra.
         </p>
       )}
     </div>

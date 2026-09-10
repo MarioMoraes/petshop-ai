@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { SignOutButton } from '@clerk/nextjs'
-import { Alert, Card, Field, FormActions, FormError, SectionHead } from '@/components/ui'
+import { Alert, Button, Card, Field, FormActions, FormError, SectionHead } from '@/components/ui'
 import { IdCardIcon, ShieldCheckIcon } from '@/components/icons'
 import { confirmarCodigo, pedirCodigo } from './actions'
 
@@ -20,9 +20,7 @@ import { confirmarCodigo, pedirCodigo } from './actions'
  * nome inócuo. Gente nunca o preenche; robô que varre formulário preenche tudo.
  */
 
-type Etapa =
-  | { nome: 'contato' }
-  | { nome: 'codigo'; challengeId: string; maskedTarget: string }
+type Etapa = { nome: 'contato' } | { nome: 'codigo'; challengeId: string; maskedTarget: string }
 
 export function LinkForm() {
   const router = useRouter()
@@ -92,9 +90,9 @@ export function LinkForm() {
           <FormError message={erro} />
 
           <FormActions>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => {
                 setEtapa({ nome: 'contato' })
                 setCode('')
@@ -102,10 +100,15 @@ export function LinkForm() {
               }}
             >
               Usar outro contato
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={enviando || code.length < 6}>
-              {enviando ? 'Confirmando…' : 'Confirmar'}
-            </button>
+            </Button>
+            <Button
+              type="submit"
+              busy={enviando}
+              disabled={code.length < 6}
+              busyLabel="Confirmando…"
+            >
+              Confirmar
+            </Button>
           </FormActions>
         </form>
       </Card>
@@ -155,9 +158,14 @@ export function LinkForm() {
 
         <FormError message={erro} />
 
-        <Alert tone="accent" icon={<ShieldCheckIcon />} title="Só quem já é cliente entra" role="status">
-          O acesso é criado sobre o cadastro que o estabelecimento já tem. Se o contato não
-          for encontrado, o código não chega — e aí é com eles que você fala.
+        <Alert
+          tone="accent"
+          icon={<ShieldCheckIcon />}
+          title="Só quem já é cliente entra"
+          role="status"
+        >
+          O acesso é criado sobre o cadastro que o estabelecimento já tem. Se o contato não for
+          encontrado, o código não chega — e aí é com eles que você fala.
         </Alert>
 
         {/*
@@ -168,13 +176,13 @@ export function LinkForm() {
         */}
         <FormActions>
           <SignOutButton redirectUrl="/portal/entrar">
-            <button type="button" className="btn btn-ghost" disabled={enviando}>
+            <Button type="button" variant="ghost" disabled={enviando}>
               Entrar com outra conta
-            </button>
+            </Button>
           </SignOutButton>
-          <button type="submit" className="btn btn-primary" disabled={enviando}>
-            {enviando ? 'Enviando…' : 'Enviar código'}
-          </button>
+          <Button type="submit" busy={enviando} busyLabel="Enviando…">
+            Enviar código
+          </Button>
         </FormActions>
       </form>
     </Card>

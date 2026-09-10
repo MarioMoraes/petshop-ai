@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useOrganizationList } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui'
 
 /**
  * Sair do estabelecimento e voltar à conta pessoal.
@@ -51,14 +52,9 @@ export function ContaPessoal() {
 
   return (
     <span className="flex flex-col items-center gap-2">
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={!isLoaded || saindo}
-        onClick={() => void sair()}
-      >
+      <Button type="button" disabled={!isLoaded || saindo} onClick={() => void sair()}>
         {saindo ? 'Trocando…' : 'Usar minha conta pessoal'}
-      </button>
+      </Button>
       {erro && (
         <span className="error-text" role="alert">
           {erro}

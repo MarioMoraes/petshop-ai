@@ -16,7 +16,16 @@ import {
   type CampaignTargetRow,
   type MessageChannelPref,
 } from '@petshop/shared-types'
-import { Alert, Badge, Card, EmptyState, Field, FormError, SectionHead } from '@/components/ui'
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  FormError,
+  SectionHead,
+} from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { AlertTriangleIcon, BellIcon } from '@/components/icons'
 import {
@@ -52,9 +61,9 @@ export function CampaignsBoard({ campaigns, canSend }: Props) {
 
       {canSend && (
         <div className="flex justify-end">
-          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+          <Button type="button" onClick={() => setCreating(true)}>
             Nova campanha
-          </button>
+          </Button>
         </div>
       )}
 
@@ -123,9 +132,9 @@ function CampaignRow({
 
         <div className="flex shrink-0 gap-2">
           {campaign.lastRun && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={async () => {
                 onError(null)
                 const result = await listCampaignTargetsAction(campaign.lastRun!.id)
@@ -137,12 +146,12 @@ function CampaignRow({
               }}
             >
               Ver resultado
-            </button>
+            </Button>
           )}
           {canRun && (
-            <button type="button" className="btn btn-primary" onClick={() => setDispatching(true)}>
+            <Button type="button" onClick={() => setDispatching(true)}>
               Ver quem recebe
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -156,15 +165,15 @@ function CampaignRow({
 
       {isSystem && (
         <p className="hint">
-          Esta campanha é do sistema: ela roda sozinha enquanto o convite de volta estiver
-          ligado em Configuração.
+          Esta campanha é do sistema: ela roda sozinha enquanto o convite de volta estiver ligado em
+          Configuração.
         </p>
       )}
 
-      {dispatching && (
-        <DispatchModal campaign={campaign} onClose={() => setDispatching(false)} />
+      {dispatching && <DispatchModal campaign={campaign} onClose={() => setDispatching(false)} />}
+      {targets && (
+        <TargetsModal campaign={campaign} targets={targets} onClose={() => setTargets(null)} />
       )}
-      {targets && <TargetsModal campaign={campaign} targets={targets} onClose={() => setTargets(null)} />}
     </Card>
   )
 }
@@ -176,13 +185,7 @@ function CampaignRow({
  * pessoa disparar com um número lido de memória, que é justamente o que a confirmação
  * de contagem existe para impedir.
  */
-function DispatchModal({
-  campaign,
-  onClose,
-}: {
-  campaign: CampaignSummary
-  onClose: () => void
-}) {
+function DispatchModal({ campaign, onClose }: { campaign: CampaignSummary; onClose: () => void }) {
   const router = useRouter()
   const [preview, setPreview] = useState<CampaignPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -230,32 +233,28 @@ function DispatchModal({
       subtitle={`${campaign.templateLabel} · ${MESSAGE_CHANNEL_PREF_LABELS[campaign.channel]}`}
       footer={
         done ? (
-          <button type="button" className="btn btn-primary" onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Fechar
-          </button>
+          </Button>
         ) : (
           <>
-            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={pending}>
+            <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
               Cancelar
-            </button>
+            </Button>
             {preview ? (
-              <button
+              <Button
                 type="button"
-                className="btn btn-primary"
+                busy={pending}
+                disabled={preview.eligible === 0}
                 onClick={dispatch}
-                disabled={pending || preview.eligible === 0}
+                busyLabel="Enviando…"
               >
                 Enviar para {preview.eligible}
-              </button>
+              </Button>
             ) : (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={loadPreview}
-                disabled={pending}
-              >
+              <Button type="button" busy={pending} onClick={loadPreview} busyLabel="Carregando…">
                 Ver quem recebe
-              </button>
+              </Button>
             )}
           </>
         )
@@ -267,15 +266,15 @@ function DispatchModal({
         {done ? (
           <Alert tone="accent" icon={<BellIcon />} title="Campanha disparada" role="status">
             {done.sent} {done.sent === 1 ? 'mensagem entrou' : 'mensagens entraram'} na fila.{' '}
-            {done.skipped > 0 && `${done.skipped} pessoas ficaram de fora.`} O envio segue o
-            ritmo e a janela configurados.
+            {done.skipped > 0 && `${done.skipped} pessoas ficaram de fora.`} O envio segue o ritmo e
+            a janela configurados.
           </Alert>
         ) : preview ? (
           <PreviewPanel preview={preview} />
         ) : (
           <p className="hint">
-            A lista é montada agora, no clique — e não quando a campanha foi criada. Quem
-            voltou ontem sai do filtro sozinho.
+            A lista é montada agora, no clique — e não quando a campanha foi criada. Quem voltou
+            ontem sai do filtro sozinho.
           </p>
         )}
       </div>
@@ -360,9 +359,9 @@ function TargetsModal({
       title={campaign.name}
       subtitle={`${sent.length} receberam · ${skipped.length} ficaram de fora`}
       footer={
-        <button type="button" className="btn btn-ghost" onClick={onClose}>
+        <Button type="button" variant="ghost" onClick={onClose}>
           Fechar
-        </button>
+        </Button>
       }
     >
       <div className="space-y-4">
@@ -462,17 +461,18 @@ function CreateCampaignModal({ onClose }: { onClose: () => void }) {
       subtitle="Ela nasce como rascunho. Nada sai antes da prévia."
       footer={
         <>
-          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={pending}>
+          <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn btn-primary"
+            busy={pending}
+            disabled={name.trim().length === 0}
             onClick={submit}
-            disabled={pending || name.trim().length === 0}
+            busyLabel="Criando…"
           >
             Criar rascunho
-          </button>
+          </Button>
         </>
       }
     >

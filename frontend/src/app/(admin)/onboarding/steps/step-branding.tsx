@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { Branding } from '@petshop/shared-types'
-import { Card, Field } from '@/components/ui'
+import { Button, Card, Field } from '@/components/ui'
 import { finishOnboardingAction, skipBrandingAction } from '../actions'
 import type { StepProps } from '../wizard'
 
@@ -123,22 +123,23 @@ export function StepBranding({
       </div>
 
       <div className="mt-8 flex flex-wrap items-center justify-end gap-3">
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost"
-          disabled={pending}
+          variant="ghost"
+          busy={pending}
           onClick={() => onSubmit(skipBrandingAction)}
+          busyLabel="Salvando…"
         >
           Pular por enquanto
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="btn btn-primary"
-          disabled={pending}
+          busy={pending}
           onClick={() => onSubmit(() => finishOnboardingAction({ primaryColor }))}
+          busyLabel="Concluindo…"
         >
-          {pending ? 'Concluindo…' : 'Concluir configuração'}
-        </button>
+          Concluir configuração
+        </Button>
       </div>
     </Card>
   )

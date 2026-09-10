@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { GalleryManager } from './gallery-manager'
 
 /**
@@ -15,7 +15,7 @@ import { GalleryManager } from './gallery-manager'
 export const dynamic = 'force-dynamic'
 
 export default async function SiteGalleryPage() {
-  const me = await serverApi().me()
+  const me = await carregarMe()
 
   if (!me.permissions.includes('site:manage')) {
     return (

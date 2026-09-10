@@ -1,7 +1,7 @@
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
 import { MESSAGE_QUEUE_STUCK_COUNT, MESSAGE_QUEUE_STUCK_SECONDS } from '@petshop/shared-types'
 import { logger, recordMetric } from '../../shared/logger.js'
-import { dispatchPending } from './dispatch.js'
+import { dispatchPending, reclaimAbandonedLeases } from './dispatch.js'
 import { loadSettings } from './settings.js'
 
 /**
@@ -16,6 +16,17 @@ export async function runDispatch(now: Date = new Date()): Promise<{ sent: numbe
     logger.info(summary, 'passada do worker de mensagens')
   }
   return { sent: summary.sent }
+}
+
+/**
+ * Posses abandonadas do worker.
+ *
+ * Corrige, ao contrário do de baixo — e é a única correção automática do motor. O que
+ * ele desfaz é um estado que nenhum outro caminho desfaz: mensagem tomada para envio
+ * por um processo que morreu antes de escrever o resultado.
+ */
+export async function reapLeases(now: Date = new Date()): Promise<{ reclaimed: number }> {
+  return reclaimAbandonedLeases(now)
 }
 
 /**

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import type { TaxiVehicleResponse } from '@petshop/shared-types'
-import { Card, Field, FormError } from '@/components/ui'
+import { Button, Card, Field, FormError } from '@/components/ui'
 import { createVehicleAction, updateVehicleAction } from '../actions'
 
 /**
@@ -72,16 +72,22 @@ export function FleetEditor({ vehicles }: Props) {
   function criar() {
     const payload = corpo(novo)
     if (!payload) return
-    run(() => createVehicleAction({ ...payload, active: true }), () => {
-      setNovo(NOVO)
-      setCriando(false)
-    })
+    run(
+      () => createVehicleAction({ ...payload, active: true }),
+      () => {
+        setNovo(NOVO)
+        setCriando(false)
+      },
+    )
   }
 
   function salvarEdicao(vehicleId: string) {
     const payload = corpo(rascunho)
     if (!payload) return
-    run(() => updateVehicleAction(vehicleId, payload), () => setEditando(null))
+    run(
+      () => updateVehicleAction(vehicleId, payload),
+      () => setEditando(null),
+    )
   }
 
   return (
@@ -89,14 +95,15 @@ export function FleetEditor({ vehicles }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-medium text-fg">Frota</h2>
         {!criando && (
-          <button
+          <Button
             type="button"
-            className="btn h-9"
+            variant="ghost"
+            className="h-9"
             disabled={pending}
             onClick={() => setCriando(true)}
           >
             Novo veículo
-          </button>
+          </Button>
         )}
       </div>
 
@@ -104,8 +111,8 @@ export function FleetEditor({ vehicles }: Props) {
 
       {vehicles.length === 0 && !criando && (
         <p className="text-sm text-subtle">
-          Nenhum veículo. A capacidade de cada corrida é a do motorista — o &quot;pets por
-          vez&quot; do cadastro dele, em Agenda → Profissionais.
+          Nenhum veículo. A capacidade de cada corrida é a do motorista — o &quot;pets por vez&quot;
+          do cadastro dele, em Agenda → Profissionais.
         </p>
       )}
 
@@ -120,7 +127,9 @@ export function FleetEditor({ vehicles }: Props) {
                       id={`placa-${vehicle.id}`}
                       className="field"
                       value={rascunho.plate}
-                      onChange={(event) => setRascunho((c) => ({ ...c, plate: event.target.value }))}
+                      onChange={(event) =>
+                        setRascunho((c) => ({ ...c, plate: event.target.value }))
+                      }
                     />
                   </Field>
                   <Field label="Como a equipe chama" htmlFor={`apelido-${vehicle.id}`}>
@@ -128,7 +137,9 @@ export function FleetEditor({ vehicles }: Props) {
                       id={`apelido-${vehicle.id}`}
                       className="field"
                       value={rascunho.label}
-                      onChange={(event) => setRascunho((c) => ({ ...c, label: event.target.value }))}
+                      onChange={(event) =>
+                        setRascunho((c) => ({ ...c, label: event.target.value }))
+                      }
                     />
                   </Field>
                   <Field label="Modelo" htmlFor={`modelo-${vehicle.id}`}>
@@ -136,7 +147,9 @@ export function FleetEditor({ vehicles }: Props) {
                       id={`modelo-${vehicle.id}`}
                       className="field"
                       value={rascunho.model}
-                      onChange={(event) => setRascunho((c) => ({ ...c, model: event.target.value }))}
+                      onChange={(event) =>
+                        setRascunho((c) => ({ ...c, model: event.target.value }))
+                      }
                     />
                   </Field>
                   <Field label="Pets" htmlFor={`pets-${vehicle.id}`}>
@@ -152,22 +165,24 @@ export function FleetEditor({ vehicles }: Props) {
                   </Field>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-primary h-9"
-                    disabled={pending}
+                    className="h-9"
+                    busy={pending}
                     onClick={() => salvarEdicao(vehicle.id)}
+                    busyLabel="Salvando…"
                   >
                     Salvar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="btn btn-ghost h-9"
+                    variant="ghost"
+                    className="h-9"
                     disabled={pending}
                     onClick={() => setEditando(null)}
                   >
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               </li>
             ) : (
@@ -261,21 +276,23 @@ export function FleetEditor({ vehicles }: Props) {
             </Field>
           </div>
           <p className="hint">
-            A corrida usa o menor entre este número e o &quot;pets por vez&quot; do
-            motorista — quem escolhe é o carro nos dias em que ele é o mais apertado.
+            A corrida usa o menor entre este número e o &quot;pets por vez&quot; do motorista — quem
+            escolhe é o carro nos dias em que ele é o mais apertado.
           </p>
           <div className="flex flex-wrap gap-2">
-            <button
+            <Button
               type="button"
-              className="btn btn-primary h-9"
-              disabled={pending}
+              className="h-9"
+              busy={pending}
               onClick={criar}
+              busyLabel="Criando…"
             >
-              {pending ? 'Criando…' : 'Criar veículo'}
-            </button>
-            <button
+              Criar veículo
+            </Button>
+            <Button
               type="button"
-              className="btn btn-ghost h-9"
+              variant="ghost"
+              className="h-9"
               disabled={pending}
               onClick={() => {
                 setCriando(false)
@@ -284,7 +301,7 @@ export function FleetEditor({ vehicles }: Props) {
               }}
             >
               Cancelar
-            </button>
+            </Button>
           </div>
         </div>
       )}

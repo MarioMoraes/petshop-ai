@@ -214,6 +214,8 @@ export function installFakeWhatsAppPort(
 export interface FakeEvolution {
   created: { instanceName: string; webhookUrl: string; webhookToken: string }[]
   qrRequests: string[]
+  /** Cada reafirmação do endereço de retorno — o que o provedor passou a conhecer. */
+  webhooks: { instanceName: string; webhookUrl: string; webhookToken: string }[]
   sent: { instanceName: string; to: string; text: string }[]
   loggedOut: string[]
   /** Instâncias apagadas no provedor — a identidade vai junto, e é o ponto. */
@@ -231,7 +233,14 @@ export interface FakeEvolution {
    * chega sem dono e leva 401 — que ela trata como definitivo.
    */
   onCreateInstance(hook: (input: { webhookToken: string }) => Promise<void>): void
-  /** O token gerado na criação — é o que o teste manda no webhook. */
+  /**
+   * O token corrente do provedor — é o que o teste manda no webhook.
+   *
+   * Nasce na criação e **gira a cada reabertura de QR**, porque é isso que acontece
+   * de verdade: o banco guarda só o hash, então reafirmar o endereço de retorno exige
+   * um token novo. Um dublê que devolvesse para sempre o da criação deixaria passar
+   * um webhook que a produção recusaria.
+   */
   lastToken(): string
 }
 
@@ -245,6 +254,7 @@ export interface FakeEvolution {
 export function installFakeEvolution(): FakeEvolution {
   const created: FakeEvolution['created'] = []
   const qrRequests: string[] = []
+  const webhooks: FakeEvolution['webhooks'] = []
   const sent: FakeEvolution['sent'] = []
   const loggedOut: string[] = []
   const deleted: string[] = []
@@ -266,6 +276,13 @@ export function installFakeEvolution(): FakeEvolution {
       }
       created.push(input)
       return { apiKey: `key-${created.length}`, qrCode: 'data:image/png;base64,QVFS' }
+    },
+    async setWebhook(input) {
+      webhooks.push({
+        instanceName: input.instanceName,
+        webhookUrl: input.webhookUrl,
+        webhookToken: input.webhookToken,
+      })
     },
     async requestQrCode(instanceName) {
       qrRequests.push(instanceName)
@@ -308,6 +325,7 @@ export function installFakeEvolution(): FakeEvolution {
   return {
     created,
     qrRequests,
+    webhooks,
     sent,
     loggedOut,
     deleted,
@@ -321,7 +339,7 @@ export function installFakeEvolution(): FakeEvolution {
       createHook = hook
     },
     lastToken() {
-      const last = created.at(-1)
+      const last = webhooks.at(-1) ?? created.at(-1)
       if (!last) throw new Error('nenhuma instância foi criada')
       return last.webhookToken
     },

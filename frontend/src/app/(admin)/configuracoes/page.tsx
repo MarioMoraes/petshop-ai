@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
-import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { tenantHostSuffix } from '@/lib/domain'
 import { SettingsForm } from './settings-form'
 
@@ -24,8 +23,7 @@ export default async function ConfiguracoesPage({
 }: {
   searchParams: Promise<{ aba?: string }>
 }) {
-  const me = await serverApi().me()
-  if (!me.currentTenant?.onboardingCompletedAt) redirect('/onboarding')
+  const me = await carregarMe()
 
   // Sem sequer poder ler, a tela não existe para este perfil. Voltar ao início é mais
   // honesto que um 403 numa rota que o menu nem deveria ter oferecido.
@@ -91,41 +89,32 @@ export default async function ConfiguracoesPage({
   const { aba } = await searchParams
 
   return (
-    <AppShell active="configuracoes" me={me}>
-      {/*
-        Mais largo que as outras telas de formulário, e por uma razão medida: a faixa de
-        abas passou de nove com o Suporte do MOD-ADMIN-02, e em `max-w-3xl` ela quebrava em
-        duas linhas — a segunda ficava com duas abas soltas, que leem como sobra e não como
-        continuação. `max-w-4xl` cabe as nove numa linha só sem chegar à largura das telas
-        de lista (`max-w-5xl`), que deixaria os campos longos demais para preencher.
-      */}
-      <div className="mx-auto max-w-4xl">
-        <PageHeader
-          eyebrow="Estabelecimento"
-          title="Configurações"
-          subtitle="Dados, horário de funcionamento, políticas de agendamento, identidade visual, catálogo de raças, privacidade e trilha de auditoria."
-        />
+    <>
+      <PageHeader
+        eyebrow="Estabelecimento"
+        title="Configurações"
+        subtitle="Dados, horário de funcionamento, políticas de agendamento, identidade visual, catálogo de raças, privacidade e trilha de auditoria."
+      />
 
-        <div className="mt-10">
-          <SettingsForm
-            tenant={tenant}
-            settings={settings}
-            species={species}
-            hostSuffix={tenantHostSuffix()}
-            canEdit={me.permissions.includes('tenant:configure')}
-            canManageCatalog={canManageCatalog}
-            deletionRequests={deletion.items}
-            canResolveDeletions={canResolveDeletions}
-            termVersions={terms.versions}
-            auditLogs={audit.items}
-            auditCursor={audit.nextCursor}
-            securitySummary={security.items}
-            canReadAudit={canReadAudit}
-            supportGrants={support.items}
-            abaInicial={aba}
-          />
-        </div>
+      <div className="mt-10">
+        <SettingsForm
+          tenant={tenant}
+          settings={settings}
+          species={species}
+          hostSuffix={tenantHostSuffix()}
+          canEdit={me.permissions.includes('tenant:configure')}
+          canManageCatalog={canManageCatalog}
+          deletionRequests={deletion.items}
+          canResolveDeletions={canResolveDeletions}
+          termVersions={terms.versions}
+          auditLogs={audit.items}
+          auditCursor={audit.nextCursor}
+          securitySummary={security.items}
+          canReadAudit={canReadAudit}
+          supportGrants={support.items}
+          abaInicial={aba}
+        />
       </div>
-    </AppShell>
+    </>
   )
 }

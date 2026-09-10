@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 import { PLATFORM_PLANS, PLATFORM_TENANT_STATUSES } from '@petshop/shared-types'
+import { Button } from '@/components/ui'
 
 /**
  * O recorte da lista de estabelecimentos.
@@ -34,15 +35,7 @@ const PLANO_ROTULO: Record<string, string> = {
   ENTERPRISE: 'Enterprise',
 }
 
-export function Filtros({
-  status,
-  plan,
-  q,
-}: {
-  status: string
-  plan: string
-  q: string
-}) {
+export function Filtros({ status, plan, q }: { status: string; plan: string; q: string }) {
   const router = useRouter()
   const [pendente, startTransition] = useTransition()
 
@@ -96,9 +89,15 @@ export function Filtros({
         </select>
       </label>
 
-      <button type="submit" className="btn btn-ghost ml-auto" disabled={pendente}>
-        {pendente ? 'Carregando…' : 'Aplicar'}
-      </button>
+      <Button
+        type="submit"
+        variant="ghost"
+        className="ml-auto"
+        busy={pendente}
+        busyLabel="Carregando…"
+      >
+        Aplicar
+      </Button>
     </form>
   )
 }

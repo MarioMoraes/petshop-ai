@@ -10,7 +10,7 @@ import {
   type BillingSettings,
   type PaymentMethod,
 } from '@petshop/shared-types'
-import { Card, Field, FormError, SectionHead } from '@/components/ui'
+import { Button, Card, Field, FormError, SectionHead } from '@/components/ui'
 import { CalendarIcon, WalletIcon } from '@/components/icons'
 import { updateBillingSettingsAction } from '../actions'
 
@@ -76,8 +76,8 @@ function ReceivablesCard({ receivables }: { receivables: NonNullable<Props['rece
       </dl>
       {overdue > 0 && (
         <p className="hint mt-3">
-          {formatBRL(overdue)} vencidos há mais de 30 dias. É o dinheiro que já saiu em serviço
-          e ainda não voltou.
+          {formatBRL(overdue)} vencidos há mais de 30 dias. É o dinheiro que já saiu em serviço e
+          ainda não voltou.
         </p>
       )}
     </Card>
@@ -120,14 +120,15 @@ function SaveRow({
 }) {
   return (
     <div className="mt-4 flex items-center gap-3">
-      <button
+      <Button
         type="button"
-        className="btn btn-primary"
-        disabled={pending || disabled}
+        busy={pending}
+        disabled={disabled}
         onClick={onSave}
+        busyLabel="Salvando…"
       >
-        {pending ? 'Salvando…' : 'Salvar'}
-      </button>
+        Salvar
+      </Button>
       {saved && <span className="hint text-success">Salvo.</span>}
     </div>
   )
@@ -220,9 +221,7 @@ function PaymentMethodsCard({
 
   function toggle(method: PaymentMethod) {
     setEnabled((current) =>
-      current.includes(method)
-        ? current.filter((item) => item !== method)
-        : [...current, method],
+      current.includes(method) ? current.filter((item) => item !== method) : [...current, method],
     )
   }
 
@@ -333,13 +332,7 @@ function PixKeyCard({ settings, canEdit }: { settings: BillingSettings; canEdit:
   )
 }
 
-function PackagePolicyCard({
-  settings,
-  canEdit,
-}: {
-  settings: BillingSettings
-  canEdit: boolean
-}) {
+function PackagePolicyCard({ settings, canEdit }: { settings: BillingSettings; canEdit: boolean }) {
   const [validityDays, setValidityDays] = useState(String(settings.defaultPackageValidityDays))
   const [warnings, setWarnings] = useState(settings.packageExpiryWarningDays.join(', '))
   const { save, error, saved, pending } = useSave()

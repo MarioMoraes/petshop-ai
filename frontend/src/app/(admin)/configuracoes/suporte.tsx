@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { SupportGrantResponse } from '@petshop/shared-types'
-import { Alert, Card, EmptyState, FormError, SectionHead, Segmented } from '@/components/ui'
+import { Alert, Button, Card, EmptyState, FormError, SectionHead, Segmented } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { AlertTriangleIcon, ShieldCheckIcon } from '@/components/icons'
 import {
@@ -169,22 +169,24 @@ function Pedido({
         </div>
         {canEdit && (
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost h-9"
+              variant="ghost"
+              className="h-9"
               onClick={recusar}
-              disabled={pendente}
+              busy={pendente}
+              busyLabel="Recusando…"
             >
               Recusar
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-primary h-9"
+              className="h-9"
               onClick={() => setAberto(true)}
               disabled={pendente}
             >
               Autorizar
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -217,22 +219,22 @@ function Pedido({
         subtitle="Leitura apenas, pelo prazo que você escolher. Você pode encerrar antes a qualquer momento."
         footer={
           <>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => setAberto(false)}
               disabled={pendente}
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               form={`autorizar-${grant.id}`}
-              className="btn btn-primary"
-              disabled={pendente}
+              busy={pendente}
+              busyLabel="Autorizando…"
             >
-              {pendente ? 'Autorizando…' : 'Autorizar acesso'}
-            </button>
+              Autorizar acesso
+            </Button>
           </>
         }
       >
@@ -255,9 +257,8 @@ function Pedido({
           />
 
           <p className="hint">
-            Passado o prazo, o acesso se encerra sozinho — não há renovação automática. Cada
-            ficha que o suporte abrir fica registrada na trilha de auditoria, com o horário e
-            a tela.
+            Passado o prazo, o acesso se encerra sozinho — não há renovação automática. Cada ficha
+            que o suporte abrir fica registrada na trilha de auditoria, com o horário e a tela.
           </p>
         </form>
       </Modal>
@@ -310,14 +311,16 @@ function Ativo({
         principal: é texto no pé, alcançável e longe do polegar (regra 8).
       */}
       {canEdit && (
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost mt-3 px-3 py-1 text-xs text-danger"
+          variant="ghost"
+          className="mt-3 px-3 py-1 text-xs text-danger"
           onClick={encerrar}
-          disabled={pendente}
+          busy={pendente}
+          busyLabel="Encerrando…"
         >
-          {pendente ? 'Encerrando…' : 'Encerrar o acesso agora'}
-        </button>
+          Encerrar o acesso agora
+        </Button>
       )}
     </div>
   )

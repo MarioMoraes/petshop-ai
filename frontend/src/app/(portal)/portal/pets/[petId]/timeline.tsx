@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { PortalTimelineEntry, PortalTimelineResponse } from '@petshop/shared-types'
-import { SectionHead } from '@/components/ui'
+import { Button, SectionHead } from '@/components/ui'
 import { HeartPulseIcon } from '@/components/icons'
 import { RowItem, RowStack } from '../../list'
 import { carregarMais } from './actions'
@@ -75,14 +75,16 @@ export function Timeline({
           {erro && <p className="text-danger text-sm">{erro}</p>}
 
           {cursor && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost w-full"
+              variant="ghost"
+              className="w-full"
               onClick={mais}
-              disabled={carregando}
+              busy={carregando}
+              busyLabel="Carregando…"
             >
-              {carregando ? 'Carregando…' : 'Ver mais'}
-            </button>
+              Ver mais
+            </Button>
           )}
         </>
       }

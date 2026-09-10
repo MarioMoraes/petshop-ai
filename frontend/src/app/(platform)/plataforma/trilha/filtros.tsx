@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
+import { JANELAS, type Janela } from './janelas'
+import { Button } from '@/components/ui'
 
 /**
  * O recorte da trilha.
@@ -23,14 +25,6 @@ const ACOES = [
   'platform.audit_read',
   'tenant.updated',
 ]
-
-export const JANELAS = [
-  { value: '7d', label: '7 dias' },
-  { value: '30d', label: '30 dias' },
-  { value: '92d', label: '92 dias' },
-] as const
-
-export type Janela = (typeof JANELAS)[number]['value']
 
 export function Filtros({
   action,
@@ -102,9 +96,15 @@ export function Filtros({
         </select>
       </label>
 
-      <button type="submit" className="btn btn-ghost ml-auto" disabled={pendente}>
-        {pendente ? 'Consultando…' : 'Aplicar'}
-      </button>
+      <Button
+        type="submit"
+        variant="ghost"
+        className="ml-auto"
+        busy={pendente}
+        busyLabel="Consultando…"
+      >
+        Aplicar
+      </Button>
     </form>
   )
 }

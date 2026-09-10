@@ -7,7 +7,7 @@ import {
   type SecurityEventEntry,
   type SecurityEventSummary,
 } from '@petshop/shared-types'
-import { Card, EmptyState, SectionHead, Segmented } from '@/components/ui'
+import { Button, Card, EmptyState, SectionHead, Segmented } from '@/components/ui'
 import { AlertTriangleIcon, ShieldCheckIcon } from '@/components/icons'
 import { loadAuditPageAction, loadSecurityEventsAction } from './actions'
 
@@ -164,14 +164,16 @@ function Trilha({ itens, cursor }: { itens: AuditLogEntry[]; cursor: string | nu
       )}
 
       {proximo && (
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost mt-4 h-9"
+          variant="ghost"
+          className="mt-4 h-9"
           onClick={carregarMais}
-          disabled={carregando}
+          busy={carregando}
+          busyLabel="Carregando…"
         >
           Carregar mais
-        </button>
+        </Button>
       )}
     </Card>
   )
@@ -234,14 +236,16 @@ function Eventos({ resumo }: { resumo: SecurityEventSummary[] }) {
           </ul>
 
           {detalhe === null ? (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost mt-4 h-9"
+              variant="ghost"
+              className="mt-4 h-9"
               onClick={abrirDetalhe}
-              disabled={carregando}
+              busy={carregando}
+              busyLabel="Carregando…"
             >
               Ver as ocorrências
-            </button>
+            </Button>
           ) : (
             <ul className="mt-4 flex flex-col gap-2">
               {detalhe.map((evento) => (

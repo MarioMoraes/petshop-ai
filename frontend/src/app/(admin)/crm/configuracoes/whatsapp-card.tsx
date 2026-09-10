@@ -7,7 +7,7 @@ import {
   type WhatsappConnection,
   type WhatsappInstanceStatus,
 } from '@petshop/shared-types'
-import { Alert, Badge, Card, SectionHead } from '@/components/ui'
+import { Alert, Badge, Button, Card, SectionHead } from '@/components/ui'
 import { AlertTriangleIcon, PhoneIcon, SpinnerIcon } from '@/components/icons'
 import {
   connectWhatsappAction,
@@ -113,9 +113,7 @@ export function WhatsappCard({ initial, canConnect }: Props) {
   }, [qrCode])
 
   function run(
-    action: () => Promise<
-      { ok: true; data: WhatsappConnection } | { ok: false; message: string }
-    >,
+    action: () => Promise<{ ok: true; data: WhatsappConnection } | { ok: false; message: string }>,
   ) {
     setError(null)
     startTransition(async () => {
@@ -149,17 +147,17 @@ export function WhatsappCard({ initial, canConnect }: Props) {
 
       {status === 'DISCONNECTED' && (
         <Alert tone="danger" icon={<AlertTriangleIcon />} title="WhatsApp desconectado">
-          As mensagens não estão sendo descartadas: elas ficam esperando e saem sozinhas
-          quando você reconectar. Quem tem e-mail cadastrado continua recebendo por lá.
+          As mensagens não estão sendo descartadas: elas ficam esperando e saem sozinhas quando você
+          reconectar. Quem tem e-mail cadastrado continua recebendo por lá.
           {connection.lastError && <span className="block mt-1">{connection.lastError}</span>}
         </Alert>
       )}
 
       {status === 'BANNED' && (
         <Alert tone="danger" icon={<AlertTriangleIcon />} title="Número bloqueado pelo WhatsApp">
-          O canal foi desligado e as mensagens passaram a sair por e-mail. Reconectar com
-          o mesmo número tende a ser bloqueado de novo — vale falar com o suporte do
-          WhatsApp antes de tentar.
+          O canal foi desligado e as mensagens passaram a sair por e-mail. Reconectar com o mesmo
+          número tende a ser bloqueado de novo — vale falar com o suporte do WhatsApp antes de
+          tentar.
           {connection.lastError && <span className="block mt-1">{connection.lastError}</span>}
         </Alert>
       )}
@@ -168,38 +166,38 @@ export function WhatsappCard({ initial, canConnect }: Props) {
       {status === 'CONNECTED' && connection.warmupDaysLeft !== null && (
         <Alert tone="accent" icon={<SpinnerIcon />} title="Número em aquecimento" role="status">
           Nos primeiros dias o envio é limitado de propósito — hoje até{' '}
-          {connection.effectiveDailyCap} mensagens. Número novo disparando muito é o que
-          faz o WhatsApp bloquear. Faltam {connection.warmupDaysLeft}{' '}
+          {connection.effectiveDailyCap} mensagens. Número novo disparando muito é o que faz o
+          WhatsApp bloquear. Faltam {connection.warmupDaysLeft}{' '}
           {connection.warmupDaysLeft === 1 ? 'dia' : 'dias'}.
         </Alert>
       )}
 
       {confirmingRecreate && (
         <Alert tone="danger" icon={<AlertTriangleIcon />} title="Refazer a conexão do zero?">
-          Use isto quando o QR não conecta de jeito nenhum — quando o celular responde
-          &ldquo;não foi possível conectar&rdquo; mesmo com um código novo. A conexão
-          atual é apagada e criada outra do zero; você vai precisar ler um QR novo, e as
-          mensagens que estiverem esperando continuam esperando.
+          Use isto quando o QR não conecta de jeito nenhum — quando o celular responde &ldquo;não
+          foi possível conectar&rdquo; mesmo com um código novo. A conexão atual é apagada e criada
+          outra do zero; você vai precisar ler um QR novo, e as mensagens que estiverem esperando
+          continuam esperando.
           <span className="mt-3 flex flex-wrap gap-3">
-            <button
+            <Button
               type="button"
-              className="btn btn-primary"
-              disabled={pending}
+              busy={pending}
               onClick={() => {
                 setConfirmingRecreate(false)
                 run(recreateWhatsappAction)
               }}
+              busyLabel="Refazendo…"
             >
-              {pending ? 'Refazendo…' : 'Sim, refazer'}
-            </button>
-            <button
+              Sim, refazer
+            </Button>
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               disabled={pending}
               onClick={() => setConfirmingRecreate(false)}
             >
               Cancelar
-            </button>
+            </Button>
           </span>
         </Alert>
       )}
@@ -226,45 +224,48 @@ export function WhatsappCard({ initial, canConnect }: Props) {
       {canConnect ? (
         <div className="flex flex-wrap gap-3">
           {status === 'CONNECTED' ? (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
-              disabled={pending}
+              variant="ghost"
+              busy={pending}
               onClick={() => run(disconnectWhatsappAction)}
+              busyLabel="Desconectando…"
             >
               Desconectar
-            </button>
+            </Button>
           ) : waitingScan ? (
-            <button
+            <Button
               type="button"
-              className={qrExpired ? 'btn btn-primary' : 'btn btn-ghost'}
-              disabled={pending}
+              variant={qrExpired ? 'primary' : 'ghost'}
+              busy={pending}
               onClick={() => run(refreshWhatsappQrCodeAction)}
+              busyLabel="Gerando…"
             >
-              {pending ? 'Gerando…' : 'Gerar novo QR code'}
-            </button>
+              Gerar novo QR code
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
-              className="btn btn-primary"
-              disabled={pending}
+              busy={pending}
               onClick={() => run(connectWhatsappAction)}
+              busyLabel="Conectando…"
             >
-              {pending ? 'Conectando…' : status === 'NOT_CONFIGURED' ? 'Conectar WhatsApp' : 'Reconectar'}
-            </button>
+              {status === 'NOT_CONFIGURED' ? 'Conectar WhatsApp' : 'Reconectar'}
+            </Button>
           )}
 
           {/* Recuperação. Só fora do estado conectado, e o backend recusa de novo lá —
               um clique errado não pode derrubar uma sessão que funciona. */}
           {status !== 'NOT_CONFIGURED' && status !== 'CONNECTED' && !confirmingRecreate && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost text-danger"
+              variant="ghost"
+              className="text-danger"
               disabled={pending}
               onClick={() => setConfirmingRecreate(true)}
             >
               Refazer a conexão
-            </button>
+            </Button>
           )}
         </div>
       ) : (

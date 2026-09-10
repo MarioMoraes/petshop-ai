@@ -136,6 +136,26 @@ describe('conexão (MOD-CRM-01)', () => {
     expect((await readInstance())?.createdAt).toEqual(before?.createdAt)
   })
 
+  it('reafirma o endereço de retorno ao reabrir o QR', async () => {
+    await connect()
+    const antes = await readInstance()
+
+    await callApi({ ...asAdmin(fixture), method: 'POST', url: '/v1/messaging/whatsapp/qr' })
+
+    // O webhook vive do lado da Evolution, escrito uma vez na criação. Quando o
+    // endereço do backend muda — foi o que a consolidação em monólito fez com a porta
+    // — toda instância antiga passa a falar com um endereço morto, e o pareamento não
+    // termina mais: o QR aparece, o celular escaneia, e o `connection.update` cai num
+    // `ECONNREFUSED` dentro do contêiner do provedor.
+    expect(evolution.webhooks).toHaveLength(1)
+    expect(evolution.webhooks[0]!.webhookUrl).toBe(process.env.EVOLUTION_WEBHOOK_URL)
+
+    // O token gira porque o banco guarda só o hash: reafirmar o anterior é impossível.
+    const depois = await readInstance()
+    expect(depois?.webhookTokenHash).not.toBe(antes?.webhookTokenHash)
+    expect(evolution.webhooks[0]!.webhookToken).not.toBe(evolution.created[0]!.webhookToken)
+  })
+
   it('não recria a instância quando o admin clica em conectar duas vezes', async () => {
     await connect()
     const second = await connect()

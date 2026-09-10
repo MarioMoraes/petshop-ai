@@ -17,7 +17,7 @@ import {
   type MessageStatus,
   type PaginatedMessages,
 } from '@petshop/shared-types'
-import { Card } from '@/components/ui'
+import { Button, Card } from '@/components/ui'
 import { MessageList } from './message-list'
 
 /**
@@ -175,8 +175,7 @@ export function MessagesBoard({ page, filters, canSend }: Props) {
               onChange={(event) =>
                 apply({
                   recipientKind: (event.target.value || undefined) as
-                    | MessageRecipientKind
-                    | undefined,
+                    MessageRecipientKind | undefined,
                   page: 1,
                 })
               }
@@ -212,26 +211,30 @@ export function MessagesBoard({ page, filters, canSend }: Props) {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-3">
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost"
-            disabled={pending || page.page <= 1}
+            variant="ghost"
+            busy={pending}
+            disabled={page.page <= 1}
             onClick={() => apply({ page: page.page - 1 })}
+            busyLabel="Carregando…"
           >
             Anterior
-          </button>
+          </Button>
           <p className="hint">
             Página {page.page} de {totalPages} · {page.total}{' '}
             {page.total === 1 ? 'mensagem' : 'mensagens'}
           </p>
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost"
-            disabled={pending || page.page >= totalPages}
+            variant="ghost"
+            busy={pending}
+            disabled={page.page >= totalPages}
             onClick={() => apply({ page: page.page + 1 })}
+            busyLabel="Carregando…"
           >
             Próxima
-          </button>
+          </Button>
         </div>
       )}
     </div>

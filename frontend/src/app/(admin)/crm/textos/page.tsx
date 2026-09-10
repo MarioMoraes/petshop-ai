@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { ButtonLink } from '@/components/links'
+import { carregarMe, serverApi } from '@/lib/api'
 import { TemplatesEditor } from './templates-editor'
 
 /**
@@ -22,7 +23,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function TextosPage() {
   const [me, templates] = await Promise.all([
-    serverApi().me(),
+    carregarMe(),
     serverApi()
       .listMessageTemplates()
       .then((response) => response.data)
@@ -76,9 +77,9 @@ function Header({ canConfigure }: { canConfigure: boolean }) {
           : 'O que o cliente recebe em cada situação — só o administrador edita'
       }
       actions={
-        <Link href="/crm/configuracoes" className="btn btn-ghost">
+        <ButtonLink href="/crm/configuracoes" variant="ghost">
           Configuração
-        </Link>
+        </ButtonLink>
       }
     />
   )

@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import {
   todayIn,
@@ -7,6 +6,7 @@ import {
   type TaxiRideResponse,
 } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
 import { rotuloDoDia } from '@/lib/agenda-dia'
 import { serverApi } from '@/lib/api'
 import { AgendaTabs } from '../agenda-tabs'
@@ -86,9 +86,7 @@ export default async function DiaPage({ searchParams }: PageProps) {
       .catch((): CalendarBlockResponse[] => []),
   ])
 
-  const taxi = taxiSettings?.enabled
-    ? { windowMinutes: taxiSettings.defaultWindowMinutes }
-    : null
+  const taxi = taxiSettings?.enabled ? { windowMinutes: taxiSettings.defaultWindowMinutes } : null
 
   // Agrupadas por agendamento: o cartão pergunta "este banho tem corrida?", e não
   // "quais corridas existem hoje?".
@@ -105,11 +103,7 @@ export default async function DiaPage({ searchParams }: PageProps) {
         title={date === hoje ? 'Hoje' : 'Dia'}
         subtitle={failed ? 'A agenda não respondeu' : rotuloDoDia(date)}
         actions={
-          !failed && (
-            <Link href={`/agenda/novo?date=${date}`} className="btn btn-primary">
-              Marcar horário
-            </Link>
-          )
+          !failed && <ButtonLink href={`/agenda/novo?date=${date}`}>Marcar horário</ButtonLink>
         }
       />
 

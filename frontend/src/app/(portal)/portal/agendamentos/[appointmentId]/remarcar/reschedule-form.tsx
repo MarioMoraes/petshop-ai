@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatBRL, type PortalAppointmentDetail, type PortalSlot } from '@petshop/shared-types'
-import { Alert, Card, SectionHead } from '@/components/ui'
+import { Alert, Button, Card, SectionHead } from '@/components/ui'
 import { AlertTriangleIcon, CalendarIcon, VanIcon } from '@/components/icons'
 import { carregarHorarios } from '../../../agendar/actions'
 import { remarcar } from '../../actions'
@@ -75,16 +75,19 @@ export function RescheduleForm({ appointment }: { appointment: PortalAppointment
     <>
       <Card>
         <p className="section-eyebrow">Horário de hoje</p>
-        <p className="mt-1 text-base font-medium">
-          {dataHoraLonga(appointment.startsAt, fuso)}
-        </p>
+        <p className="mt-1 text-base font-medium">{dataHoraLonga(appointment.startsAt, fuso)}</p>
         <p className="hint mt-0.5">
           com {appointment.professionalName} · {formatBRL(appointment.totalCents)}
         </p>
       </Card>
 
       <Card>
-        <SectionHead icon={<CalendarIcon />} tone="icon-time" eyebrow="Novo horário" title="Que dia" />
+        <SectionHead
+          icon={<CalendarIcon />}
+          tone="icon-time"
+          eyebrow="Novo horário"
+          title="Que dia"
+        />
         <input
           type="date"
           className="field mt-4"
@@ -107,17 +110,16 @@ export function RescheduleForm({ appointment }: { appointment: PortalAppointment
             ) : (
               <div className="flex flex-wrap gap-2">
                 {horarios.map((slot) => (
-                  <button
+                  <Button
                     key={`${slot.startsAt}-${slot.professionalId}`}
                     type="button"
+                    variant={escolhido?.startsAt === slot.startsAt ? 'primary' : 'ghost'}
+                    className="h-10 px-4"
                     onClick={() => setEscolhido(slot)}
                     aria-pressed={escolhido?.startsAt === slot.startsAt}
-                    className={`btn ${
-                      escolhido?.startsAt === slot.startsAt ? 'btn-primary' : 'btn-ghost'
-                    } h-10 px-4`}
                   >
                     {hora(slot.startsAt, fuso)}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -141,8 +143,8 @@ export function RescheduleForm({ appointment }: { appointment: PortalAppointment
       */}
       {appointment.taxi.length > 0 && (
         <Alert tone="accent" icon={<VanIcon />} title="O leva-e-traz não vai junto" role="status">
-          Ao remarcar, o transporte deste horário é cancelado. Peça de novo marcando um
-          horário novo com leva-e-traz, ou fale com o estabelecimento.
+          Ao remarcar, o transporte deste horário é cancelado. Peça de novo marcando um horário novo
+          com leva-e-traz, ou fale com o estabelecimento.
         </Alert>
       )}
 
@@ -152,14 +154,9 @@ export function RescheduleForm({ appointment }: { appointment: PortalAppointment
             O horário passa para <strong>{dataHoraLonga(escolhido.startsAt, fuso)}</strong>, com{' '}
             {escolhido.professionalName}. O preço é recalculado para a nova data.
           </p>
-          <button
-            type="button"
-            className="btn btn-primary mt-4 w-full"
-            onClick={confirmar}
-            disabled={ocupado}
-          >
+          <Button type="button" className="mt-4 w-full" onClick={confirmar} disabled={ocupado}>
             {ocupado ? 'Remarcando…' : 'Confirmar novo horário'}
-          </button>
+          </Button>
         </Card>
       )}
     </>

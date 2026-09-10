@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   MESSAGE_BLOCK_REASON_LABELS,
@@ -13,7 +12,8 @@ import {
   type MessageStatus,
   type MessageSummary,
 } from '@petshop/shared-types'
-import { Badge, Card, EmptyState, FormError } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, FormError } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
 import { cancelMessageAction, retryMessageAction } from './actions'
 
 /**
@@ -79,9 +79,7 @@ export function MessageList({ messages, canSend, showTutor, empty }: Props) {
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">
                   {templateLabelOf(message.templateKey)}
-                  {showTutor && (
-                    <span className="text-muted"> · {message.recipientName}</span>
-                  )}
+                  {showTutor && <span className="text-muted"> · {message.recipientName}</span>}
                   {showTutor && message.recipientKind === 'USER' && (
                     <span className="ml-2 inline-flex align-middle">
                       <Badge>{MESSAGE_RECIPIENT_KIND_LABELS[message.recipientKind]}</Badge>
@@ -98,9 +96,7 @@ export function MessageList({ messages, canSend, showTutor, empty }: Props) {
 
             {open && (
               <div className="mt-4 space-y-4 border-t border-line pt-4">
-                {message.subject && (
-                  <p className="text-sm font-medium">{message.subject}</p>
-                )}
+                {message.subject && <p className="text-sm font-medium">{message.subject}</p>}
 
                 {/*
                  * O corpo é o que a mensagem realmente dizia — renderizado na entrada
@@ -126,38 +122,39 @@ export function MessageList({ messages, canSend, showTutor, empty }: Props) {
 
                 <div className="flex flex-wrap items-center gap-2">
                   {showTutor && (
-                    <Link href={`/tutores/${message.tutorId}`} className="btn btn-ghost">
+                    <ButtonLink href={`/tutores/${message.tutorId}`} variant="ghost">
                       Abrir a ficha
-                    </Link>
+                    </ButtonLink>
                   )}
 
                   {canSend && canRetry(message.status) && (
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-primary"
-                      disabled={pending}
+                      busy={pending}
                       onClick={() => run(() => retryMessageAction(message.id))}
+                      busyLabel="Reenviando…"
                     >
                       Tentar de novo
-                    </button>
+                    </Button>
                   )}
 
                   {canCancel(message.status) && (
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost"
-                      disabled={pending}
+                      variant="ghost"
+                      busy={pending}
                       onClick={() => run(() => cancelMessageAction(message.id))}
+                      busyLabel="Cancelando…"
                     >
                       Cancelar o envio
-                    </button>
+                    </Button>
                   )}
                 </div>
 
                 {canSend && canRetry(message.status) && (
                   <p className="hint">
-                    O reenvio confere consentimento e supressão de novo — quem pediu para
-                    não receber continua não recebendo.
+                    O reenvio confere consentimento e supressão de novo — quem pediu para não
+                    receber continua não recebendo.
                   </p>
                 )}
               </div>
@@ -169,9 +166,15 @@ export function MessageList({ messages, canSend, showTutor, empty }: Props) {
   )
 }
 
-/** Só falha se reenvia. Bloqueio não é falha: o conserto é no cadastro (RN-03). */
+/**
+ * Só falha se reenvia. Bloqueio não é falha: o conserto é no cadastro (RN-03).
+ *
+ * `SENDING` entra porque numa tela ele nunca é o que parece. O envio de verdade dura
+ * segundos, e o varredor do motor desfaz a posse abandonada em dez minutos — quem vê
+ * "Enviando" numa listagem está vendo o resto de um processo que morreu no meio.
+ */
 function canRetry(status: MessageStatus): boolean {
-  return status === 'DEAD' || status === 'FAILED'
+  return status === 'DEAD' || status === 'FAILED' || status === 'SENDING'
 }
 
 /** Só se cancela o que ainda não saiu. */

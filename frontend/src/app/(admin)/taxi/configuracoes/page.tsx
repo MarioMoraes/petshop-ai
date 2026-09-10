@@ -1,6 +1,6 @@
 import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { TaxiSettingsForm } from './settings-form'
 
 /**
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function TaxiConfigPage() {
   const [me, settings, zones, vehicles, services] = await Promise.all([
-    serverApi().me(),
+    carregarMe(),
     serverApi()
       .getTaxiSettings()
       .catch((error: unknown) => {

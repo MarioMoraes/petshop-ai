@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import type { PortalPetDetail, UpdateOwnPetInput } from '@petshop/shared-types'
-import { Field, FormError, Segmented } from '@/components/ui'
+import { Button, Field, FormError, Segmented } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { PawPrintIcon } from '@/components/icons'
 import { salvarPet } from './actions'
@@ -65,9 +65,9 @@ export function PetForm({ pet }: { pet: PortalPetDetail }) {
 
   return (
     <>
-      <button type="button" className="btn btn-ghost h-9" onClick={() => setAberto(true)}>
+      <Button type="button" variant="ghost" className="h-9" onClick={() => setAberto(true)}>
         Editar
-      </button>
+      </Button>
 
       <Modal
         open={aberto}
@@ -80,17 +80,18 @@ export function PetForm({ pet }: { pet: PortalPetDetail }) {
         subtitle="Peso, porte, raça e pelagem são atualizados pelo estabelecimento."
         footer={
           <>
-            <button type="button" className="btn btn-ghost" onClick={fechar} disabled={salvando}>
+            <Button type="button" variant="ghost" onClick={fechar} disabled={salvando}>
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               form="portal-pet-form"
-              className="btn btn-primary"
-              disabled={salvando || nome.trim() === ''}
+              busy={salvando}
+              disabled={nome.trim() === ''}
+              busyLabel="Salvando…"
             >
-              {salvando ? 'Salvando…' : 'Salvar'}
-            </button>
+              Salvar
+            </Button>
           </>
         }
       >

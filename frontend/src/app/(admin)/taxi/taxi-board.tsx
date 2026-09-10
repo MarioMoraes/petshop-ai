@@ -8,7 +8,7 @@ import type {
   TaxiRideResponse,
   TaxiVehicleResponse,
 } from '@petshop/shared-types'
-import { Badge, Card, EmptyState } from '@/components/ui'
+import { Badge, Button, Card, EmptyState } from '@/components/ui'
 import { advanceRideAction, assignRideAction, cancelRideAction, failRideAction } from './actions'
 
 /**
@@ -89,7 +89,9 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
   const [falhando, setFalhando] = useState<string | null>(null)
   const [mostrarEncerradas, setMostrarEncerradas] = useState(false)
 
-  function act(action: () => Promise<{ ok: boolean; message?: string; available?: AvailableTaxiDriver[] }>) {
+  function act(
+    action: () => Promise<{ ok: boolean; message?: string; available?: AvailableTaxiDriver[] }>,
+  ) {
     setError(null)
     setSuggestions(null)
     startTransition(async () => {
@@ -120,7 +122,8 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-fg">
-                {hourOf(ride.windowStartsAt, board.timezone)}–{hourOf(ride.windowEndsAt, board.timezone)}
+                {hourOf(ride.windowStartsAt, board.timezone)}–
+                {hourOf(ride.windowEndsAt, board.timezone)}
               </span>
               <Badge tone={ride.leg === 'PICKUP' ? 'accent' : 'neutral'}>{ride.legLabel}</Badge>
               <Badge tone={STATUS_TONE[ride.status] ?? 'neutral'}>{ride.statusLabel}</Badge>
@@ -128,7 +131,8 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
             </div>
             <p className="mt-1 text-sm text-subtle">
               {ride.address.street}, {ride.address.number}
-              {ride.address.complement ? ` · ${ride.address.complement}` : ''} — {ride.address.district}
+              {ride.address.complement ? ` · ${ride.address.complement}` : ''} —{' '}
+              {ride.address.district}
             </p>
             {ride.address.accessNotes && (
               // A instrução de acesso decide entre entregar e voltar de mãos vazias.
@@ -202,54 +206,60 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           )}
 
           {proximo && !travada && (
-            <button
+            <Button
               type="button"
-              className="btn btn-primary h-9"
-              disabled={pending}
+              className="h-9"
+              busy={pending}
               onClick={() => act(() => advanceRideAction(ride.id, { to: proximo.to }))}
+              busyLabel="Registrando…"
             >
               {proximo.label}
-            </button>
+            </Button>
           )}
 
           {['EN_ROUTE', 'ARRIVED', 'ONBOARD'].includes(ride.status) && (
-            <button
+            <Button
               type="button"
-              className="btn h-9"
+              variant="ghost"
+              className="h-9"
               disabled={pending}
               onClick={() => setFalhando(falhando === ride.id ? null : ride.id)}
             >
               Não deu certo
-            </button>
+            </Button>
           )}
 
           {['REQUESTED', 'ASSIGNED', 'EN_ROUTE', 'ARRIVED'].includes(ride.status) && (
-            <button
+            <Button
               type="button"
-              className="btn h-9 text-danger"
-              disabled={pending}
+              variant="ghost"
+              className="h-9 text-danger"
+              busy={pending}
               onClick={() => act(() => cancelRideAction(ride.id, { reason: 'TUTOR_REQUEST' }))}
+              busyLabel="Cancelando…"
             >
               Cancelar
-            </button>
+            </Button>
           )}
         </div>
 
         {falhando === ride.id && (
           <div className="flex flex-wrap gap-2 border-t border-line pt-3">
             {FAILURE_REASONS.map((reason) => (
-              <button
+              <Button
                 key={reason.value}
                 type="button"
-                className="btn h-8 text-sm"
-                disabled={pending}
+                variant="ghost"
+                className="h-8 text-sm"
+                busy={pending}
                 onClick={() => {
                   setFalhando(null)
                   act(() => failRideAction(ride.id, { reason: reason.value }))
                 }}
+                busyLabel="Registrando…"
               >
                 {reason.label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -261,12 +271,22 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
-          <button type="button" className="btn h-9" onClick={() => router.push(`/taxi?date=${shiftDay(board.date, -1)}`)}>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-9"
+            onClick={() => router.push(`/taxi?date=${shiftDay(board.date, -1)}`)}
+          >
             ← Ontem
-          </button>
-          <button type="button" className="btn h-9" onClick={() => router.push(`/taxi?date=${shiftDay(board.date, 1)}`)}>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-9"
+            onClick={() => router.push(`/taxi?date=${shiftDay(board.date, 1)}`)}
+          >
             Amanhã →
-          </button>
+          </Button>
         </div>
         <div className="flex gap-3 text-sm text-subtle">
           <span>{board.totals.rides} corridas</span>
@@ -283,7 +303,9 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           {suggestions && suggestions.length > 0 && (
             <p className="mt-2 text-sm text-subtle">
               Disponíveis nessa janela:{' '}
-              {suggestions.map((driver) => `${driver.displayName} (cabem ${driver.remaining})`).join(', ')}
+              {suggestions
+                .map((driver) => `${driver.displayName} (cabem ${driver.remaining})`)
+                .join(', ')}
             </p>
           )}
         </Card>

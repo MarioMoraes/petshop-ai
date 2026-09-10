@@ -1,8 +1,8 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { ButtonLink } from '@/components/links'
+import { carregarMe, serverApi } from '@/lib/api'
 import { TaxiBoard } from './taxi-board'
 
 /**
@@ -32,7 +32,7 @@ export default async function TaxiPage({ searchParams }: PageProps) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? '') ? params.date : undefined
 
   const [me, settings, board, professionals, vehicles] = await Promise.all([
-    serverApi().me(),
+    carregarMe(),
     serverApi()
       .getTaxiSettings()
       .catch((error: unknown) => {
@@ -86,9 +86,9 @@ export default async function TaxiPage({ searchParams }: PageProps) {
         }
         actions={
           canConfigure && (
-            <Link href="/taxi/configuracoes" className="btn">
+            <ButtonLink href="/taxi/configuracoes" variant="ghost">
               Configurar
-            </Link>
+            </ButtonLink>
           )
         }
       />
@@ -106,7 +106,6 @@ export default async function TaxiPage({ searchParams }: PageProps) {
         <EmptyState
           title="O serviço não respondeu"
           description="O serviço de Taxi Dog está indisponível agora. Recarregue em instantes."
-
         />
       ) : (
         <TaxiBoard

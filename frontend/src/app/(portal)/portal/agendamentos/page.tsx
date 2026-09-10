@@ -1,8 +1,8 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { formatBRL, type PortalAppointment } from '@petshop/shared-types'
 import { Badge, EmptyState, SectionHead } from '@/components/ui'
 import { CalendarIcon } from '@/components/icons'
+import { ButtonLink } from '@/components/links'
 import { PortalFrame } from '../frame'
 import { RowChip, RowItem, RowMeta, RowStack, RowText } from '../list'
 import { AppointmentCard } from './appointment-card'
@@ -41,9 +41,9 @@ export default async function PortalAgendamentosPage() {
       voltar={{ href: '/portal/inicio', label: 'Início' }}
       acao={
         context.features.onlineBookingEnabled ? (
-          <Link href="/portal/agendar" className="btn btn-primary h-9">
+          <ButtonLink href="/portal/agendar" className="h-9">
             Marcar
-          </Link>
+          </ButtonLink>
         ) : undefined
       }
     >

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { PaginatedMessages } from '@petshop/shared-types'
-import { FormError } from '@/components/ui'
+import { Button, FormError } from '@/components/ui'
 import { loadTutorMessagesAction } from '@/app/(admin)/crm/actions'
 import { MessageList } from '@/app/(admin)/crm/message-list'
 
@@ -61,25 +61,29 @@ export function ComunicacaoTab({ tutorId, initial, canSend }: Props) {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-3">
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost"
-            disabled={pending || page.page <= 1}
+            variant="ghost"
+            busy={pending}
+            disabled={page.page <= 1}
             onClick={() => go(page.page - 1)}
+            busyLabel="Carregando…"
           >
             Anterior
-          </button>
+          </Button>
           <p className="hint">
             Página {page.page} de {totalPages}
           </p>
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost"
-            disabled={pending || page.page >= totalPages}
+            variant="ghost"
+            busy={pending}
+            disabled={page.page >= totalPages}
             onClick={() => go(page.page + 1)}
+            busyLabel="Carregando…"
           >
             Próxima
-          </button>
+          </Button>
         </div>
       )}
     </div>

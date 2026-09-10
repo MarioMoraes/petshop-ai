@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/app-shell'
-import { serverApi } from '@/lib/api'
+import { carregarMe } from '@/lib/api'
 
 /**
  * Moldura das telas de tutores.
@@ -13,7 +13,7 @@ import { serverApi } from '@/lib/api'
 export const dynamic = 'force-dynamic'
 
 export default async function TutoresLayout({ children }: { children: React.ReactNode }) {
-  const me = await serverApi().me()
+  const me = await carregarMe()
   if (!me.currentTenant?.onboardingCompletedAt) redirect('/onboarding')
 
   return (

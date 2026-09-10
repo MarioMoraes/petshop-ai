@@ -2,14 +2,13 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import {
   formatBRL,
   type PortalPetSummary,
   type PortalSlot,
   type PortalTaxiOffer,
 } from '@petshop/shared-types'
-import { Alert, Card, Choice, SectionHead } from '@/components/ui'
+import { Alert, Button, Card, Choice, SectionHead } from '@/components/ui'
 import {
   AlertTriangleIcon,
   CalendarIcon,
@@ -17,6 +16,7 @@ import {
   PawPrintIcon,
   VanIcon,
 } from '@/components/icons'
+import { ButtonLink } from '@/components/links'
 import {
   carregarHorarios,
   carregarServicos,
@@ -180,14 +180,12 @@ export function BookingWizard({
       setProximo(resultado.nextAvailable)
       setFuso(resultado.timezone)
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [petId, chaveServicos, dia])
 
   function alternar(servicoId: string) {
     setEscolhidos((antes) =>
-      antes.includes(servicoId)
-        ? antes.filter((id) => id !== servicoId)
-        : [...antes, servicoId],
+      antes.includes(servicoId) ? antes.filter((id) => id !== servicoId) : [...antes, servicoId],
     )
   }
 
@@ -326,11 +324,7 @@ export function BookingWizard({
             tone="icon-time"
             eyebrow={passo('taxi')}
             title="Leva-e-traz"
-            description={
-              oferta.available
-                ? 'Buscamos e devolvemos o seu pet em casa.'
-                : undefined
-            }
+            description={oferta.available ? 'Buscamos e devolvemos o seu pet em casa.' : undefined}
           />
 
           {oferta.available ? (
@@ -375,8 +369,8 @@ export function BookingWizard({
 
               {pernas > 0 && (
                 <p className="hint mt-1">
-                  A janela é de até {oferta.windowMinutes} minutos antes ou depois do
-                  atendimento. Avisamos quando o motorista sair.
+                  A janela é de até {oferta.windowMinutes} minutos antes ou depois do atendimento.
+                  Avisamos quando o motorista sair.
                 </p>
               )}
             </>
@@ -416,17 +410,16 @@ export function BookingWizard({
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {horarios.map((slot) => (
-                    <button
+                    <Button
                       key={`${slot.startsAt}-${slot.professionalId}`}
                       type="button"
+                      variant={escolhido?.startsAt === slot.startsAt ? 'primary' : 'ghost'}
+                      className="h-10 px-4"
                       onClick={() => setEscolhido(slot)}
                       aria-pressed={escolhido?.startsAt === slot.startsAt}
-                      className={`btn ${
-                        escolhido?.startsAt === slot.startsAt ? 'btn-primary' : 'btn-ghost'
-                      } h-10 px-4`}
                     >
                       {hora(slot.startsAt, fuso)}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -456,10 +449,11 @@ export function BookingWizard({
           {falha.alternativeStartsAt && falha.alternativeStartsAt.length > 0 && (
             <span className="mt-3 flex flex-wrap gap-2">
               {falha.alternativeStartsAt.map((instante) => (
-                <button
+                <Button
                   key={instante}
                   type="button"
-                  className="btn btn-ghost h-9 px-3"
+                  variant="ghost"
+                  className="h-9 px-3"
                   onClick={() => {
                     const alvo = horarios.find((slot) => slot.startsAt === instante)
                     if (alvo) setEscolhido(alvo)
@@ -467,21 +461,23 @@ export function BookingWizard({
                   }}
                 >
                   {hora(instante, fuso)}
-                </button>
+                </Button>
               ))}
             </span>
           )}
 
           {falha.code === 'ERR_TAXI_007' && (
             <span className="mt-3 block">
-              <button
+              <Button
                 type="button"
-                className="btn btn-ghost h-9"
+                variant="ghost"
+                className="h-9"
                 onClick={() => confirmar(false)}
-                disabled={carregando}
+                busy={carregando}
+                busyLabel="Marcando…"
               >
                 Marcar sem o leva-e-traz
-              </button>
+              </Button>
             </span>
           )}
         </Alert>
@@ -492,12 +488,17 @@ export function BookingWizard({
         este aviso é a única notícia que ele vai ter sobre o leva-e-traz.
       */}
       {aviso && (
-        <Alert tone="accent" icon={<VanIcon />} title="Horário marcado, transporte não" role="status">
+        <Alert
+          tone="accent"
+          icon={<VanIcon />}
+          title="Horário marcado, transporte não"
+          role="status"
+        >
           {aviso}
           <span className="mt-3 block">
-            <Link href="/portal/agendamentos" className="btn btn-primary h-9">
+            <ButtonLink href="/portal/agendamentos" className="h-9">
               Ver meus agendamentos
-            </Link>
+            </ButtonLink>
           </span>
         </Alert>
       )}
@@ -534,18 +535,17 @@ export function BookingWizard({
             <p className="mt-2 text-base font-medium">{formatBRL(total)}</p>
           </div>
 
-          <button
+          <Button
             type="button"
-            className="btn btn-primary mt-5 w-full"
+            className="mt-5 w-full"
             onClick={() => confirmar()}
-            disabled={carregando}
-          >
-            {carregando
-              ? 'Marcando…'
+            busy={carregando}
+            busyLabel="Marcando…'
               : reconhecerAlertas
-                ? 'Confirmar mesmo assim'
-                : 'Confirmar horário'}
-          </button>
+                ? 'Confirmar mesmo assim"
+          >
+            Confirmar horário
+          </Button>
         </Card>
       )}
     </>

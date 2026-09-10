@@ -49,6 +49,22 @@ export interface EvolutionPort {
     webhookUrl: string
     webhookToken: string
   }): Promise<EvolutionCreated>
+  /**
+   * Reafirma o endereço de retorno de uma instância que já existe.
+   *
+   * A Evolution guarda o webhook **dela**, gravado uma vez na criação, e nada no
+   * sistema voltava a escrevê-lo. Bastou o backend mudar de porta na consolidação
+   * para todas as instâncias do parque ficarem apontando para um endereço morto: o
+   * pareamento nunca mais chegava ao fim, o estado no banco congelava no último que
+   * o webhook contou, e não havia erro em lugar nenhum — só um QR que gira e uma
+   * conexão que o painel jura estar de pé.
+   */
+  setWebhook(input: {
+    instanceName: string
+    apiKey: string
+    webhookUrl: string
+    webhookToken: string
+  }): Promise<void>
   /** QR novo **sem** recriar a instância (AC-03) — recriar perderia o histórico. */
   requestQrCode(instanceName: string, apiKey: string): Promise<string | null>
   fetchSession(instanceName: string, apiKey: string): Promise<EvolutionSession>
@@ -208,6 +224,26 @@ function createHttpPort(baseUrl: string, globalApiKey: string): EvolutionPort {
       }
     },
 
+    async setWebhook({ instanceName, apiKey, webhookUrl, webhookToken }) {
+      await requireOk({
+        method: 'POST',
+        path: `/webhook/set/${encodeURIComponent(instanceName)}`,
+        apiKey,
+        body: {
+          webhook: {
+            enabled: true,
+            // O token duas vezes, pela mesma razão da criação: versões divergem em
+            // quais cabeçalhos personalizados repassam.
+            url: `${webhookUrl}?token=${encodeURIComponent(webhookToken)}`,
+            headers: { 'x-webhook-token': webhookToken },
+            byEvents: false,
+            base64: true,
+            events: ['CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+          },
+        },
+      })
+    },
+
     async requestQrCode(instanceName, apiKey) {
       const body = await requireOk({
         method: 'GET',
@@ -325,6 +361,7 @@ function createUnconfiguredPort(): EvolutionPort {
   return {
     configured: false,
     createInstance: fail,
+    setWebhook: fail,
     requestQrCode: fail,
     fetchSession: fail,
     logout: fail,

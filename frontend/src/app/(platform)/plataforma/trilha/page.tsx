@@ -1,12 +1,13 @@
-import Link from 'next/link'
 import type { PlatformAuditEntry } from '@petshop/shared-types'
 import { Alert, Badge, EmptyState, PageHeader } from '@/components/ui'
 import { ShieldCheckIcon } from '@/components/icons'
+import { ButtonLink } from '@/components/links'
 import { serverApi } from '@/lib/api'
 import { ler, talvez } from '@/lib/platform'
 import { Falha, PlataformaShell, SemAcesso } from '../frame'
 import { quando } from '../formato'
-import { Filtros, JANELAS, type Janela } from './filtros'
+import { Filtros } from './filtros'
+import { JANELAS, type Janela } from './janelas'
 
 /**
  * A trilha cross-tenant (MOD-ADMIN-08).
@@ -70,9 +71,14 @@ export default async function TrilhaPage({ searchParams }: PageProps) {
           subtitle="Toda escrita do produto, de todos os estabelecimentos, pelos últimos 92 dias."
         />
 
-        <Alert tone="accent" icon={<ShieldCheckIcon />} title="Esta consulta ficou registrada" role="status">
-          A leitura da trilha grava a si mesma, com o filtro usado. É o que torna a
-          existência desta tela defensável.
+        <Alert
+          tone="accent"
+          icon={<ShieldCheckIcon />}
+          title="Esta consulta ficou registrada"
+          role="status"
+        >
+          A leitura da trilha grava a si mesma, com o filtro usado. É o que torna a existência desta
+          tela defensável.
         </Alert>
 
         <Filtros
@@ -101,25 +107,25 @@ export default async function TrilhaPage({ searchParams }: PageProps) {
 
             <nav className="flex items-center justify-between gap-4" aria-label="Paginação">
               {cursor ? (
-                <Link href="/plataforma/trilha" className="btn btn-ghost">
+                <ButtonLink href="/plataforma/trilha" variant="ghost">
                   Voltar ao começo
-                </Link>
+                </ButtonLink>
               ) : (
                 <span />
               )}
 
               {leitura.dado.nextCursor ? (
-                <Link
+                <ButtonLink
                   href={`/plataforma/trilha?${busca({
                     action,
                     tenantId,
                     janela,
                     cursor: leitura.dado.nextCursor,
                   })}`}
-                  className="btn btn-ghost"
+                  variant="ghost"
                 >
                   Mais antigas
-                </Link>
+                </ButtonLink>
               ) : (
                 <p className="hint">Fim do recorte.</p>
               )}

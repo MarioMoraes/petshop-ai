@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { ButtonLink } from '@/components/links'
+import { carregarMe, serverApi } from '@/lib/api'
 import { SiteForm } from './site-form'
 
 /**
@@ -19,7 +19,7 @@ import { SiteForm } from './site-form'
 export const dynamic = 'force-dynamic'
 
 export default async function SitePage() {
-  const me = await serverApi().me()
+  const me = await carregarMe()
 
   if (!me.permissions.includes('site:manage')) {
     return (
@@ -28,11 +28,7 @@ export default async function SitePage() {
         <EmptyState
           title="Os contatos ficam na outra tela"
           description="Configurar e publicar a página é do administrador. O que chega pelo formulário do site está em Contatos."
-          action={
-            <Link href="/site/contatos" className="btn btn-primary">
-              Ver contatos
-            </Link>
-          }
+          action={<ButtonLink href="/site/contatos">Ver contatos</ButtonLink>}
         />
       </>
     )
@@ -58,12 +54,12 @@ export default async function SitePage() {
         }
         actions={
           <>
-            <Link href="/site/galeria" className="btn btn-ghost">
+            <ButtonLink href="/site/galeria" variant="ghost">
               Fotos
-            </Link>
-            <Link href="/site/contatos" className="btn btn-ghost">
+            </ButtonLink>
+            <ButtonLink href="/site/contatos" variant="ghost">
               Contatos
-            </Link>
+            </ButtonLink>
           </>
         }
       />

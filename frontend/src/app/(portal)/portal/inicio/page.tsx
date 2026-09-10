@@ -13,8 +13,10 @@ import {
   WalletIcon,
   type IconTone,
 } from '@/components/icons'
+import { ButtonLink } from '@/components/links'
 import { PortalFrame } from '../frame'
 import { PortalError, readPortalContext } from '@/lib/portal-api'
+import { Button } from '@/components/ui'
 
 /**
  * O início do Portal.
@@ -168,9 +170,9 @@ export default async function PortalInicioPage() {
         ligado.
       */}
       {context.features.onlineBookingEnabled && (
-        <Link href="/portal/agendar" className="btn btn-primary h-12 w-full text-[0.9375rem]">
+        <ButtonLink href="/portal/agendar" className="h-12 w-full text-[0.9375rem]">
           Marcar horário
-        </Link>
+        </ButtonLink>
       )}
 
       <nav aria-label="Menu do portal" className="card menu-stack">
@@ -204,9 +206,9 @@ export default async function PortalInicioPage() {
         celular de família, que passa de mão em mão.
       */}
       <SignOutButton redirectUrl="/portal/entrar">
-        <button type="button" className="btn btn-ghost w-full">
+        <Button type="button" variant="ghost" className="w-full">
           Sair
-        </button>
+        </Button>
       </SignOutButton>
     </PortalFrame>
   )

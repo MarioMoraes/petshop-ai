@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { PortalMeDataResponse, PortalProfile } from '@petshop/shared-types'
-import { Field, FormError } from '@/components/ui'
+import { Button, Field, FormError } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { IdCardIcon } from '@/components/icons'
 import { salvarPerfil } from './actions'
@@ -60,9 +60,9 @@ export function PerfilModal({
 
   return (
     <>
-      <button type="button" className="btn btn-ghost h-9" onClick={abrir}>
+      <Button type="button" variant="ghost" className="h-9" onClick={abrir}>
         Editar
-      </button>
+      </Button>
 
       <Modal
         open={aberto}
@@ -75,22 +75,17 @@ export function PerfilModal({
         subtitle="Nome completo e documento são atualizados pelo estabelecimento."
         footer={
           <>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => setAberto(false)}
               disabled={salvando}
             >
               Cancelar
-            </button>
-            <button
-              type="submit"
-              form="portal-perfil-form"
-              className="btn btn-primary"
-              disabled={salvando}
-            >
-              {salvando ? 'Salvando…' : 'Salvar'}
-            </button>
+            </Button>
+            <Button type="submit" form="portal-perfil-form" busy={salvando} busyLabel="Salvando…">
+              Salvar
+            </Button>
           </>
         }
       >

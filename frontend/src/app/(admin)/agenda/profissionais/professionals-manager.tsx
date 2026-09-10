@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { BR_UFS, type ProfessionalResponse, type ServiceResponse } from '@petshop/shared-types'
-import { Badge, Card, EmptyState, Field } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, Field } from '@/components/ui'
 import {
   createProfessionalAction,
   replaceScheduleAction,
@@ -73,9 +73,9 @@ export function ProfessionalsManager({ professionals, services }: Props) {
         title="Ninguém cadastrado ainda"
         description="A agenda precisa saber quem atende para oferecer horários. Cada pessoa tem a própria jornada e os serviços que executa."
         action={
-          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+          <Button type="button" onClick={() => setCreating(true)}>
             Cadastrar profissional
-          </button>
+          </Button>
         }
       />
     )
@@ -143,13 +143,16 @@ export function ProfessionalsManager({ professionals, services }: Props) {
           pending={pending}
           onCancel={() => setCreating(false)}
           onSubmit={(input) =>
-            run(() => createProfessionalAction(input), () => setCreating(false))
+            run(
+              () => createProfessionalAction(input),
+              () => setCreating(false),
+            )
           }
         />
       ) : (
-        <button type="button" className="btn btn-ghost" onClick={() => setCreating(true)}>
+        <Button type="button" variant="ghost" onClick={() => setCreating(true)}>
           Adicionar profissional
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -206,7 +209,9 @@ function ProfessionalRow({
             {/* MOD-DOC-05: sem registro, o veterinário não emite receituário — e o
                 lugar de descobrir isso é aqui, não na hora de prescrever. */}
             {person.roleKey === 'VET' && person.crmv && person.crmvState && (
-              <Badge tone="neutral">CRMV {person.crmv}/{person.crmvState}</Badge>
+              <Badge tone="neutral">
+                CRMV {person.crmv}/{person.crmvState}
+              </Badge>
             )}
             {person.active && person.roleKey === 'VET' && !person.crmv && (
               <Badge tone="danger">Sem CRMV</Badge>
@@ -220,17 +225,18 @@ function ProfessionalRow({
         </div>
 
         <div className="flex shrink-0 gap-2">
-          <button type="button" className="btn btn-ghost" onClick={onToggle}>
+          <Button type="button" variant="ghost" onClick={onToggle}>
             {expanded ? 'Fechar' : 'Editar'}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn btn-ghost"
-            disabled={pending}
+            variant="ghost"
+            busy={pending}
             onClick={() => onPatch({ active: !person.active })}
+            busyLabel="Salvando…"
           >
             {person.active ? 'Desativar' : 'Reativar'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -355,23 +361,24 @@ function ProfessionalRow({
                     }
                   />
 
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-ghost"
+                    variant="ghost"
                     onClick={() =>
                       setWindows((current) => current.filter((item) => item.key !== window.key))
                     }
                     aria-label="Remover faixa"
                   >
                     Remover
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
 
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost mt-3"
+              variant="ghost"
+              className="mt-3"
               onClick={() =>
                 setWindows((current) => [
                   ...current,
@@ -380,7 +387,7 @@ function ProfessionalRow({
               }
             >
               Adicionar faixa
-            </button>
+            </Button>
 
             {invalid.length > 0 && (
               <p className="error-text mt-3" role="alert">
@@ -389,10 +396,10 @@ function ProfessionalRow({
             )}
 
             <div className="mt-5 flex justify-end">
-              <button
+              <Button
                 type="button"
-                className="btn btn-primary"
-                disabled={pending || invalid.length > 0}
+                busy={pending}
+                disabled={invalid.length > 0}
                 onClick={() =>
                   onSaveSchedule(
                     windows.map(({ weekday, startsAtMin, endsAtMin }) => ({
@@ -402,9 +409,10 @@ function ProfessionalRow({
                     })),
                   )
                 }
+                busyLabel="Salvando…"
               >
-                {pending ? 'Salvando…' : 'Salvar jornada'}
-              </button>
+                Salvar jornada
+              </Button>
             </div>
           </fieldset>
         </div>
@@ -441,8 +449,8 @@ function CrmvFields({
     <fieldset>
       <legend className="label">Registro no conselho</legend>
       <p className="hint mb-3">
-        Sem CRMV, o sistema recusa a emissão de receituário — é o registro que vai
-        impresso no papel, e ele identifica quem assina.
+        Sem CRMV, o sistema recusa a emissão de receituário — é o registro que vai impresso no
+        papel, e ele identifica quem assina.
       </p>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -472,9 +480,9 @@ function CrmvFields({
           </select>
         </Field>
 
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost"
+          variant="ghost"
           disabled={!mudou || pelaMetade}
           onClick={() =>
             onPatch({
@@ -484,7 +492,7 @@ function CrmvFields({
           }
         >
           Salvar registro
-        </button>
+        </Button>
       </div>
 
       {pelaMetade && (
@@ -558,13 +566,13 @@ function NewProfessionalForm({
       </div>
 
       <div className="mt-6 flex justify-end gap-2">
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="btn btn-primary"
-          disabled={pending || displayName.trim().length < 2}
+          busy={pending}
+          disabled={displayName.trim().length < 2}
           onClick={() =>
             onSubmit({
               displayName: displayName.trim(),
@@ -573,9 +581,10 @@ function NewProfessionalForm({
               serviceIds: [],
             })
           }
+          busyLabel="Criando…"
         >
-          {pending ? 'Criando…' : 'Criar'}
-        </button>
+          Criar
+        </Button>
       </div>
     </Card>
   )

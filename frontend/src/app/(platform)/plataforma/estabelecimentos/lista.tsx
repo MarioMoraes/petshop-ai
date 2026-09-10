@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { PlatformTenant, PlatformTenantStatus } from '@petshop/shared-types'
-import { Alert, Badge, FormError } from '@/components/ui'
+import { Alert, Badge, Button, FormError } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { AlertTriangleIcon, ShieldCheckIcon, StoreIcon } from '@/components/icons'
 import { pedirAcessoAction } from '../actions'
@@ -83,13 +83,9 @@ export function Estabelecimentos({ itens }: { itens: PlatformTenant[] }) {
                 </div>
 
                 <div className="shrink-0">
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => setPedindo(tenant)}
-                  >
+                  <Button type="button" variant="ghost" onClick={() => setPedindo(tenant)}>
                     {pedidos.includes(tenant.id) ? 'Pedir de novo' : 'Pedir acesso'}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -206,31 +202,26 @@ function PedirAcesso({
       busy={pendente}
       footer={
         feito ? (
-          <button type="button" className="btn btn-primary" onClick={fechar}>
+          <Button type="button" onClick={fechar}>
             Fechar
-          </button>
+          </Button>
         ) : (
           <>
-            <button type="button" className="btn btn-ghost" onClick={fechar} disabled={pendente}>
+            <Button type="button" variant="ghost" onClick={fechar} disabled={pendente}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              form="pedir-acesso"
-              className="btn btn-primary"
-              disabled={pendente}
-            >
-              {pendente ? 'Enviando…' : 'Enviar pedido'}
-            </button>
+            </Button>
+            <Button type="submit" form="pedir-acesso" busy={pendente} busyLabel="Enviando…">
+              Enviar pedido
+            </Button>
           </>
         )
       }
     >
       {feito ? (
         <p className="text-sm text-muted">
-          O administrador do estabelecimento vê o pedido na aba Suporte das Configurações
-          dele. Enquanto ele não autorizar, nada da base fica visível — e o acesso, quando
-          vier, é somente de leitura e com prazo.
+          O administrador do estabelecimento vê o pedido na aba Suporte das Configurações dele.
+          Enquanto ele não autorizar, nada da base fica visível — e o acesso, quando vier, é somente
+          de leitura e com prazo.
         </p>
       ) : (
         <form id="pedir-acesso" onSubmit={enviar} className="flex flex-col gap-4">
@@ -250,8 +241,8 @@ function PedirAcesso({
               placeholder="Chamado #482 — tutor relata que não recebeu o recibo do banho de sábado"
             />
             <p className="hint mt-1.5">
-              É o texto que o administrador do petshop vai ler para decidir. Descreva o
-              chamado, não a ação.
+              É o texto que o administrador do petshop vai ler para decidir. Descreva o chamado, não
+              a ação.
             </p>
           </div>
         </form>

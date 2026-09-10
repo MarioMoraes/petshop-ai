@@ -58,6 +58,17 @@ const CHANNEL_DOWN_RETRY_MINUTES = 10
  */
 const DOCUMENT_PENDING_RETRY_MINUTES = 5
 
+/**
+ * A partir de quando uma posse do worker é abandono.
+ *
+ * `SENDING` é o estado em que a mensagem fica **enquanto** o worker fala com o
+ * provedor, e os dois adaptadores desistem antes disso: doze segundos a Evolution,
+ * oito o Resend. Dez minutos é ordem de grandeza acima de qualquer envio legítimo,
+ * então uma linha mais velha que isto não está enviando — o processo que a tomou
+ * morreu no meio, e sem alguém para recolhê-la ela fica em `SENDING` para sempre.
+ */
+const LEASE_TIMEOUT_MINUTES = 10
+
 /** RN-05: intervalo com jitter entre disparos. Rajada uniforme é assinatura de robô. */
 const JITTER_MIN_MS = 2_000
 const JITTER_MAX_MS = 6_000
@@ -608,6 +619,119 @@ export async function dispatchPending(now = new Date()): Promise<DispatchSummary
   }
 
   return total
+}
+
+/**
+ * A posse abandonada, recolhida.
+ *
+ * `SENDING` é a única transição do motor sem volta própria: quem a escreve é a posse
+ * do worker, e quem a apaga é o resultado do envio, no mesmo `dispatchOne`. Entre as
+ * duas há uma chamada de rede, e se o processo morre ali — deploy, `pnpm dev`
+ * reiniciando, contêiner reciclado — a linha fica em `SENDING` sem que nada no sistema
+ * volte a olhar para ela. Era assim que sete mensagens do parque ficaram paradas por
+ * cinco dias, visíveis só pelo alerta da plataforma.
+ *
+ * **A tentativa é contada, e essa é a decisão que importa.** Devolver à fila sem contar
+ * seria mais gentil com a mensagem e transformaria em laço eterno justamente o caso
+ * pior: um corpo que derruba o processo no meio do envio seria recolhido, retomado,
+ * derrubaria de novo, para sempre. Contando, ele percorre as cinco tentativas e morre —
+ * e `DEAD` é um estado que alguém vê, no painel de falhas e no sino.
+ *
+ * **O preço é a duplicata possível.** O provedor pode ter aceitado a mensagem antes de
+ * o processo cair, e nesse caso a retomada manda de novo. É o lado certo de errar: o
+ * tutor que recebe duas confirmações do mesmo banho fica confuso por um instante; o que
+ * não recebe nenhuma perde o horário.
+ */
+export async function reclaimAbandonedLeases(now = new Date()): Promise<{ reclaimed: number }> {
+  const corte = new Date(now.getTime() - LEASE_TIMEOUT_MINUTES * 60_000)
+
+  // Descobrir é cross-tenant, agir nunca é — a mesma separação de `dispatchPending`.
+  const rows = await getMaintenancePrisma().$queryRaw<{ tenant_id: string }[]>`
+    SELECT DISTINCT tenant_id FROM messages
+     WHERE status = 'SENDING'
+       AND updated_at <= ${corte}
+     LIMIT 200
+  `
+
+  let reclaimed = 0
+  for (const { tenant_id: tenantId } of rows) {
+    try {
+      reclaimed += await reclaimTenantLeases(tenantId, corte, now)
+    } catch (error) {
+      // Um tenant com problema não pode travar a limpeza dos outros.
+      logger.error({ err: error, tenantId }, 'falha ao recolher posses abandonadas')
+    }
+  }
+
+  if (reclaimed > 0) {
+    logger.warn({ reclaimed }, 'mensagens recolhidas de SENDING abandonado')
+    recordMetric({ metric: 'message_lease_reclaimed', value: reclaimed, unit: 'count' })
+  }
+
+  return { reclaimed }
+}
+
+async function reclaimTenantLeases(tenantId: string, corte: Date, now: Date): Promise<number> {
+  const abandonadas = await withTenant(tenantId, (tx) =>
+    tx.message.findMany({
+      where: { status: 'SENDING', updatedAt: { lte: corte } },
+      select: {
+        id: true,
+        attempts: true,
+        channel: true,
+        recipientKind: true,
+        tutorId: true,
+        userId: true,
+      },
+    }),
+  )
+
+  for (const mensagem of abandonadas) {
+    const attempts = mensagem.attempts + 1
+    const dead = attempts >= MAX_ATTEMPTS
+    const backoff = BACKOFF_MINUTES[Math.min(attempts - 1, BACKOFF_MINUTES.length - 1)]!
+
+    await withTenant(tenantId, async (tx) => {
+      await tx.message.update({
+        where: { id: mensagem.id },
+        data: {
+          status: dead ? 'DEAD' : 'QUEUED',
+          attempts,
+          failedAt: now,
+          scheduledFor: dead ? null : new Date(now.getTime() + backoff * 60_000),
+          // O código é do motor, e não do provedor: ninguém respondeu nada. Ele existe
+          // para que o painel de falhas não atribua a uma queda do WhatsApp o que foi
+          // uma queda nossa.
+          errorCode: 'LEASE_EXPIRED',
+          errorDetail: `Envio interrompido: o processo não concluiu em ${LEASE_TIMEOUT_MINUTES} minutos.`,
+        },
+      })
+      await tx.messageEvent.create({
+        data: {
+          tenantId,
+          messageId: mensagem.id,
+          event: 'FAILED',
+          occurredAt: now,
+          raw: { errorCode: 'LEASE_EXPIRED' },
+        },
+      })
+    })
+
+    if (dead) {
+      await publishEvent('mensagem.falhou', {
+        tenantId,
+        messageId: mensagem.id,
+        recipientKind: mensagem.recipientKind,
+        tutorId: mensagem.tutorId,
+        userId: mensagem.userId,
+        channel: mensagem.channel,
+        errorCode: 'LEASE_EXPIRED',
+        attempts,
+      })
+    }
+  }
+
+  return abandonadas.length
 }
 
 /**

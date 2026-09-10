@@ -16,7 +16,7 @@ import {
   type TemperamentClassification,
   type TemperamentContext,
 } from '@petshop/shared-types'
-import { Card, Field, FormError, SectionHead } from '@/components/ui'
+import { Button, Card, Field, FormError, SectionHead } from '@/components/ui'
 import { AlertTriangleIcon, HeartPulseIcon, PawPrintIcon } from '@/components/icons'
 import {
   createAllergyAction,
@@ -84,8 +84,8 @@ export function SafetyRecordTab({
       {record.alerts.length === 0 ? (
         <Card>
           <p className="hint">
-            Nenhum alerta ativo. Registre alergias, temperamento e condições médicas — é o
-            que a equipe vê antes de encostar no pet.
+            Nenhum alerta ativo. Registre alergias, temperamento e condições médicas — é o que a
+            equipe vê antes de encostar no pet.
           </p>
         </Card>
       ) : (
@@ -177,13 +177,14 @@ function AllergySection({
         />
         <span className="meta-pill">{active.length} ativas</span>
         {canCreate && (
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost ml-auto px-3 py-1 text-xs"
+            variant="ghost"
+            className="ml-auto px-3 py-1 text-xs"
             onClick={() => setOpen((value) => !value)}
           >
             {open ? 'Cancelar' : 'Registrar alergia'}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -247,15 +248,15 @@ function AllergySection({
 
           {severity === 'CRITICAL' && (
             <p className="hint text-danger">
-              Severidade crítica bloqueia o agendamento dos serviços relacionados — só passa
-              com autorização registrada.
+              Severidade crítica bloqueia o agendamento dos serviços relacionados — só passa com
+              autorização registrada.
             </p>
           )}
 
-          <button
+          <Button
             type="button"
-            className="btn btn-primary"
-            disabled={pending || label.trim().length < 2}
+            busy={pending}
+            disabled={label.trim().length < 2}
             onClick={() =>
               run(async () => {
                 const result = await createAllergyAction(petId, {
@@ -272,9 +273,10 @@ function AllergySection({
                 return result
               })
             }
+            busyLabel="Salvando…"
           >
-            {pending ? 'Salvando…' : 'Registrar'}
-          </button>
+            Registrar
+          </Button>
         </div>
       )}
 
@@ -296,9 +298,10 @@ function AllergySection({
                 </span>
 
                 {canManage && allergy.active && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-ghost ml-auto px-3 py-1 text-xs"
+                    variant="ghost"
+                    className="ml-auto px-3 py-1 text-xs"
                     disabled={pending}
                     onClick={() => {
                       setDeactivating(deactivating === allergy.id ? null : allergy.id)
@@ -306,7 +309,7 @@ function AllergySection({
                     }}
                   >
                     Desativar
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -330,10 +333,11 @@ function AllergySection({
                       onChange={(event) => setJustification(event.target.value)}
                     />
                   </Field>
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-accent"
-                    disabled={pending || justification.trim().length < 10}
+                    variant="accent"
+                    busy={pending}
+                    disabled={justification.trim().length < 10}
                     onClick={() =>
                       run(async () => {
                         const result = await updateAllergyAction(petId, allergy.id, {
@@ -344,9 +348,10 @@ function AllergySection({
                         return result
                       })
                     }
+                    busyLabel="Desativando…"
                   >
                     Confirmar
-                  </button>
+                  </Button>
                 </div>
               )}
             </li>
@@ -392,13 +397,14 @@ function TemperamentSection({
           title="Temperamento"
         />
         {canWrite && (
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost ml-auto px-3 py-1 text-xs"
+            variant="ghost"
+            className="ml-auto px-3 py-1 text-xs"
             onClick={() => setOpen((value) => !value)}
           >
             {open ? 'Cancelar' : 'Registrar observação'}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -420,11 +426,13 @@ function TemperamentSection({
         RN-16: o histórico de risco nunca some em silêncio. Um pet dócil hoje que
         mordeu há dois anos continua sendo um pet que mordeu.
       */}
-      {hadRiskHistory && current && !['AGGRESSIVE', 'REACTIVE'].includes(current.classification) && (
-        <p className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent-ink">
-          Histórico: já apresentou reatividade em atendimentos anteriores.
-        </p>
-      )}
+      {hadRiskHistory &&
+        current &&
+        !['AGGRESSIVE', 'REACTIVE'].includes(current.classification) && (
+          <p className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent-ink">
+            Histórico: já apresentou reatividade em atendimentos anteriores.
+          </p>
+        )}
 
       {current?.notes && <p className="hint">{current.notes}</p>}
 
@@ -529,10 +537,10 @@ function TemperamentSection({
             </label>
           </div>
 
-          <button
+          <Button
             type="button"
-            className="btn btn-primary"
-            disabled={pending || (needsNotes && notes.trim().length < 10)}
+            busy={pending}
+            disabled={needsNotes && notes.trim().length < 10}
             onClick={() =>
               run(async () => {
                 const result = await recordTemperamentAction(petId, {
@@ -550,9 +558,10 @@ function TemperamentSection({
                 return result
               })
             }
+            busyLabel="Salvando…"
           >
-            {pending ? 'Salvando…' : 'Registrar'}
-          </button>
+            Registrar
+          </Button>
         </div>
       )}
 
@@ -611,13 +620,14 @@ function MedicalAlertSection({
         />
         <span className="meta-pill">{active.length} ativas</span>
         {canCreate && (
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost ml-auto px-3 py-1 text-xs"
+            variant="ghost"
+            className="ml-auto px-3 py-1 text-xs"
             onClick={() => setOpen((value) => !value)}
           >
             {open ? 'Cancelar' : 'Registrar condição'}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -664,10 +674,10 @@ function MedicalAlertSection({
             />
           </Field>
 
-          <button
+          <Button
             type="button"
-            className="btn btn-primary"
-            disabled={pending || condition.trim().length < 2}
+            busy={pending}
+            disabled={condition.trim().length < 2}
             onClick={() =>
               run(async () => {
                 const result = await createMedicalAlertAction(petId, {
@@ -683,9 +693,10 @@ function MedicalAlertSection({
                 return result
               })
             }
+            busyLabel="Salvando…"
           >
-            {pending ? 'Salvando…' : 'Registrar'}
-          </button>
+            Registrar
+          </Button>
         </div>
       )}
 
@@ -706,9 +717,10 @@ function MedicalAlertSection({
                 </span>
 
                 {canManage && alert.active && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-ghost ml-auto px-3 py-1 text-xs"
+                    variant="ghost"
+                    className="ml-auto px-3 py-1 text-xs"
                     disabled={pending}
                     onClick={() => {
                       setDeactivating(deactivating === alert.id ? null : alert.id)
@@ -716,7 +728,7 @@ function MedicalAlertSection({
                     }}
                   >
                     Desativar
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -736,10 +748,11 @@ function MedicalAlertSection({
                       onChange={(event) => setJustification(event.target.value)}
                     />
                   </Field>
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-accent"
-                    disabled={pending || justification.trim().length < 10}
+                    variant="accent"
+                    busy={pending}
+                    disabled={justification.trim().length < 10}
                     onClick={() =>
                       run(async () => {
                         const result = await updateMedicalAlertAction(petId, alert.id, {
@@ -750,9 +763,10 @@ function MedicalAlertSection({
                         return result
                       })
                     }
+                    busyLabel="Desativando…"
                   >
                     Confirmar
-                  </button>
+                  </Button>
                 </div>
               )}
             </li>

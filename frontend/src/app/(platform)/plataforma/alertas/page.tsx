@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import type { PlatformAlert, PlatformAlertStatusValue } from '@petshop/shared-types'
 import { AlertTriangleIcon } from '@/components/icons'
 import { Badge, EmptyState, PageHeader } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
 import { serverApi } from '@/lib/api'
 import { ler } from '@/lib/platform'
 import { Falha, PlataformaShell, SemAcesso } from '../frame'
@@ -74,14 +74,19 @@ export default async function AlertasPage({ searchParams }: PageProps) {
           {FILTROS.map((filtro) => {
             const ativo = (status ?? '') === filtro.value
             return (
-              <Link
+              <ButtonLink
                 key={filtro.label}
-                href={filtro.value ? `/plataforma/alertas?status=${filtro.value}` : '/plataforma/alertas'}
-                aria-current={ativo ? 'page' : undefined}
-                className={`btn btn-ghost px-3 py-1.5 text-sm ${ativo ? 'bg-card text-ink' : ''}`}
+                href={
+                  filtro.value
+                    ? `/plataforma/alertas?status=${filtro.value}`
+                    : '/plataforma/alertas'
+                }
+                variant="ghost"
+                active={ativo}
+                className={`px-3 py-1.5 text-sm ${ativo ? 'bg-card text-ink' : ''}`}
               >
                 {filtro.label}
-              </Link>
+              </ButtonLink>
             )
           })}
         </nav>

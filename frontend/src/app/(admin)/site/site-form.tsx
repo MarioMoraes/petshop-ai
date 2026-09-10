@@ -8,7 +8,7 @@ import {
   type SitePreview,
   type SitePublishRequirement,
 } from '@petshop/shared-types'
-import { Alert, Card, Choice, Field, FormError, SectionHead } from '@/components/ui'
+import { Alert, Button, Card, Choice, Field, FormError, SectionHead } from '@/components/ui'
 import { AlertTriangleIcon, GlobeIcon, ImageIcon, SettingsIcon } from '@/components/icons'
 import {
   publishSiteAction,
@@ -105,18 +105,19 @@ function Publication({ preview, onError, onSaved }: BlockProps) {
           />
         </div>
 
-        <button
+        <Button
           type="button"
-          className={preview.published ? 'btn btn-ghost' : 'btn btn-primary'}
-          disabled={pending}
+          variant={preview.published ? 'ghost' : 'primary'}
+          busy={pending}
           onClick={() =>
             preview.published
               ? run(unpublishSiteAction, 'O site saiu do ar.')
               : run(publishSiteAction, 'O site está no ar.')
           }
+          busyLabel="Salvando…"
         >
           {preview.published ? 'Tirar do ar' : 'Publicar'}
-        </button>
+        </Button>
       </div>
 
       {missing.length > 0 && (
@@ -182,19 +183,32 @@ function Texts({ preview, onError, onSaved }: BlockProps) {
         description="Deixe em branco e a página usa um texto montado do seu cadastro."
       />
 
-      <Field label="Chamada" htmlFor="headline" hint="A primeira frase, em destaque. Até 120 caracteres.">
+      <Field
+        label="Chamada"
+        htmlFor="headline"
+        hint="A primeira frase, em destaque. Até 120 caracteres."
+      >
         <input
           id="headline"
           className="field"
           maxLength={120}
           defaultValue={content.headline ?? ''}
           onBlur={(event) =>
-            save(content.headline ?? '', event.target.value, (value) => ({ headline: value }), 'Chamada')
+            save(
+              content.headline ?? '',
+              event.target.value,
+              (value) => ({ headline: value }),
+              'Chamada',
+            )
           }
         />
       </Field>
 
-      <Field label="Sobre nós" htmlFor="about" hint="Um parágrafo sobre o estabelecimento. Até 800 caracteres.">
+      <Field
+        label="Sobre nós"
+        htmlFor="about"
+        hint="Um parágrafo sobre o estabelecimento. Até 800 caracteres."
+      >
         <textarea
           id="about"
           className="field"
@@ -310,8 +324,7 @@ function Showcase({ preview, onError, onSaved }: BlockProps) {
       />
 
       <p className="hint">
-        Para tirar um serviço da vitrine sem desativá-lo, use a opção “mostrar no site”
-        em{' '}
+        Para tirar um serviço da vitrine sem desativá-lo, use a opção “mostrar no site” em{' '}
         <Link href="/agenda/servicos" className="underline">
           Agenda → Serviços
         </Link>
@@ -337,18 +350,19 @@ function Seo({ preview, onError, onSaved }: BlockProps) {
         description="Em branco, o sistema monta a partir do nome, da cidade e dos serviços."
       />
 
-      <Field
-        label="Título"
-        htmlFor="seoTitle"
-        hint={`Até 60 caracteres. Hoje: “${seo.title}”`}
-      >
+      <Field label="Título" htmlFor="seoTitle" hint={`Até 60 caracteres. Hoje: “${seo.title}”`}>
         <input
           id="seoTitle"
           className="field"
           maxLength={60}
           defaultValue={content.seoTitle ?? ''}
           onBlur={(event) =>
-            save(content.seoTitle ?? '', event.target.value, (value) => ({ seoTitle: value }), 'Título')
+            save(
+              content.seoTitle ?? '',
+              event.target.value,
+              (value) => ({ seoTitle: value }),
+              'Título',
+            )
           }
         />
       </Field>

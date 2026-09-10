@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { PetAvatar } from '@/components/pet-avatar'
 import { Badge, EmptyState, PageHeader } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
 import { serverApi } from '@/lib/api'
 import { PetSearch } from './pet-search'
 
@@ -43,11 +44,7 @@ export default async function PetsPage({ searchParams }: PageProps) {
         eyebrow="Cadastros"
         title="Pets"
         subtitle={result.total === 1 ? '1 pet cadastrado' : `${result.total} pets cadastrados`}
-        actions={
-          <Link href="/pets/novo" className="btn btn-primary">
-            Novo pet
-          </Link>
-        }
+        actions={<ButtonLink href="/pets/novo">Novo pet</ButtonLink>}
       />
 
       <PetSearch
@@ -66,11 +63,7 @@ export default async function PetsPage({ searchParams }: PageProps) {
           <EmptyState
             title="Nenhum pet cadastrado ainda"
             description="Todo pet nasce vinculado a um responsável — cadastre o tutor primeiro, se ele ainda não existir."
-            action={
-              <Link href="/pets/novo" className="btn btn-primary">
-                Cadastrar o primeiro pet
-              </Link>
-            }
+            action={<ButtonLink href="/pets/novo">Cadastrar o primeiro pet</ButtonLink>}
           />
         )
       ) : (
@@ -166,8 +159,8 @@ function PageLink({
   search.set('page', String(page))
 
   return (
-    <Link href={`/pets?${search.toString()}`} className="btn btn-ghost">
+    <ButtonLink href={`/pets?${search.toString()}`} variant="ghost">
       {children}
-    </Link>
+    </ButtonLink>
   )
 }

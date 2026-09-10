@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import type { TaxiRoute, TaxiRouteStop } from '@petshop/shared-types'
-import { Badge, Card } from '@/components/ui'
+import { Badge, Button, Card } from '@/components/ui'
 import { advanceRideAction, failRideAction } from '../actions'
 
 /**
@@ -73,7 +73,8 @@ export function DriverRoute({ route }: Props) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-lg font-medium text-fg">
-                {hourOf(stop.windowStartsAt, route.timezone)}–{hourOf(stop.windowEndsAt, route.timezone)}
+                {hourOf(stop.windowStartsAt, route.timezone)}–
+                {hourOf(stop.windowEndsAt, route.timezone)}
               </span>
               <Badge tone={stop.leg === 'PICKUP' ? 'accent' : 'neutral'}>{stop.legLabel}</Badge>
               <Badge tone={encerrada ? 'success' : 'neutral'}>{stop.statusLabel}</Badge>
@@ -108,7 +109,8 @@ export function DriverRoute({ route }: Props) {
             {stop.address.complement ? ` · ${stop.address.complement}` : ''}
           </p>
           <p className="text-subtle">
-            {stop.address.district} — {stop.address.city}/{stop.address.state} · {stop.address.zipCode}
+            {stop.address.district} — {stop.address.city}/{stop.address.state} ·{' '}
+            {stop.address.zipCode}
           </p>
           {stop.address.accessNotes && <p className="text-fg">🔑 {stop.address.accessNotes}</p>}
         </div>
@@ -138,23 +140,25 @@ export function DriverRoute({ route }: Props) {
         ) : (
           proximo && (
             <div className="flex flex-wrap gap-2">
-              <button
+              <Button
                 type="button"
-                className="btn btn-primary h-11 flex-1"
-                disabled={pending}
+                className="h-11 flex-1"
+                busy={pending}
                 onClick={() => act(() => advanceRideAction(stop.id, { to: proximo.to }))}
+                busyLabel="Registrando…"
               >
                 {proximo.label}
-              </button>
+              </Button>
               {['EN_ROUTE', 'ARRIVED', 'ONBOARD'].includes(stop.status) && (
-                <button
+                <Button
                   type="button"
-                  className="btn h-11"
+                  variant="ghost"
+                  className="h-11"
                   disabled={pending}
                   onClick={() => setFalhando(falhando === stop.id ? null : stop.id)}
                 >
                   Não deu certo
-                </button>
+                </Button>
               )}
             </div>
           )
@@ -163,18 +167,20 @@ export function DriverRoute({ route }: Props) {
         {falhando === stop.id && (
           <div className="flex flex-wrap gap-2 border-t border-line pt-3">
             {FAILURE_REASONS.map((reason) => (
-              <button
+              <Button
                 key={reason.value}
                 type="button"
-                className="btn h-10 text-sm"
-                disabled={pending}
+                variant="ghost"
+                className="h-10 text-sm"
+                busy={pending}
                 onClick={() => {
                   setFalhando(null)
                   act(() => failRideAction(stop.id, { reason: reason.value }))
                 }}
+                busyLabel="Registrando…"
               >
                 {reason.label}
-              </button>
+              </Button>
             ))}
           </div>
         )}

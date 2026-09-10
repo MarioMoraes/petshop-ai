@@ -23,8 +23,9 @@ import type {
 import { PetAvatar } from '@/components/pet-avatar'
 import { Modal } from '@/components/modal'
 import { DocumentIcon } from '@/components/icons'
-import { Alert, Badge, Card, DataRow, FormError, Tabs } from '@/components/ui'
+import { Alert, Badge, Button, Card, DataRow, FormError, Tabs } from '@/components/ui'
 import { TextoDoTermo } from '@/components/term-text'
+import { ButtonLink } from '@/components/links'
 import { ComunicacaoTab } from './comunicacao-tab'
 import { FinanceiroTab } from './financeiro-tab'
 import {
@@ -105,11 +106,7 @@ export function TutorDetailView({ overview, consents, tags, pets, finance, comms
       {tab === 'tags' && <TagsTab tutorId={tutor.id} tutorTags={tutor.tags} allTags={tags} />}
       {tab === 'pets' && <PetsTab tutorId={tutor.id} pets={pets} />}
       {tab === 'mensagens' && comms && (
-        <ComunicacaoTab
-          tutorId={tutor.id}
-          initial={comms.messages}
-          canSend={comms.canSend}
-        />
+        <ComunicacaoTab tutorId={tutor.id} initial={comms.messages} canSend={comms.canSend} />
       )}
       {tab === 'financeiro' && finance && (
         <FinanceiroTab
@@ -189,37 +186,39 @@ function DadosTab({ overview }: { overview: TutorOverview }) {
 
       {!isTerminal && (
         <div className="flex flex-wrap items-center gap-3">
-          <Link href={`/tutores/${tutor.id}/editar`} className="btn btn-primary">
-            Editar
-          </Link>
+          <ButtonLink href={`/tutores/${tutor.id}/editar`}>Editar</ButtonLink>
 
           {tutor.status === 'INACTIVE' && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
-              disabled={pending}
+              variant="ghost"
+              busy={pending}
               onClick={() => run(() => reactivateTutorAction(tutor.id))}
+              busyLabel="Reativando…"
             >
               Reativar cadastro
-            </button>
+            </Button>
           )}
 
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost text-danger"
-            disabled={pending}
+            variant="ghost"
+            className="text-danger"
+            busy={pending}
             onClick={() => run(() => deleteTutorAction(tutor.id))}
+            busyLabel="Excluindo…"
           >
             Excluir
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost text-danger"
+            variant="ghost"
+            className="text-danger"
             onClick={() => setAnonymizing((value) => !value)}
           >
             Anonimizar (LGPD)
-          </button>
+          </Button>
         </div>
       )}
 
@@ -236,21 +235,20 @@ function DadosTab({ overview }: { overview: TutorOverview }) {
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
-          <button
+          <Button
             type="button"
-            className="btn btn-accent"
-            disabled={pending || reason.trim().length < 10}
+            variant="accent"
+            busy={pending}
+            disabled={reason.trim().length < 10}
             onClick={() =>
               run(() =>
-                anonymizeTutorAction(tutor.id, {
-                  confirmation: 'CONFIRMO_A_ANONIMIZACAO',
-                  reason,
-                }),
+                anonymizeTutorAction(tutor.id, { confirmation: 'CONFIRMO_A_ANONIMIZACAO', reason }),
               )
             }
+            busyLabel="Anonimizando…"
           >
             Confirmo a anonimização
-          </button>
+          </Button>
         </Card>
       )}
     </div>
@@ -307,13 +305,7 @@ const CHANNEL_LABELS: Record<ConsentChannel, string> = {
 /** Os dois termos que a recepção apresenta e que rendem papel (MOD-DOC-07 e 08). */
 const TERMOS_COM_PAPEL: TermKind[] = ['SERVICE_LIABILITY', 'IMAGE_USE']
 
-function ConsentimentosTab({
-  tutorId,
-  consents,
-}: {
-  tutorId: string
-  consents: ConsentsResponse
-}) {
+function ConsentimentosTab({ tutorId, consents }: { tutorId: string; consents: ConsentsResponse }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -345,8 +337,8 @@ function ConsentimentosTab({
       <Card className="space-y-1">
         <h3 className="font-semibold">Estado atual</h3>
         <p className="hint pb-2">
-          Mensagens de confirmação e lembrete de um serviço contratado continuam saindo mesmo
-          sem opt-in de marketing.
+          Mensagens de confirmação e lembrete de um serviço contratado continuam saindo mesmo sem
+          opt-in de marketing.
         </p>
         <dl>
           {consents.current.map((state) => (
@@ -367,14 +359,16 @@ function ConsentimentosTab({
                       ? 'Aguardando novo aceite'
                       : 'Revogado'}
                 </span>
-                <button
+                <Button
                   type="button"
-                  className="btn btn-ghost px-3 py-1 text-xs"
-                  disabled={pending}
+                  variant="ghost"
+                  className="px-3 py-1 text-xs"
+                  busy={pending}
                   onClick={() => toggle(state.channel, !state.granted)}
+                  busyLabel="Salvando…"
                 >
                   {state.granted ? 'Revogar' : 'Autorizar'}
-                </button>
+                </Button>
               </span>
             </DataRow>
           ))}
@@ -384,8 +378,8 @@ function ConsentimentosTab({
       <Card className="space-y-1">
         <h3 className="font-semibold">Termos e autorizações</h3>
         <p className="hint pb-2">
-          Apresente o texto ao tutor e registre o aceite. O papel do aceite fica arquivado
-          com data, hora e origem — é ele que prova o que foi apresentado.
+          Apresente o texto ao tutor e registre o aceite. O papel do aceite fica arquivado com data,
+          hora e origem — é ele que prova o que foi apresentado.
         </p>
         <div className="flex flex-col gap-3 pt-1">
           {TERMOS_COM_PAPEL.map((kind) => (
@@ -401,7 +395,10 @@ function ConsentimentosTab({
         </p>
         <ul className="space-y-2">
           {[...consents.history].reverse().map((record) => (
-            <li key={record.id} className="flex flex-wrap gap-2 border-b border-line py-2 text-sm last:border-b-0">
+            <li
+              key={record.id}
+              className="flex flex-wrap gap-2 border-b border-line py-2 text-sm last:border-b-0"
+            >
               <span className="font-medium">{CHANNEL_LABELS[record.channel]}</span>
               <span className={record.granted ? 'text-success' : 'text-danger'}>
                 {record.granted ? 'autorizado' : 'revogado'}
@@ -484,14 +481,16 @@ function TermoLinha({
           </p>
         </div>
 
-        <button
+        <Button
           type="button"
-          className={aceito ? 'btn btn-ghost h-9' : 'btn btn-primary h-9'}
+          variant={aceito ? 'ghost' : 'primary'}
+          className="h-9"
           onClick={apresentar}
-          disabled={pending}
+          busy={pending}
+          busyLabel="Carregando…"
         >
           {aceito ? 'Ler o termo' : 'Apresentar e aceitar'}
-        </button>
+        </Button>
       </div>
 
       {erro && (
@@ -511,23 +510,13 @@ function TermoLinha({
         subtitle={termo ? `Versão ${termo.version}` : ''}
         footer={
           <>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => setTermo(null)}
-              disabled={pending}
-            >
+            <Button type="button" variant="ghost" disabled={pending} onClick={() => setTermo(null)}>
               Fechar
-            </button>
+            </Button>
             {!aceito && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={registrar}
-                disabled={pending}
-              >
-                {pending ? 'Registrando…' : 'O tutor aceitou'}
-              </button>
+              <Button type="button" busy={pending} onClick={registrar} busyLabel="Registrando…">
+                O tutor aceitou
+              </Button>
             )}
           </>
         }
@@ -540,8 +529,8 @@ function TermoLinha({
               title="Leia o texto com o tutor antes de registrar"
               role="status"
             >
-              O aceite é gravado com data, hora, endereço de origem e identificação do
-              dispositivo. É essa a prova, e ela vale pelo que foi apresentado agora.
+              O aceite é gravado com data, hora, endereço de origem e identificação do dispositivo.
+              É essa a prova, e ela vale pelo que foi apresentado agora.
             </Alert>
           )}
           {termo && <TextoDoTermo body={termo.body} />}
@@ -610,8 +599,8 @@ function TagsTab({
       <Card>
         <h3 className="font-semibold">Tags manuais</h3>
         <p className="hint mt-1">
-          Tags automáticas — inativo, inadimplente, aniversariante — são mantidas pelo sistema e
-          não podem ser aplicadas à mão.
+          Tags automáticas — inativo, inadimplente, aniversariante — são mantidas pelo sistema e não
+          podem ser aplicadas à mão.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -649,12 +638,10 @@ function PetsTab({ tutorId, pets }: { tutorId: string; pets: PetResponse[] }) {
     return (
       <Card className="flex flex-col items-start gap-4">
         <p className="hint">
-          Nenhum pet vinculado a este tutor. Todo pet nasce com um responsável, então o
-          cadastro do animal começa por aqui.
+          Nenhum pet vinculado a este tutor. Todo pet nasce com um responsável, então o cadastro do
+          animal começa por aqui.
         </p>
-        <Link href="/pets/novo" className="btn btn-primary">
-          Cadastrar pet
-        </Link>
+        <ButtonLink href="/pets/novo">Cadastrar pet</ButtonLink>
       </Card>
     )
   }
@@ -702,9 +689,9 @@ function PetsTab({ tutorId, pets }: { tutorId: string; pets: PetResponse[] }) {
         })}
       </ul>
 
-      <Link href="/pets/novo" className="btn btn-ghost">
+      <ButtonLink href="/pets/novo" variant="ghost">
         Cadastrar outro pet
-      </Link>
+      </ButtonLink>
     </div>
   )
 }

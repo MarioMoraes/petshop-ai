@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { PortalMessage, PortalMessagesResponse } from '@petshop/shared-types'
-import { SectionHead } from '@/components/ui'
+import { Button, SectionHead } from '@/components/ui'
 import { InboxIcon, MailIcon, SmartphoneIcon } from '@/components/icons'
 import { RowChip, RowItem, RowStack, RowText } from '../list'
 import { carregarMensagens } from './actions'
@@ -62,14 +62,16 @@ export function Lista({ inicial }: { inicial: PortalMessagesResponse }) {
           {erro && <p className="text-danger text-sm">{erro}</p>}
 
           {restam > 0 && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost w-full"
+              variant="ghost"
+              className="w-full"
               onClick={mais}
-              disabled={carregando}
+              busy={carregando}
+              busyLabel="Carregando…"
             >
-              {carregando ? 'Carregando…' : 'Ver mais'}
-            </button>
+              Ver mais
+            </Button>
           )}
         </>
       }

@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import type { IconTone } from './icons'
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { SpinnerIcon, type IconTone } from './icons'
 
 /**
  * Peças de interface do sistema visual (`design/design-modelo.html`).
@@ -78,9 +78,7 @@ export function Badge({
   } as const
 
   return (
-    <span
-      className={`pill inline-flex items-center px-3 py-1 text-xs font-medium ${tones[tone]}`}
-    >
+    <span className={`pill inline-flex items-center px-3 py-1 text-xs font-medium ${tones[tone]}`}>
       {children}
     </span>
   )
@@ -383,6 +381,68 @@ export function Choice({
 /** Barra de ação que acompanha o rodapé da viewport num formulário longo. */
 export function FormActions({ children }: { children: ReactNode }) {
   return <div className="form-actions">{children}</div>
+}
+
+/**
+ * Botão — e, quando `busy`, o botão que está esperando o backend.
+ *
+ * Antes desta peça cada tela resolvia a espera sozinha, com `disabled={pending}` e uma
+ * troca de rótulo. Faltavam duas coisas, e as duas custam caro no balcão:
+ *
+ *   · **o anel girando.** O rótulo trocado é a informação; o giro é o que se enxerga sem
+ *     ler, e ler não é o que alguém faz enquanto espera.
+ *   · **a diferença entre "espere" e "não pode".** `.btn:disabled` derruba a peça para 45%
+ *     e dessatura. É a cara certa para o botão que ainda não pode ser clicado, e é a
+ *     errada para o que já foi: `aria-busy` desvia dessa regra em `globals.css` (§Espera)
+ *     e mantém o botão de pé, opaco, com o cursor de relógio.
+ *
+ * `busyLabel` é opcional e é o que sobra sob `prefers-reduced-motion`, onde o anel se
+ * esconde — sem ele, quem pediu menos movimento fica sem sinal nenhum. Escreva-o sempre
+ * que o botão gravar algo.
+ *
+ * O irmão que navega em vez de gravar é o `<ButtonLink>` (`components/links.tsx`), que
+ * lê a espera do próprio roteador.
+ */
+export function Button({
+  children,
+  variant = 'primary',
+  busy = false,
+  busyLabel,
+  icon,
+  className = '',
+  type = 'button',
+  disabled = false,
+  ...rest
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> & {
+  variant?: 'primary' | 'accent' | 'ghost'
+  /** A ação está no ar. Trava o botão, gira o anel e troca o rótulo por `busyLabel`. */
+  busy?: boolean
+  busyLabel?: string
+  /**
+   * Glifo à esquerda do rótulo. Existindo, é ele que dá lugar ao anel — sem ele o botão
+   * ganharia 22px de largura no instante do clique e empurraria o vizinho da barra.
+   */
+  icon?: ReactNode
+  className?: string
+}) {
+  return (
+    <button
+      {...rest}
+      type={type}
+      className={`btn btn-${variant} ${className}`}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+    >
+      {icon ? (
+        <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
+          {busy ? <SpinnerIcon /> : icon}
+        </span>
+      ) : (
+        busy && <SpinnerIcon />
+      )}
+      {busy && busyLabel ? busyLabel : children}
+    </button>
+  )
 }
 
 /**

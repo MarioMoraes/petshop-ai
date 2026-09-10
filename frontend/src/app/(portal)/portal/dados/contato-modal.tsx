@@ -1,12 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import type {
-  PortalContactField,
-  PortalMeDataResponse,
-  PortalProfile,
-} from '@petshop/shared-types'
-import { Field, FormError, Segmented } from '@/components/ui'
+import type { PortalContactField, PortalMeDataResponse, PortalProfile } from '@petshop/shared-types'
+import { Button, Field, FormError, Segmented } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { PhoneIcon } from '@/components/icons'
 import { confirmarContato, pedirCodigoContato } from './actions'
@@ -98,9 +94,9 @@ export function ContatoModal({
 
   return (
     <>
-      <button type="button" className="btn btn-ghost h-9" onClick={abrir}>
+      <Button type="button" variant="ghost" className="h-9" onClick={abrir}>
         {pendente ? 'Confirmar' : 'Alterar'}
-      </button>
+      </Button>
 
       <Modal
         open={aberto}
@@ -118,32 +114,30 @@ export function ContatoModal({
         onBack={desafio && !pendente ? voltarParaOValor : undefined}
         footer={
           <>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => setAberto(false)}
               disabled={ocupado}
             >
               Cancelar
-            </button>
+            </Button>
             {desafio ? (
-              <button
+              <Button
                 type="submit"
                 form="portal-contato-codigo"
-                className="btn btn-primary"
                 disabled={ocupado || codigo.length !== 6}
               >
                 {ocupado ? 'Confirmando…' : 'Confirmar'}
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="submit"
                 form="portal-contato-valor"
-                className="btn btn-primary"
                 disabled={ocupado || valor.trim().length < 5}
               >
                 {ocupado ? 'Enviando…' : 'Enviar código'}
-              </button>
+              </Button>
             )}
           </>
         }

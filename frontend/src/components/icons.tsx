@@ -443,18 +443,22 @@ export function CopyIcon() {
 }
 
 /**
- * Anel de carregamento do adorno de campo.
+ * Anel de carregamento — do adorno de campo, do botão em espera, do item de menu clicado.
  *
  * Gira com `animate-spin` do Tailwind e some sob `prefers-reduced-motion` porque o
  * texto ao lado já diz o que está acontecendo — rotação contínua é exatamente o
- * tipo de movimento que quem pediu menos movimento não quer.
+ * tipo de movimento que quem pediu menos movimento não quer. Quem o usa sem texto ao
+ * lado (o menu) precisa reservar a caixa, senão o vizinho salta quando ele some.
+ *
+ * `size` acompanha o que ele substitui: 16px ao lado de texto, 20px no lugar de um
+ * ícone do menu.
  */
-export function SpinnerIcon() {
+export function SpinnerIcon({ size = 16 }: { size?: number } = {}) {
   return (
     <svg
       {...BASE}
-      width={16}
-      height={16}
+      width={size}
+      height={size}
       className="motion-safe:animate-spin motion-reduce:hidden"
       strokeWidth={2}
     >

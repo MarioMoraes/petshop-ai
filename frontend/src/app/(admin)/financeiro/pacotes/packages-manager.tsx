@@ -9,7 +9,7 @@ import {
   type ServicePackage,
   type ServiceResponse,
 } from '@petshop/shared-types'
-import { Badge, Card, EmptyState, Field, FormError } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, Field, FormError } from '@/components/ui'
 import { createPackageAction, updatePackageAction } from '../actions'
 
 /**
@@ -42,13 +42,9 @@ export function PackagesManager({ packages, services, defaultValidityDays, canEd
           {...(canEdit
             ? {
                 action: (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => setCreating(true)}
-                  >
+                  <Button type="button" onClick={() => setCreating(true)}>
                     Criar o primeiro pacote
-                  </button>
+                  </Button>
                 ),
               }
             : {})}
@@ -56,9 +52,9 @@ export function PackagesManager({ packages, services, defaultValidityDays, canEd
       ) : (
         <>
           {canEdit && !creating && (
-            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+            <Button type="button" onClick={() => setCreating(true)}>
               Novo pacote
-            </button>
+            </Button>
           )}
 
           {creating && (
@@ -173,8 +169,7 @@ function PackageRow({
         {/* Descontinuar não cancela nada: quem já comprou continua com o crédito. */}
         {!pkg.active && pkg.activePurchases > 0 && (
           <p className="hint mt-2">
-            As {pkg.activePurchases} compras ativas continuam valendo até serem usadas ou
-            expirarem.
+            As {pkg.activePurchases} compras ativas continuam valendo até serem usadas ou expirarem.
           </p>
         )}
       </Card>
@@ -199,9 +194,7 @@ function PackageForm({
   const [serviceIds, setServiceIds] = useState<string[]>(pkg?.serviceIds ?? [])
   const [credits, setCredits] = useState(String(pkg?.credits ?? 4))
   const [price, setPrice] = useState(pkg ? formatCentsInput(pkg.priceCents) : '')
-  const [validityDays, setValidityDays] = useState(
-    String(pkg?.validityDays ?? defaultValidityDays),
-  )
+  const [validityDays, setValidityDays] = useState(String(pkg?.validityDays ?? defaultValidityDays))
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
@@ -257,8 +250,8 @@ function PackageForm({
       <h3 className="font-semibold">{pkg ? 'Editar pacote' : 'Novo pacote'}</h3>
       {pkg && (
         <p className="hint mt-1">
-          As compras já feitas não mudam: nome, serviços, créditos e preço foram congelados no
-          ato da venda.
+          As compras já feitas não mudam: nome, serviços, créditos e preço foram congelados no ato
+          da venda.
         </p>
       )}
 
@@ -358,12 +351,12 @@ function PackageForm({
       </div>
 
       <div className="mt-4 flex gap-2">
-        <button type="button" className="btn btn-primary" disabled={pending} onClick={submit}>
-          {pending ? 'Salvando…' : pkg ? 'Salvar' : 'Criar pacote'}
-        </button>
-        <button type="button" className="btn btn-ghost" disabled={pending} onClick={onCancel}>
+        <Button type="button" busy={pending} onClick={submit} busyLabel="Salvando…">
+          {pkg ? 'Salvar' : 'Criar pacote'}
+        </Button>
+        <Button type="button" variant="ghost" disabled={pending} onClick={onCancel}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </Card>
   )

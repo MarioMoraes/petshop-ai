@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { slugify, type SlugAvailability, type TenantResponse } from '@petshop/shared-types'
-import { Card, Field } from '@/components/ui'
+import { Button, Card, Field } from '@/components/ui'
 import { checkSlugAction, createTenantAction, saveStep1Action } from '../actions'
 import type { StepProps } from '../wizard'
 
@@ -175,13 +175,14 @@ export function StepIdentity({
         )}
 
         <div className="flex justify-end">
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary"
-            disabled={pending || (isNew && availability?.available === false)}
+            busy={pending}
+            disabled={isNew && availability?.available === false}
+            busyLabel="Salvando…"
           >
-            {pending ? 'Salvando…' : 'Continuar'}
-          </button>
+            Continuar
+          </Button>
         </div>
       </form>
     </Card>

@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { ButtonLink } from '@/components/links'
+import { carregarMe, serverApi } from '@/lib/api'
 import { CrmSettingsForm } from './settings-form'
 
 /**
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function CrmConfigPage() {
   const [me, settings, automations, suppressions, whatsapp] = await Promise.all([
-    serverApi().me(),
+    carregarMe(),
     serverApi()
       .getMessagingSettings()
       .catch((error: unknown) => {
@@ -62,9 +63,9 @@ export default async function CrmConfigPage() {
             : 'O envio automático está desligado'
       }
       actions={
-        <Link href="/crm/textos" className="btn btn-ghost">
+        <ButtonLink href="/crm/textos" variant="ghost">
           Textos
-        </Link>
+        </ButtonLink>
       }
     />
   )

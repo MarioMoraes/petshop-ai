@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { Badge, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { TutorDetailView, type CommsData, type FinanceData } from './tutor-detail'
 
 /** Visão 360º do tutor (MOD-TUTOR-07). */
@@ -17,7 +17,7 @@ export default async function TutorPage({ params }: PageProps) {
   const { id } = await params
 
   const [me, overview, consents, tags, pets] = await Promise.all([
-    serverApi().me(),
+    carregarMe(),
     serverApi()
       .getTutorOverview(id)
       .catch((error: unknown) => {
@@ -85,10 +85,7 @@ export default async function TutorPage({ params }: PageProps) {
  * abrir porque o motor de mensagens caiu. Sem ele, a aba some — que é o mesmo que
  * dizer "não sei", e é honesto.
  */
-async function loadComms(
-  tutorId: string,
-  permissions: string[],
-): Promise<CommsData | null> {
+async function loadComms(tutorId: string, permissions: string[]): Promise<CommsData | null> {
   if (!permissions.includes('crm:read')) return null
 
   const messages = await serverApi()
@@ -110,10 +107,7 @@ async function loadComms(
  * precisa ver o botão de vender, e o `catch` cobre o caso de a permissão de catálogo
  * ser mais restrita que a de leitura.
  */
-async function loadFinance(
-  tutorId: string,
-  permissions: string[],
-): Promise<FinanceData | null> {
+async function loadFinance(tutorId: string, permissions: string[]): Promise<FinanceData | null> {
   if (!permissions.includes('finance:read')) return null
 
   const api = serverApi()

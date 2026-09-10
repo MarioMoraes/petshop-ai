@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { addDays } from '@petshop/shared-types'
 import { faixaDeDias } from '@/lib/agenda-dia'
+import { Button } from '@/components/ui'
 
 /**
  * A faixa de datas da Agenda do Dia.
@@ -86,10 +87,7 @@ export function DateRail({
                 <span className="day-pill-weekday">{dia.inicial}</span>
                 <span className="day-pill-number">{dia.numero}</span>
                 {/* Espaço reservado sempre: sem ele as pastilhas dançam 4px. */}
-                <span
-                  aria-hidden
-                  className={dia.date === today ? 'day-pill-dot' : 'h-1 w-1'}
-                />
+                <span aria-hidden className={dia.date === today ? 'day-pill-dot' : 'h-1 w-1'} />
               </button>
             )
           })}
@@ -112,9 +110,9 @@ export function DateRail({
       */}
       <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
         {date !== today && (
-          <button type="button" className="btn btn-ghost" onClick={() => onPick(today)}>
+          <Button type="button" variant="ghost" onClick={() => onPick(today)}>
             Hoje
-          </button>
+          </Button>
         )}
         <input
           type="date"

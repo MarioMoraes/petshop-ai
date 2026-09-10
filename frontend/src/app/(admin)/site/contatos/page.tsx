@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { SiteLeadStatusSchema, type SiteLeadStatus } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { LeadQueue } from './lead-queue'
 
 /**
@@ -31,7 +31,7 @@ export default async function SiteLeadsPage({ searchParams }: PageProps) {
   const params = await searchParams
   const status = statusOf(params.status)
 
-  const me = await serverApi().me()
+  const me = await carregarMe()
 
   const leads = await serverApi()
     .listSiteLeads(status)

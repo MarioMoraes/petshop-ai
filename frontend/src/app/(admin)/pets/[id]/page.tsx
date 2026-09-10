@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { PetAvatar } from '@/components/pet-avatar'
 import { Badge, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { PetDetailView } from './pet-detail'
 
 /** Detalhe do pet (MOD-PET-01/02/04/05/07/08 e MOD-PRONT-03/04/05). */
@@ -24,7 +24,7 @@ export default async function PetPage({ params }: PageProps) {
         if (error instanceof ApiError && error.status === 404) notFound()
         throw error
       }),
-    serverApi().me(),
+    carregarMe(),
   ])
 
   // A série de peso e o histórico de titularidade são do mesmo pet e da mesma tela;

@@ -715,6 +715,114 @@
     }
   }
 
+  /* ═════════════════════════════════════════════════════════════════════════
+   * Espera
+   *
+   * Três peças para a mesma pergunta — "e aí, está fazendo alguma coisa?" —, cada uma
+   * no lugar onde a resposta cabe:
+   *
+   *   · `.route-progress`, no alto da tela, para a navegação;
+   *   · `.skeleton`, no corpo, para o conteúdo que vai nascer ali;
+   *   · `.btn[aria-busy]`, na própria peça, para a ação que foi disparada.
+   *
+   * O que as une é não fingir. A barra para em 88% porque não sabe quanto falta, o
+   * esqueleto tem a forma do que vem e o botão em espera continua legível.
+   * ═════════════════════════════════════════════════════════════════════════ */
+
+  /*
+   * O botão que já foi clicado.
+   *
+   * `.btn:disabled` derruba a peça para 45% e dessatura — é a cara de "não pode", e
+   * dizer isso a quem acabou de clicar é dizer que o clique não valeu. Em espera ele
+   * fica de pé, um fio mais claro que o normal, com o cursor de relógio.
+   */
+  .btn[aria-busy='true']:disabled {
+    opacity: 0.9;
+    filter: none;
+    cursor: progress;
+  }
+
+  /*
+   * A barra de progresso da navegação.
+   *
+   * `position: fixed` e não `sticky`: ela precisa ficar acima da faixa do topo, que já
+   * é `sticky` com `z-20`, e ancorada no alto da janela em qualquer rolagem.
+   *
+   * A cor é `--color-focus` — o acento por padrão, a cor de marca do tenant dentro do
+   * `AppShell`, que é onde ela mora. O rastro é um `box-shadow` da mesma cor, o que dá
+   * à ponta a impressão de estar puxando a barra em vez de ser cortada nela.
+   */
+  .route-progress {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 60;
+    height: 2px;
+    pointer-events: none;
+  }
+
+  .route-progress-bar {
+    display: block;
+    height: 100%;
+    border-radius: 0 9999px 9999px 0;
+    background-color: var(--color-focus);
+    box-shadow: 0 0 10px -1px var(--color-focus);
+    transition:
+      width 0.22s cubic-bezier(0.2, 0, 0.2, 1),
+      opacity 0.28s ease-out;
+  }
+
+  /*
+   * O esqueleto.
+   *
+   * Cinza de véu e não hex fixo: o mesmo bloco cai em cartão branco e em ficha
+   * `.card-soft`, e um cinza chapado some numa e mancha na outra.
+   *
+   * O varrimento é uma faixa clara atravessando a peça — o mesmo gesto do brilho do
+   * botão, e pela mesma razão: é o que separa "está vindo" de "quebrou e ficou cinza".
+   */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    background-color: rgb(35 36 39 / 0.07);
+  }
+
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      rgb(255 255 255 / 0.55) 50%,
+      transparent 80%
+    );
+    transform: translateX(-100%);
+    animation: skeleton-sweep 1.6s ease-in-out infinite;
+  }
+
+  @keyframes skeleton-sweep {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /*
+     * Sem o varrimento, e sem a barra deslizando: o que sobra é a presença das peças,
+     * que já diz que a tela está a caminho. O anel do `SpinnerIcon` some sozinho, e é
+     * por isso que o `busyLabel` do `<Button>` carrega a mesma informação em texto.
+     */
+    .skeleton::after {
+      animation: none;
+      opacity: 0;
+    }
+
+    .route-progress-bar {
+      transition: opacity 0.28s ease-out;
+    }
+  }
+
   /*
    * Campo de formulário (§Formulário do design-modelo): borda branca e sombra de
    * elevação em vez de linha cinza — "o contorno percebido vem da sombra", não da

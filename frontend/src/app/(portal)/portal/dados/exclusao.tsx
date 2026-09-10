@@ -6,7 +6,7 @@ import {
   type PortalDeletionRequest,
   type PortalMeDataResponse,
 } from '@petshop/shared-types'
-import { Alert, Card, Field, FormError, SectionHead } from '@/components/ui'
+import { Alert, Button, Card, Field, FormError, SectionHead } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { ShieldCheckIcon } from '@/components/icons'
 import { pedirExclusao } from './actions'
@@ -120,22 +120,17 @@ export function Exclusao({
         subtitle={`A equipe do ${tenantName} responde em até ${PORTAL_DELETION_RESPONSE_DAYS} dias.`}
         footer={
           <>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => setAberto(false)}
               disabled={enviando}
             >
               Cancelar
-            </button>
-            <button
-              type="submit"
-              form="portal-exclusao-form"
-              className="btn btn-primary"
-              disabled={enviando}
-            >
-              {enviando ? 'Enviando…' : 'Enviar pedido'}
-            </button>
+            </Button>
+            <Button type="submit" form="portal-exclusao-form" busy={enviando} busyLabel="Enviando…">
+              Enviar pedido
+            </Button>
           </>
         }
       >

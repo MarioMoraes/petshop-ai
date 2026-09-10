@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import {
   SITE_LEAD_STATUSES,
   SITE_LEAD_STATUS_LABELS,
@@ -10,7 +9,8 @@ import {
   type SiteLead,
   type SiteLeadStatus,
 } from '@petshop/shared-types'
-import { Badge, Card, EmptyState, FormError } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, FormError } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
 import { updateSiteLeadAction } from '../actions'
 
 /**
@@ -71,23 +71,15 @@ export function LeadQueue({ leads, status, canConvert }: Props) {
   )
 }
 
-function FilterLink({
-  label,
-  href,
-  active,
-}: {
-  label: string
-  href: string
-  active: boolean
-}) {
+function FilterLink({ label, href, active }: { label: string; href: string; active: boolean }) {
   return (
-    <Link
+    <ButtonLink
       href={href as '/site/contatos'}
-      className={active ? 'btn btn-primary' : 'btn btn-ghost'}
-      aria-current={active ? 'page' : undefined}
+      variant={active ? 'primary' : 'ghost'}
+      active={active}
     >
       {label}
-    </Link>
+    </ButtonLink>
   )
 }
 
@@ -160,14 +152,15 @@ function LeadRow({
         {lead.status !== 'CONVERTED' && (
           <div className="flex flex-wrap items-center gap-2">
             {lead.status === 'NEW' && (
-              <button
+              <Button
                 type="button"
-                className="btn btn-ghost"
-                disabled={pending}
+                variant="ghost"
+                busy={pending}
                 onClick={() => move('CONTACTED')}
+                busyLabel="Salvando…"
               >
                 Marcar como contatado
-              </button>
+              </Button>
             )}
 
             {/*
@@ -177,23 +170,24 @@ function LeadRow({
               CPF, consentimento e dedupe num lugar onde ninguém iria procurá-las.
             */}
             {canConvert && lead.phone && (
-              <Link
+              <ButtonLink
                 href={`/tutores/novo?nome=${encodeURIComponent(lead.name)}&telefone=${encodeURIComponent(lead.phone)}&lead=${lead.id}`}
-                className="btn btn-primary"
               >
                 Criar cadastro
-              </Link>
+              </ButtonLink>
             )}
 
             {lead.status !== 'DISCARDED' && (
-              <button
+              <Button
                 type="button"
-                className="btn btn-ghost text-danger"
-                disabled={pending}
+                variant="ghost"
+                className="text-danger"
+                busy={pending}
                 onClick={() => move('DISCARDED')}
+                busyLabel="Descartando…"
               >
                 Descartar
-              </button>
+              </Button>
             )}
           </div>
         )}

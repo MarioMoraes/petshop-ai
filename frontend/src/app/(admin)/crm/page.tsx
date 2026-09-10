@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import {
   DEFAULT_TIMEZONE,
@@ -11,7 +10,8 @@ import {
   zonedDayRange,
 } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { ButtonLink } from '@/components/links'
+import { carregarMe, serverApi } from '@/lib/api'
 import { MessagesBoard, type BoardFilters } from './messages-board'
 import { BlockedBreakdown, ChannelNotice, StatsRow, StuckQueueBanner } from './panel-summary'
 
@@ -40,7 +40,7 @@ interface PageProps {
 
 export default async function CrmPage({ searchParams }: PageProps) {
   const params = await searchParams
-  const me = await serverApi().me()
+  const me = await carregarMe()
 
   const settings = await serverApi()
     .getSettings()
@@ -67,9 +67,7 @@ export default async function CrmPage({ searchParams }: PageProps) {
   }
 
   const [stats, messages] = await Promise.all([
-    serverApi()
-      .getMessageStats(range)
-      .catch(swallowApiError),
+    serverApi().getMessageStats(range).catch(swallowApiError),
     serverApi()
       .listMessages({
         ...range,
@@ -99,15 +97,15 @@ export default async function CrmPage({ searchParams }: PageProps) {
         }
         actions={
           <>
-            <Link href="/crm/campanhas" className="btn btn-ghost">
+            <ButtonLink href="/crm/campanhas" variant="ghost">
               Campanhas
-            </Link>
-            <Link href="/crm/textos" className="btn btn-ghost">
+            </ButtonLink>
+            <ButtonLink href="/crm/textos" variant="ghost">
               Textos
-            </Link>
-            <Link href="/crm/configuracoes" className="btn btn-ghost">
+            </ButtonLink>
+            <ButtonLink href="/crm/configuracoes" variant="ghost">
               Configuração
-            </Link>
+            </ButtonLink>
           </>
         }
       />
@@ -124,12 +122,7 @@ export default async function CrmPage({ searchParams }: PageProps) {
           <BlockedBreakdown blockedByReason={stats.blockedByReason} />
           <ChannelNotice />
 
-          <MessagesBoard
-            page={messages}
-            filters={filters}
-            timezone={timezone}
-            canSend={canSend}
-          />
+          <MessagesBoard page={messages} filters={filters} timezone={timezone} canSend={canSend} />
         </>
       )}
     </div>

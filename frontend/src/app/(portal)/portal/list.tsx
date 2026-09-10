@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { ChevronRightIcon, type IconTone } from '@/components/icons'
+import { LinkSpinner } from '@/components/links'
 
 /**
  * A lista do Portal — o cartão com linhas dentro.
@@ -97,8 +98,16 @@ export function RowLink<T extends string>({
   return (
     <Link href={href} className={`menu-row ${top ? 'menu-row-top' : ''}`}>
       {children}
+      {/*
+        O chevron é o slot da espera: ele já é a promessa de que a linha leva a algum
+        lugar, e trocá-lo pelo anel enquanto a tela vem é responder no mesmo canto onde a
+        promessa foi feita. A caixa é fixa para a linha não encolher quando ele some sob
+        `prefers-reduced-motion`.
+      */}
       <span className="menu-chevron shrink-0">
-        <ChevronRightIcon />
+        <LinkSpinner size={16}>
+          <ChevronRightIcon />
+        </LinkSpinner>
       </span>
     </Link>
   )

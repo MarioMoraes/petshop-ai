@@ -16,7 +16,7 @@ import {
   VanIcon,
 } from '@/components/icons'
 import { Modal } from '@/components/modal'
-import { Alert, Badge, Choice, Field, FormError, SectionHead } from '@/components/ui'
+import { Alert, Badge, Button, Choice, Field, FormError, SectionHead } from '@/components/ui'
 import { horaDe, minutosNoFuso, STATUS_LABELS } from '@/lib/agenda-dia'
 import {
   approveAppointmentAction,
@@ -212,49 +212,39 @@ export function AppointmentDialog({
       footer={
         <>
           {podePedirTaxi && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               disabled={enviando}
               onClick={() => setVista('taxi')}
             >
               {rides.length === 0 ? 'Taxi Dog' : 'Pedir a outra perna'}
-            </button>
+            </Button>
           )}
           {podeAprovar && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={enviando}
-              onClick={aprovar}
-            >
-              {enviando ? 'Confirmando…' : 'Confirmar horário'}
-            </button>
+            <Button type="button" busy={enviando} onClick={aprovar} busyLabel="Confirmando…">
+              Confirmar horário
+            </Button>
           )}
           {podeChegar && (
-            <button
+            <Button
               type="button"
-              className="btn btn-primary"
-              disabled={enviando}
+              busy={enviando}
               onClick={registrarChegada}
+              busyLabel="Registrando…"
             >
-              {enviando ? 'Registrando…' : 'Registrar chegada'}
-            </button>
+              Registrar chegada
+            </Button>
           )}
           {podeConcluir && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={enviando}
-              onClick={() => setVista('checkout')}
-            >
+            <Button type="button" disabled={enviando} onClick={() => setVista('checkout')}>
               Concluir atendimento
-            </button>
+            </Button>
           )}
           {!podeChegar && !podeConcluir && !podeAprovar && (
-            <button type="button" className="btn btn-ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" onClick={onClose}>
               Fechar
-            </button>
+            </Button>
           )}
         </>
       }
@@ -320,8 +310,8 @@ export function AppointmentDialog({
 
         {podeAprovar && (
           <p className="hint">
-            Pedido pelo site, aguardando a sua confirmação. O horário já está reservado, e
-            se ninguém decidir em 24h ele volta para a agenda.
+            Pedido pelo site, aguardando a sua confirmação. O horário já está reservado, e se
+            ninguém decidir em 24h ele volta para a agenda.
           </p>
         )}
 
@@ -417,12 +407,12 @@ function CheckoutView({
       busy={enviando}
       footer={
         <>
-          <button type="button" className="btn btn-ghost" disabled={enviando} onClick={onClose}>
+          <Button type="button" variant="ghost" disabled={enviando} onClick={onClose}>
             Agora não
-          </button>
-          <button type="button" className="btn btn-primary" disabled={enviando} onClick={confirmar}>
-            {enviando ? 'Concluindo…' : 'Concluir atendimento'}
-          </button>
+          </Button>
+          <Button type="button" busy={enviando} onClick={confirmar} busyLabel="Concluindo…">
+            Concluir atendimento
+          </Button>
         </>
       }
     >
@@ -556,19 +546,19 @@ function CancelView({
       busy={enviando}
       footer={
         <>
-          <button type="button" className="btn btn-ghost" disabled={enviando} onClick={onBack}>
+          <Button type="button" variant="ghost" disabled={enviando} onClick={onBack}>
             Manter o horário
-          </button>
-          <button type="button" className="btn btn-primary" disabled={enviando} onClick={confirmar}>
-            {enviando ? 'Cancelando…' : 'Confirmar cancelamento'}
-          </button>
+          </Button>
+          <Button type="button" busy={enviando} onClick={confirmar} busyLabel="Cancelando…">
+            Confirmar cancelamento
+          </Button>
         </>
       }
     >
       <div className="space-y-5">
         <Alert tone="danger" icon={<AlertTriangleIcon />} title="O horário é liberado na hora">
-          Outro pet pode ser marcado neste intervalo assim que você confirmar, e o
-          cancelamento não se desfaz — remarcar é criar um agendamento novo.
+          Outro pet pode ser marcado neste intervalo assim que você confirmar, e o cancelamento não
+          se desfaz — remarcar é criar um agendamento novo.
         </Alert>
 
         <Field

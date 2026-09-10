@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
-import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { TeamManager } from './team-manager'
 
 /**
@@ -19,8 +18,11 @@ import { TeamManager } from './team-manager'
 export const dynamic = 'force-dynamic'
 
 export default async function EquipePage() {
-  const me = await serverApi().me()
-  if (!me.currentTenant?.onboardingCompletedAt) redirect('/onboarding')
+  const me = await carregarMe()
+
+  // O layout já barrou quem não terminou o onboarding. Esta linha é o que conta a
+  // garantia ao compilador — `plan` sai de `currentTenant`, que sem ela é nulo no tipo.
+  if (!me.currentTenant) redirect('/onboarding')
 
   // Sem poder listar, a tela não existe para este perfil — como em Configurações,
   // voltar ao início é mais honesto do que um 403 numa rota que o menu não ofereceu.
@@ -36,24 +38,22 @@ export default async function EquipePage() {
   ])
 
   return (
-    <AppShell active="equipe" me={me}>
-      <div className="mx-auto max-w-3xl">
-        <PageHeader
-          eyebrow="Estabelecimento"
-          title="Equipe"
-          subtitle="Quem tem acesso ao sistema, com que perfil, e os convites que ainda não foram aceitos."
-        />
+    <>
+      <PageHeader
+        eyebrow="Estabelecimento"
+        title="Equipe"
+        subtitle="Quem tem acesso ao sistema, com que perfil, e os convites que ainda não foram aceitos."
+      />
 
-        <div className="mt-10">
-          <TeamManager
-            members={members}
-            invitations={invitations}
-            currentUserId={me.user.id}
-            plan={me.currentTenant.plan}
-            canInvite={canInvite}
-          />
-        </div>
+      <div className="mt-10">
+        <TeamManager
+          members={members}
+          invitations={invitations}
+          currentUserId={me.user.id}
+          plan={me.currentTenant.plan}
+          canInvite={canInvite}
+        />
       </div>
-    </AppShell>
+    </>
   )
 }

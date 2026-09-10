@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type {
   Breed,
@@ -14,6 +13,7 @@ import type {
 } from '@petshop/shared-types'
 import {
   Alert,
+  Button,
   Card,
   Field,
   FormActions,
@@ -29,6 +29,7 @@ import {
   PawPrintIcon,
   UsersIcon,
 } from '@/components/icons'
+import { ButtonLink } from '@/components/links'
 import {
   createPetAction,
   listBreedsAction,
@@ -102,7 +103,9 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
     pet?.birthDatePrecision === 'ESTIMATED' ? String(pet.ageMonths ?? '') : '',
   )
 
-  const [weightKg, setWeightKg] = useState(pet?.weightKg === null ? '' : String(pet?.weightKg ?? ''))
+  const [weightKg, setWeightKg] = useState(
+    pet?.weightKg === null ? '' : String(pet?.weightKg ?? ''),
+  )
   const [neutered, setNeutered] = useState<boolean | null>(pet?.neutered ?? null)
   const [microchip, setMicrochip] = useState('')
   const [notes, setNotes] = useState(pet?.notes ?? '')
@@ -227,7 +230,10 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
             ...(ageMode === 'exact'
               ? { birthDate: birthDate || null }
               : ageMode === 'estimated'
-                ? { estimatedAgeMonths: estimatedAgeMonths === '' ? null : Number(estimatedAgeMonths) }
+                ? {
+                    estimatedAgeMonths:
+                      estimatedAgeMonths === '' ? null : Number(estimatedAgeMonths),
+                  }
                 : { birthDate: null }),
           })
         : await createPetAction({
@@ -273,9 +279,9 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
           <p>
             Microchip já usado por <span className="font-medium">{conflict.name}</span>.
           </p>
-          <Link href={`/pets/${conflict.id}`} className="btn btn-primary mt-3">
+          <ButtonLink href={`/pets/${conflict.id}`} className="mt-3">
             Abrir cadastro existente
-          </Link>
+          </ButtonLink>
         </Alert>
       )}
 
@@ -322,7 +328,11 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
             label="Raça"
             htmlFor="breedId"
             error={fieldErrors.breedId}
-            hint={speciesId ? 'Opcional — nem todo cadastro sabe a raça.' : 'Escolha a espécie primeiro.'}
+            hint={
+              speciesId
+                ? 'Opcional — nem todo cadastro sabe a raça.'
+                : 'Escolha a espécie primeiro.'
+            }
           >
             <select
               id="breedId"
@@ -519,8 +529,8 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
             title={`${weightKg} kg está fora da faixa de ${selectedSize.label}`}
           >
             <p>
-              O porte prevê {selectedSize.weightMinKg}–{selectedSize.weightMaxKg} kg. É só um
-              aviso — dá para salvar assim (AC-04).
+              O porte prevê {selectedSize.weightMinKg}–{selectedSize.weightMaxKg} kg. É só um aviso
+              — dá para salvar assim (AC-04).
             </p>
           </Alert>
         )}
@@ -581,13 +591,14 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
                       {tutor.role === 'PRIMARY' ? 'Principal' : 'Tornar principal'}
                     </button>
 
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost px-2 py-1 text-xs text-danger"
+                      variant="ghost"
+                      className="px-2 py-1 text-xs text-danger"
                       onClick={() => removeTutor(tutor.tutorId)}
                     >
                       Remover
-                    </button>
+                    </Button>
                   </div>
 
                   <input
@@ -643,12 +654,12 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
       </Card>
 
       <FormActions>
-        <Link href={isEditing ? `/pets/${pet.id}` : '/pets'} className="btn btn-ghost">
+        <ButtonLink href={isEditing ? `/pets/${pet.id}` : '/pets'} variant="ghost">
           Cancelar
-        </Link>
-        <button type="submit" className="btn btn-primary" disabled={pending || !canSubmit}>
-          {pending ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Cadastrar pet'}
-        </button>
+        </ButtonLink>
+        <Button type="submit" busy={pending} disabled={!canSubmit} busyLabel="Salvando…">
+          {isEditing ? 'Salvar alterações' : 'Cadastrar pet'}
+        </Button>
       </FormActions>
     </form>
   )

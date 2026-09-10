@@ -15,7 +15,7 @@ import {
   type SuppressionResponse,
   type WhatsappConnection,
 } from '@petshop/shared-types'
-import { Badge, Card, Field, FormError, SectionHead } from '@/components/ui'
+import { Badge, Button, Card, Field, FormError, SectionHead } from '@/components/ui'
 import { BellIcon, CalendarIcon, ShieldCheckIcon } from '@/components/icons'
 import {
   createSuppressionAction,
@@ -117,14 +117,15 @@ function MasterSwitch({
             }
           />
         </div>
-        <button
+        <Button
           type="button"
-          className={settings.enabled ? 'btn btn-ghost' : 'btn btn-primary'}
-          disabled={pending}
+          variant={settings.enabled ? 'ghost' : 'primary'}
+          busy={pending}
           onClick={() => toggle(!settings.enabled)}
+          busyLabel="Salvando…"
         >
           {settings.enabled ? 'Desligar' : 'Ligar'}
-        </button>
+        </Button>
       </div>
     </Card>
   )
@@ -316,7 +317,9 @@ function Automations({
                       className="field"
                       min={0}
                       step={1}
-                      defaultValue={Math.round(Number(automation.config.minDebtCents ?? 2000) / 100)}
+                      defaultValue={Math.round(
+                        Number(automation.config.minDebtCents ?? 2000) / 100,
+                      )}
                       disabled={pending}
                       onBlur={(event) => {
                         const cents = Math.round(Number(event.target.value) * 100)
@@ -363,11 +366,7 @@ function Automations({
                       onBlur={(event) => {
                         const value = Number(event.target.value)
                         if (value === Number(automation.config.leadHours)) return
-                        save(
-                          automation.key,
-                          { config: { leadHours: value } },
-                          automation.label,
-                        )
+                        save(automation.key, { config: { leadHours: value } }, automation.label)
                       }}
                     />
                   </Field>
@@ -699,14 +698,15 @@ function Suppressions({
           />
         </Field>
 
-        <button
+        <Button
           type="button"
-          className="btn btn-primary"
-          disabled={pending || address.trim().length < 3}
+          busy={pending}
+          disabled={address.trim().length < 3}
           onClick={add}
+          busyLabel="Bloqueando…"
         >
           Bloquear
-        </button>
+        </Button>
       </div>
 
       {suppressions.length === 0 ? (
@@ -719,23 +719,23 @@ function Suppressions({
               className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-b-0"
             >
               <div className="min-w-0 text-sm">
-                <span className="font-medium">
-                  {MESSAGE_CHANNEL_LABELS[suppression.channel]}
-                </span>
+                <span className="font-medium">{MESSAGE_CHANNEL_LABELS[suppression.channel]}</span>
                 <span className="text-muted">
                   {' '}
                   · {SUPPRESSION_REASON_LABELS[suppression.reason]} ·{' '}
                   {new Date(suppression.createdAt).toLocaleDateString('pt-BR')}
                 </span>
               </div>
-              <button
+              <Button
                 type="button"
-                className="btn btn-ghost px-3 py-1 text-xs"
-                disabled={pending}
+                variant="ghost"
+                className="px-3 py-1 text-xs"
+                busy={pending}
                 onClick={() => remove(suppression.id)}
+                busyLabel="Desbloqueando…"
               >
                 Desbloquear
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

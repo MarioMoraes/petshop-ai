@@ -6,7 +6,7 @@ import {
   type PortalStatementEntry,
   type PortalStatementResponse,
 } from '@petshop/shared-types'
-import { SectionHead } from '@/components/ui'
+import { Button, SectionHead } from '@/components/ui'
 import { ReceiptIcon, WalletIcon } from '@/components/icons'
 import { RowChip, RowItem, RowMeta, RowStack, RowText } from '../list'
 import { carregarLancamentos } from './actions'
@@ -66,14 +66,16 @@ export function Statement({ inicial }: { inicial: PortalStatementResponse }) {
           {erro && <p className="text-danger text-sm">{erro}</p>}
 
           {restam > 0 && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost w-full"
+              variant="ghost"
+              className="w-full"
               onClick={mais}
-              disabled={carregando}
+              busy={carregando}
+              busyLabel="Carregando…"
             >
-              {carregando ? 'Carregando…' : 'Ver mais'}
-            </button>
+              Ver mais
+            </Button>
           )}
         </>
       }

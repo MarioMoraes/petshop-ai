@@ -2,18 +2,10 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  SITE_PHOTO_LIMIT,
-  SITE_PHOTO_MAX_BYTES,
-  type SitePhoto,
-} from '@petshop/shared-types'
-import { Alert, Card, EmptyState, FormError, SectionHead } from '@/components/ui'
+import { SITE_PHOTO_LIMIT, SITE_PHOTO_MAX_BYTES, type SitePhoto } from '@petshop/shared-types'
+import { Alert, Button, Card, EmptyState, FormError, SectionHead } from '@/components/ui'
 import { AlertTriangleIcon, ImageIcon } from '@/components/icons'
-import {
-  deleteSitePhotoAction,
-  updateSitePhotoAction,
-  uploadSitePhotoAction,
-} from '../actions'
+import { deleteSitePhotoAction, updateSitePhotoAction, uploadSitePhotoAction } from '../actions'
 
 /**
  * A galeria (MOD-SITE-04).
@@ -102,8 +94,8 @@ export function GalleryManager({ photos }: { photos: SitePhoto[] }) {
           title="Foto de pet de cliente exige autorização do tutor"
           role="status"
         >
-          Publicar a imagem de um animal atendido é diferente de guardá-la no prontuário.
-          Peça a autorização antes de subir — o sistema não a registra por você.
+          Publicar a imagem de um animal atendido é diferente de guardá-la no prontuário. Peça a
+          autorização antes de subir — o sistema não a registra por você.
         </Alert>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -118,14 +110,15 @@ export function GalleryManager({ photos }: { photos: SitePhoto[] }) {
               event.target.value = ''
             }}
           />
-          <button
+          <Button
             type="button"
-            className="btn btn-primary"
-            disabled={pending || full}
+            busy={pending}
+            disabled={full}
             onClick={() => inputRef.current?.click()}
+            busyLabel="Enviando…"
           >
-            {pending ? 'Enviando…' : 'Escolher imagem'}
-          </button>
+            Escolher imagem
+          </Button>
           {full && <p className="hint">Remova uma foto antes de subir outra.</p>}
         </div>
       </Card>
@@ -170,28 +163,31 @@ export function GalleryManager({ photos }: { photos: SitePhoto[] }) {
                   {photo.kind === 'HERO' ? (
                     <span className="hint">Foto de capa</span>
                   ) : (
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost"
-                      disabled={pending}
+                      variant="ghost"
+                      busy={pending}
                       onClick={() => {
                         // Uma capa só: a antiga volta para a galeria no mesmo gesto.
                         if (hero) update(hero.id, { kind: 'GALLERY' })
                         update(photo.id, { kind: 'HERO' })
                       }}
+                      busyLabel="Salvando…"
                     >
                       Usar como capa
-                    </button>
+                    </Button>
                   )}
 
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-ghost text-danger"
-                    disabled={pending}
+                    variant="ghost"
+                    className="text-danger"
+                    busy={pending}
                     onClick={() => remove(photo.id)}
+                    busyLabel="Removendo…"
                   >
                     Remover
-                  </button>
+                  </Button>
                 </div>
               </li>
             ))}

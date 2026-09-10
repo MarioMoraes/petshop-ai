@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
+import { JANELAS, type Janela } from './janelas'
+import { Button } from '@/components/ui'
 
 /**
  * A pergunta que se faz à série.
@@ -25,15 +27,6 @@ const ATALHOS = [
   'taxi_window_adherence_rate',
   'support_read_total',
 ]
-
-export const JANELAS = [
-  { value: '24h', label: '24 horas' },
-  { value: '7d', label: '7 dias' },
-  { value: '30d', label: '30 dias' },
-  { value: '13m', label: '13 meses' },
-] as const
-
-export type Janela = (typeof JANELAS)[number]['value']
 
 export function Consulta({
   metric,
@@ -97,9 +90,15 @@ export function Consulta({
         </select>
       </label>
 
-      <button type="submit" className="btn btn-ghost ml-auto" disabled={pendente}>
-        {pendente ? 'Consultando…' : 'Consultar'}
-      </button>
+      <Button
+        type="submit"
+        variant="ghost"
+        className="ml-auto"
+        busy={pendente}
+        busyLabel="Consultando…"
+      >
+        Consultar
+      </Button>
     </form>
   )
 }

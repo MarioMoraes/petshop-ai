@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 import {
   TAXI_FAILURE_REASON_LABELS,
@@ -9,7 +8,6 @@ import {
   type PortalAdoption,
   type TaxiOperationReport,
 } from '@petshop/shared-types'
-import { AppShell } from '@/components/app-shell'
 import { CardBloom } from '@/components/atmosphere'
 import {
   PawPrintIcon,
@@ -19,7 +17,7 @@ import {
   WalletIcon,
   type IconTone,
 } from '@/components/icons'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { MovementChart } from './movement-chart'
 import { Roadmap } from './roadmap'
 
@@ -78,9 +76,8 @@ interface Stat {
 }
 
 export default async function DashboardPage() {
-  const me = await serverApi().me()
-
-  if (!me.currentTenant?.onboardingCompletedAt) redirect('/onboarding')
+  // O gate de onboarding e a moldura ficam no layout, como nas demais seções.
+  const me = await carregarMe()
 
   const can = (permission: string): boolean => me.permissions.includes(permission)
 
@@ -235,41 +232,39 @@ export default async function DashboardPage() {
   const portalStats = portalCards(bookingSources, portal)
 
   return (
-    <AppShell active="inicio" me={me} atmosphere>
-      <div className="mx-auto max-w-5xl">
-        {(movement !== null || fluxo.length > 0) && (
-          <StatSection
-            title="Movimento"
-            stats={fluxo}
-            lead={
-              movement && (
-                <Link
-                  href="/agenda/dia"
-                  className="card card-interactive relative block overflow-hidden p-6"
-                >
-                  <CardBloom />
-                  <MovementChart days={movement.days} today={hoje} />
-                </Link>
-              )
-            }
-          />
-        )}
-        <StatSection title="Sua base" stats={base} />
+    <>
+      {(movement !== null || fluxo.length > 0) && (
+        <StatSection
+          title="Movimento"
+          stats={fluxo}
+          lead={
+            movement && (
+              <Link
+                href="/agenda/dia"
+                className="card card-interactive relative block overflow-hidden p-6"
+              >
+                <CardBloom />
+                <MovementChart days={movement.days} today={hoje} />
+              </Link>
+            )
+          }
+        />
+      )}
+      <StatSection title="Sua base" stats={base} />
 
-        {taxiStats.length > 0 && (
-          <StatSection title="Taxi Dog" note={`Últimos ${REPORT_DAYS} dias`} stats={taxiStats} />
-        )}
-        {portalStats.length > 0 && (
-          <StatSection
-            title="Portal do tutor"
-            note={`Últimos ${REPORT_DAYS} dias`}
-            stats={portalStats}
-          />
-        )}
+      {taxiStats.length > 0 && (
+        <StatSection title="Taxi Dog" note={`Últimos ${REPORT_DAYS} dias`} stats={taxiStats} />
+      )}
+      {portalStats.length > 0 && (
+        <StatSection
+          title="Portal do tutor"
+          note={`Últimos ${REPORT_DAYS} dias`}
+          stats={portalStats}
+        />
+      )}
 
-        <Roadmap permissions={me.permissions} />
-      </div>
-    </AppShell>
+      <Roadmap permissions={me.permissions} />
+    </>
   )
 }
 
@@ -399,7 +394,8 @@ function taxiCards(report: TaxiOperationReport): Stat[] {
     },
     {
       label: 'Tempo médio de perna',
-      value: report.averageLegMinutes === null ? null : `${formatDecimal(report.averageLegMinutes)} min`,
+      value:
+        report.averageLegMinutes === null ? null : `${formatDecimal(report.averageLegMinutes)} min`,
       hint:
         report.averageLegMinutes === null
           ? 'Sem corrida entregue com hora de saída registrada.'
@@ -557,4 +553,3 @@ function petsPerTutor(
     maximumFractionDigits: 1,
   })
 }
-

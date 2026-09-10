@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { TERM_KIND_LABELS, type PortalTerm } from '@petshop/shared-types'
-import { Card, SectionHead } from '@/components/ui'
+import { Button, Card, SectionHead } from '@/components/ui'
 import { ShieldCheckIcon } from '@/components/icons'
 import { TextoDoTermo } from '@/components/term-text'
 import { aceitarTermo } from './actions'
@@ -101,14 +101,15 @@ function Termo({ termo }: { termo: PortalTerm }) {
         texto que dá valor à prova.
       */}
       {!termo.accepted && (
-        <button
+        <Button
           type="button"
-          className="btn btn-primary mt-3 w-full"
+          className="mt-3 w-full"
           onClick={() => (aberto ? aceitar() : setAberto(true))}
-          disabled={pendente}
+          busy={pendente}
+          busyLabel="Registrando…' : aberto ? 'Li e aceito"
         >
-          {pendente ? 'Registrando…' : aberto ? 'Li e aceito' : 'Ler e aceitar'}
-        </button>
+          Ler e aceitar
+        </Button>
       )}
     </div>
   )

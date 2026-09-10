@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { PLAN_SEAT_LIMITS, type Plan } from '@petshop/shared-types'
-import { Badge, Card } from '@/components/ui'
+import { Badge, Button, Card } from '@/components/ui'
 import { saveStep2Action } from '../actions'
 import type { StepProps } from '../wizard'
 
@@ -58,9 +58,7 @@ export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }
               aria-checked={isSelected}
               onClick={() => setSelected(option.key)}
               className={`w-full rounded-2xl border p-5 text-left transition ${
-                isSelected
-                  ? 'border-shell bg-black/[0.03]'
-                  : 'border-line hover:border-subtle'
+                isSelected ? 'border-shell bg-black/[0.03]' : 'border-line hover:border-subtle'
               }`}
             >
               <div className="flex items-center justify-between gap-3">
@@ -81,14 +79,14 @@ export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }
       </div>
 
       <div className="mt-8 flex justify-end">
-        <button
+        <Button
           type="button"
-          className="btn btn-primary"
-          disabled={pending}
+          busy={pending}
           onClick={() => onSubmit(() => saveStep2Action(selected))}
+          busyLabel="Salvando…"
         >
-          {pending ? 'Salvando…' : 'Continuar'}
-        </button>
+          Continuar
+        </Button>
       </div>
     </Card>
   )

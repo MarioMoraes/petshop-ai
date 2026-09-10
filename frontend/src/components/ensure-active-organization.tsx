@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import { useOrganization, useOrganizationList } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { StoreIcon } from './icons'
+import { Button } from '@/components/ui'
 
 /**
  * Ativa a Organization do usuário na sessão do Clerk.
@@ -162,8 +163,7 @@ export function EnsureActiveOrganization({
       <div className="card w-full max-w-md px-6 py-8">
         <h1 className="text-center text-xl font-semibold">Onde você quer entrar?</h1>
         <p className="hint mt-2 text-center">
-          Você faz parte de mais de um estabelecimento. Depois dá para trocar pelo topo da
-          tela.
+          Você faz parte de mais de um estabelecimento. Depois dá para trocar pelo topo da tela.
         </p>
         <ul className="mt-6 space-y-2">
           {organizacoes.map((organization) => (
@@ -202,16 +202,17 @@ export function EnsureActiveOrganization({
       <div className="card w-full max-w-md px-6 py-8 text-center">
         <h1 className="text-xl font-semibold">Quase lá</h1>
         <p className="hint mt-3">
-          Seu estabelecimento já foi criado, mas esta aba ainda está com a sessão antiga.
-          Recarregue a página para entrar.
+          Seu estabelecimento já foi criado, mas esta aba ainda está com a sessão antiga. Recarregue
+          a página para entrar.
         </p>
-        <button
+        <Button
           type="button"
-          className="btn btn-accent mt-6"
+          variant="accent"
+          className="mt-6"
           onClick={() => window.location.reload()}
         >
           Recarregar
-        </button>
+        </Button>
       </div>
     )
   }

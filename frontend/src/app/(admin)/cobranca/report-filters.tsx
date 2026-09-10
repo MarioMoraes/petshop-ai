@@ -1,8 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTransition, type ReactNode } from 'react'
+import { ButtonLink } from '@/components/links'
+import { Button } from '@/components/ui'
 
 /**
  * Os filtros dos relatórios de cobrança.
@@ -50,9 +51,9 @@ export function ReportFilters({ basePath, pdfHref, children, onSubmitLabel = 'Ap
       {children}
 
       <div className="ml-auto flex items-center gap-2">
-        <button type="submit" className="btn btn-ghost" disabled={pending}>
-          {pending ? 'Carregando…' : onSubmitLabel}
-        </button>
+        <Button type="submit" variant="ghost" busy={pending} busyLabel="Carregando…">
+          {onSubmitLabel}
+        </Button>
         {/*
          * `<a>` e não `<button>`: o PDF é um endereço, e um link pode ser aberto em
          * outra aba, copiado ou mandado para quem vai imprimir. `download` deixa o
@@ -71,8 +72,8 @@ export function ReportFilters({ basePath, pdfHref, children, onSubmitLabel = 'Ap
 /** Volta ao menu. Sempre no mesmo canto, nos dois relatórios. */
 export function BackToCobranca() {
   return (
-    <Link href="/cobranca" className="btn btn-ghost">
+    <ButtonLink href="/cobranca" variant="ghost">
       Voltar
-    </Link>
+    </ButtonLink>
   )
 }

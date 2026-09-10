@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { WEEKDAYS, WEEKDAY_LABELS, type BusinessHours, type Weekday } from '@petshop/shared-types'
-import { Card, Field } from '@/components/ui'
+import { Button, Card, Field } from '@/components/ui'
 import { saveStep3Action } from '../actions'
 import type { StepProps } from '../wizard'
 
@@ -252,8 +252,8 @@ export function StepBusinessHours(props: Props) {
         <fieldset>
           <legend className="label">Quem atende</legend>
           <p className="hint mb-3">
-            Cada pessoa entra com a jornada do estabelecimento e habilitada em todos os
-            serviços. Dá para ajustar depois em Profissionais.
+            Cada pessoa entra com a jornada do estabelecimento e habilitada em todos os serviços. Dá
+            para ajustar depois em Profissionais.
           </p>
 
           <div className="space-y-2">
@@ -318,29 +318,30 @@ export function StepBusinessHours(props: Props) {
                 </div>
 
                 {team.length > 1 && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-ghost"
+                    variant="ghost"
                     onClick={() =>
                       setTeam((current) => current.filter((item) => item.key !== person.key))
                     }
                     aria-label={`Remover ${person.displayName || 'esta pessoa'}`}
                   >
                     Remover
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
           </div>
 
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost mt-3"
+            variant="ghost"
+            className="mt-3"
             disabled={team.length >= 30}
             onClick={() => setTeam((current) => [...current, emptyProfessional()])}
           >
             Adicionar pessoa
-          </button>
+          </Button>
 
           <p className="hint mt-2">
             {filledTeam.length === 0
@@ -351,10 +352,10 @@ export function StepBusinessHours(props: Props) {
       </div>
 
       <div className="mt-8 flex justify-end">
-        <button
+        <Button
           type="button"
-          className="btn btn-primary"
-          disabled={props.pending || invalidDays.length > 0 || shortNames.length > 0}
+          busy={props.pending}
+          disabled={invalidDays.length > 0 || shortNames.length > 0}
           onClick={() =>
             props.onSubmit(() =>
               saveStep3Action({
@@ -371,9 +372,10 @@ export function StepBusinessHours(props: Props) {
               }),
             )
           }
+          busyLabel="Salvando…"
         >
-          {props.pending ? 'Salvando…' : 'Continuar'}
-        </button>
+          Continuar
+        </Button>
       </div>
     </Card>
   )

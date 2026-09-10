@@ -111,6 +111,8 @@ configuração em abas não tem ordem — o olho-de-boi vira o nome do domínio
 | Campo | `className="field"` |
 | Campo com glifo | `.field-wrap` + `.field-lead` |
 | Campo numa fila de ações, ao lado de botões | `.field` + `.field-inline` |
+| Botão | `<Button>` |
+| Link com cara de botão | `<ButtonLink>` (`components/links.tsx`) |
 
 `.check-radio` é `.check` com o raio redondo e um ponto no lugar do tique: mesma caixa,
 mesma sombra, mesmo foco. O par "escolha uma" / "marque quantas quiser" passa a ser lido
@@ -120,6 +122,21 @@ pela **forma**, que é a convenção que todo mundo já conhece.
 `.btn h-9`, para o seletor que mora numa linha `flex` com botões. Não é um campo
 menor — é o mesmo campo com a caixa que a fila comporta. Fora de uma fila, use
 `.field` puro e deixe ele ocupar a largura.
+
+`<button className="btn btn-primary">` não existe mais em `src/app`, e
+`src/lib/botoes.test.ts` é o que faz o esquecimento aparecer. O que a peça acrescenta à
+classe é a **espera**, e ela tem dois lados que não se confundem:
+
+- **`busy`** é *"você já clicou"*. Trava o botão, gira o anel e troca o rótulo por
+  `busyLabel`. Vai no botão que dispara a ação.
+- **`disabled`** é *"não dá para clicar agora"*. Apaga a peça para 45% e dessatura. Vai
+  no **Cancelar** ao lado de um Salvar que está no ar — quem está trabalhando é o
+  vizinho, e dar o relógio aos dois é dizer que os dois foram clicados.
+
+**`busyLabel` não é enfeite.** Sob `prefers-reduced-motion` o anel se esconde, e sem o
+rótulo quem pediu menos movimento clica em Salvar e não vê nada mudar — que é
+exatamente o defeito de onde a peça partiu. Escreva-o em todo botão que grava ou que
+espera uma resposta do servidor; o Cancelar e a paginação puramente local dispensam.
 
 `Choice` embrulha a caixa numa linha inteira clicável — num balcão ninguém mira 20px.
 Use o átomo `.check` sozinho quando a linha **já** é um alvo com outra coisa dentro

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import type { ManagedBreed, Species } from '@petshop/shared-types'
-import { Card, Field, FormError } from '@/components/ui'
+import { Button, Card, Field, FormError } from '@/components/ui'
 import {
   createBreedAction,
   deleteBreedAction,
@@ -126,13 +126,14 @@ export function BreedCatalog({ species, canManage }: Props) {
                 placeholder="Ex.: Vira-lata Caramelo"
               />
             </Field>
-            <button
+            <Button
               type="submit"
-              className="btn btn-primary"
-              disabled={pending || label.trim().length < 2}
+              busy={pending}
+              disabled={label.trim().length < 2}
+              busyLabel="Adicionando…"
             >
               Adicionar
-            </button>
+            </Button>
           </form>
         )}
       </Card>
@@ -143,13 +144,14 @@ export function BreedCatalog({ species, canManage }: Props) {
             {visible.length} {visible.length === 1 ? 'raça' : 'raças'}
           </h3>
           {hiddenCount > 0 && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost ml-auto px-3 py-1 text-xs"
+              variant="ghost"
+              className="ml-auto px-3 py-1 text-xs"
               onClick={() => setShowHidden((value) => !value)}
             >
               {showHidden ? 'Esconder ocultas' : `Ver ${hiddenCount} oculta(s)`}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -159,9 +161,7 @@ export function BreedCatalog({ species, canManage }: Props) {
           <ul className="divide-y divide-black/5">
             {visible.map((breed) => (
               <li key={breed.id} className="flex flex-wrap items-center gap-3 py-3">
-                <span className={breed.hidden ? 'text-muted line-through' : ''}>
-                  {breed.label}
-                </span>
+                <span className={breed.hidden ? 'text-muted line-through' : ''}>{breed.label}</span>
                 {breed.custom ? (
                   <span className="pill bg-accent-soft px-3 py-1 text-xs text-accent-ink">
                     Sua raça
@@ -177,30 +177,34 @@ export function BreedCatalog({ species, canManage }: Props) {
 
                 {canManage && (
                   <div className="ml-auto flex flex-wrap gap-2">
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost px-3 py-1 text-xs"
-                      disabled={pending}
+                      variant="ghost"
+                      className="px-3 py-1 text-xs"
+                      busy={pending}
                       onClick={() => toggle(breed)}
                       title={
                         breed.custom
                           ? undefined
                           : 'A raça do catálogo global não é editável — some apenas da sua lista'
                       }
+                      busyLabel="Salvando…"
                     >
                       {breed.hidden ? 'Mostrar' : 'Ocultar'}
-                    </button>
+                    </Button>
 
                     {/* Só a raça do tenant some de vez, e só quando ninguém a usa. */}
                     {breed.custom && breed.petsCount === 0 && (
-                      <button
+                      <Button
                         type="button"
-                        className="btn btn-ghost px-3 py-1 text-xs text-danger"
-                        disabled={pending}
+                        variant="ghost"
+                        className="px-3 py-1 text-xs text-danger"
+                        busy={pending}
                         onClick={() => remove(breed)}
+                        busyLabel="Excluindo…"
                       >
                         Excluir
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}

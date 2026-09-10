@@ -18,7 +18,7 @@ import {
   type ServicePackage,
   type Statement,
 } from '@petshop/shared-types'
-import { Badge, Card, EmptyState, Field, FormError } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, Field, FormError } from '@/components/ui'
 import {
   createEntryAction,
   loadReceiptAction,
@@ -90,8 +90,8 @@ export function FinanceiroTab({
     startTransition(async () => {
       const result = await loadStatementAction(tutorId, {
         page: next.page ?? page,
-        ...(next.from ?? from ? { from: next.from ?? from } : {}),
-        ...(next.to ?? to ? { to: next.to ?? to } : {}),
+        ...((next.from ?? from) ? { from: next.from ?? from } : {}),
+        ...((next.to ?? to) ? { to: next.to ?? to } : {}),
       })
       if (!result.ok) {
         setError(result.message)
@@ -119,28 +119,24 @@ export function FinanceiroTab({
 
       {can.create && (
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setPanel(panel === 'payment' ? null : 'payment')}
-          >
+          <Button type="button" onClick={() => setPanel(panel === 'payment' ? null : 'payment')}>
             Registrar pagamento
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn btn-ghost"
+            variant="ghost"
             onClick={() => setPanel(panel === 'entry' ? null : 'entry')}
           >
             Lançar {can.credit ? 'débito ou crédito' : 'débito'}
-          </button>
+          </Button>
           {catalog.length > 0 && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => setPanel(panel === 'package' ? null : 'package')}
             >
               Vender pacote
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -195,27 +191,29 @@ export function FinanceiroTab({
                 onChange={(event) => setTo(event.target.value)}
               />
             </Field>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
-              disabled={pending}
+              variant="ghost"
+              busy={pending}
               onClick={() => reload({ page: 1 })}
+              busyLabel="Filtrando…"
             >
               Filtrar
-            </button>
+            </Button>
             {(from || to) && (
-              <button
+              <Button
                 type="button"
-                className="btn btn-ghost"
-                disabled={pending}
+                variant="ghost"
+                busy={pending}
                 onClick={() => {
                   setFrom('')
                   setTo('')
                   reload({ page: 1, from: '', to: '' })
                 }}
+                busyLabel="Limpando…"
               >
                 Limpar
-              </button>
+              </Button>
             )}
             {/*
               Um link, e não um botão com ação: o resultado é um arquivo, e quem sabe
@@ -260,25 +258,29 @@ export function FinanceiroTab({
 
             {totalPages > 1 && (
               <div className="mt-4 flex items-center justify-between">
-                <button
+                <Button
                   type="button"
-                  className="btn btn-ghost"
-                  disabled={pending || page <= 1}
+                  variant="ghost"
+                  busy={pending}
+                  disabled={page <= 1}
                   onClick={() => reload({ page: page - 1 })}
+                  busyLabel="Carregando…"
                 >
                   ← Anteriores
-                </button>
+                </Button>
                 <span className="hint">
                   Página {page} de {totalPages}
                 </span>
-                <button
+                <Button
                   type="button"
-                  className="btn btn-ghost"
-                  disabled={pending || page >= totalPages}
+                  variant="ghost"
+                  busy={pending}
+                  disabled={page >= totalPages}
                   onClick={() => reload({ page: page + 1 })}
+                  busyLabel="Carregando…"
                 >
                   Seguintes →
-                </button>
+                </Button>
               </div>
             )}
           </>
@@ -317,17 +319,14 @@ function BalanceCard({ account }: { account: LedgerAccount }) {
           </p>
           {inDebt && account.openDebitsCount > 0 && (
             <p className="hint mt-1">
-              {account.openDebitsCount} lançamento{account.openDebitsCount > 1 ? 's' : ''} em
-              aberto
+              {account.openDebitsCount} lançamento{account.openDebitsCount > 1 ? 's' : ''} em aberto
               {account.oldestOpenDebitAt &&
                 `, o mais antigo de ${formatDate(account.oldestOpenDebitAt)}`}
             </p>
           )}
         </div>
 
-        {account.needsReview && (
-          <Badge tone="danger">Conta em revisão de consistência</Badge>
-        )}
+        {account.needsReview && <Badge tone="danger">Conta em revisão de consistência</Badge>}
       </div>
     </Card>
   )
@@ -453,30 +452,27 @@ function EntryRow({
                 />
               </Field>
               <div className="flex gap-2">
-                <button
+                <Button
                   type="button"
-                  className="btn btn-primary"
-                  disabled={pending || reason.trim().length < 3}
+                  busy={pending}
+                  disabled={reason.trim().length < 3}
                   onClick={submit}
+                  busyLabel="Estornando…"
                 >
-                  {pending ? 'Estornando…' : 'Confirmar estorno'}
-                </button>
-                <button
+                  Confirmar estorno
+                </Button>
+                <Button
                   type="button"
-                  className="btn btn-ghost"
+                  variant="ghost"
                   disabled={pending}
                   onClick={() => setReversing(false)}
                 >
                   Cancelar
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              className="hint underline"
-              onClick={() => setReversing(true)}
-            >
+            <button type="button" className="hint underline" onClick={() => setReversing(true)}>
               Estornar
             </button>
           )}
@@ -575,7 +571,9 @@ function PackagesCard({ purchases }: { purchases: PackagePurchase[] }) {
                     aviso automático sai — na tela, o alerta começa junto. */}
                 <p className={`hint ${daysLeft <= 15 ? 'text-danger' : ''}`}>
                   expira em {formatDate(purchase.expiresAt)}
-                  {daysLeft <= 15 && daysLeft >= 0 && ` · ${daysLeft} dia${daysLeft === 1 ? '' : 's'}`}
+                  {daysLeft <= 15 &&
+                    daysLeft >= 0 &&
+                    ` · ${daysLeft} dia${daysLeft === 1 ? '' : 's'}`}
                 </p>
               </div>
             </li>
@@ -675,8 +673,8 @@ function PaymentPanel({
     <Card>
       <h3 className="font-semibold">Registrar pagamento recebido</h3>
       <p className="hint mt-1">
-        O dinheiro entra fora do sistema — no balcão, no PIX ou na maquininha. Aqui se
-        registra o recebimento, que quita os lançamentos mais antigos primeiro.
+        O dinheiro entra fora do sistema — no balcão, no PIX ou na maquininha. Aqui se registra o
+        recebimento, que quita os lançamentos mais antigos primeiro.
       </p>
 
       <FormError message={error} />
@@ -730,12 +728,12 @@ function PaymentPanel({
       </div>
 
       <div className="mt-4 flex gap-2">
-        <button type="button" className="btn btn-primary" disabled={pending} onClick={submit}>
-          {pending ? 'Registrando…' : 'Registrar pagamento'}
-        </button>
-        <button type="button" className="btn btn-ghost" disabled={pending} onClick={onCancel}>
+        <Button type="button" busy={pending} onClick={submit} busyLabel="Registrando…">
+          Registrar pagamento
+        </Button>
+        <Button type="button" variant="ghost" disabled={pending} onClick={onCancel}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </Card>
   )
@@ -884,12 +882,12 @@ function EntryPanel({
       </div>
 
       <div className="mt-4 flex gap-2">
-        <button type="button" className="btn btn-primary" disabled={pending} onClick={submit}>
-          {pending ? 'Lançando…' : 'Lançar'}
-        </button>
-        <button type="button" className="btn btn-ghost" disabled={pending} onClick={onCancel}>
+        <Button type="button" busy={pending} onClick={submit} busyLabel="Lançando…">
+          Lançar
+        </Button>
+        <Button type="button" variant="ghost" disabled={pending} onClick={onCancel}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </Card>
   )
@@ -957,11 +955,7 @@ function PackagePanel({
           </select>
         </Field>
 
-        <Field
-          label="Pet"
-          htmlFor="pacote-pet"
-          hint="O crédito fica vinculado a este animal."
-        >
+        <Field label="Pet" htmlFor="pacote-pet" hint="O crédito fica vinculado a este animal.">
           <select
             id="pacote-pet"
             className="field"
@@ -1008,17 +1002,18 @@ function PackagePanel({
       )}
 
       <div className="mt-4 flex gap-2">
-        <button
+        <Button
           type="button"
-          className="btn btn-primary"
-          disabled={pending || !packageId}
+          busy={pending}
+          disabled={!packageId}
           onClick={submit}
+          busyLabel="Vendendo…"
         >
-          {pending ? 'Vendendo…' : 'Confirmar venda'}
-        </button>
-        <button type="button" className="btn btn-ghost" disabled={pending} onClick={onCancel}>
+          Confirmar venda
+        </Button>
+        <Button type="button" variant="ghost" disabled={pending} onClick={onCancel}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </Card>
   )

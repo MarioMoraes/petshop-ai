@@ -5,7 +5,7 @@ import { SignOutButton, useUser } from '@clerk/nextjs'
 import { maskEmail } from '@petshop/shared-types'
 import type { AcceptInvitationResult, InvitationPreview } from '@petshop/shared-types'
 import { EnsureActiveOrganization } from '@/components/ensure-active-organization'
-import { FormError } from '@/components/ui'
+import { Button, FormError } from '@/components/ui'
 import { acceptInvitationAction } from './actions'
 
 /**
@@ -23,13 +23,7 @@ import { acceptInvitationAction } from './actions'
  * botão, que foi como esse erro apareceu na prática.
  */
 
-export function AcceptInvite({
-  token,
-  preview,
-}: {
-  token: string
-  preview: InvitationPreview
-}) {
+export function AcceptInvite({ token, preview }: { token: string; preview: InvitationPreview }) {
   const [aceito, setAceito] = useState<AcceptInvitationResult | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -107,14 +101,16 @@ export function AcceptInvite({
         </div>
       )}
 
-      <button
+      <Button
         type="button"
-        className="btn btn-accent mt-8 w-full"
+        variant="accent"
+        className="mt-8 w-full"
+        busy={pending}
         onClick={aceitar}
-        disabled={pending}
+        busyLabel="Entrando…"
       >
-        {pending ? 'Entrando…' : 'Aceitar convite'}
-      </button>
+        Aceitar convite
+      </Button>
 
       <p className="hint mt-4 text-center">
         {emailDaSessao && !contaDivergente

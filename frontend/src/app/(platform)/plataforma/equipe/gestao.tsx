@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { PlatformAdminResponse } from '@petshop/shared-types'
-import { Alert, Card, FormError, SectionHead } from '@/components/ui'
+import { Alert, Button, Card, FormError, SectionHead } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { AlertTriangleIcon, IdCardIcon } from '@/components/icons'
 import { concederAction, revogarAction } from '../actions'
@@ -37,9 +37,9 @@ export function Equipe({ admins }: { admins: PlatformAdminResponse[] }) {
             title="Quem tem acesso"
             description="O papel não é vínculo com estabelecimento: ele abre o console inteiro, em todos os petshops da instalação."
           />
-          <button type="button" className="btn btn-primary" onClick={() => setConcedendo(true)}>
+          <Button type="button" onClick={() => setConcedendo(true)}>
             Conceder
-          </button>
+          </Button>
         </div>
 
         {erro && (
@@ -86,8 +86,8 @@ export function Equipe({ admins }: { admins: PlatformAdminResponse[] }) {
               role="status"
             >
               O servidor recusa a revogação do último administrador — uma plataforma sem
-              administrador não tem como voltar a ter um, porque conceder exige um vivo.
-              Conceda a mais alguém antes de precisar.
+              administrador não tem como voltar a ter um, porque conceder exige um vivo. Conceda a
+              mais alguém antes de precisar.
             </Alert>
           </div>
         )}
@@ -135,30 +135,31 @@ function Revogar({
 
   if (!confirmando) {
     return (
-      <button
+      <Button
         type="button"
-        className="btn btn-ghost shrink-0"
+        variant="ghost"
+        className="shrink-0"
         onClick={() => setConfirmando(true)}
       >
         Revogar
-      </button>
+      </Button>
     )
   }
 
   return (
     <span className="flex shrink-0 items-center gap-2">
       <span className="hint">Tirar {admin.fullName.split(' ')[0]} da plataforma?</span>
-      <button
+      <Button
         type="button"
-        className="btn btn-ghost"
+        variant="ghost"
         onClick={() => setConfirmando(false)}
         disabled={pendente}
       >
         Não
-      </button>
-      <button type="button" className="btn btn-primary" onClick={revogar} disabled={pendente}>
-        {pendente ? 'Revogando…' : 'Revogar'}
-      </button>
+      </Button>
+      <Button type="button" onClick={revogar} busy={pendente} busyLabel="Revogando…">
+        Revogar
+      </Button>
     </span>
   )
 }
@@ -218,12 +219,12 @@ function Conceder({
       busy={pendente}
       footer={
         <>
-          <button type="button" className="btn btn-ghost" onClick={fechar} disabled={pendente}>
+          <Button type="button" variant="ghost" onClick={fechar} disabled={pendente}>
             Cancelar
-          </button>
-          <button type="submit" form="conceder" className="btn btn-primary" disabled={pendente}>
-            {pendente ? 'Concedendo…' : 'Conceder'}
-          </button>
+          </Button>
+          <Button type="submit" form="conceder" busy={pendente} busyLabel="Concedendo…">
+            Conceder
+          </Button>
         </>
       }
     >

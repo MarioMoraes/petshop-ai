@@ -4,7 +4,8 @@ import { serverApi } from '@/lib/api'
 import { ler, talvez } from '@/lib/platform'
 import { Falha, PlataformaShell, SemAcesso } from '../frame'
 import { numero } from '../formato'
-import { Consulta, JANELAS, type Janela } from './consulta'
+import { Consulta } from './consulta'
+import { JANELAS, type Janela } from './janelas'
 import { Serie } from './serie'
 
 /**
@@ -160,7 +161,9 @@ async function PorEstabelecimento({
                 {chave === 'plataforma' ? (
                   <span className="text-muted">Plataforma (sem estabelecimento)</span>
                 ) : (
-                  (nomes.get(chave) ?? <span className="font-mono text-xs">{chave.slice(0, 8)}</span>)
+                  (nomes.get(chave) ?? (
+                    <span className="font-mono text-xs">{chave.slice(0, 8)}</span>
+                  ))
                 )}
               </td>
               <td className="px-4 py-3 text-right font-medium tabular-nums">

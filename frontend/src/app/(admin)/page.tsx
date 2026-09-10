@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { serverApi } from '@/lib/api'
+import { carregarMe } from '@/lib/api'
 
 /**
  * Porta de entrada: decide entre wizard e dashboard.
@@ -11,7 +11,7 @@ import { serverApi } from '@/lib/api'
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const me = await serverApi().me()
+  const me = await carregarMe()
 
   if (me.currentTenant?.onboardingCompletedAt) {
     redirect('/dashboard')

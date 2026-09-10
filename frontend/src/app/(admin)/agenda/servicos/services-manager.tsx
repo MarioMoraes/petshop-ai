@@ -8,7 +8,7 @@ import {
   type ServiceResponse,
   type Size,
 } from '@petshop/shared-types'
-import { Badge, Card, EmptyState, Field } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, Field } from '@/components/ui'
 import {
   createServiceAction,
   deleteServiceAction,
@@ -66,9 +66,9 @@ export function ServicesManager({ services, sizes }: Props) {
         title="Nenhum serviço cadastrado"
         description="Os serviços definem o que o tutor pode agendar e quanto custa cada porte."
         action={
-          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+          <Button type="button" onClick={() => setCreating(true)}>
             Cadastrar serviço
-          </button>
+          </Button>
         }
       />
     )
@@ -81,8 +81,8 @@ export function ServicesManager({ services, sizes }: Props) {
           <p className="font-medium">{failure.message}</p>
           {failure.futureAppointments !== undefined && (
             <p className="hint mt-1">
-              {failure.futureAppointments} agendamento(s) usam este serviço. Desative-o para
-              tirá-lo do seletor sem afetar o que já está marcado.
+              {failure.futureAppointments} agendamento(s) usam este serviço. Desative-o para tirá-lo
+              do seletor sem afetar o que já está marcado.
             </p>
           )}
         </div>
@@ -97,7 +97,10 @@ export function ServicesManager({ services, sizes }: Props) {
           pending={pending}
           onToggle={() => setEditing(editing === service.id ? null : service.id)}
           onSavePricing={(pricing) =>
-            run(() => replacePricingAction(service.id, { pricing }), () => setEditing(null))
+            run(
+              () => replacePricingAction(service.id, { pricing }),
+              () => setEditing(null),
+            )
           }
           onToggleActive={() =>
             run(() => updateServiceAction(service.id, { active: !service.active }))
@@ -114,12 +117,17 @@ export function ServicesManager({ services, sizes }: Props) {
           sizes={sizes}
           pending={pending}
           onCancel={() => setCreating(false)}
-          onSubmit={(input) => run(() => createServiceAction(input), () => setCreating(false))}
+          onSubmit={(input) =>
+            run(
+              () => createServiceAction(input),
+              () => setCreating(false),
+            )
+          }
         />
       ) : (
-        <button type="button" className="btn btn-ghost" onClick={() => setCreating(true)}>
+        <Button type="button" variant="ghost" onClick={() => setCreating(true)}>
           Adicionar serviço
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -177,9 +185,7 @@ function ServiceRow({
             <Badge tone="neutral">{SERVICE_CATEGORY_LABELS[service.category]}</Badge>
             {service.requiresVet && <Badge tone="accent">Exige veterinário</Badge>}
             {!service.active && <Badge tone="neutral">Desativado</Badge>}
-            {service.active && !service.showOnSite && (
-              <Badge tone="neutral">Fora do site</Badge>
-            )}
+            {service.active && !service.showOnSite && <Badge tone="neutral">Fora do site</Badge>}
             {service.active && missing > 0 && (
               <Badge tone="danger">
                 {missing === 1 ? '1 porte sem preço' : `${missing} portes sem preço`}
@@ -210,17 +216,18 @@ function ServiceRow({
         </div>
 
         <div className="flex shrink-0 gap-2">
-          <button type="button" className="btn btn-ghost" onClick={onToggle}>
+          <Button type="button" variant="ghost" onClick={onToggle}>
             {expanded ? 'Fechar' : 'Preços'}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn btn-ghost"
-            disabled={pending}
+            variant="ghost"
+            busy={pending}
             onClick={onToggleActive}
+            busyLabel="Salvando…"
           >
             {service.active ? 'Desativar' : 'Reativar'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -282,24 +289,26 @@ function ServiceRow({
 
           {invalid.length > 0 && (
             <p className="error-text mt-3" role="alert">
-              A duração precisa ser múltipla de {SCHEDULE_GRID_MIN} minutos — é a grade que a
-              agenda usa para oferecer horários.
+              A duração precisa ser múltipla de {SCHEDULE_GRID_MIN} minutos — é a grade que a agenda
+              usa para oferecer horários.
             </p>
           )}
 
           <div className="mt-5 flex flex-wrap justify-between gap-2">
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost text-danger"
-              disabled={pending}
+              variant="ghost"
+              className="text-danger"
+              busy={pending}
               onClick={onDelete}
+              busyLabel="Excluindo…"
             >
               Excluir serviço
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-primary"
-              disabled={pending || invalid.length > 0}
+              busy={pending}
+              disabled={invalid.length > 0}
               onClick={() =>
                 onSavePricing(
                   draft.map((item) => ({
@@ -309,9 +318,10 @@ function ServiceRow({
                   })),
                 )
               }
+              busyLabel="Salvando…"
             >
-              {pending ? 'Salvando…' : 'Salvar preços'}
-            </button>
+              Salvar preços
+            </Button>
           </div>
         </div>
       )}
@@ -341,8 +351,8 @@ function NewServiceForm({
     <Card>
       <h2 className="text-lg font-semibold">Novo serviço</h2>
       <p className="hint mt-1">
-        Ele nasce com a duração base em todos os portes e sem preço. Preencha os valores logo
-        depois — porte sem preço não pode ser agendado.
+        Ele nasce com a duração base em todos os portes e sem preço. Preencha os valores logo depois
+        — porte sem preço não pode ser agendado.
       </p>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -399,13 +409,13 @@ function NewServiceForm({
       </div>
 
       <div className="mt-6 flex justify-end gap-2">
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="btn btn-primary"
-          disabled={pending || name.trim().length < 2 || duration % SCHEDULE_GRID_MIN !== 0}
+          busy={pending}
+          disabled={name.trim().length < 2 || duration % SCHEDULE_GRID_MIN !== 0}
           onClick={() =>
             onSubmit({
               name: name.trim(),
@@ -420,9 +430,10 @@ function NewServiceForm({
               professionalIds: [],
             })
           }
+          busyLabel="Criando…"
         >
-          {pending ? 'Criando…' : 'Criar serviço'}
-        </button>
+          Criar serviço
+        </Button>
       </div>
     </Card>
   )

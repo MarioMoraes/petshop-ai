@@ -12,6 +12,7 @@ import {
 } from '@petshop/shared-types'
 import {
   Alert,
+  Button,
   Card,
   Choice,
   Field,
@@ -33,6 +34,7 @@ import {
   SpinnerIcon,
   UsersIcon,
 } from '@/components/icons'
+import { ButtonLink } from '@/components/links'
 import {
   checkDuplicatesAction,
   createTutorAction,
@@ -173,9 +175,7 @@ export function TutorForm({ tutor, prefill }: Props) {
       fullName,
       socialName: socialName || undefined,
       legalName: legalName || undefined,
-      ...(personType === 'PF'
-        ? { cpf: document || undefined }
-        : { cnpj: document || undefined }),
+      ...(personType === 'PF' ? { cpf: document || undefined } : { cnpj: document || undefined }),
       phone,
       email: email || undefined,
       birthDate: birthDate || undefined,
@@ -241,11 +241,11 @@ export function TutorForm({ tutor, prefill }: Props) {
           <p>
             {blockingConflict.fullName} · {blockingConflict.phoneMasked}
           </p>
-          <Link href={`/tutores/${blockingConflict.id}`} className="btn btn-primary mt-3">
+          <ButtonLink href={`/tutores/${blockingConflict.id}`} className="mt-3">
             {blockingConflict.suggestedAction === 'REACTIVATE_EXISTING'
               ? 'Abrir e reativar cadastro'
               : 'Abrir cadastro existente'}
-          </Link>
+          </ButtonLink>
         </Alert>
       )}
 
@@ -587,12 +587,12 @@ export function TutorForm({ tutor, prefill }: Props) {
       </Card>
 
       <FormActions>
-        <Link href={isEditing ? `/tutores/${tutor.id}` : '/tutores'} className="btn btn-ghost">
+        <ButtonLink href={isEditing ? `/tutores/${tutor.id}` : '/tutores'} variant="ghost">
           Cancelar
-        </Link>
-        <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Cadastrar tutor'}
-        </button>
+        </ButtonLink>
+        <Button type="submit" busy={pending} busyLabel="Salvando…">
+          {isEditing ? 'Salvar alterações' : 'Cadastrar tutor'}
+        </Button>
       </FormActions>
     </form>
   )

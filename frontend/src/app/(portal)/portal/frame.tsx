@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import { RouteProgress } from '@/components/route-progress'
 import { Logo } from '@/components/ui'
 
 /**
@@ -56,9 +57,18 @@ export function PortalFrame({
 }) {
   return (
     <main className="mx-auto flex min-h-[100svh] w-full max-w-[520px] flex-col gap-6 px-5 py-10">
+      {/*
+       * O tutor abre isto no 4G, de pé na calçada: é o público que mais precisa saber que
+       * o toque foi registrado, e o que mais toca de novo quando não sabe.
+       */}
+      <RouteProgress />
+
       <header className="flex flex-col gap-1">
         {voltar ? (
-          <Link href={voltar.href} className="section-eyebrow hover:text-ink w-fit transition-colors">
+          <Link
+            href={voltar.href}
+            className="section-eyebrow hover:text-ink w-fit transition-colors"
+          >
             ← {voltar.label}
           </Link>
         ) : (

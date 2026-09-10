@@ -7,7 +7,7 @@ import {
   type TermKind,
   type TermVersionView,
 } from '@petshop/shared-types'
-import { Alert, Card, Field, FormError, SectionHead } from '@/components/ui'
+import { Alert, Button, Card, Field, FormError, SectionHead } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { AlertTriangleIcon, DocumentIcon } from '@/components/icons'
 import { TextoDoTermo } from '@/components/term-text'
@@ -100,14 +100,14 @@ function TermoDoTipo({
 
         <div className="flex items-center gap-2">
           {vigente && (
-            <button type="button" className="btn btn-ghost h-9" onClick={() => setLendo(vigente)}>
+            <Button type="button" variant="ghost" className="h-9" onClick={() => setLendo(vigente)}>
               Ler
-            </button>
+            </Button>
           )}
           {canEdit && (
-            <button type="button" className="btn btn-primary h-9" onClick={() => setAberto(true)}>
+            <Button type="button" className="h-9" onClick={() => setAberto(true)}>
               Publicar versão
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -118,14 +118,15 @@ function TermoDoTipo({
           {ordenadas
             .filter((item) => item.id !== vigente?.id)
             .map((item) => (
-              <button
+              <Button
                 key={item.id}
                 type="button"
-                className="btn btn-ghost h-7 px-2 text-xs"
+                variant="ghost"
+                className="h-7 px-2 text-xs"
                 onClick={() => setLendo(item)}
               >
                 {item.version}
-              </button>
+              </Button>
             ))}
         </div>
       )}
@@ -154,9 +155,9 @@ function TermoDoTipo({
             : ''
         }
         footer={
-          <button type="button" className="btn btn-primary" onClick={() => setLendo(null)}>
+          <Button type="button" onClick={() => setLendo(null)}>
             Fechar
-          </button>
+          </Button>
         }
       >
         {lendo && <TextoDoTermo body={lendo.body} />}
@@ -213,17 +214,18 @@ function PublicarModal({
       subtitle="O texto publicado passa a ser o apresentado ao cliente. A versão anterior continua legível."
       footer={
         <>
-          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={salvando}>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={salvando}>
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             form={`termo-${kind}`}
-            className="btn btn-primary"
-            disabled={salvando || body.trim().length < 50}
+            busy={salvando}
+            disabled={body.trim().length < 50}
+            busyLabel="Publicando…"
           >
-            {salvando ? 'Publicando…' : 'Publicar'}
-          </button>
+            Publicar
+          </Button>
         </>
       }
     >
@@ -237,9 +239,9 @@ function PublicarModal({
             title={`${contagem(anterior.acceptances)} na versão ${anterior.version}`}
             role="status"
           >
-            Publicar uma versão nova não apaga a anterior — ela continua provando o que foi
-            aceito. Quem aceitou a antiga passa a aparecer como pendente de renovação, e a
-            equipe recolhe o aceite novo no próximo atendimento.
+            Publicar uma versão nova não apaga a anterior — ela continua provando o que foi aceito.
+            Quem aceitou a antiga passa a aparecer como pendente de renovação, e a equipe recolhe o
+            aceite novo no próximo atendimento.
           </Alert>
         )}
 
@@ -310,7 +312,9 @@ function contagem(aceites: number): string {
 }
 
 function data(iso: string): string {
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(
-    new Date(iso),
-  )
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(iso))
 }

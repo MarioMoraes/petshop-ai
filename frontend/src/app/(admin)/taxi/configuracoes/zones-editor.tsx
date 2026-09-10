@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { resolveZipZone, type TaxiZoneResponse } from '@petshop/shared-types'
-import { Card, Field, FormError } from '@/components/ui'
+import { Button, Card, Field, FormError } from '@/components/ui'
 import { createZoneAction, deleteZoneAction, updateZoneAction } from '../actions'
 
 /**
@@ -124,16 +124,27 @@ export function ZonesEditor({ zones, defaultPriceCents, blockOutsideZones }: Pro
   // longo vence), e só olha zonas ativas, como o `resolvePrice` faz.
   const digitos = teste.replace(/\D/g, '')
   const zonaDoTeste =
-    digitos.length === 8 ? resolveZipZone(digitos, zones.filter((zone) => zone.active)) : null
+    digitos.length === 8
+      ? resolveZipZone(
+          digitos,
+          zones.filter((zone) => zone.active),
+        )
+      : null
 
   return (
     <Card className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-medium text-fg">Zonas de preço</h2>
         {!criando && (
-          <button type="button" className="btn h-9" disabled={pending} onClick={() => setCriando(true)}>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-9"
+            disabled={pending}
+            onClick={() => setCriando(true)}
+          >
             Nova zona
-          </button>
+          </Button>
         )}
       </div>
 
@@ -143,10 +154,10 @@ export function ZonesEditor({ zones, defaultPriceCents, blockOutsideZones }: Pro
 
       {zones.length === 0 && blockOutsideZones && (
         <div className="rounded-2xl bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">
-          <strong>Nenhuma corrida vai ser aceita.</strong> Não há zona cadastrada e
-          &quot;Recusar CEP fora das zonas&quot; está ligado — toda tentativa de pedir Taxi
-          Dog termina em &quot;CEP fora das zonas atendidas&quot;. Cadastre uma zona abaixo,
-          ou desligue a recusa para usar o preço padrão de {money(defaultPriceCents)}.
+          <strong>Nenhuma corrida vai ser aceita.</strong> Não há zona cadastrada e &quot;Recusar
+          CEP fora das zonas&quot; está ligado — toda tentativa de pedir Taxi Dog termina em
+          &quot;CEP fora das zonas atendidas&quot;. Cadastre uma zona abaixo, ou desligue a recusa
+          para usar o preço padrão de {money(defaultPriceCents)}.
         </div>
       )}
 
@@ -218,27 +229,31 @@ export function ZonesEditor({ zones, defaultPriceCents, blockOutsideZones }: Pro
                       className="field"
                       inputMode="decimal"
                       value={rascunho.price}
-                      onChange={(event) => setRascunho((c) => ({ ...c, price: event.target.value }))}
+                      onChange={(event) =>
+                        setRascunho((c) => ({ ...c, price: event.target.value }))
+                      }
                     />
                   </Field>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-primary h-9"
-                    disabled={pending}
+                    className="h-9"
+                    busy={pending}
                     onClick={() => salvarEdicao(zone)}
+                    busyLabel="Salvando…"
                   >
                     Salvar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="btn btn-ghost h-9"
+                    variant="ghost"
+                    className="h-9"
                     disabled={pending}
                     onClick={() => setEditando(null)}
                   >
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               </li>
             ) : (
@@ -326,16 +341,23 @@ export function ZonesEditor({ zones, defaultPriceCents, blockOutsideZones }: Pro
             </Field>
           </div>
           <p className="hint">
-            O prefixo mais longo vence: cadastrar 377 e depois 37705 faz o segundo mandar
-            no bairro que ele descreve, sem apagar o primeiro.
+            O prefixo mais longo vence: cadastrar 377 e depois 37705 faz o segundo mandar no bairro
+            que ele descreve, sem apagar o primeiro.
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn btn-primary h-9" disabled={pending} onClick={criar}>
-              {pending ? 'Criando…' : 'Criar zona'}
-            </button>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost h-9"
+              className="h-9"
+              busy={pending}
+              onClick={criar}
+              busyLabel="Criando…"
+            >
+              Criar zona
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9"
               disabled={pending}
               onClick={() => {
                 setCriando(false)
@@ -344,7 +366,7 @@ export function ZonesEditor({ zones, defaultPriceCents, blockOutsideZones }: Pro
               }}
             >
               Cancelar
-            </button>
+            </Button>
           </div>
         </div>
       )}

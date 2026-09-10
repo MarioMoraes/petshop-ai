@@ -610,6 +610,14 @@ export async function cancelMessage(actor: ActorContext, id: string): Promise<vo
  * Volta para `QUEUED` com o contador zerado — e o motor **revalida consentimento e
  * supressão no despacho** (RN-03). Reenvio não é atalho para furar bloqueio: quem
  * pediu para não receber continua não recebendo, e a mensagem vira `BLOCKED` de novo.
+ *
+ * **`SENDING` também entra**, e não é uma frouxidão da guarda. Ele parece um envio em
+ * curso e quase nunca é: o estado dura os segundos de uma chamada ao provedor, e o
+ * varredor de posses o desfaz em dez minutos. Quem o encontra numa tela é sempre o
+ * dono de uma mensagem cujo processo morreu no meio, e recusá-lo deixava essa pessoa
+ * sem saída nenhuma — o reenvio negava, o varredor ainda não existia, e a linha ficava
+ * parada para sempre. O risco de mandar duas vezes o que o provedor já aceitou é o
+ * mesmo do varredor, e a diferença é que aqui alguém escolheu correr esse risco.
  */
 export async function retryMessage(actor: ActorContext, id: string): Promise<void> {
   await withTenant(
@@ -617,7 +625,11 @@ export async function retryMessage(actor: ActorContext, id: string): Promise<voi
     async (tx) => {
       const message = await tx.message.findUnique({ where: { id }, select: { status: true } })
       if (!message) throw notFound()
-      if (message.status !== 'DEAD' && message.status !== 'FAILED') {
+      if (
+        message.status !== 'DEAD' &&
+        message.status !== 'FAILED' &&
+        message.status !== 'SENDING'
+      ) {
         throw invalidTransition(
           `Só mensagens com falha podem ser reenviadas (esta está em ${message.status})`,
         )

@@ -2,16 +2,16 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import {
   formatBRL,
   type PortalAppointment,
   type PortalAppointmentActions,
   type PortalTaxiRide,
 } from '@petshop/shared-types'
-import { Badge, Card, FormError } from '@/components/ui'
+import { Badge, Button, Card, FormError } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { CalendarIcon, VanIcon } from '@/components/icons'
+import { ButtonLink } from '@/components/links'
 import { cancelar } from './actions'
 
 /**
@@ -96,17 +96,18 @@ export function AppointmentCard({
         <p className="flex-1 text-sm font-semibold">{formatBRL(appointment.totalCents)}</p>
 
         {actions.canReschedule && (
-          <Link
+          <ButtonLink
             href={`/portal/agendamentos/${appointment.id}/remarcar`}
-            className="btn btn-ghost h-9"
+            variant="ghost"
+            className="h-9"
           >
             Remarcar
-          </Link>
+          </ButtonLink>
         )}
         {actions.canCancel && (
-          <button type="button" className="btn btn-ghost h-9" onClick={() => setAberto(true)}>
+          <Button type="button" variant="ghost" className="h-9" onClick={() => setAberto(true)}>
             Cancelar
-          </button>
+          </Button>
         )}
       </div>
 
@@ -121,22 +122,17 @@ export function AppointmentCard({
         subtitle={`${appointment.petName} · ${appointment.services.join(', ')}`}
         footer={
           <>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => setAberto(false)}
               disabled={cancelando}
             >
               Manter horário
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={confirmarCancelamento}
-              disabled={cancelando}
-            >
+            </Button>
+            <Button type="button" onClick={confirmarCancelamento} disabled={cancelando}>
               {cancelando ? 'Cancelando…' : 'Cancelar mesmo assim'}
-            </button>
+            </Button>
           </>
         }
       >
