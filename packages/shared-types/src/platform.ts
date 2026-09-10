@@ -33,6 +33,17 @@ export const PlatformAdminResponseSchema = z.object({
 export type PlatformAdminResponse = z.output<typeof PlatformAdminResponseSchema>
 
 /**
+ * A lista de quem é da plataforma.
+ *
+ * Envelopada em `items` como todas as listas curtas do produto — o envelope é o que deixa
+ * a resposta crescer (uma contagem, um aviso de corte) sem quebrar quem já a lê.
+ */
+export const PlatformAdminsResponseSchema = z.object({
+  items: z.array(PlatformAdminResponseSchema),
+})
+export type PlatformAdminsResponse = z.output<typeof PlatformAdminsResponseSchema>
+
+/**
  * O pedido de acesso do suporte (MOD-ADMIN-02, AC-01).
  *
  * `reason` tem mínimo de dez caracteres, e não é rigor gratuito: é o texto que o

@@ -54,7 +54,18 @@ describe('resolveHost', () => {
 })
 
 describe('isAdminPath', () => {
-  it.each(['/dashboard', '/agenda', '/agenda/dia', '/tutores/123', '/sign-in', '/configuracoes'])(
+  it.each([
+    '/dashboard',
+    '/agenda',
+    '/agenda/dia',
+    '/tutores/123',
+    '/sign-in',
+    '/configuracoes',
+    // O console da plataforma divide o host com o Admin: quem o esquecer nesta lista o
+    // publica no subdomínio de todo estabelecimento.
+    '/plataforma',
+    '/plataforma/estabelecimentos',
+  ])(
     '%s é do Admin',
     (path) => {
       expect(isAdminPath(path)).toBe(true)
@@ -96,7 +107,7 @@ describe('routeFor — host do tenant', () => {
     expect(routeFor(host, '/portal/agendamentos', DOMAIN)).toEqual({ action: 'portal' })
   })
 
-  it.each(['/dashboard', '/agenda/dia', '/tutores', '/configuracoes'])(
+  it.each(['/dashboard', '/agenda/dia', '/tutores', '/configuracoes', '/plataforma'])(
     '%s foi para o host do Admin, com 301',
     (path) => {
       expect(routeFor(host, path, DOMAIN)).toEqual({

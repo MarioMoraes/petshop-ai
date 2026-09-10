@@ -23,11 +23,20 @@ antes de propor uma alternativa visual.
 
 A referência viva é `frontend/src/app/(admin)/tutores/tutor-form.tsx`.
 
-`src/app` tem **três** raízes: `(admin)`, com o `ClerkProvider` e as telas de equipe;
-`(site)`, que serve a página pública do petshop sem carregar identidade nenhuma; e
+`src/app` tem **quatro** raízes: `(admin)`, com o `ClerkProvider` e as telas de equipe;
+`(site)`, que serve a página pública do petshop sem carregar identidade nenhuma;
 `(portal)`, a superfície do cliente final, com o `ClerkProvider` da **mesma** instância do
 Admin — o que separa as duas sessões é a resolução do papel, e não o provedor de
-identidade. O grupo entre parênteses não vira segmento de URL.
+identidade; e `(platform)`, o console da equipe PetShop AI em `/plataforma`. O grupo entre
+parênteses não vira segmento de URL.
+
+O `(platform)` **divide o host do Admin e não o layout**: a moldura de lá lê `/v1/me` e
+monta um menu de estabelecimento, e quem entra no console não tem estabelecimento nenhum —
+a sessão da plataforma é justamente a que não traz Organization. Toda tela dele começa por
+`ler()` de `lib/platform.ts`, que traduz o 404 da superfície no cartão neutro de
+`SemAcesso` em vez de numa tela de erro. Rota nova em `src/app` precisa entrar em
+`ADMIN_ROUTE_PREFIXES` (`lib/host.ts`) ou nasce pública no host de todo tenant;
+`admin-routes.test.ts` compara a lista com o disco.
 
 ## Backend — o monólito modular
 

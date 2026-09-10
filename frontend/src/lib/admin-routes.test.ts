@@ -17,13 +17,14 @@ import { ADMIN_ROUTE_PREFIXES, PORTAL_PREFIX, SITE_PREFIX } from './host.js'
  */
 
 /**
- * O `app/` tem **três** raízes, cada um com o próprio `<html>` e um público:
- * `(admin)`, a equipe; `(site)`, o visitante anônimo; `(portal)`, o cliente do petshop.
+ * O `app/` tem **quatro** raízes, cada um com o próprio `<html>` e um público:
+ * `(admin)`, a equipe do petshop; `(site)`, o visitante anônimo; `(portal)`, o cliente do
+ * petshop; `(platform)`, a equipe da PetShop AI.
  * O grupo não vira segmento de URL — `(admin)/dashboard` continua sendo `/dashboard` —,
  * então a varredura precisa olhar dentro dos três.
  */
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '../app')
-const ROOT_GROUPS = ['(admin)', '(site)', '(portal)']
+const ROOT_GROUPS = ['(admin)', '(site)', '(portal)', '(platform)']
 
 /**
  * Rotas que **devem** responder no host do tenant, e por isso não são do Admin.

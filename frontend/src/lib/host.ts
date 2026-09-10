@@ -41,6 +41,18 @@ export const ADMIN_ROUTE_PREFIXES = [
   '/financeiro',
   '/onboarding',
   '/pets',
+  /**
+   * O console da equipe **da plataforma**, não do petshop.
+   *
+   * Mora no host do Admin e não num quarto: quem entra aqui já é da casa, e um host novo
+   * pediria certificado, Caddy e uma exceção no desenvolvimento — onde não há subdomínio
+   * nenhum — em troca de um isolamento que a sessão do Clerk, comum aos dois, não daria.
+   * O gate real é o backend: sem linha viva em `platform_admins`, `/platform/v1` inteiro
+   * responde 404.
+   *
+   * Estar nesta lista é o que o mantém fora do host de todo tenant.
+   */
+  '/plataforma',
   '/sign-in',
   '/site',
   '/sign-up',
