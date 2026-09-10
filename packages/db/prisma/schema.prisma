@@ -338,6 +338,92 @@ enum SupportGrantStatus {
   REVOKED
 }
 
+/// A série temporal das métricas que o produto já emite (MOD-ADMIN-05).
+///
+/// **Fora do RLS, apesar de ter `tenant_id`** — e a exceção é declarada em
+/// `PLATFORM_MODELS` no teste de sincronia. A coluna aqui não é dono: é **rótulo de
+/// agregação**. A linha não pertence ao estabelecimento, pertence à plataforma, que
+/// precisa somar todos os tenants numa consulta só; e `tenant_id` nulo é a métrica que
+/// nasce sem tenant (`mfa_claim_missing`), que política nenhuma por tenant alcançaria.
+///
+/// Nenhum dado pessoal entra aqui: são contagens, e é por isso que a retenção é longa.
+model PlatformMetric {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  /// O nome que `recordMetric` emite. Sem catálogo fechado de propósito: métrica nova
+  /// aparece na série no primeiro roll-up, sem migration.
+  metric String @db.VarChar(60)
+
+  /// Nulo é métrica de plataforma, e a ausência é informação — não erro.
+  tenantId String? @map("tenant_id") @db.Uuid
+
+  /// Início da janela.
+  bucket     DateTime         @map("bucket") @db.Timestamptz(6)
+  resolution MetricResolution
+
+  /// `sum` e `count` são o que se soma entre réplicas (RN-09); `p95` é o que não se
+  /// soma, e por isso o merge fica com o maior dos dois — aproximação declarada.
+  sum   Decimal @db.Decimal(18, 4)
+  count Int
+  min   Decimal @db.Decimal(18, 4)
+  max   Decimal @db.Decimal(18, 4)
+  p95   Decimal @db.Decimal(18, 4)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([metric, bucket(sort: Desc)], map: "idx_metrics_consulta")
+  @@map("platform_metrics")
+}
+
+enum MetricResolution {
+  FIVE_MIN
+  DAY
+}
+
+/// O estado de cada regra de alerta (MOD-ADMIN-06).
+///
+/// Fora do RLS pela mesma razão da série: `tenant_id` diz **sobre quem** é o alerta, não
+/// de quem é a linha. Quem responde por um alerta é a plataforma.
+///
+/// `PENDING` é o estado que o §6 do PRD não desenha, e ele existe por uma razão de
+/// operação: a regra só dispara quando a condição vale em **duas** avaliações seguidas, e
+/// o contador precisa sobreviver a deploy e a troca de réplica. Guardado em memória, ele
+/// zeraria a cada subida — e com três réplicas revezando o lease do job, nunca chegaria a
+/// dois.
+model PlatformAlert {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  rule     String  @db.VarChar(60)
+  tenantId String? @map("tenant_id") @db.Uuid
+
+  status PlatformAlertStatus @default(PENDING)
+
+  /// O valor medido na última avaliação — a profundidade da fila, o número de horas
+  /// paradas. É o que a notificação carrega.
+  value Decimal @db.Decimal(18, 4)
+
+  /// Avaliações seguidas com e sem a condição. Uma zera a outra.
+  breachStreak Int @default(1) @map("breach_streak")
+  clearStreak  Int @default(0) @map("clear_streak")
+
+  firstSeenAt     DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastEvaluatedAt DateTime  @default(now()) @map("last_evaluated_at") @db.Timestamptz(6)
+  firedAt         DateTime? @map("fired_at") @db.Timestamptz(6)
+  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, firedAt(sort: Desc)], map: "idx_alerts_abertos")
+  @@map("platform_alerts")
+}
+
+enum PlatformAlertStatus {
+  PENDING
+  FIRING
+  RESOLVED
+}
+
 /// Vínculo usuário ↔ tenant com papel (MOD-IDENT-05).
 model Membership {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

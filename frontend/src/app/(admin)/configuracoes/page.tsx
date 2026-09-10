@@ -45,7 +45,7 @@ export default async function ConfiguracoesPage({
    */
   const canReadAudit = me.permissions.includes('audit:read')
 
-  const [tenant, settings, species, deletion, terms, audit, security] = await Promise.all([
+  const [tenant, settings, species, deletion, terms, audit, security, support] = await Promise.all([
     serverApi().getTenant(),
     serverApi().getSettings(),
     // A aba de raças só existe para quem pode mexer nela; sem a permissão, nem a
@@ -76,13 +76,30 @@ export default async function ConfiguracoesPage({
           .summarizeSecurityEvents()
           .catch(() => ({ items: [] }))
       : Promise.resolve({ items: [] }),
+    /**
+     * MOD-ADMIN-02: os pedidos de acesso da equipe PetShop AI.
+     *
+     * Sem gate próprio — a rota exige `tenant:read_settings`, a mesma permissão que abre
+     * esta tela. Como a fila de exclusão e a trilha, é moldura: uma falha de leitura não
+     * pode derrubar as Configurações inteiras junto com a aba.
+     */
+    serverApi()
+      .listSupportAccess()
+      .catch(() => ({ items: [] })),
   ])
 
   const { aba } = await searchParams
 
   return (
     <AppShell active="configuracoes" me={me}>
-      <div className="mx-auto max-w-3xl">
+      {/*
+        Mais largo que as outras telas de formulário, e por uma razão medida: a faixa de
+        abas passou de nove com o Suporte do MOD-ADMIN-02, e em `max-w-3xl` ela quebrava em
+        duas linhas — a segunda ficava com duas abas soltas, que leem como sobra e não como
+        continuação. `max-w-4xl` cabe as nove numa linha só sem chegar à largura das telas
+        de lista (`max-w-5xl`), que deixaria os campos longos demais para preencher.
+      */}
+      <div className="mx-auto max-w-4xl">
         <PageHeader
           eyebrow="Estabelecimento"
           title="Configurações"
@@ -104,6 +121,7 @@ export default async function ConfiguracoesPage({
             auditCursor={audit.nextCursor}
             securitySummary={security.items}
             canReadAudit={canReadAudit}
+            supportGrants={support.items}
             abaInicial={aba}
           />
         </div>

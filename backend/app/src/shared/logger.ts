@@ -16,7 +16,7 @@ import { loadEnv } from '../config/env.js'
  * MOD-CRM trouxe as variáveis que entram na mensagem — nome do tutor, do pet, horário.
  */
 
-export const { loggerOptions, logger, recordMetric } = createLogger({
+export const { loggerOptions, logger, recordMetric, drainMetrics } = createLogger({
   service: 'petshop-app',
   level: loadEnv().LOG_LEVEL,
   redact: [
@@ -76,4 +76,4 @@ export const { loggerOptions, logger, recordMetric } = createLogger({
   ],
 })
 
-export type { BusinessMetric } from '@petshop/service-kit'
+export type { BusinessMetric, MetricSample } from '@petshop/service-kit'

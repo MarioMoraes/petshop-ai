@@ -1,6 +1,6 @@
 import { hostname } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import { matches, parseCron, type CronExpression } from './cron.js'
+import { intervalOf, matches, nextMatch, parseCron, type CronExpression } from './cron.js'
 import { claimLease, recordRun, releaseLease, type JobStatus } from './lease.js'
 
 /**
@@ -43,11 +43,33 @@ export interface SchedulerConfig {
   jobs: JobDefinition[]
 }
 
+/** Uma linha da grade, como o painel de saúde a lê (MOD-ADMIN-04). */
+export interface JobGridEntry {
+  name: string
+  schedule: string
+  /** A próxima passada prevista, ou `null` quando não há nenhuma no horizonte. */
+  nextRunAt: Date | null
+  /** De quanto em quanto tempo o job roda. É a base do `STALE` de 3× do RN-12. */
+  intervalMs: number | null
+}
+
 export interface Scheduler {
   startJobs: () => void
   stopJobs: () => Promise<void>
   /** Roda um job agora, ignorando a grade. Para o teste e para o operador. */
   runJobNow: (name: string, now?: Date) => Promise<unknown>
+  /**
+   * A grade, para quem observa.
+   *
+   * **Sai daqui e não de uma lista paralela**: o painel de saúde precisa mostrar
+   * exatamente os jobs que este processo agenda, com as expressões que ele compilou. Uma
+   * segunda cópia da grade em outro arquivo silenciaria justamente o caso que interessa —
+   * o job que alguém removeu da grade e continua sendo cobrado no painel, ou o contrário.
+   *
+   * Responde igual com o agendador desligado: a grade existe mesmo quando este processo
+   * não é o que a executa.
+   */
+  describeJobs: (now?: Date) => JobGridEntry[]
 }
 
 const DEFAULT_TIMEOUT_MS = 10 * 60_000
@@ -199,6 +221,15 @@ export function createJobScheduler(config: SchedulerConfig): Scheduler {
       const job = jobs.find((candidate) => candidate.name === name)
       if (!job) throw new Error(`Job desconhecido: "${name}"`)
       return execute(job, now)
+    },
+
+    describeJobs(now: Date = new Date()): JobGridEntry[] {
+      return jobs.map((job) => ({
+        name: job.name,
+        schedule: job.schedule,
+        nextRunAt: nextMatch(job.cron, now, timeZone),
+        intervalMs: intervalOf(job.cron, now, timeZone),
+      }))
     },
   }
 }

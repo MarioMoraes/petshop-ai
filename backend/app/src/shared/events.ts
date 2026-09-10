@@ -30,7 +30,7 @@ import { logger } from './logger.js'
  * agendamento e o débito nasce do `atendimento.concluido` do MOD-AGENDA (RN-05).
  */
 
-export const { publishEvent, closeEvents } = createEventPublisher<
+export const { publishEvent, closeEvents, checkEvents } = createEventPublisher<
   SiteEventMap &
     TaxiEventMap &
     MessagingEventMap &

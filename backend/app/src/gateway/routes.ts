@@ -17,6 +17,7 @@ import {
   registerWhatsappWebhookRoutes,
 } from '../modules/messaging/routes.js'
 import { registerPetRoutes } from '../modules/pets/routes.js'
+import { setJobGridPort } from '../modules/platform/job-grid-port.js'
 import { registerPlatformRoutes } from '../modules/platform/routes.js'
 import { registerSupportAccessRoutes } from '../modules/platform/tenant-routes.js'
 import {
@@ -242,6 +243,17 @@ async function registerSecurityModule(app: FastifyInstance): Promise<void> {
  * MOD-ADMIN-02 — passam pelo grant, e o tenant é resolvido lá.
  */
 async function registerPlatformModule(app: FastifyInstance): Promise<void> {
+  /**
+   * A grade de jobs que o painel de saúde mostra (MOD-ADMIN-04).
+   *
+   * Ligada aqui, e não importada de dentro do módulo: `src/worker` importa **todos** os
+   * módulos para compor consumidores e grades, e um import na direção contrária faria o
+   * módulo que observa depender do que ele observa. O `describeJobs` responde igual com o
+   * agendador desligado — a grade existe mesmo quando este processo não a executa.
+   */
+  const { describeJobs } = await import('../worker/index.js')
+  setJobGridPort({ describe: describeJobs })
+
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerPlatformRoutes(scope)

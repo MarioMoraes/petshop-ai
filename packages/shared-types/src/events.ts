@@ -1104,9 +1104,26 @@ export interface SuporteAcessoDecididoEvent extends BaseEvent {
   grantId: string
 }
 
+/**
+ * Uma regra de alerta passou a valer (MOD-ADMIN-06).
+ *
+ * **O evento é registro, não é o aviso.** Quem avisa é o e-mail direto, fora da fila —
+ * um alarme que usa o RabbitMQ para dizer que o RabbitMQ caiu não é alarme (RN-10). Este
+ * evento existe para quem quiser reagir a alertas de forma assíncrona, e some junto com o
+ * broker sem levar o aviso consigo.
+ */
+export interface PlataformaAlertaDisparadoEvent extends BaseEvent {
+  rule: string
+  /** Nulo quando o alerta é da plataforma, e não de um estabelecimento. */
+  tenantId: string | null
+  value: number
+  firedAt: string
+}
+
 export interface AdminEventMap {
   'suporte.acesso.solicitado': SuporteAcessoSolicitadoEvent
   'suporte.acesso.concedido': SuporteAcessoConcedidoEvent
   'suporte.acesso.negado': SuporteAcessoDecididoEvent
   'suporte.acesso.revogado': SuporteAcessoDecididoEvent
+  'plataforma.alerta.disparado': PlataformaAlertaDisparadoEvent
 }

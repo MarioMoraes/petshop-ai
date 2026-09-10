@@ -37,6 +37,13 @@ export async function resetDatabase(): Promise<void> {
   await ownerPrisma.platformAdmin.deleteMany({})
   // A trilha da plataforma tem `tenant_id` nulo e escapa do truncate por tenant.
   await getMaintenancePrisma().auditLog.deleteMany({ where: { tenantId: null } })
+  /**
+   * A série e os alertas (MOD-ADMIN-05 e 06) também escapam: `truncateBusinessTables`
+   * enumera tabelas de negócio, e estas duas são de plataforma — boa parte das linhas
+   * nasce sem tenant nenhum.
+   */
+  await ownerPrisma.platformMetric.deleteMany({})
+  await ownerPrisma.platformAlert.deleteMany({})
 }
 
 export interface PlatformUser {
@@ -184,5 +191,81 @@ export async function callSupport(options: {
       [ACTING_TENANT_HEADER]: options.tenantId,
     },
     ...(options.payload !== undefined ? { payload: options.payload as object } : {}),
+  })
+}
+
+/**
+ * Números para o painel de uso (MOD-ADMIN-07).
+ *
+ * Cria só o que as seis contagens somam, e cada linha em duplicidade de estado: um tutor
+ * ativo e um inativo, um documento emitido e um pendente. É o que prova que a contagem
+ * conta o que diz contar — uma tabela com uma linha só passaria em qualquer filtro.
+ *
+ * Pet e atendimento ficam de fora de propósito: exigem espécie, porte e o catálogo do
+ * MOD-PET inteiro para produzir um número que o mesmo `groupBy` já produz para tutores.
+ */
+export async function givenUsageData(tenantId: string): Promise<void> {
+  const suffix = randomBytes(4).toString('hex')
+
+  const ativo = await ownerPrisma.tutor.create({
+    data: {
+      tenantId,
+      fullName: 'Cliente Ativo',
+      phoneEncrypted: 'v1:x:x:x',
+      phoneHash: `hash-a-${suffix}`,
+      status: 'ACTIVE',
+    },
+    select: { id: true },
+  })
+
+  await ownerPrisma.tutor.create({
+    data: {
+      tenantId,
+      fullName: 'Cliente Inativo',
+      phoneEncrypted: 'v1:x:x:x',
+      phoneHash: `hash-i-${suffix}`,
+      status: 'INACTIVE',
+    },
+  })
+
+  await ownerPrisma.document.createMany({
+    data: [
+      { tenantId, kind: 'RECEIPT', number: `R-${suffix}-1`, status: 'ISSUED' },
+      { tenantId, kind: 'RECEIPT', number: `R-${suffix}-2`, status: 'PENDING' },
+    ],
+  })
+
+  /**
+   * O destinatário é obrigatório no banco (`messages_recipient_check`), e é por isso que a
+   * mensagem se pendura no tutor ativo: o cenário não escolheu isso, o schema escolheu.
+   */
+  await ownerPrisma.message.createMany({
+    data: [
+      {
+        tenantId,
+        tutorId: ativo.id,
+        channel: 'EMAIL',
+        category: 'TRANSACTIONAL',
+        templateKey: 'teste',
+        toEncrypted: 'v1:x:x:x',
+        toHash: `to-${suffix}-1`.padEnd(64, '0'),
+        bodyEncrypted: 'v1:x:x:x',
+        dedupeKey: `dedupe-${suffix}-1`,
+        status: 'SENT',
+        sentAt: new Date(),
+      },
+      {
+        tenantId,
+        tutorId: ativo.id,
+        channel: 'EMAIL',
+        category: 'TRANSACTIONAL',
+        templateKey: 'teste',
+        toEncrypted: 'v1:x:x:x',
+        toHash: `to-${suffix}-2`.padEnd(64, '0'),
+        bodyEncrypted: 'v1:x:x:x',
+        dedupeKey: `dedupe-${suffix}-2`,
+        status: 'QUEUED',
+      },
+    ],
   })
 }

@@ -113,16 +113,34 @@ const WEEKDAY_INDEX: Record<string, number> = {
  * daria a hora do servidor, que em produção é UTC e em desenvolvimento é a do laptop —
  * as duas erradas para uma grade escrita em horário de Brasília.
  */
+const formatters = new Map<string, Intl.DateTimeFormat>()
+
+/**
+ * Um formatador por fuso, guardado.
+ *
+ * Construir um `Intl.DateTimeFormat` é a parte cara da conversão, e o `nextMatch` a
+ * repete milhares de vezes seguidas ao varrer a grade. O tique do agendador chama uma vez
+ * por minuto e não notaria; a previsão do painel de saúde notaria muito.
+ */
+function formatterFor(timeZone: string): Intl.DateTimeFormat {
+  let formatter = formatters.get(timeZone)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      weekday: 'short',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    })
+    formatters.set(timeZone, formatter)
+  }
+  return formatter
+}
+
 export function localParts(date: Date, timeZone: string): LocalParts {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    weekday: 'short',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-  }).formatToParts(date)
+  const parts = formatterFor(timeZone).formatToParts(date)
 
   const get = (type: Intl.DateTimeFormatPartTypes): string =>
     parts.find((part) => part.type === type)?.value ?? '0'
@@ -161,4 +179,49 @@ export function matches(expression: CronExpression, date: Date, timeZone: string
   if (dayOfMonthRestricted) return monthDayHit
   if (dayOfWeekRestricted) return weekDayHit
   return true
+}
+
+/**
+ * A próxima passada depois de `from`, ou `null` se não houver nenhuma em oito dias.
+ *
+ * **Varre minuto a minuto, e o teto de oito dias é o que a torna barata.** A grade do
+ * produto vai de "todo minuto" a "domingo às 3h30", então oito dias cobrem todas — e uma
+ * expressão que só case daqui a meses (`0 0 29 2 *`) devolve `null` em vez de custar
+ * meio milhão de conversões de fuso. Nulo aqui é "não sabemos", não "nunca".
+ *
+ * O formatador é criado **uma vez** e reusado pelos 11.520 minutos do pior caso:
+ * `localParts` monta um `Intl.DateTimeFormat` por chamada, que é a parte cara.
+ */
+const NEXT_MATCH_HORIZON_MINUTES = 8 * 24 * 60
+
+export function nextMatch(
+  expression: CronExpression,
+  from: Date,
+  timeZone: string,
+): Date | null {
+  // O cron tem resolução de minuto: começa no minuto cheio seguinte ao instante dado.
+  const cursor = new Date(from.getTime() + 60_000)
+  cursor.setUTCSeconds(0, 0)
+
+  for (let step = 0; step < NEXT_MATCH_HORIZON_MINUTES; step += 1) {
+    if (matches(expression, cursor, timeZone)) return new Date(cursor)
+    cursor.setUTCMinutes(cursor.getUTCMinutes() + 1)
+  }
+  return null
+}
+
+/**
+ * De quanto em quanto tempo esta expressão roda, em milissegundos.
+ *
+ * Medida pelas duas próximas passadas, e não declarada: é o que permite ao painel de
+ * saúde chamar um job de parado a partir de **três vezes** o intervalo dele (RN-12), sem
+ * que cada job precise dizer o próprio período. `null` quando não há duas passadas no
+ * horizonte — aí o painel não tem base para alarmar, e não alarma.
+ */
+export function intervalOf(expression: CronExpression, from: Date, timeZone: string): number | null {
+  const first = nextMatch(expression, from, timeZone)
+  if (!first) return null
+  const second = nextMatch(expression, first, timeZone)
+  if (!second) return null
+  return second.getTime() - first.getTime()
 }

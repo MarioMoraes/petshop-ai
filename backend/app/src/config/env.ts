@@ -190,6 +190,16 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   SUPPORT_GRANT_MAX_HOURS: z.coerce.number().int().min(1).max(168).default(72),
 
   /**
+   * MOD-ADMIN-06 — para quem vai o alarme operacional.
+   *
+   * Lista separada por vírgula, e **opcional**: sem ela o destino são os administradores
+   * de plataforma ativos, que é a resposta da questão em aberto nº 3 do PRD que faz a
+   * lista andar junto com a equipe, sem deploy. A variável continua existindo para o caso
+   * em que o alarme precisa ir a um plantão que não administra o produto.
+   */
+  PLATFORM_ALERT_EMAILS: z.string().optional(),
+
+  /**
    * MOD-SEC-09 — teto do balde de `/internal/`.
    *
    * Mais folgado que o do Admin porque provedor legítimo entrega em rajada: a Evolution

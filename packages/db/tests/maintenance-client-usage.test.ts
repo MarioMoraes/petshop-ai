@@ -47,6 +47,32 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const ALLOWED_WRITERS = new Set([
   'packages/db/src/platform.ts',
   'packages/job-scheduler/src/lease.ts',
+  /**
+   * As três escritas de plataforma que já existiam quando este teste passou a ser
+   * executado de novo, e que a varredura não tinha como distinguir:
+   *
+   * - `backend/app/src/shared/audit.ts` — a trilha de uma ação **da plataforma**, com
+   *   `tenant_id` nulo. A política de `audit_logs` é `tenant_id = current_tenant_id()`,
+   *   que é falso para NULL: como `app_user`, a linha seria recusada.
+   * - `packages/service-kit/src/security-events.ts` — o mesmo caso, e só no ramo em que
+   *   `tenantId === null`; o ramo com tenant já escreve dentro de `withTenant`.
+   * - `backend/app/src/modules/security/retention.ts` — o expurgo de 24 meses do
+   *   MOD-SEC-08, que é a **única** exceção nomeada ao append-only de `audit_logs`: o
+   *   schema concede `DELETE` a `app_maintenance` e a ninguém mais.
+   */
+  'backend/app/src/shared/audit.ts',
+  'packages/service-kit/src/security-events.ts',
+  'backend/app/src/modules/security/retention.ts',
+  /**
+   * MOD-ADMIN-05 e 06 — a série de métricas e o estado das regras.
+   *
+   * As duas tabelas são de plataforma: `tenant_id` nelas é rótulo de agregação, não dono
+   * (ver `PLATFORM_MODELS` em `rls-models-sync.test.ts`), e boa parte das linhas nasce com
+   * ele nulo — `withTenant` não teria contexto a oferecer. O que este teste protege é dado
+   * de estabelecimento; o raio de um erro aqui é telemetria.
+   */
+  'backend/app/src/modules/platform/metrics.ts',
+  'backend/app/src/modules/platform/alerts.ts',
 ])
 
 /** Operações do Prisma que gravam. `$executeRaw` entra: é escrita crua. */

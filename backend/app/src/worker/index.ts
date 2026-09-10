@@ -19,6 +19,7 @@ import { ledgerJobs } from './ledger-jobs.js'
 import { schedulingJobs } from './scheduling-jobs.js'
 import { securityJobs } from './security-jobs.js'
 import { messagingJobs } from './messaging-jobs.js'
+import { platformJobs } from './platform-jobs.js'
 import { siteJobs } from './site-jobs.js'
 import { tutorJobs } from './tutor-jobs.js'
 import { taxiJobs } from './taxi-jobs.js'
@@ -36,7 +37,7 @@ import { taxiJobs } from './taxi-jobs.js'
  * jobs.
  */
 
-export const { startJobs, stopJobs, runJobNow } = createJobScheduler({
+export const { startJobs, stopJobs, runJobNow, describeJobs } = createJobScheduler({
   service: 'petshop-app',
   logger,
   recordMetric,
@@ -52,6 +53,7 @@ export const { startJobs, stopJobs, runJobNow } = createJobScheduler({
     ...recordJobs,
     ...schedulingJobs,
     ...ledgerJobs,
+    ...platformJobs,
   ],
 })
 

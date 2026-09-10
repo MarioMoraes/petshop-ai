@@ -40,6 +40,23 @@ const PLATFORM_MODELS = new Set([
   // que ele é.
   'JobLease',
   'JobRun',
+  // MOD-ADMIN-01: o papel é da equipe PetShop AI, não de um estabelecimento. Sem
+  // `tenant_id`, como `users` — e uma política por tenant esconderia a linha de quem
+  // precisa lê-la para resolver a própria sessão.
+  'PlatformAdmin',
+  // MOD-ADMIN-05 e 06: **os dois têm `tenant_id`, e mesmo assim ficam de fora.**
+  //
+  // A coluna aqui não é dono, é rótulo de agregação: a linha pertence à plataforma, que
+  // precisa somar todos os estabelecimentos numa consulta só, e `tenant_id` nulo é a
+  // métrica que nasce sem tenant — que política nenhuma por tenant alcançaria. Nenhuma
+  // rota de tenant lê estas tabelas, e nenhuma delas guarda dado pessoal: são contagens
+  // e o estado de uma regra.
+  //
+  // É a única exceção do repositório à regra "tem `tenantId`, então tem RLS", e ela
+  // precisa continuar sendo. Antes de acrescentar a terceira, pergunte se a tabela
+  // guarda algo **de** um estabelecimento — se guardar, o lugar dela é `RLS_MODELS`.
+  'PlatformMetric',
+  'PlatformAlert',
 ])
 
 function readSchema(): { modelToTable: Map<string, string>; modelsWithTenantId: Set<string> } {
@@ -131,7 +148,11 @@ describe('RLS_MODELS espelha as migrations', () => {
 
 describe('todo modelo com dono de tenant está protegido', () => {
   it('inclui no guard todo modelo que tem tenantId', () => {
-    const desprotegidos = [...modelsWithTenantId].filter((model) => !RLS_MODELS.has(model)).sort()
+    // As tabelas de plataforma declaradas acima são a exceção, e o teste seguinte é o
+    // que a mantém honesta: sair do guard **e** do RLS exige estar nesta lista.
+    const desprotegidos = [...modelsWithTenantId]
+      .filter((model) => !RLS_MODELS.has(model) && !PLATFORM_MODELS.has(model))
+      .sort()
     expect(desprotegidos).toEqual([])
   })
 

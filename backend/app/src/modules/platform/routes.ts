@@ -1,14 +1,26 @@
 import { hashEmail } from '@petshop/db'
-import { GrantPlatformAdminSchema, RequestSupportAccessSchema } from '@petshop/shared-types'
+import {
+  GrantPlatformAdminSchema,
+  PlatformAlertQuerySchema,
+  PlatformAuditQuerySchema,
+  PlatformMetricsQuerySchema,
+  RequestSupportAccessSchema,
+  TenantListQuerySchema,
+} from '@petshop/shared-types'
 import { z } from 'zod'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
+import { listAlerts } from './alerts.js'
+import { listPlatformAuditLogs } from './audit.js'
 import { notFound } from './errors.js'
 import { requestSupportAccess } from './grants.js'
+import { platformHealth } from './health.js'
 import {
   grantPlatformAdmin,
   listPlatformAdmins,
   revokePlatformAdmin,
 } from './service.js'
+import { queryMetrics } from './metrics.js'
+import { listTenants, tenantUsage } from './tenants.js'
 import { parseInput } from './validate.js'
 
 const IdParamSchema = z.object({ id: z.uuid() })
@@ -72,6 +84,67 @@ export async function registerPlatformRoutes(app: FastifyInstance): Promise<void
     const { id } = parseInput(IdParamSchema, request.params)
     await revokePlatformAdmin(actorOf(request), id)
     return reply.status(204).send()
+  })
+
+  /**
+   * O painel de estabelecimentos (MOD-ADMIN-03).
+   *
+   * Responde **sem grant**, e é a fronteira do módulo: plano, status, datas e contagens são
+   * informação sobre o estabelecimento, não sobre os clientes dele. A ficha de um tutor,
+   * ainda que o painel diga que existe só um, continua atrás do MOD-ADMIN-02.
+   */
+  app.get('/platform/v1/tenants', async (request) => {
+    const query = parseInput(TenantListQuerySchema, request.query ?? {})
+    return listTenants(query)
+  })
+
+  /** As contagens de um estabelecimento (MOD-ADMIN-07). */
+  app.get('/platform/v1/tenants/:tenantId/usage', async (request) => {
+    const { tenantId } = parseInput(TenantParamSchema, request.params)
+    return tenantUsage(tenantId)
+  })
+
+  /**
+   * A saúde da plataforma (MOD-ADMIN-04).
+   *
+   * **Sempre 200**, mesmo com dependência fora do ar: o estado vai no corpo, e uma linha
+   * vermelha diz muito mais que um 503 numa tela cujo trabalho é justamente mostrar o que
+   * quebrou.
+   */
+  app.get('/platform/v1/health', async () => platformHealth())
+
+  /**
+   * A série temporal (MOD-ADMIN-05, AC-02).
+   *
+   * O balde servido depende da janela pedida, e não do que está guardado: trinta dias em
+   * baldes de cinco minutos seriam 8.640 pontos, que é uma lista e não um gráfico.
+   */
+  app.get('/platform/v1/metrics', async (request) => {
+    const query = parseInput(PlatformMetricsQuerySchema, request.query ?? {})
+    return queryMetrics(query)
+  })
+
+  /**
+   * Os alertas (MOD-ADMIN-06).
+   *
+   * **Só leitura.** Não há rota para acender nem para apagar um alerta à mão: quem os
+   * governa é a regra, avaliada pelo job, e um botão de "resolver" aqui faria o painel
+   * discordar da condição que continua valendo.
+   */
+  app.get('/platform/v1/alerts', async (request) => {
+    const query = parseInput(PlatformAlertQuerySchema, request.query ?? {})
+    return { items: await listAlerts(query) }
+  })
+
+  /**
+   * A trilha cross-tenant (MOD-ADMIN-08).
+   *
+   * A leitura registra a si mesma, com o filtro usado: quem vigia também é vigiado, e essa
+   * é a única razão pela qual esta rota existe.
+   */
+  app.get('/platform/v1/audit-logs', async (request) => {
+    const query = parseInput(PlatformAuditQuerySchema, request.query ?? {})
+    return listPlatformAuditLogs(actorOf(request), query)
   })
 
   /**

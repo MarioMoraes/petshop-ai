@@ -37,12 +37,26 @@ export interface PublisherConfig {
   isDisabled: () => boolean
 }
 
+/** O que o painel de saúde pergunta ao broker (MOD-ADMIN-04). */
+export interface EventsHealth {
+  state: 'UP' | 'DOWN' | 'DISABLED'
+  error?: string
+}
+
 export interface EventPublisher<EventMap extends EventMapOf<EventMap>> {
   publishEvent: <K extends keyof EventMap & string>(
     routingKey: K,
     payload: Omit<EventMap[K], 'timestamp'>,
   ) => Promise<void>
   closeEvents: () => Promise<void>
+  /**
+   * O broker responde?
+   *
+   * **Reusa o canal do publicador em vez de abrir um só para perguntar.** Uma conexão
+   * nova a cada abertura do painel de saúde criaria e derrubaria conexão AMQP em cadência
+   * de tela — e um painel que pesa no que observa é o primeiro a ser desligado.
+   */
+  checkEvents: () => Promise<EventsHealth>
 }
 
 /**
@@ -58,6 +72,8 @@ export function createEventPublisher<EventMap extends EventMapOf<EventMap>>(
   let connection: ChannelModel | null = null
   let channel: Channel | null = null
   let connecting: Promise<void> | null = null
+  /** A última falha de conexão, para o painel de saúde poder dizer qual foi. */
+  let lastError: string | null = null
 
   async function ensureChannel(): Promise<Channel | null> {
     if (config.isDisabled()) return null
@@ -80,9 +96,11 @@ export function createEventPublisher<EventMap extends EventMapOf<EventMap>>(
       await connecting
     } catch (error) {
       connecting = null
+      lastError = error instanceof Error ? error.message : String(error)
       logger.error({ err: error }, 'Falha ao conectar no RabbitMQ')
       return null
     }
+    lastError = null
     return channel
   }
 
@@ -111,6 +129,13 @@ export function createEventPublisher<EventMap extends EventMapOf<EventMap>>(
         // telefone), e uma falha de broker não é motivo para gravá-la em disco.
         logger.error({ err: error, routingKey }, 'Falha ao publicar evento')
       }
+    },
+
+    async checkEvents(): Promise<EventsHealth> {
+      if (config.isDisabled()) return { state: 'DISABLED' }
+      const ch = await ensureChannel()
+      if (ch) return { state: 'UP' }
+      return { state: 'DOWN', ...(lastError ? { error: lastError } : {}) }
     },
 
     async closeEvents(): Promise<void> {

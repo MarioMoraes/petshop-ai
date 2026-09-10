@@ -12,6 +12,7 @@ import {
   type DeletionRequestResponse,
   type SecurityEventSummary,
   type Species,
+  type SupportGrantResponse,
   type TenantAddress,
   type TenantResponse,
   type TenantSettings,
@@ -39,6 +40,7 @@ import { BreedCatalog } from './breed-catalog'
 import { Documentos } from './documentos'
 import { Privacidade } from './privacidade'
 import { Seguranca } from './seguranca'
+import { AcessoSuporte } from './suporte'
 
 /**
  * Configurações do estabelecimento (MOD-IDENT-08, parcial).
@@ -112,6 +114,17 @@ const DOCUMENTS_TAB = { id: 'documentos', label: 'Documentos' }
  */
 const SECURITY_TAB = { id: 'seguranca', label: 'Segurança' }
 
+/**
+ * MOD-ADMIN-02: o acesso da equipe PetShop AI à base deste estabelecimento.
+ *
+ * **Sem gate próprio, ao contrário das três abas acima.** Quem abre as Configurações já
+ * tem `tenant:read_settings`, que é exatamente a permissão com que o backend serve a
+ * lista — e é assim de propósito: quem opera o balcão não autoriza acesso, mas precisa
+ * ver que alguém de fora está lendo a base. Autorizar continua exigindo
+ * `tenant:configure`, e é o `canEdit` que decide se os botões aparecem.
+ */
+const SUPPORT_TAB = { id: 'suporte', label: 'Suporte' }
+
 export interface SettingsFormProps {
   tenant: TenantResponse
   settings: TenantSettings
@@ -139,6 +152,13 @@ export interface SettingsFormProps {
   auditCursor: string | null
   securitySummary: SecurityEventSummary[]
   canReadAudit: boolean
+  /**
+   * Os pedidos e acessos de suporte deste estabelecimento (MOD-ADMIN-02).
+   *
+   * Vem sempre, sem gate próprio: a permissão que o backend exige para a lista é a mesma
+   * que abre esta tela.
+   */
+  supportGrants: SupportGrantResponse[]
   /**
    * A aba que abre, quando a URL a nomeia.
    *
@@ -177,6 +197,7 @@ export function SettingsForm({
   auditCursor,
   securitySummary,
   canReadAudit,
+  supportGrants,
   abaInicial,
 }: SettingsFormProps) {
   const [active, setActive] = useState(abaInicial ?? 'dados')
@@ -224,6 +245,7 @@ export function SettingsForm({
           ...(canManageCatalog ? [CATALOG_TAB] : []),
           ...(canResolveDeletions ? [PRIVACY_TAB] : []),
           ...(canReadAudit ? [SECURITY_TAB] : []),
+          SUPPORT_TAB,
         ]}
         active={active}
         onSelect={selectTab}
@@ -252,6 +274,9 @@ export function SettingsForm({
         {active === 'documentos' && <Documentos versions={termVersions} canEdit={canEdit} />}
         {/* Também sem o `shared`: cada pedido é respondido na própria linha. */}
         {active === 'privacidade' && <Privacidade pedidos={deletionRequests} />}
+
+        {/* Sem o `shared`: cada pedido é respondido na própria linha, como a privacidade. */}
+        {active === 'suporte' && <AcessoSuporte grants={supportGrants} canEdit={canEdit} />}
 
         {active === 'seguranca' && (
           <Seguranca

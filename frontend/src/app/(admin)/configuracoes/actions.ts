@@ -18,6 +18,7 @@ import {
   type TenantSettings,
   type AuditLogPage,
   type SecurityEventPage,
+  type SupportGrantResponse,
   type TermVersionView,
 } from '@petshop/shared-types'
 import { z } from 'zod'
@@ -326,6 +327,59 @@ export async function loadSecurityEventsAction(input: {
 }): Promise<ActionResult<SecurityEventPage>> {
   try {
     return { ok: true, data: await serverApi().listSecurityEvents(input) }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+// ─── MOD-ADMIN-02 — o acesso do suporte ──────────────────────────────────────
+
+/**
+ * As três decisões que o estabelecimento toma sobre o acesso da equipe PetShop AI.
+ *
+ * **Revalidam `/configuracoes` e nada mais.** Nenhuma outra tela mostra o estado do grant,
+ * e derrubar o cache do início por causa de uma autorização recarregaria o painel inteiro
+ * para atualizar uma linha que só existe aqui.
+ *
+ * O prazo é conferido no servidor contra `SUPPORT_GRANT_MAX_HOURS`: se o teto do ambiente
+ * for menor que o botão oferece, volta 422 e a mensagem aparece no diálogo. O cliente não
+ * tenta adivinhar o teto — quem decide política é o ambiente.
+ */
+export async function approveSupportAccessAction(
+  grantId: string,
+  hours: number,
+): Promise<ActionResult<SupportGrantResponse>> {
+  try {
+    const grant = await serverApi().approveSupportAccess(grantId, hours)
+    revalidatePath('/configuracoes')
+    return { ok: true, data: grant }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function denySupportAccessAction(grantId: string): Promise<ActionResult<null>> {
+  try {
+    await serverApi().denySupportAccess(grantId)
+    revalidatePath('/configuracoes')
+    return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Encerrar vale no clique.
+ *
+ * O grant é a única autorização do produto que **não** entra em cache: a checagem lê o
+ * banco a cada requisição justamente para que a revogação não tenha janela. A tela pode
+ * prometer "agora" porque o backend cumpre "agora".
+ */
+export async function revokeSupportAccessAction(grantId: string): Promise<ActionResult<null>> {
+  try {
+    await serverApi().revokeSupportAccess(grantId)
+    revalidatePath('/configuracoes')
+    return { ok: true, data: null }
   } catch (error) {
     return toFailure(error)
   }

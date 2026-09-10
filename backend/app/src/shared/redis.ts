@@ -155,6 +155,15 @@ export const CACHE_KEYS = {
    * minutos de chave quente dariam ao suporte cinco minutos depois do clique.
    */
   platformAdmin: (clerkUserId: string) => `platform:admin:${clerkUserId}`,
+  /**
+   * O painel de saúde inteiro, montado (MOD-ADMIN-04).
+   *
+   * Chave fixa, sem tenant: o que ela guarda é o estado do processo e das dependências
+   * dele, que é igual para quem quer que pergunte. **A única invalidação é o TTL** — as
+   * sondas custam o que custam, e quinze segundos é curto o bastante para ninguém decidir
+   * nada com informação velha.
+   */
+  platformHealth: 'platform:health',
 
   // ---- MOD-LEDGER ----
   /**
@@ -268,6 +277,7 @@ export const CACHE_TTL_SECONDS = {
   whatsappQr: 90,
 
   platformAdmin: 300,
+  platformHealth: 15,
 
   balance: 60,
   packages: 300,

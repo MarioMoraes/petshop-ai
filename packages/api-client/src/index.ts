@@ -241,6 +241,8 @@ import {
   AuditLogPageSchema,
   SecurityEventPageSchema,
   SecurityEventSummaryResponseSchema,
+  SupportGrantResponseSchema,
+  SupportGrantsResponseSchema,
   type AuditLogQuery,
   type SecurityEventQuery,
 } from '@petshop/shared-types'
@@ -1067,6 +1069,39 @@ export function createApiClient(options: ApiClientOptions) {
         path: `/v1/security-events${toQueryString({ ...query, summary: true })}`,
         schema: SecurityEventSummaryResponseSchema,
       }),
+
+    // ─── Acesso do suporte (MOD-ADMIN-02, o lado do estabelecimento) ───────
+
+    /**
+     * Os pedidos e acessos de suporte **deste** estabelecimento.
+     *
+     * A leitura é mais larga que a escrita de propósito (`tenant:read_settings`): quem
+     * opera o balcão não aprova acesso, mas precisa ver que alguém de fora está lendo a
+     * base. Esconder o histórico de quem trabalha ali faria do consentimento uma
+     * formalidade.
+     */
+    listSupportAccess: () =>
+      request({
+        method: 'GET',
+        path: '/v1/support-access',
+        schema: SupportGrantsResponseSchema,
+      }),
+
+    /** Aprova, com o prazo em horas. O teto é do servidor, e o tenant só encurta. */
+    approveSupportAccess: (id: string, hours: number) =>
+      request({
+        method: 'POST',
+        path: `/v1/support-access/${id}/approve`,
+        body: { hours },
+        schema: SupportGrantResponseSchema,
+      }),
+
+    denySupportAccess: (id: string) =>
+      request<void>({ method: 'POST', path: `/v1/support-access/${id}/deny` }),
+
+    /** Vale no clique: a checagem do grant lê o banco a cada requisição, sem cache. */
+    revokeSupportAccess: (id: string) =>
+      request<void>({ method: 'POST', path: `/v1/support-access/${id}/revoke` }),
 
     // ─── Termos versionados e aceites (MOD-DOC-06, 07 e 08) ────────────────
 
