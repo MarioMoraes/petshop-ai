@@ -451,6 +451,17 @@ export const MeResponseSchema = z.object({
     enabled: z.boolean(),
     graceEndsAt: z.iso.datetime().nullable(),
   }),
+  /**
+   * Até quando esta pessoa já viu os agendamentos vindos do Portal — a marca do sino.
+   *
+   * Vem daqui e não de uma rota própria porque a moldura do Admin já espera por `/v1/me`
+   * antes de desenhar qualquer coisa: uma segunda chamada só para ler um instante
+   * atrasaria toda navegação para adiantar um contador.
+   *
+   * `null` é quem nunca abriu o sino, e **não** significa "conte desde sempre": quem
+   * decide a janela é a contagem, no MOD-AGENDA.
+   */
+  portalBookingsSeenAt: z.iso.datetime().nullable(),
 })
 export type MeResponse = z.infer<typeof MeResponseSchema>
 

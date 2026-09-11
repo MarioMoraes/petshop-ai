@@ -4,6 +4,7 @@ import { UserButton } from '@clerk/nextjs'
 import type { MeResponse, PermissionKey } from '@petshop/shared-types'
 import { serverApi } from '@/lib/api'
 import { montarPendencias } from '@/lib/pendencias'
+import { marcarAgendamentosVistos } from '@/lib/pendencias-actions'
 import { carregarPendencias } from '@/lib/pendencias.server'
 import { Atmosphere } from './atmosphere'
 import { NotificationsBell } from './notifications-bell'
@@ -298,7 +299,14 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
              * O sino antes do nome, e não depois do avatar: o avatar é o fim da linha
              * — dali sai o menu da conta, e nada deve aparecer à direita dele.
              */}
-            <NotificationsBell pendencias={pendencias} />
+            {/*
+              A ação desce como prop porque o sino é client e a moldura é servidor —
+              é assim que o token do Clerk continua fora do browser. Sem `revalidate`
+              junto: o painel está aberto na hora do clique, e remontar a moldura
+              faria a linha sumir debaixo do cursor de quem ia clicar nela. Ela some
+              na próxima navegação, que é quando o contador sempre se atualizou.
+            */}
+            <NotificationsBell pendencias={pendencias} aoVer={marcarAgendamentosVistos} />
             <div className="min-w-0 text-right leading-tight">
               <p className="truncate text-sm font-medium">{me.user.fullName}</p>
               {roleLabel && <p className="hint truncate">{roleLabel}</p>}

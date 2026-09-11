@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { montarPendencias } from './pendencias'
+import { chavesAMarcar, contarNaoVistos, montarPendencias, type Pendencia } from './pendencias'
 
 /**
  * O sino mostra trabalho pendente, e a regra que mais importa é a que separa **zero**
@@ -9,6 +9,7 @@ import { montarPendencias } from './pendencias'
 describe('montarPendencias', () => {
   const nada = {
     aprovacoes: null,
+    novosAgendamentos: null,
     exclusoes: null,
     leads: null,
     mensagens: null,
@@ -32,6 +33,7 @@ describe('montarPendencias', () => {
   it('conta cada fonte na sua própria linha, na ordem do fluxo de trabalho', () => {
     const linhas = montarPendencias({
       aprovacoes: { count: 4, nextDate: '2026-09-10' },
+      novosAgendamentos: { count: 2, nextDate: '2026-09-11' },
       exclusoes: 1,
       leads: 3,
       mensagens: 2,
@@ -43,9 +45,13 @@ describe('montarPendencias', () => {
      * A triagem do Portal primeiro: o horário reservado expira em 24h e leva o cliente
      * junto. O pedido de exclusão logo depois: o prazo dele é de quinze dias, mas é de
      * **lei** — contato do site e inadimplente esperam sem estragar.
+     *
+     * O aviso de agendamento novo vem colado na triagem por ser o parente dela: mesmo
+     * tutor, mesmo Portal, e o que separa as duas é a triagem estar ligada ou não.
      */
     expect(linhas.map((l) => l.key)).toEqual([
       'aprovacoes',
+      'novosAgendamentos',
       'exclusoes',
       'leads',
       'mensagens',
@@ -69,9 +75,7 @@ describe('montarPendencias', () => {
 
     it('usa o plural para os demais', () => {
       expect(montarPendencias({ ...nada, leads: 4 })[0]?.titulo).toBe('4 contatos do site')
-      expect(montarPendencias({ ...nada, mensagens: 4 })[0]?.titulo).toBe(
-        '4 mensagens não saíram',
-      )
+      expect(montarPendencias({ ...nada, mensagens: 4 })[0]?.titulo).toBe('4 mensagens não saíram')
       expect(montarPendencias({ ...nada, inadimplentes: 4 })[0]?.titulo).toBe(
         '4 tutores inadimplentes',
       )
@@ -85,6 +89,7 @@ describe('montarPendencias', () => {
   it('aponta cada linha para a tela que resolve a pendência, já filtrada', () => {
     const linhas = montarPendencias({
       aprovacoes: { count: 1, nextDate: '2026-09-10' },
+      novosAgendamentos: { count: 1, nextDate: '2026-09-11' },
       exclusoes: 1,
       leads: 1,
       mensagens: 1,
@@ -92,6 +97,7 @@ describe('montarPendencias', () => {
     })
     expect(linhas.map((l) => l.href)).toEqual([
       '/agenda/dia?date=2026-09-10',
+      '/agenda/dia?date=2026-09-11',
       // A aba já selecionada: sem o `?aba=`, o clique cairia em "Dados" e o contador
       // teria prometido um destino para entregar outro.
       '/configuracoes?aba=privacidade',
@@ -115,5 +121,87 @@ describe('montarPendencias', () => {
 
   it('não mostra a triagem quando a fila está vazia', () => {
     expect(montarPendencias({ ...nada, aprovacoes: { count: 0, nextDate: null } })).toEqual([])
+  })
+
+  /*
+   * A linha que não é pendência, e a única com marca de lido. Ela some pelo mesmo
+   * caminho das outras — contagem zero —, e é isso que mantém `montarPendencias` sem
+   * saber que existe estado de lido em algum lugar.
+   */
+  describe('agendamento novo pelo Portal', () => {
+    it('anuncia a novidade com o dia para onde ir', () => {
+      const [linha] = montarPendencias({
+        ...nada,
+        novosAgendamentos: { count: 3, nextDate: '2026-09-20' },
+      })
+      expect(linha?.titulo).toBe('3 agendamentos novos pelo site')
+      expect(linha?.href).toBe('/agenda/dia?date=2026-09-20')
+    })
+
+    it('usa o singular para um', () => {
+      const [linha] = montarPendencias({
+        ...nada,
+        novosAgendamentos: { count: 1, nextDate: null },
+      })
+      expect(linha?.titulo).toBe('1 agendamento novo pelo site')
+      expect(linha?.href).toBe('/agenda/dia')
+    })
+
+    it('some quando tudo já foi visto — é o que a marca de lido faz com a contagem', () => {
+      expect(
+        montarPendencias({ ...nada, novosAgendamentos: { count: 0, nextDate: null } }),
+      ).toEqual([])
+    })
+  })
+})
+
+/**
+ * A aritmética do ponto vermelho, fora do componente.
+ *
+ * O painel abre por clique, e comportamento que depende de JavaScript não se verifica
+ * pela receita de captura do projeto — então ele é testado aqui, como função pura.
+ */
+describe('o ponto vermelho e a marca de lido', () => {
+  const linhas = montarPendencias({
+    aprovacoes: { count: 2, nextDate: '2026-09-10' },
+    novosAgendamentos: { count: 3, nextDate: '2026-09-11' },
+    exclusoes: null,
+    leads: 4,
+    mensagens: null,
+    inadimplentes: null,
+  })
+
+  it('soma tudo enquanto nada foi visto', () => {
+    expect(contarNaoVistos(linhas, [])).toBe(9)
+  })
+
+  it('desconta a linha inteira depois de vista — não há novidade pela metade', () => {
+    expect(contarNaoVistos(linhas, ['novosAgendamentos'])).toBe(6)
+  })
+
+  /*
+   * O caso que a lista `CHAVES_COM_LEITURA` existe para garantir. Marcar tudo ao abrir
+   * o painel apagaria pedido de aprovação e contato do site — trabalho que continua
+   * parado depois de alguém ter só olhado.
+   */
+  it('só marca o que não é pendência de verdade', () => {
+    expect(chavesAMarcar(linhas, [])).toEqual(['novosAgendamentos'])
+  })
+
+  it('não remarca o que esta abertura já marcou — sem ida ao servidor à toa', () => {
+    expect(chavesAMarcar(linhas, ['novosAgendamentos'])).toEqual([])
+  })
+
+  it('nada a marcar quando o painel não tem a linha de novidade', () => {
+    const semNovidade: Pendencia[] = montarPendencias({
+      aprovacoes: null,
+      novosAgendamentos: null,
+      exclusoes: null,
+      leads: 1,
+      mensagens: null,
+      inadimplentes: null,
+    })
+    expect(chavesAMarcar(semNovidade, [])).toEqual([])
+    expect(contarNaoVistos(semNovidade, [])).toBe(1)
   })
 })

@@ -40,6 +40,7 @@ import {
   SizeSchema,
   AppointmentResponseSchema,
   AvailabilityResponseSchema,
+  NewPortalBookingsSchema,
   PendingApprovalsSchema,
   BillingSettingsSchema,
   LedgerAccountSchema,
@@ -527,6 +528,20 @@ export function createApiClient(options: ApiClientOptions) {
 
   return {
     me: () => request({ method: 'GET', path: '/v1/me', schema: MeResponseSchema }),
+
+    /**
+     * "Já vi os agendamentos novos do Portal" — a marca do sino, gravada no vínculo.
+     *
+     * Devolve o instante que o **servidor** gravou, e não o que o browser achava que
+     * era: o relógio de quem clica não decide o que é novidade.
+     */
+    markPortalBookingsSeen: () =>
+      request({
+        method: 'POST',
+        path: '/v1/me/portal-bookings-seen',
+        body: {},
+        schema: z.object({ seenAt: z.iso.datetime() }),
+      }),
 
     createTenant: (input: {
       name: string
@@ -1674,6 +1689,19 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'GET',
         path: '/v1/appointments/pending-count',
         schema: PendingApprovalsSchema,
+      }),
+
+    /**
+     * O agendamento que o tutor marcou no Portal e a equipe ainda não viu.
+     *
+     * `since` é a marca de lido de quem pergunta, que vem de `/v1/me`. Ausente, a
+     * agenda conta a janela inteira de novidade — que tem teto lá, e não aqui.
+     */
+    countNewPortalBookings: (query: { since?: string } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/appointments/portal-new-count${toQueryString(query)}`,
+        schema: NewPortalBookingsSchema,
       }),
 
     listAppointments: (query: {

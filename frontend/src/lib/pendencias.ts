@@ -3,15 +3,18 @@ import type { Route } from 'next'
 /**
  * O que precisa de alguém agora — a fonte do sino da topbar.
  *
- * **Não é uma caixa de notificações, e a diferença é deliberada.** Não há tabela de
- * avisos nem estado de lido: cada linha daqui é uma consulta ao trabalho que ainda
- * está pendente de verdade. Quem responde o contato do site vê o número cair sozinho;
- * ninguém precisa "marcar como lido", e nada fica pendurado depois de resolvido.
+ * **Quase nada aqui é notificação, e a diferença é deliberada.** Não há tabela de
+ * avisos: cada linha é uma consulta ao trabalho que ainda está pendente de verdade.
+ * Quem responde o contato do site vê o número cair sozinho; ninguém precisa "marcar
+ * como lido", e nada fica pendurado depois de resolvido. O contador não tem como
+ * discordar da tela para onde ele aponta, que é o defeito clássico de um centro de
+ * notificações com estado próprio.
  *
- * O custo disso é que o sino só sabe do presente — não existe "você tem um contato
- * novo desde ontem". Em troca, ele nunca mente: não há como o contador discordar da
- * tela para onde ele aponta, que é o defeito clássico de um centro de notificações
- * com estado próprio.
+ * **A exceção é `novosAgendamentos`, e ela prova a regra.** O agendamento que o tutor
+ * marcou no Portal já está confirmado e já está na agenda: não há trabalho a fazer,
+ * então não há nada que faça o número cair. Ou ele ganha marca de lido
+ * (`memberships.portal_bookings_seen_at`), ou fica aceso para sempre. É a única linha
+ * que abrir o sino apaga — ver `CHAVES_COM_LEITURA`.
  *
  * Este módulo é o **núcleo puro** — tipos e a montagem das linhas, sem rede. Quem
  * consulta os serviços é `pendencias.server.ts`; a separação existe para que a regra
@@ -20,11 +23,50 @@ import type { Route } from 'next'
  */
 
 export type PendenciaKey =
-  | 'aprovacoes'
-  | 'exclusoes'
-  | 'leads'
-  | 'mensagens'
-  | 'inadimplentes'
+  'aprovacoes' | 'novosAgendamentos' | 'exclusoes' | 'leads' | 'mensagens' | 'inadimplentes'
+
+/**
+ * As linhas que **não** são trabalho parado, e por isso precisam de marca de lido.
+ *
+ * Hoje é uma só. O agendamento que o tutor marcou no Portal já está confirmado e já
+ * está na agenda: não há o que fazer com ele, então o contador não teria como cair
+ * sozinho. Abrir o sino é o que o apaga — e é a única linha de que isso vale.
+ *
+ * Lista, e não um campo em `Pendencia`, porque quem precisa dela é o sino (client) para
+ * decidir o que marcar ao abrir, e uma flag por linha convidaria a resposta errada:
+ * marcar tudo como visto apagaria pendência de verdade.
+ */
+export const CHAVES_COM_LEITURA: readonly PendenciaKey[] = ['novosAgendamentos']
+
+/**
+ * O número do ponto vermelho: tudo o que ainda não foi visto.
+ *
+ * Função pura, e no `lib/` e não dentro do sino, por um motivo prático: o painel abre
+ * por clique, e comportamento que depende de JavaScript não se verifica pela receita de
+ * captura do projeto. Aqui ele é um teste.
+ *
+ * **Desconta a linha inteira, e não uma parte dela.** Não há contagem parcial de
+ * novidade: ou a pessoa abriu o painel e viu tudo o que estava lá, ou não abriu.
+ */
+export function contarNaoVistos(pendencias: Pendencia[], vistos: readonly PendenciaKey[]): number {
+  return pendencias.reduce((soma, p) => (vistos.includes(p.key) ? soma : soma + p.count), 0)
+}
+
+/**
+ * O que esta abertura do painel deve marcar como visto.
+ *
+ * Só as linhas de `CHAVES_COM_LEITURA`, e só as que ainda não foram marcadas. As duas
+ * condições importam: a primeira impede que abrir o sino apague pendência de verdade, e
+ * a segunda evita uma ida ao servidor por abertura de painel já lido.
+ */
+export function chavesAMarcar(
+  pendencias: Pendencia[],
+  vistos: readonly PendenciaKey[],
+): PendenciaKey[] {
+  return pendencias
+    .filter((p) => CHAVES_COM_LEITURA.includes(p.key) && !vistos.includes(p.key))
+    .map((p) => p.key)
+}
 
 export interface Pendencia {
   key: PendenciaKey
@@ -49,15 +91,26 @@ export interface ContagemPendencias {
   /**
    * A fila da triagem do Portal, com o dia do pedido mais próximo.
    *
-   * É a única fonte que traz um destino junto do número, e o motivo é a tela: a visão
-   * da agenda é por **dia**, então "3 pedidos" sem dizer qual dia abriria uma tela
-   * vazia na metade das vezes.
+   * Traz um destino junto do número, e o motivo é a tela: a visão da agenda é por
+   * **dia**, então "3 pedidos" sem dizer qual dia abriria uma tela vazia na metade das
+   * vezes. `novosAgendamentos` carrega o mesmo par, pela mesma razão.
    */
   aprovacoes: { count: number; nextDate: string | null } | null
   /**
+   * Agendamentos que o tutor marcou no Portal desde a última vez que **esta pessoa**
+   * abriu o sino (MOD-PORTAL-05).
+   *
+   * A única fonte com estado de lido, e a única que não é pendência: o agendamento já
+   * está confirmado e já está na agenda. Sem a marca, o contador ficaria aceso para
+   * sempre — com ela, ele é aviso de novidade e some quando alguém olha.
+   *
+   * Traz `nextDate` pela mesma razão que `aprovacoes`: a visão da agenda é por dia.
+   */
+  novosAgendamentos: { count: number; nextDate: string | null } | null
+  /**
    * Pedidos de exclusão de dados esperando decisão (MOD-PORTAL-09, AC-05).
    *
-   * A fonte com o prazo mais duro das cinco, e a única com prazo **legal**: o art. 19 da
+   * A fonte com o prazo mais duro de todas, e a única com prazo **legal**: o art. 19 da
    * LGPD dá quinze dias para responder o titular. As outras esperam sem estragar; esta
    * vence.
    */
@@ -102,6 +155,23 @@ export function montarPendencias(contagem: ContagemPendencias): Pendencia[] {
       count,
       titulo: plural(count, 'horário pedido pelo site', 'horários pedidos pelo site'),
       detalhe: 'aguardando sua confirmação',
+      href: nextDate ? `/agenda/dia?date=${nextDate}` : '/agenda/dia',
+    })
+  }
+
+  /**
+   * Logo abaixo dos pedidos, porque é o parente mais próximo deles: as duas linhas
+   * falam do mesmo tutor marcando no mesmo Portal, e o que as separa é a triagem estar
+   * ligada ou não. Juntas, elas nunca contam o mesmo agendamento duas vezes — quem
+   * espera aprovação é `PENDING`, e a contagem daqui não olha para esse estado.
+   */
+  if (contagem.novosAgendamentos?.count) {
+    const { count, nextDate } = contagem.novosAgendamentos
+    linhas.push({
+      key: 'novosAgendamentos',
+      count,
+      titulo: plural(count, 'agendamento novo pelo site', 'agendamentos novos pelo site'),
+      detalhe: 'marcados pelo tutor desde sua última visita',
       href: nextDate ? `/agenda/dia?date=${nextDate}` : '/agenda/dia',
     })
   }

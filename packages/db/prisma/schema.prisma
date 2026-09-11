@@ -453,6 +453,17 @@ model Membership {
   /// desligar o segundo fator depois não devolve prazo nenhum.
   mfaGraceUntil DateTime? @map("mfa_grace_until") @db.Timestamptz(6)
 
+  /// Até quando esta pessoa já viu os agendamentos marcados pelo tutor no Portal.
+  ///
+  /// A única coluna de "lido" do produto, e ela é por **vínculo** e não por usuário:
+  /// quem atende dois estabelecimentos tem duas caixas de entrada, e uma marca global
+  /// faria a visita ao primeiro apagar o aviso do segundo.
+  ///
+  /// Nula é quem nunca abriu o sino. O contador não a lê como "desde sempre" — a
+  /// janela de novidade tem teto próprio (ver `countNewPortalBookings`), senão a
+  /// primeira abertura de um estabelecimento antigo mostraria a agenda inteira.
+  portalBookingsSeenAt DateTime? @map("portal_bookings_seen_at") @db.Timestamptz(6)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

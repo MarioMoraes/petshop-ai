@@ -345,7 +345,10 @@ export const CreateAppointmentSchema = z.object({
   petId: z.uuid(),
   professionalId: z.uuid(),
   startsAt: z.iso.datetime(),
-  items: z.array(z.object({ serviceId: z.uuid() })).min(1).max(10),
+  items: z
+    .array(z.object({ serviceId: z.uuid() }))
+    .min(1)
+    .max(10),
   notes: z.string().trim().max(1000).optional(),
   /** MOD-AGENDA-10 AC-01: reconhecimento consciente do alerta clínico crítico. */
   acknowledgedAlerts: z.boolean().default(false),
@@ -361,7 +364,10 @@ export const CheckoutSchema = z.object({
   weightKg: z.number().min(0.05).max(120).optional(),
   notes: z.string().trim().max(1000).optional(),
   /** RN-18: serviço acrescentado durante a execução. */
-  extraItems: z.array(z.object({ serviceId: z.uuid() })).max(10).default([]),
+  extraItems: z
+    .array(z.object({ serviceId: z.uuid() }))
+    .max(10)
+    .default([]),
 })
 
 /**
@@ -374,7 +380,10 @@ export const CheckoutSchema = z.object({
 export const CreateWalkInSchema = z.object({
   petId: z.uuid(),
   professionalId: z.uuid(),
-  items: z.array(z.object({ serviceId: z.uuid() })).min(1).max(10),
+  items: z
+    .array(z.object({ serviceId: z.uuid() }))
+    .min(1)
+    .max(10),
   /** Convenção do MOD-LEDGER: todo POST que move dinheiro é idempotente. */
   idempotencyKey: z.uuid(),
   weightKg: z.number().min(0.05).max(120).optional(),
@@ -404,7 +413,12 @@ export const CancelAppointmentSchema = z.object({
 export const AvailabilityQuerySchema = z.object({
   serviceIds: z
     .string()
-    .transform((raw) => raw.split(',').map((id) => id.trim()).filter(Boolean))
+    .transform((raw) =>
+      raw
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean),
+    )
     .pipe(z.array(z.uuid()).min(1).max(10)),
   /** Porte e pelagem mudam a duração — disponibilidade sem pet é aproximação. */
   petId: z.uuid(),
@@ -462,6 +476,45 @@ export const PendingApprovalsSchema = z.object({
   nextDate: z.string().nullable(),
 })
 export type PendingApprovals = z.infer<typeof PendingApprovalsSchema>
+
+/**
+ * Quantos dias um agendamento do Portal continua sendo "novidade".
+ *
+ * Existe porque a marca de lido pode ser nula — ninguém nunca abriu o sino — e
+ * "desde sempre" faria a primeira abertura de um estabelecimento com um ano de agenda
+ * anunciar centenas de agendamentos. O teto também protege quem voltou de férias: o
+ * que foi marcado há duas semanas já está na agenda e não é mais notícia.
+ */
+export const NOVOS_AGENDAMENTOS_JANELA_DIAS = 7
+
+/**
+ * O aviso de agendamento novo pelo Portal, para o sino do Admin.
+ *
+ * **É a única fonte do sino que não é pendência**, e por isso é a única com marca de
+ * lido (`memberships.portal_bookings_seen_at`). As outras contam trabalho parado e
+ * zeram quando alguém resolve; um agendamento confirmado não tem o que resolver, e um
+ * contador assim ficaria aceso para sempre.
+ *
+ * Mesma forma do `PendingApprovalsSchema` de propósito: as duas linhas levam para a
+ * visão do dia, e o `nextDate` é o que impede o clique de abrir uma tela vazia.
+ */
+export const NewPortalBookingsQuerySchema = z.object({
+  /**
+   * A marca de lido de quem pergunta. Ausente conta a janela inteira.
+   *
+   * Chega por parâmetro em vez de ser lido aqui porque `memberships` é tabela do
+   * MOD-IDENT: quem guarda a marca é o dono dela, e a agenda só sabe contar.
+   */
+  since: z.iso.datetime().optional(),
+})
+export type NewPortalBookingsQuery = z.infer<typeof NewPortalBookingsQuerySchema>
+
+export const NewPortalBookingsSchema = z.object({
+  count: z.number().int(),
+  /** Dia civil (`YYYY-MM-DD`) do agendamento novo mais próximo, no fuso do tenant. */
+  nextDate: z.string().nullable(),
+})
+export type NewPortalBookings = z.infer<typeof NewPortalBookingsSchema>
 
 export const AppointmentResponseSchema = z.object({
   id: z.uuid(),

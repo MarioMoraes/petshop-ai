@@ -10,10 +10,14 @@ import {
   DayViewQuerySchema,
   ListAppointmentsQuerySchema,
   MovementQuerySchema,
+  NewPortalBookingsQuerySchema,
+  NOVOS_AGENDAMENTOS_JANELA_DIAS,
   RecurrenceScopeSchema,
   RescheduleSchema,
   todayIn,
   zonedDate,
+  zonedMidnight,
+  type AppointmentStatus,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
@@ -39,6 +43,18 @@ import { approve, cancel, checkIn, checkOut, markNoShow, reschedule } from './tr
  */
 
 const IdParamSchema = z.object({ id: z.uuid() })
+
+/**
+ * Os estados em que um agendamento está, de fato, na agenda.
+ *
+ * É o recorte do aviso de novidade do sino, e o que ele deixa de fora explica-o
+ * melhor que o que ele inclui. `PENDING` sai porque a rota de triagem já o conta, e
+ * somar o mesmo agendamento em duas linhas do mesmo painel faria o sino dizer 2 para
+ * uma coisa só. `CANCELLED`, `NO_SHOW` e `RESCHEDULED` saem porque o clique leva à
+ * visão do dia e nenhum dos três está lá — anunciar novidade que some ao ser aberta é
+ * exatamente o defeito que a marca de lido existe para evitar.
+ */
+const NA_AGENDA: AppointmentStatus[] = ['CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED']
 
 function actorFrom(request: FastifyRequest): ActorContext {
   const auth = requireTenantContext(request)
@@ -99,6 +115,67 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
         count,
         // RN-19: o dia é o do estabelecimento. Cortar por UTC mandaria o link para
         // ontem em toda solicitação da madrugada.
+        nextDate: proximo ? zonedDate(proximo.startsAt, timezone) : null,
+      }
+    })
+  })
+
+  /**
+   * O aviso de agendamento novo pelo Portal, para o sino do Admin.
+   *
+   * Irmã da rota acima e o oposto dela. A de cima conta o que **espera decisão** e
+   * zera quando alguém decide; esta conta o que **já está marcado** e nunca zeraria
+   * sozinha — por isso é a única do sino que recebe uma marca de lido.
+   *
+   * A marca vem em `since` em vez de ser lida aqui: ela mora em `memberships`, que é
+   * tabela do MOD-IDENT. A agenda sabe contar agendamento; quem guarda o que cada
+   * pessoa já viu é o dono do vínculo.
+   *
+   * O recorte de estado é `NA_AGENDA`, e o que ele deixa de fora está explicado lá.
+   */
+  app.get('/v1/appointments/portal-new-count', READ, async (request) => {
+    const { since } = parseInput(NewPortalBookingsQuerySchema, request.query)
+    const actor = actorFrom(request)
+    const agora = new Date()
+
+    /*
+     * O teto de novidade, e o motivo de ele existir: `since` é nulo para quem nunca
+     * abriu o sino, e "desde sempre" faria a primeira abertura de um estabelecimento
+     * com um ano de agenda anunciar centenas de agendamentos de uma vez.
+     *
+     * Vale também com marca antiga — quem voltou de férias vê a última semana, não o
+     * mês inteiro. O que foi marcado há duas semanas já está na agenda, e já não é
+     * notícia.
+     */
+    const teto = new Date(agora.getTime() - NOVOS_AGENDAMENTOS_JANELA_DIAS * 24 * 60 * 60 * 1000)
+    const visto = since ? new Date(since) : null
+    const desde = visto && visto > teto ? visto : teto
+
+    return withTenant(actor.tenantId, async (tx) => {
+      const where = {
+        source: 'PORTAL' as const,
+        createdAt: { gt: desde },
+        status: { in: NA_AGENDA },
+      }
+
+      const timezone = await loadTimezone(tx)
+
+      const [count, proximo] = await Promise.all([
+        tx.appointment.count({ where }),
+        /*
+         * O mais próximo a partir do começo do dia **do estabelecimento**, e não a
+         * partir de agora: um banho das 08h continua sendo o destino certo às 10h,
+         * porque a visão do dia mostra o dia inteiro.
+         */
+        tx.appointment.findFirst({
+          where: { ...where, startsAt: { gte: zonedMidnight(todayIn(timezone, agora), timezone) } },
+          orderBy: { startsAt: 'asc' },
+          select: { startsAt: true },
+        }),
+      ])
+
+      return {
+        count,
         nextDate: proximo ? zonedDate(proximo.startsAt, timezone) : null,
       }
     })
@@ -185,7 +262,11 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
     const result = await reschedule(
       actorFrom(request),
       id,
-      { startsAt: new Date(input.startsAt), professionalId: input.professionalId, reason: input.reason },
+      {
+        startsAt: new Date(input.startsAt),
+        professionalId: input.professionalId,
+        reason: input.reason,
+      },
       { canOverrideCredit: hasPermission(request, 'schedule:override_credit') },
     )
 
