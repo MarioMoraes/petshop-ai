@@ -106,9 +106,9 @@ function Termo({ termo }: { termo: PortalTerm }) {
           className="mt-3 w-full"
           onClick={() => (aberto ? aceitar() : setAberto(true))}
           busy={pendente}
-          busyLabel="Registrando…' : aberto ? 'Li e aceito"
+          busyLabel="Registrando…"
         >
-          Ler e aceitar
+          {aberto ? 'Li e aceito' : 'Ler e aceitar'}
         </Button>
       )}
     </div>

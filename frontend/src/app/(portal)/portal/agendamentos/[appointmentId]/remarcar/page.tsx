@@ -40,9 +40,14 @@ export default async function PortalRemarcarPage({
           titulo="Remarcar"
           voltar={{ href: '/portal/agendamentos', label: 'Meus agendamentos' }}
         >
-          <Alert tone="accent" icon={<AlertTriangleIcon />} title="Remarcar pelo site" role="status">
-            O {context.tenant.name} não recebe alterações por aqui. Fale com a equipe para
-            mudar o horário.
+          <Alert
+            tone="accent"
+            icon={<AlertTriangleIcon />}
+            title="Remarcar pelo site"
+            role="status"
+          >
+            O {context.tenant.name} não recebe alterações por aqui. Fale com a equipe para mudar o
+            horário.
           </Alert>
         </PortalFrame>
       )
@@ -55,7 +60,12 @@ export default async function PortalRemarcarPage({
           titulo="Remarcar"
           voltar={{ href: '/portal/agendamentos', label: 'Meus agendamentos' }}
         >
-          <Alert tone="accent" icon={<AlertTriangleIcon />} title="Não dá para remarcar" role="status">
+          <Alert
+            tone="accent"
+            icon={<AlertTriangleIcon />}
+            title="Não dá para remarcar"
+            role="status"
+          >
             {appointment.status === 'CHECKED_IN' || appointment.status === 'IN_PROGRESS'
               ? 'Seu pet já está no petshop. Fale com a equipe para resolver.'
               : 'Este agendamento não pode mais ser alterado pelo site.'}
@@ -71,7 +81,7 @@ export default async function PortalRemarcarPage({
         voltar={{ href: '/portal/agendamentos', label: 'Meus agendamentos' }}
         descricao={`${appointment.petName} · ${appointment.services.join(', ')}`}
       >
-        <RescheduleForm appointment={appointment} />
+        <RescheduleForm appointment={appointment} timezone={context.tenant.timezone} />
       </PortalFrame>
     )
   } catch (error) {

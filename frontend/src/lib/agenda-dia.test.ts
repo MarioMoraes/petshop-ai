@@ -10,6 +10,7 @@ import {
   minutosNoFuso,
   recortar,
   alvoDaRolagem,
+  escalaDoMural,
 } from './agenda-dia'
 
 const SP = 'America/Sao_Paulo'
@@ -30,19 +31,15 @@ describe('minutosNoFuso', () => {
 
 describe('intervaloDe', () => {
   it('mede o atendimento dentro do dia', () => {
-    expect(
-      intervaloDe('2026-09-01T11:00:00Z', '2026-09-01T12:30:00Z', SP, '2026-09-01'),
-    ).toEqual({ inicioMin: 480, fimMin: 570 })
+    expect(intervaloDe('2026-09-01T11:00:00Z', '2026-09-01T12:30:00Z', SP, '2026-09-01')).toEqual({
+      inicioMin: 480,
+      fimMin: 570,
+    })
   })
 
   it('estende para além de 1440 o que termina no dia seguinte', () => {
     // 23h30 de 01/09 até 00h30 de 02/09, hora de São Paulo.
-    const intervalo = intervaloDe(
-      '2026-09-02T02:30:00Z',
-      '2026-09-02T03:30:00Z',
-      SP,
-      '2026-09-01',
-    )
+    const intervalo = intervaloDe('2026-09-02T02:30:00Z', '2026-09-02T03:30:00Z', SP, '2026-09-01')
     expect(intervalo).toEqual({ inicioMin: 1410, fimMin: 1470 })
     expect(intervalo.fimMin).toBeGreaterThan(intervalo.inicioMin)
   })
@@ -238,7 +235,15 @@ describe('faixaDeDias', () => {
   it('marca sábado e domingo', () => {
     // 2026-09-01 é uma terça-feira; a faixa começa no sábado 29/08.
     const faixa = faixaDeDias('2026-09-01')
-    expect(faixa.map((dia) => dia.fimDeSemana)).toEqual([true, true, false, false, false, false, false])
+    expect(faixa.map((dia) => dia.fimDeSemana)).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ])
     expect(faixa[0]!.inicial).toBe('S')
     expect(faixa[3]!.inicial).toBe('T')
   })
@@ -253,21 +258,46 @@ describe('alvoDaRolagem', () => {
 
   it('deixa um terço da caixa de folga acima do agora', () => {
     // Caixa de 720px: 240 de folga, e o fio das 15h a 900px do topo do conteúdo.
-    expect(
-      alvoDaRolagem({ topoDoFio: 900, alturaCaixa: 720, alturaCabecalho: CABECALHO }),
-    ).toBe(660)
+    expect(alvoDaRolagem({ topoDoFio: 900, alturaCaixa: 720, alturaCabecalho: CABECALHO })).toBe(
+      660,
+    )
   })
 
   it('numa caixa baixa, a folga é a altura do cabeçalho', () => {
     // Um terço de 210 são 70px — menos que o cabeçalho, que cobriria o fio.
-    expect(
-      alvoDaRolagem({ topoDoFio: 400, alturaCaixa: 210, alturaCabecalho: CABECALHO }),
-    ).toBe(304)
+    expect(alvoDaRolagem({ topoDoFio: 400, alturaCaixa: 210, alturaCabecalho: CABECALHO })).toBe(
+      304,
+    )
   })
 
   it('de manhã cedo não rola nada: o começo do dia já é o lugar certo', () => {
-    expect(
-      alvoDaRolagem({ topoDoFio: 120, alturaCaixa: 720, alturaCabecalho: CABECALHO }),
-    ).toBe(0)
+    expect(alvoDaRolagem({ topoDoFio: 120, alturaCaixa: 720, alturaCabecalho: CABECALHO })).toBe(0)
+  })
+})
+
+describe('escalaDoMural', () => {
+  it('estica para o dia curto ocupar a tela inteira', () => {
+    // Sábado que fecha ao meio-dia: 4h de faixa em 900px de palco.
+    expect(escalaDoMural({ alturaDisponivel: 900, duracaoMin: 240 })).toBe(3.2)
+  })
+
+  it('divide o palco pela faixa quando a conta cai dentro da margem', () => {
+    // 10h de expediente em 900px: 1,5px por minuto, e o dia inteiro sem rolagem.
+    expect(escalaDoMural({ alturaDisponivel: 900, duracaoMin: 600 })).toBe(1.5)
+  })
+
+  it('cabe num notebook: dez horas de expediente em 670px de palco', () => {
+    // O caso que fixou o piso — a 1,4 da Agenda do Dia isto mediria 840px e rolaria.
+    expect(escalaDoMural({ alturaDisponivel: 670, duracaoMin: 600 })).toBeCloseTo(1.117, 3)
+  })
+
+  it('para no piso e devolve a rolagem quando o dia é longo demais', () => {
+    // 13h numa janela de 600px daria 0,77px/min — o banho de meia hora com 23px.
+    expect(escalaDoMural({ alturaDisponivel: 600, duracaoMin: 780 })).toBe(1)
+  })
+
+  it('não divide por zero antes de a tela ter sido medida', () => {
+    expect(escalaDoMural({ alturaDisponivel: 0, duracaoMin: 600 })).toBe(1)
+    expect(escalaDoMural({ alturaDisponivel: 900, duracaoMin: 0 })).toBe(1)
   })
 })

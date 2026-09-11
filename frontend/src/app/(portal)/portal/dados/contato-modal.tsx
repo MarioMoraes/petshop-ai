@@ -126,17 +126,21 @@ export function ContatoModal({
               <Button
                 type="submit"
                 form="portal-contato-codigo"
-                disabled={ocupado || codigo.length !== 6}
+                disabled={codigo.length !== 6}
+                busy={ocupado}
+                busyLabel="Confirmando…"
               >
-                {ocupado ? 'Confirmando…' : 'Confirmar'}
+                Confirmar
               </Button>
             ) : (
               <Button
                 type="submit"
                 form="portal-contato-valor"
-                disabled={ocupado || valor.trim().length < 5}
+                disabled={valor.trim().length < 5}
+                busy={ocupado}
+                busyLabel="Enviando…"
               >
-                {ocupado ? 'Enviando…' : 'Enviar código'}
+                Enviar código
               </Button>
             )}
           </>

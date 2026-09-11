@@ -196,11 +196,10 @@ export interface ComPistas<T> {
  * `maiorFim` acumulado em vez do fim do item anterior: A(8h–12h), B(9h–10h), C(11h–13h)
  * é um grupo só, mesmo B e C não se tocando.
  */
-export function distribuirPistas<T>(
-  itens: { item: T; intervalo: Intervalo }[],
-): ComPistas<T>[] {
+export function distribuirPistas<T>(itens: { item: T; intervalo: Intervalo }[]): ComPistas<T>[] {
   const ordenados = [...itens].sort(
-    (a, b) => a.intervalo.inicioMin - b.intervalo.inicioMin || a.intervalo.fimMin - b.intervalo.fimMin,
+    (a, b) =>
+      a.intervalo.inicioMin - b.intervalo.inicioMin || a.intervalo.fimMin - b.intervalo.fimMin,
   )
 
   const resultado: ComPistas<T>[] = []
@@ -317,4 +316,46 @@ export function alvoDaRolagem(medidas: {
   const folga = Math.max(medidas.alturaCabecalho, medidas.alturaCaixa / 3)
   // Manhã cedo: o alvo é negativo e a caixa já está no lugar certo, que é o começo.
   return Math.max(0, medidas.topoDoFio - folga)
+}
+
+/**
+ * Piso e teto da escala do Mural, em pixels por minuto.
+ *
+ * O piso é mais baixo que o 1,4 fixo da Agenda do Dia, e de propósito. Num notebook de
+ * 900px de altura sobram uns 670px de palco, e um expediente comum de dez horas a 1,4
+ * mediria 840px — o Mural voltaria a rolar, que é exatamente o defeito que ele existe
+ * para resolver. A 1,0 o atendimento de meia hora, que é o mais curto do catálogo real,
+ * fica com 30px: uma linha de texto com o respiro do bloco. O slot de 15 minutos da
+ * grade cai abaixo disso e encosta no vizinho, e esse é o preço aceito — no Mural,
+ * que só lê, um bloco apertado custa menos que meio dia fora da tela.
+ *
+ * O teto existe porque a conta é uma divisão: um sábado de duas horas numa televisão
+ * daria 7px por minuto, e um banho viraria um painel de 210px com quatro palavras.
+ */
+const ESCALA_MINIMA = 1.0
+const ESCALA_MAXIMA = 3.2
+
+/**
+ * Quantos pixels vale um minuto no Mural.
+ *
+ * É a diferença entre o Mural e a Agenda do Dia. Lá a escala é fixa e a caixa rola: a
+ * tela divide espaço com o menu, a faixa de datas e os números do dia, e caberia mesmo
+ * assim a metade de uma manhã. Aqui a tela é só o dia, então a escala **se ajusta à
+ * altura disponível** e o expediente inteiro entra sem rolagem — que é a única razão de
+ * o Mural existir.
+ *
+ * O ajuste é para os dois lados de propósito. Numa segunda-feira de doze horas ele
+ * comprime até o piso e a faixa volta a rolar, porque um dia ilegível inteiro na tela é
+ * pior que meio dia legível. Num sábado que fecha ao meio-dia ele estica, e os blocos
+ * ganham o espaço que sobrou em vez de deixarem metade da tela vazia.
+ */
+export function escalaDoMural(medidas: {
+  /** Altura útil do palco, já descontado o cabeçalho das colunas. */
+  alturaDisponivel: number
+  /** Duração da faixa desenhada, em minutos. */
+  duracaoMin: number
+}): number {
+  if (medidas.duracaoMin <= 0 || medidas.alturaDisponivel <= 0) return ESCALA_MINIMA
+  const exata = medidas.alturaDisponivel / medidas.duracaoMin
+  return Math.min(ESCALA_MAXIMA, Math.max(ESCALA_MINIMA, exata))
 }

@@ -540,11 +540,9 @@ export function BookingWizard({
             className="mt-5 w-full"
             onClick={() => confirmar()}
             busy={carregando}
-            busyLabel="Marcando…'
-              : reconhecerAlertas
-                ? 'Confirmar mesmo assim"
+            busyLabel="Marcando…"
           >
-            Confirmar horário
+            {reconhecerAlertas ? 'Confirmar mesmo assim' : 'Confirmar horário'}
           </Button>
         </Card>
       )}

@@ -550,6 +550,18 @@ export function StoreIcon({ size = 18 }: { size?: number }) {
   )
 }
 
+/**
+ * Sai desta tela para a tela cheia — o Mural do dia. Sem tom, como os chevrons: é
+ * gramática do controle e não do assunto, e a agenda já tem o azul dela no menu.
+ */
+export function ExpandIcon() {
+  return (
+    <svg {...BASE} width={16} height={16}>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />
+    </svg>
+  )
+}
+
 /** Abre e fecha um menu. Sem tom: acompanha a cor do texto que o rotula. */
 export function ChevronDownIcon() {
   return (

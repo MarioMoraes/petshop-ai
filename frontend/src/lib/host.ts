@@ -39,6 +39,14 @@ export const ADMIN_ROUTE_PREFIXES = [
   '/dashboard',
   '/equipe',
   '/financeiro',
+  /**
+   * O Mural do dia: a mesma agenda, sem a moldura do Admin, para a segunda tela.
+   *
+   * Rota de primeiro nível e não `/agenda/mural` porque é o `layout.tsx` de `/agenda`
+   * que monta a `AppShell`, e no `app/` do Next um filho não escapa do layout do pai —
+   * a tela nasceria dentro do menu que ela existe para tirar do caminho.
+   */
+  '/mural',
   '/onboarding',
   '/pets',
   /**

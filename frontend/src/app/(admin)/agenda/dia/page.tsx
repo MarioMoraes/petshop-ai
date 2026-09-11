@@ -6,6 +6,7 @@ import {
   type TaxiRideResponse,
 } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
+import { ExpandIcon } from '@/components/icons'
 import { ButtonLink } from '@/components/links'
 import { rotuloDoDia } from '@/lib/agenda-dia'
 import { serverApi } from '@/lib/api'
@@ -103,7 +104,27 @@ export default async function DiaPage({ searchParams }: PageProps) {
         title={date === hoje ? 'Hoje' : 'Dia'}
         subtitle={failed ? 'A agenda não respondeu' : rotuloDoDia(date)}
         actions={
-          !failed && <ButtonLink href={`/agenda/novo?date=${date}`}>Marcar horário</ButtonLink>
+          !failed && (
+            <>
+              {/*
+                `<a>` e não `<ButtonLink>`: o `<Link>` do Next só espera a próxima tela
+                quando ela vem para esta aba, e `deveSinalizar` (`lib/navegacao.ts`) já
+                recusa acender a barra de progresso para `target="_blank"`. Um botão que
+                nunca gira é o botão errado — este abre uma aba e termina aí.
+              */}
+              <a
+                href={`/mural?date=${date}`}
+                target="_blank"
+                rel="noopener"
+                className="btn btn-ghost"
+                title="Abrir o Mural do dia numa aba própria"
+              >
+                <ExpandIcon />
+                Mural
+              </a>
+              <ButtonLink href={`/agenda/novo?date=${date}`}>Marcar horário</ButtonLink>
+            </>
+          )
         }
       />
 

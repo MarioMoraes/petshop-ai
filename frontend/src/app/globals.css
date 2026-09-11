@@ -2104,3 +2104,941 @@
     }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * O MURAL DO DIA
+ *
+ * A Agenda do Dia sozinha, numa aba própria, para o monitor do balcão.
+ *
+ * É o único lugar escuro do produto, e não por gosto: o Mural é lido de longe
+ * e de relance, e no escuro a cor do status é a única coisa que emite luz —
+ * a coluna se varre antes de se ler. Num plano branco do tamanho da tela o
+ * branco seria a coisa mais forte e os blocos, ruído por cima dele.
+ *
+ * Os tokens ficam em `.mural` e não em `@theme`: são a paleta **desta** tela,
+ * e promovê-los a variáveis do sistema convidaria o resto do Admin a usá-las.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .mural {
+    --mural-bg: #0d0e11;
+    --mural-fg: #f1f2f5;
+    --mural-muted: #a0a5b0;
+    --mural-subtle: #6a6f7a;
+    --mural-line: rgb(255 255 255 / 0.08);
+    --mural-line-forte: rgb(255 255 255 / 0.16);
+    --mural-vidro: rgb(255 255 255 / 0.035);
+    --mural-accent: #ff6a4d;
+
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: var(--mural-bg);
+    color: var(--mural-fg);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * O clarão de fundo.
+   *
+   * Duas manchas radiais muito fracas atrás de tudo, nas cores que a tela já usa —
+   * o acento quente à esquerda, o azul da agenda à direita. Sem elas o preto de
+   * 1920px lê como tela desligada; com elas, como material. Sobre fundo branco a
+   * mesma técnica vira sujeira (é o que `.bloom` já tinha aprendido), e é por isso
+   * que ela só aparece aqui.
+   */
+  .mural::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(62% 46% at 12% -6%, rgb(255 106 77 / 0.14), transparent 68%),
+      radial-gradient(54% 42% at 88% -4%, rgb(70 111 189 / 0.2), transparent 70%),
+      radial-gradient(80% 60% at 50% 112%, rgb(63 191 131 / 0.07), transparent 72%);
+  }
+
+  .mural > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── Topo ──────────────────────────────────────────────────────────── */
+
+  .mural-topo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.75rem;
+    padding: 0.875rem 1.5rem;
+    border-bottom: 1px solid var(--mural-line);
+    /* Gradiente e não cor chapada: a faixa assenta sobre o clarão em vez de tapá-lo. */
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0));
+  }
+
+  .mural-identidade {
+    min-width: 0;
+  }
+
+  .mural-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mural-subtle);
+  }
+
+  /* O ponto que diz que a tela está viva — só em hoje, que é quando ela se renova. */
+  .mural-pulso,
+  .mural-pulso-off {
+    height: 0.4375rem;
+    width: 0.4375rem;
+    flex: none;
+    border-radius: 9999px;
+    background-color: var(--mural-subtle);
+  }
+
+  .mural-pulso {
+    background-color: #3fbf83;
+    box-shadow: 0 0 0 0 rgb(63 191 131 / 0.55);
+    animation: mural-pulso 2.6s ease-out infinite;
+  }
+
+  @keyframes mural-pulso {
+    70% {
+      box-shadow: 0 0 0 0.5rem rgb(63 191 131 / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgb(63 191 131 / 0);
+    }
+  }
+
+  /*
+   * A data inteira numa voz só.
+   *
+   * Duas versões anteriores punham metade dela na Instrument Serif itálica — primeiro o
+   * dia da semana, depois o dia e o mês. As duas leem como duas informações emendadas
+   * em vez de uma data, e a serifa, num cabeçalho de tela cheia, disputa com o relógio
+   * do outro lado da faixa. Uma linha só de Inter é o que se lê de relance.
+   */
+  .mural-data {
+    margin-top: 0.25rem;
+    font-size: 1.5rem;
+    line-height: 1.15;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    white-space: nowrap;
+  }
+
+  .mural-numeros {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .mural-numero {
+    padding: 0.375rem 1.125rem;
+    border-radius: 14px;
+    background-color: var(--mural-vidro);
+    box-shadow: inset 0 0 0 1px var(--mural-line);
+    text-align: center;
+  }
+
+  .mural-numero-valor {
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+
+  .mural-numero-rotulo {
+    margin-top: 0.125rem;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--mural-subtle);
+  }
+
+  /*
+   * Abaixo de 1280px os quatro números quebram para uma segunda linha, e cada linha a
+   * mais na faixa é uma linha a menos de expediente visível — foi o que cortou as 17h
+   * num notebook de 1100px. Apertar a pastilha devolve a linha; esconder um número
+   * não, porque os quatro são a leitura de relance que justifica a faixa.
+   */
+  @media (max-width: 1280px) {
+    .mural-topo {
+      gap: 0.75rem 1rem;
+      padding-inline: 1rem;
+    }
+
+    .mural-numeros {
+      gap: 0.375rem;
+    }
+
+    .mural-numero {
+      padding: 0.25rem 0.625rem;
+    }
+
+    .mural-numero-valor {
+      font-size: 1.125rem;
+    }
+
+    .mural-data {
+      font-size: 1.25rem;
+    }
+  }
+
+  .mural-controles {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .mural-relogio {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    /* O relógio é a única coisa da faixa que muda sozinha: a cor o separa do resto. */
+    color: var(--mural-accent);
+  }
+
+  .mural-navegacao {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .mural-hoje-marca {
+    padding: 0 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--mural-subtle);
+  }
+
+  /* ─── Botões e links da tela ────────────────────────────────────────── */
+
+  /*
+   * Peça própria, e não o `.btn` do Admin: aquele é desenhado para o cinza claro —
+   * borda branca por dentro, sombra escura por fora — e no escuro ele vira um
+   * retângulo cinza sem relevo nenhum. Aqui a elevação vem de dentro para fora.
+   */
+  .mural-acao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 2.125rem;
+    padding: 0 0.875rem;
+    border-radius: 11px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--mural-muted);
+    background-color: var(--mural-vidro);
+    box-shadow: inset 0 0 0 1px var(--mural-line);
+    transition:
+      color 0.16s,
+      background-color 0.16s,
+      box-shadow 0.16s;
+  }
+
+  .mural-acao:hover {
+    color: var(--mural-fg);
+    background-color: rgb(255 255 255 / 0.08);
+    box-shadow: inset 0 0 0 1px var(--mural-line-forte);
+  }
+
+  .mural-acao:focus-visible {
+    outline: 2px solid var(--mural-accent);
+    outline-offset: 2px;
+  }
+
+  .mural-acao-icone {
+    width: 2.125rem;
+    padding: 0;
+  }
+
+  .mural-acao-forte {
+    color: #180d0a;
+    background-image: linear-gradient(180deg, #ff7d63, #f0512f);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.35),
+      0 8px 20px -12px rgb(255 106 77 / 0.9);
+    font-weight: 600;
+  }
+
+  .mural-acao-forte:hover {
+    color: #180d0a;
+    background-image: linear-gradient(180deg, #ff8b74, #f45c3a);
+  }
+
+  /* ─── Palco ─────────────────────────────────────────────────────────── */
+
+  .mural-palco {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0.75rem 1rem 0.5rem;
+  }
+
+  .mural-sem-coluna {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    padding: 2rem;
+    text-align: center;
+    color: var(--mural-muted);
+  }
+
+  /*
+   * Flex e não grid, pelo mesmo motivo da Agenda do Dia: as colunas dividem a
+   * sobra em partes iguais mas param num mínimo legível, e é essa combinação que
+   * faz a mesma tela servir a dois e a sete profissionais.
+   */
+  .mural-grade {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+    min-width: min-content;
+  }
+
+  .mural-calha {
+    position: sticky;
+    left: 0;
+    z-index: 7;
+    width: 3.5rem;
+    flex: none;
+    /* Opaco: as colunas deslizam por baixo dela na rolagem horizontal. */
+    background-color: var(--mural-bg);
+  }
+
+  .mural-hora-rotulo {
+    position: absolute;
+    right: 0.75rem;
+    transform: translateY(-0.55em);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--mural-subtle);
+  }
+
+  /* A hora de agora, impressa na calha em cima do rótulo da hora cheia. */
+  .mural-agora-chip {
+    position: absolute;
+    right: 0.375rem;
+    transform: translateY(-50%);
+    padding: 0.0625rem 0.3125rem;
+    border-radius: 6px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #180d0a;
+    background-color: var(--mural-accent);
+  }
+
+  .mural-col {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 12rem;
+    border-radius: 18px;
+    background-color: var(--mural-vidro);
+    box-shadow: inset 0 0 0 1px var(--mural-line);
+    /* A pauta e o véu vazam pelos cantos arredondados sem isto. */
+    overflow: hidden;
+  }
+
+  /* Coluna do ausente: presente e visivelmente fora de serviço (AC-02). */
+  .mural-col-off {
+    opacity: 0.55;
+  }
+
+  .mural-cabecalho {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0 0.875rem;
+    background-color: color-mix(in srgb, var(--mural-bg) 82%, transparent);
+    backdrop-filter: blur(12px) saturate(1.4);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    border-bottom: 1px solid var(--mural-line);
+  }
+
+  .mural-calha .mural-cabecalho {
+    background-color: var(--mural-bg);
+    border-bottom-color: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .mural-cab-linha {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mural-inicial {
+    display: flex;
+    height: 1.625rem;
+    width: 1.625rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    font-size: 0.625rem;
+    font-weight: 700;
+  }
+
+  .mural-cab-nome {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .mural-cab-contagem {
+    flex: none;
+    padding: 0.0625rem 0.4375rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--mural-muted);
+    background-color: rgb(255 255 255 / 0.07);
+  }
+
+  .mural-cab-ausente {
+    font-size: 0.75rem;
+    color: var(--mural-muted);
+  }
+
+  .mural-cab-medidor {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background-color: rgb(255 255 255 / 0.08);
+    overflow: hidden;
+  }
+
+  .mural-medidor {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.3s;
+  }
+
+  .mural-cab-jornada {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.6875rem;
+    color: var(--mural-subtle);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .mural-cab-ocupacao {
+    flex: none;
+    font-weight: 600;
+    color: var(--mural-muted);
+  }
+
+  /* ─── Pauta, véu e bloqueio ─────────────────────────────────────────── */
+
+  .mural-hora {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px solid rgb(255 255 255 / 0.07);
+  }
+
+  .mural-meia {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed rgb(255 255 255 / 0.035);
+  }
+
+  /* Fora da jornada: véu, não outra cor. O que está fora ainda é a mesma coluna. */
+  .mural-fechado {
+    position: absolute;
+    left: 0;
+    right: 0;
+    /*
+     * 0,45 e não 0,3: o vidro da coluna já é claríssimo (3,5% de branco), e um véu
+     * fraco por cima dele dava uma diferença que não se via a um metro da tela — o
+     * expediente da veterinária, que começa às 9h, parecia começar às 8h como o dos
+     * banhistas.
+     */
+    background-color: rgb(0 0 0 / 0.45);
+  }
+
+  /* Bloqueio: hachura, porque o almoço não é um compromisso e não deve ler como um. */
+  .mural-bloqueio {
+    position: absolute;
+    left: 0.3125rem;
+    right: 0.3125rem;
+    border-radius: 12px;
+    overflow: hidden;
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgb(255 255 255 / 0.05) 0 6px,
+      rgb(255 255 255 / 0) 6px 13px
+    );
+    box-shadow: inset 0 0 0 1px var(--mural-line);
+  }
+
+  .mural-bloqueio-texto {
+    display: block;
+    padding: 0.3125rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--mural-subtle);
+  }
+
+  /* ─── O fio do agora ────────────────────────────────────────────────── */
+
+  .mural-agora {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    height: 0;
+    border-top: 1.5px solid var(--mural-accent);
+    box-shadow: 0 0 16px rgb(255 106 77 / 0.55);
+    pointer-events: none;
+  }
+
+  .mural-agora::before {
+    content: '';
+    position: absolute;
+    left: -0.1875rem;
+    top: -0.28125rem;
+    height: 0.5625rem;
+    width: 0.5625rem;
+    border-radius: 9999px;
+    background-color: var(--mural-accent);
+    box-shadow: 0 0 10px 1px rgb(255 106 77 / 0.8);
+  }
+
+  /* ─── O bloco do atendimento ────────────────────────────────────────── */
+
+  /*
+   * A espinha carrega o status e o bloco sangra a mesma cor para dentro.
+   *
+   * O esfumado horizontal é o que diferencia esta tela: à distância em que o Mural
+   * é lido não se distingue uma barra de 3px, mas se distingue um retângulo com um
+   * lado aceso. É a mesma informação, dita num tamanho que chega do outro lado do
+   * balcão.
+   */
+  .mural-evento {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    z-index: 1;
+    overflow: hidden;
+    padding: 0.3125rem 0.5rem 0.3125rem 0.625rem;
+    border-radius: 13px;
+    text-align: left;
+    border-left: 4px solid var(--cor);
+    background-color: #191b20;
+    background-image: linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--cor) 32%, transparent),
+      color-mix(in srgb, var(--cor) 8%, transparent) 60%,
+      transparent
+    );
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.08),
+      0 10px 22px -14px rgb(0 0 0 / 0.9);
+    transition:
+      transform 0.18s,
+      box-shadow 0.18s;
+  }
+
+  .mural-evento:hover {
+    z-index: 5;
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.16),
+      0 14px 28px -12px rgb(0 0 0 / 0.95),
+      0 0 24px -6px color-mix(in srgb, var(--cor) 55%, transparent);
+  }
+
+  .mural-evento:focus-visible {
+    z-index: 5;
+    outline: 2px solid var(--cor);
+    outline-offset: 1px;
+  }
+
+  .mural-evento.mural-evento-aberto {
+    z-index: 5;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--cor) 70%, transparent),
+      0 0 26px -6px color-mix(in srgb, var(--cor) 60%, transparent);
+  }
+
+  /* Concluído recua: o dia já resolveu esta linha e ela não pede mais nada. */
+  .mural-evento-feito {
+    background-image: none;
+    background-color: rgb(255 255 255 / 0.045);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.05);
+    opacity: 0.62;
+  }
+
+  /*
+   * Em atendimento respira.
+   *
+   * É o único movimento da tela, e existe porque é a única linha que a equipe
+   * precisa achar **agora**: num Mural com trinta blocos parados, o que pulsa é
+   * encontrado sem procurar. Qualquer outro status animado tiraria esse privilégio
+   * deste e a tela voltaria a ser um mosaico.
+   */
+  .mural-evento-correndo {
+    animation: mural-respiro 2.8s ease-in-out infinite;
+  }
+
+  @keyframes mural-respiro {
+    0%,
+    100% {
+      box-shadow:
+        inset 0 0 0 1px rgb(255 255 255 / 0.1),
+        0 0 0 0 rgb(255 106 77 / 0);
+    }
+    50% {
+      box-shadow:
+        inset 0 0 0 1px rgb(255 106 77 / 0.45),
+        0 0 22px -4px rgb(255 106 77 / 0.55);
+    }
+  }
+
+  /*
+   * O bloco de 15 minutos.
+   *
+   * A altura mínima do bloco é o que ele empresta do vizinho quando a duração real não
+   * comporta uma linha de texto — e emprestar 11px fazia o corte de unha das 11h ficar
+   * por baixo do banho das 11h15. Encolhendo a letra e o respiro, o empréstimo cai para
+   * uns 3px e a fila de blocos volta a bater com o relógio.
+   */
+  .mural-evento-curto {
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
+    border-radius: 9px;
+  }
+
+  .mural-evento-curto .mural-evento-titulo {
+    font-size: 0.75rem;
+    line-height: 0.9375rem;
+  }
+
+  /*
+   * O alerta crítico é um anel, e não a espinha.
+   *
+   * A espinha responde "em que ponto do atendimento este pet está", e pintá-la de
+   * vermelho por causa de uma alergia trocava a resposta: o bloco passava a parecer uma
+   * falta. O anel diz a segunda coisa sem apagar a primeira, e o ▲ diz de perto.
+   */
+  .mural-evento-critico {
+    box-shadow:
+      inset 0 0 0 1px rgb(240 87 76 / 0.5),
+      0 10px 22px -14px rgb(0 0 0 / 0.9);
+  }
+
+  .mural-evento-titulo {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.125rem;
+    color: var(--mural-fg);
+    min-width: 0;
+  }
+
+  .mural-evento-nome {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mural-evento-alerta {
+    flex: none;
+    font-size: 0.625rem;
+    color: #f0574c;
+  }
+
+  .mural-evento-taxi {
+    flex: none;
+    font-size: 0.5rem;
+    color: #f0574c;
+  }
+
+  .mural-evento-meta {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    line-height: 1.0625rem;
+    color: var(--mural-muted);
+  }
+
+  .mural-evento-servicos {
+    color: var(--mural-subtle);
+  }
+
+  /* ─── Rodapé ────────────────────────────────────────────────────────── */
+
+  .mural-rodape {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    padding: 0.625rem 1.5rem;
+    border-top: 1px solid var(--mural-line);
+    font-size: 0.75rem;
+    color: var(--mural-subtle);
+  }
+
+  .mural-legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+  }
+
+  .mural-legenda li {
+    display: flex;
+    align-items: center;
+    gap: 0.4375rem;
+  }
+
+  .mural-legenda span {
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 3px;
+  }
+
+  .mural-atalhos kbd {
+    display: inline-block;
+    min-width: 1.25rem;
+    padding: 0.0625rem 0.3125rem;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 0.6875rem;
+    text-align: center;
+    color: var(--mural-muted);
+    background-color: rgb(255 255 255 / 0.06);
+    box-shadow: inset 0 0 0 1px var(--mural-line);
+  }
+
+  /* ─── A gaveta ──────────────────────────────────────────────────────── */
+
+  .mural-veu {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    width: 100%;
+    background-color: rgb(0 0 0 / 0.45);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    animation: mural-surgir 0.18s ease-out;
+    cursor: default;
+  }
+
+  .mural-gaveta {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 21;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: min(22rem, 92vw);
+    overflow-y: auto;
+    padding: 1.25rem;
+    background-color: #14161b;
+    box-shadow:
+      inset 1px 0 0 var(--mural-line-forte),
+      -30px 0 60px -30px rgb(0 0 0 / 0.9);
+    animation: mural-entrar 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes mural-surgir {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes mural-entrar {
+    from {
+      transform: translateX(12%);
+      opacity: 0;
+    }
+  }
+
+  .mural-gaveta-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .mural-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1875rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--cor);
+    background-color: color-mix(in srgb, var(--cor) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cor) 38%, transparent);
+  }
+
+  .mural-gaveta-pet {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+  }
+
+  .mural-gaveta-horario {
+    margin-top: -0.5rem;
+    font-size: 0.8125rem;
+    color: var(--mural-muted);
+  }
+
+  .mural-alertas {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .mural-alertas li {
+    padding: 0.4375rem 0.625rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    color: var(--mural-muted);
+    background-color: rgb(255 255 255 / 0.05);
+    box-shadow: inset 0 0 0 1px var(--mural-line);
+  }
+
+  .mural-alertas .mural-alerta-critico {
+    color: #ff9b93;
+    background-color: rgb(240 87 76 / 0.13);
+    box-shadow: inset 0 0 0 1px rgb(240 87 76 / 0.35);
+  }
+
+  .mural-dados {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 0.25rem;
+  }
+
+  .mural-dado dt {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--mural-subtle);
+  }
+
+  .mural-dado dd {
+    margin-top: 0.125rem;
+    font-size: 0.875rem;
+    color: var(--mural-fg);
+  }
+
+  .mural-gaveta-acoes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 1rem;
+  }
+
+  /* ─── O Mural sem agenda ────────────────────────────────────────────── */
+
+  .mural-centro {
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .mural-aviso {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+    max-width: 26rem;
+    padding: 2rem;
+    border-radius: 22px;
+    background-color: var(--mural-vidro);
+    box-shadow: inset 0 0 0 1px var(--mural-line);
+  }
+
+  .mural-aviso-titulo {
+    font-family: var(--font-serif);
+    font-size: 1.75rem;
+    line-height: 1.15;
+  }
+
+  .mural-aviso-texto {
+    font-size: 0.875rem;
+    color: var(--mural-muted);
+  }
+
+  .mural-aviso-data {
+    color: var(--mural-subtle);
+  }
+
+  .mural-aviso .mural-acao {
+    margin-top: 0.5rem;
+  }
+
+  /*
+   * Quem pediu menos movimento fica sem o pulso e sem o respiro.
+   *
+   * A informação que eles carregam não se perde: "em atendimento" continua tendo a
+   * cor do acento na espinha, e a tela continua se renovando — o que some é só a
+   * animação que apontava para ela.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .mural-pulso,
+    .mural-evento-correndo {
+      animation: none;
+    }
+
+    .mural-veu,
+    .mural-gaveta {
+      animation: none;
+    }
+
+    .mural-evento,
+    .mural-acao,
+    .mural-medidor {
+      transition: none;
+    }
+  }
+}

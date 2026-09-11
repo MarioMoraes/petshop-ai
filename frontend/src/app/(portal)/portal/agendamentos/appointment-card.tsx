@@ -130,8 +130,13 @@ export function AppointmentCard({
             >
               Manter horário
             </Button>
-            <Button type="button" onClick={confirmarCancelamento} disabled={cancelando}>
-              {cancelando ? 'Cancelando…' : 'Cancelar mesmo assim'}
+            <Button
+              type="button"
+              onClick={confirmarCancelamento}
+              busy={cancelando}
+              busyLabel="Cancelando…"
+            >
+              Cancelar mesmo assim
             </Button>
           </>
         }

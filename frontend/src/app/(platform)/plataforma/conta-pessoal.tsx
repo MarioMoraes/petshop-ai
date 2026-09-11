@@ -52,8 +52,14 @@ export function ContaPessoal() {
 
   return (
     <span className="flex flex-col items-center gap-2">
-      <Button type="button" disabled={!isLoaded || saindo} onClick={() => void sair()}>
-        {saindo ? 'Trocando…' : 'Usar minha conta pessoal'}
+      <Button
+        type="button"
+        disabled={!isLoaded}
+        busy={saindo}
+        busyLabel="Trocando…"
+        onClick={() => void sair()}
+      >
+        Usar minha conta pessoal
       </Button>
       {erro && (
         <span className="error-text" role="alert">
