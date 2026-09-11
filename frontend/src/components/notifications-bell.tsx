@@ -8,6 +8,7 @@ import {
   CalendarIcon,
   GlobeIcon,
   InboxIcon,
+  PhoneIcon,
   ShieldCheckIcon,
   WalletIcon,
   type IconTone,
@@ -38,6 +39,11 @@ import {
 const ICONES: Record<PendenciaKey, { icon: React.ReactNode; tone: IconTone }> = {
   // O mesmo tom que o item de menu correspondente: o ícone é do domínio, não da
   // tela, e o olho liga o aviso ao lugar onde ele se resolve.
+  //
+  // Atendimento e Mensagens dividem o tom `icon-brand` porque são o mesmo domínio — o
+  // que sai e o que chega pelo mesmo canal —, e o desenho difere porque as duas linhas
+  // podem aparecer juntas: uma é gente esperando, a outra é mensagem que não saiu.
+  atendimentos: { icon: <PhoneIcon />, tone: 'icon-brand' },
   aprovacoes: { icon: <CalendarIcon />, tone: 'icon-time' },
   // O mesmo tom das aprovações, porque é o mesmo domínio, e um desenho diferente
   // porque as duas linhas aparecem coladas: uma pede decisão, a outra só dá notícia.

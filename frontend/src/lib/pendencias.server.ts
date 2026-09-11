@@ -1,10 +1,10 @@
 import 'server-only'
 import type { MeResponse, PermissionKey } from '@petshop/shared-types'
 import { serverApi } from './api'
-import { JANELA_HORAS, type ContagemPendencias } from './pendencias'
+import { AGENT_SLA_MIN, JANELA_HORAS, type ContagemPendencias } from './pendencias'
 
 /**
- * Consulta as seis fontes.
+ * Consulta as sete fontes.
  *
  * Todo `catch` devolve `null`, nunca lança: o sino é enfeite da moldura, e um serviço
  * fora do ar não pode derrubar **toda** tela do Admin junto com ele. A tela de destino
@@ -17,8 +17,27 @@ export async function carregarPendencias(me: MeResponse): Promise<ContagemPenden
   const agora = new Date()
   const desde = new Date(agora.getTime() - JANELA_HORAS * 60 * 60 * 1000)
 
-  const [aprovacoes, novosAgendamentos, exclusoes, leads, mensagens, inadimplentes] =
+  const [atendimentos, aprovacoes, novosAgendamentos, exclusoes, leads, mensagens, inadimplentes] =
     await Promise.all([
+      /*
+       * `crm:read` — a mesma permissão da tela para onde a linha aponta. Quem lê o
+       * histórico de mensagens é quem atende a fila.
+       *
+       * `limit: 1` porque só o `total` interessa, e ele vem de um `COUNT` no banco. O
+       * recorte da espera é do servidor: contar na tela exigiria trazer a fila inteira
+       * para descartar quase tudo.
+       */
+      pode('crm:read')
+        ? api
+            .listAgentConversations({
+              status: 'HANDOFF',
+              waitingOverMinutes: AGENT_SLA_MIN,
+              limit: 1,
+            })
+            .then((r) => r.total)
+            .catch(() => null)
+        : Promise.resolve(null),
+
       /*
        * `schedule:read_all` e não `schedule:write_all`: quem só lê a agenda ainda
        * precisa saber que há pedido parado — é a recepção que vai chamar quem aprova.
@@ -88,5 +107,13 @@ export async function carregarPendencias(me: MeResponse): Promise<ContagemPenden
         : Promise.resolve(null),
     ])
 
-  return { aprovacoes, novosAgendamentos, exclusoes, leads, mensagens, inadimplentes }
+  return {
+    atendimentos,
+    aprovacoes,
+    novosAgendamentos,
+    exclusoes,
+    leads,
+    mensagens,
+    inadimplentes,
+  }
 }

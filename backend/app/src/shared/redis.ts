@@ -67,6 +67,18 @@ export const CACHE_KEYS = {
    * deste petshop".
    */
   portalFeatures: (tenantId: string) => `portal:features:${tenantId}`,
+
+  // ---- MOD-AI ----
+  /** A configuração do agente, lida uma vez por mensagem recebida. */
+  agentSettings: (tenantId: string) => `agent:settings:${tenantId}`,
+  /**
+   * O gasto do mês com o provedor do modelo (§10 do PRD).
+   *
+   * TTL curto e **sem invalidação**: o número anda a cada turno, e derrubá-lo a cada
+   * resposta custaria mais que o minuto de imprecisão. O teto que ele protege é mensal —
+   * um minuto de atraso nele não muda decisão nenhuma.
+   */
+  agentSpend: (tenantId: string, yearMonth: string) => `agent:spend:${tenantId}:${yearMonth}`,
   challengeByIdentifier: (tenantId: string, identifierHash: string) =>
     `portal:rl:id:${tenantId}:${identifierHash}`,
   challengeByIp: (tenantId: string, ip: string) => `portal:rl:ip:${tenantId}:${ip}`,
@@ -288,6 +300,9 @@ export const CACHE_TTL_SECONDS = {
   schedule: 3_600,
 
   portalFeatures: 300,
+
+  agentSettings: 300,
+  agentSpend: 60,
 } as const
 
 export const { getRedis, cacheGet, cacheSet, cacheDelete, closeRedis } = createCache({

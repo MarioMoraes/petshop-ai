@@ -78,6 +78,15 @@ export async function listMessages(
   query: MessageListQuery,
 ): Promise<MessagePage> {
   const where = {
+    /**
+     * **O painel é o da fila de saída**, e desde o MOD-AI existe entrada na mesma tabela.
+     *
+     * Sem esta linha, a mensagem que o cliente mandou apareceria no histórico de
+     * entregas como se fosse coisa que o petshop enviou — e contaria como entregue nas
+     * estatísticas. Quem quer ver o que chegou pede `direction=INBOUND`; o padrão
+     * continua sendo o que o painel sempre mostrou.
+     */
+    direction: query.direction ?? 'OUTBOUND',
     ...(query.status ? { status: query.status } : {}),
     ...(query.channel ? { channel: query.channel } : {}),
     ...(query.category ? { category: query.category } : {}),
@@ -145,6 +154,9 @@ export async function messageStats(
   range: { from?: Date; to?: Date },
 ): Promise<MessageStats> {
   const where = {
+    // O painel conta o que **saiu** — ver o comentário em `listMessages`. A mensagem
+    // recebida não tem status de entrega que faça sentido somar aqui.
+    direction: 'OUTBOUND' as const,
     ...(range.from || range.to
       ? {
           createdAt: {
@@ -164,7 +176,7 @@ export async function messageStats(
         _count: true,
       }),
       tx.message.findFirst({
-        where: { status: { in: ['QUEUED', 'SCHEDULED'] } },
+        where: { direction: 'OUTBOUND', status: { in: ['QUEUED', 'SCHEDULED'] } },
         orderBy: { createdAt: 'asc' },
         select: { createdAt: true },
       }),

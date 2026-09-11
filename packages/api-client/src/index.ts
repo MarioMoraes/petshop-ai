@@ -1,4 +1,5 @@
 import {
+  type AgentConversationStatus,
   AddressResponseSchema,
   BreedSchema,
   CepLookupSchema,
@@ -71,6 +72,9 @@ import {
   MessageStatsSchema,
   MessageSummarySchema,
   MessagingSettingsResponseSchema,
+  AgentConversationDetailSchema,
+  AgentSettingsSchema,
+  PaginatedAgentConversationsSchema,
   PaginatedMessagesSchema,
   ResolvedTemplateSchema,
   SuppressionResponseSchema,
@@ -1997,6 +2001,75 @@ export function createApiClient(options: ApiClientOptions) {
         `/v1/ledger/reports/receipts-by-day/pdf${toQueryString(query)}`,
         'contas-recebidas.pdf',
       ),
+
+    // ─── MOD-AI (PRD agentes_ia_15 §5) ────────────────────────────────────────
+
+    /**
+     * A fila de atendimento e o histórico das conversas.
+     *
+     * `waitingOverMinutes` é o recorte do sino: ele precisa do **total** de quem espera
+     * há mais de dez minutos, e somar isso a partir de uma página daria o número da
+     * página, não o da fila.
+     */
+    listAgentConversations: (
+      query: {
+        status?: AgentConversationStatus
+        waitingOverMinutes?: number
+        page?: number
+        limit?: number
+      } = {},
+    ) =>
+      request({
+        method: 'GET',
+        path: `/v1/agent/conversations${toQueryString(query)}`,
+        schema: PaginatedAgentConversationsSchema,
+      }),
+
+    getAgentConversation: (id: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/agent/conversations/${id}`,
+        schema: AgentConversationDetailSchema,
+      }),
+
+    assignAgentConversation: (id: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/agent/conversations/${id}/assign`,
+        schema: z.unknown(),
+      }),
+
+    replyAgentConversation: (id: string, text: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/agent/conversations/${id}/reply`,
+        body: { text },
+        schema: z.unknown(),
+      }),
+
+    closeAgentConversation: (id: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/agent/conversations/${id}/close`,
+        schema: z.unknown(),
+      }),
+
+    getAgentSettings: () =>
+      request({ method: 'GET', path: '/v1/agent/settings', schema: AgentSettingsSchema }),
+
+    /** PATCH e não PUT: a tela manda só o que mudou, e o servidor não reescreve o resto. */
+    updateAgentSettings: (body: {
+      enabled?: boolean
+      opensAt?: string
+      closesAt?: string
+      monthlyCapCents?: number
+    }) =>
+      request({
+        method: 'PATCH',
+        path: '/v1/agent/settings',
+        body,
+        schema: AgentSettingsSchema,
+      }),
 
     // ─── MOD-CRM (PRD relacionamento_crm_08 §5) ───────────────────────────────
 

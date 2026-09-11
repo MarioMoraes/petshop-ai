@@ -282,6 +282,25 @@ export const ADMIN_ERRORS = {
 
 export type AdminErrorCode = keyof typeof ADMIN_ERRORS
 
+/** PRD agentes_ia_15 §5. */
+export const AGENT_ERRORS = {
+  ERR_AI_001: { status: 404, title: 'Conversa não encontrada' },
+  ERR_AI_002: { status: 422, title: 'Dados de entrada inválidos' },
+  ERR_AI_003: { status: 403, title: 'Permissão insuficiente' },
+  /** Assumir a que já está com outra pessoa, responder a que foi encerrada. */
+  ERR_AI_004: { status: 409, title: 'Conversa em estado que não permite a ação' },
+  ERR_AI_005: { status: 409, title: 'Proposta expirada ou superada' },
+  /**
+   * O provedor do modelo não respondeu.
+   *
+   * **Nunca chega ao tutor como erro** (RN-09): chega como "vou chamar alguém", porque a
+   * conversa vai para a fila. Quem vê este código é a tela da equipe.
+   */
+  ERR_AI_006: { status: 503, title: 'Atendimento automático indisponível' },
+} as const
+
+export type AgentErrorCode = keyof typeof AGENT_ERRORS
+
 /**
  * Erros da plataforma, não de um módulo.
  *
@@ -309,6 +328,7 @@ export const ERROR_CATALOG = {
   ...DOCUMENT_ERRORS,
   ...SECURITY_ERRORS,
   ...ADMIN_ERRORS,
+  ...AGENT_ERRORS,
   ...PLATFORM_ERRORS,
 } as const
 

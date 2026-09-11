@@ -1127,3 +1127,51 @@ export interface AdminEventMap {
   'suporte.acesso.revogado': SuporteAcessoDecididoEvent
   'plataforma.alerta.disparado': PlataformaAlertaDisparadoEvent
 }
+
+// ─── MOD-AI ──────────────────────────────────────────────────────────────────
+// PRD agentes_ia_15 §8.
+
+export const AGENT_ROUTING_KEYS = {
+  mensagemRecebida: 'agente.mensagem.recebida',
+  handoff: 'agente.handoff',
+  conversaEncerrada: 'agente.conversa.encerrada',
+} as const
+
+export type AgentRoutingKey = (typeof AGENT_ROUTING_KEYS)[keyof typeof AGENT_ROUTING_KEYS]
+
+interface AgentBaseEvent extends BaseEvent {
+  tenantId: string
+  conversationId: string
+}
+
+/**
+ * Chegou mensagem de cliente — o primeiro evento do produto que nasce de fora para
+ * dentro.
+ *
+ * Todos os outros contam o que **nós** fizemos: enfileiramos, enviamos, cobramos. Este
+ * conta o que o cliente fez, e por isso vai sem conteúdo: o corpo da mensagem é dado
+ * pessoal cifrado com a DEK do tenant, e um evento que o carregasse o publicaria em claro
+ * numa fila que ninguém cifra.
+ */
+export interface AgenteMensagemRecebidaEvent extends AgentBaseEvent {
+  /** Nulo quando o número não tem ficha, que é o AC-02 de MOD-AI-01. */
+  tutorId: string | null
+}
+
+/** A conversa passou para gente, e o motivo é o que a fila da recepção exibe. */
+export interface AgenteHandoffEvent extends AgentBaseEvent {
+  reason: string
+}
+
+export interface AgenteConversaEncerradaEvent extends AgentBaseEvent {
+  turns: number
+  costCents: number
+  /** Resolvida é a que terminou **sem** passar por gente (AC-02 de MOD-AI-09). */
+  resolved: boolean
+}
+
+export interface AgentEventMap {
+  'agente.mensagem.recebida': AgenteMensagemRecebidaEvent
+  'agente.handoff': AgenteHandoffEvent
+  'agente.conversa.encerrada': AgenteConversaEncerradaEvent
+}

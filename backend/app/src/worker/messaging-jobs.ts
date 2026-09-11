@@ -5,6 +5,7 @@ import {
   reapLeases,
   runDispatch,
 } from '../modules/messaging/jobs.js'
+import { reaffirmWebhooks } from '../modules/messaging/whatsapp.js'
 
 /**
  * A grade do relacionamento.
@@ -40,6 +41,17 @@ export const messagingJobs: JobDefinition[] = [
     name: 'messaging.reap-leases',
     schedule: '*/5 * * * *',
     run: (now) => reapLeases(now),
+  },
+  {
+    /**
+     * De madrugada, e diário: a lista de eventos e o endereço de retorno da Evolution
+     * são gravados **uma vez**, do lado dela, quando a instância nasce. Nada do lado de
+     * cá os revisita — e uma instância pareada antes de o MOD-AI acrescentar
+     * `MESSAGES_UPSERT` continuaria surda sem que nada falhasse.
+     */
+    name: 'messaging.reaffirm-webhook',
+    schedule: '40 3 * * *',
+    run: () => reaffirmWebhooks(),
   },
   {
     name: 'messaging.retention',

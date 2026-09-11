@@ -12,6 +12,7 @@ import {
 import { startTutorConsumers, stopTutorConsumers } from '../modules/tutors/consumers.js'
 import { startSiteConsumers, stopSiteConsumers } from '../modules/site/consumers.js'
 import { startTaxiConsumers, stopTaxiConsumers } from '../modules/taxi/consumers.js'
+import { agentJobs } from './agent-jobs.js'
 import { crmJobs } from './crm-jobs.js'
 import { identityJobs } from './identity-jobs.js'
 import { recordJobs } from './record-jobs.js'
@@ -47,6 +48,7 @@ export const { startJobs, stopJobs, runJobNow, describeJobs } = createJobSchedul
     ...taxiJobs,
     ...crmJobs,
     ...messagingJobs,
+    ...agentJobs,
     ...tutorJobs,
     ...identityJobs,
     ...securityJobs,

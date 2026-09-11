@@ -139,6 +139,13 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   // dos dois tem leitura que atravesse tenant.
   'PortalContactChange',
   'DataDeletionRequest',
+  // MOD-AI: a conversa que chega pelo WhatsApp. `AgentTurn` entra junto porque carrega
+  // `tenant_id` próprio — e porque é onde mora o corpo do que o cliente escreveu, que é
+  // o dado mais sensível do módulo. A conversa de número **desconhecido** também é do
+  // tenant: quem a recebeu foi o número do petshop.
+  'AgentConversation',
+  'AgentTurn',
+  'AgentSettings',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
   // tenants por definição, e exigir contexto dele seria negar o que ele é.

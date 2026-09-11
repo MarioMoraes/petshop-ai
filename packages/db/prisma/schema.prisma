@@ -162,6 +162,10 @@ model Tenant {
   /// MOD-ADMIN-02: os acessos de suporte que este estabelecimento autorizou.
   supportGrants SupportAccessGrant[]
 
+  /// MOD-AI: as conversas que chegaram pelo WhatsApp do estabelecimento.
+  agentConversations AgentConversation[]
+  agentSettings      AgentSettings?
+
   @@index([status])
   @@map("tenants")
 }
@@ -768,6 +772,8 @@ model Tutor {
   portalChallenges     PortalLinkChallenge[]
   portalContactChanges PortalContactChange[]
   deletionRequests     DataDeletionRequest[]
+
+  agentConversations AgentConversation[]
 
   mergedInto Tutor?  @relation("TutorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom Tutor[] @relation("TutorMerge")
@@ -3715,4 +3721,174 @@ model DocumentCounter {
 
   @@id([tenantId, kind, year])
   @@map("document_counters")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MOD-AI — a conversa que chega (PRD agentes_ia_15 §4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum AgentConversationStatus {
+  ACTIVE
+  HANDOFF
+  ASSIGNED
+  CLOSED
+}
+
+enum AgentHandoffReason {
+  REQUESTED
+  SENTIMENT
+  UNRESOLVED
+  TOO_LONG
+  BUDGET
+  ERROR
+  DISABLED
+  UNKNOWN_NUMBER
+  AMBIGUOUS
+  MEDIA
+}
+
+enum AgentTurnRole {
+  TUTOR
+  AGENT
+  STAFF
+}
+
+enum AgentSentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum AgentInboundKind {
+  TEXT
+  AUDIO
+  IMAGE
+  VIDEO
+  DOCUMENT
+  OTHER
+}
+
+/// A conversa de um número com o estabelecimento (MOD-AI-02).
+///
+/// **A chave é o telefone, e não o tutor**, e é a diferença que separa esta tabela de
+/// tudo o que o produto tinha até aqui. `tutor_id` é nulo em dois casos legítimos — o
+/// número sem ficha (AC-02 de MOD-AI-01) e o número em duas fichas (AC-03) — e nos dois
+/// a conversa existe, precisa ser respondida e não tem dono. Guardar o contato cifrado
+/// aqui é o que permite continuar a mesma conversa quando a segunda mensagem chegar.
+model AgentConversation {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Nulo é número não reconhecido, ou reconhecido demais — ver o comentário do modelo.
+  tutorId String?        @map("tutor_id") @db.Uuid
+  channel MessageChannel @default(WHATSAPP)
+
+  /// O telefone E.164 de quem escreveu, cifrado com a DEK do tenant. O hash ao lado é o
+  /// que reencontra a conversa viva sem decifrar linha por linha — o mesmo desenho de
+  /// `messages.to_hash`.
+  contactEncrypted String @map("contact_encrypted")
+  contactHash      String @map("contact_hash") @db.Char(64)
+
+  status        AgentConversationStatus @default(ACTIVE)
+  handoffReason AgentHandoffReason?     @map("handoff_reason")
+  handoffAt     DateTime?               @map("handoff_at") @db.Timestamptz(6)
+
+  /// Quem da equipe assumiu (AC-02 de MOD-AI-06). Sem FK: `users` é global e o membro
+  /// pode sair do estabelecimento sem levar o histórico da conversa junto.
+  assignedTo String?   @map("assigned_to") @db.Uuid
+  assignedAt DateTime? @map("assigned_at") @db.Timestamptz(6)
+
+  /// Acumulado do modelo, em **milésimos de centavo** (RN-13).
+  ///
+  /// A unidade não é a do §4 do PRD, e a razão está na migration: um turno custa uma
+  /// fração de centavo, e em centavos inteiros todo turno arredondaria para zero — o
+  /// teto mensal nunca seria alcançado e o custo por conversa seria sempre zero.
+  costMillicents Int @default(0) @map("cost_millicents")
+  turnCount      Int @default(0) @map("turn_count")
+
+  /// Desde quando há turno do tutor esperando resposta — e, ao mesmo tempo, a posse de
+  /// quem está respondendo agora (ver a migration). Nulo = nada pendente.
+  pendingAt DateTime? @map("pending_at") @db.Timestamptz(6)
+
+  /// Turnos seguidos em que nenhuma consulta deu certo (AC-03 de MOD-AI-05). Três e a
+  /// conversa vai para gente; qualquer tool bem-sucedida zera.
+  unresolvedStreak Int @default(0) @map("unresolved_streak") @db.SmallInt
+
+  /// Base da expiração (AC-02 de MOD-AI-02) e da ordenação da fila.
+  lastTurnAt DateTime  @default(now()) @map("last_turn_at") @db.Timestamptz(6)
+  closedAt   DateTime? @map("closed_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  turns AgentTurn[]
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// `SetNull` e não `Cascade`: a anonimização do titular (MOD-TUTOR-08) apaga o corpo
+  /// dos turnos e solta o vínculo, e a contagem sobrevive para o painel de qualidade.
+  tutor  Tutor? @relation(fields: [tutorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status], map: "idx_agent_conv_tenant_status")
+  @@map("agent_conversations")
+}
+
+/// A configuração do agente, um por tenant (MOD-AI-07).
+///
+/// `enabled` nasce **falso**: ligar um robô que fala com o cliente em nome do petshop é
+/// decisão de quem responde pelo número — o mesmo critério de `MessagingSettings`.
+model AgentSettings {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  enabled Boolean @default(false)
+
+  /// Hora local do estabelecimento, `HH:MM`. Fora da janela o modelo não é chamado.
+  opensAt  String @default("08:00") @map("opens_at") @db.VarChar(5)
+  closesAt String @default("19:00") @map("closes_at") @db.VarChar(5)
+
+  /// Teto de gasto do mês com o provedor, em centavos (AC-02 de MOD-AI-08).
+  monthlyCapCents Int @default(50000) @map("monthly_cap_cents")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("agent_settings")
+}
+
+/// Um turno é uma mensagem da conversa, de qualquer um dos três lados.
+///
+/// `content_encrypted` é o campo mais sensível do módulo (§9): é o que o cliente
+/// resolveu escrever, e pode conter qualquer coisa que o produto cifra em toda outra
+/// tabela. `message_id` liga ao que entrou ou saiu pelo motor do MOD-NOTIF — nulo só
+/// quando o turno não virou mensagem, que é o caso da resposta automática de sistema.
+model AgentTurn {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String @map("tenant_id") @db.Uuid
+  conversationId String @map("conversation_id") @db.Uuid
+
+  role      AgentTurnRole
+  kind      AgentInboundKind @default(TEXT)
+  messageId String?          @map("message_id") @db.Uuid
+
+  contentEncrypted String @map("content_encrypted")
+
+  /// De `response.usage`, para o custo sair do medido e não do estimado (RN-13).
+  inputTokens     Int @default(0) @map("input_tokens")
+  outputTokens    Int @default(0) @map("output_tokens")
+  cacheReadTokens Int @default(0) @map("cache_read_tokens")
+  /// O que este turno custou, em milésimos de centavo. Ver o comentário da conversa.
+  costMillicents  Int @default(0) @map("cost_millicents")
+
+  sentiment AgentSentiment?
+  /// Quem escreveu, quando foi gente da equipe.
+  authorId  String?         @map("author_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt], map: "idx_agent_turns_conv")
+  @@index([tenantId, createdAt], map: "idx_agent_turns_custo")
+  @@map("agent_turns")
 }

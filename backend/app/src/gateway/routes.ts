@@ -6,6 +6,9 @@ import {
 } from '@petshop/shared-types'
 import type { FastifyInstance } from 'fastify'
 import { registerPublicSiteRoutes, registerSiteRoutes } from '../modules/site/routes.js'
+import { registerAgentRoutes } from '../modules/agent/routes.js'
+import { setAgentInboundPort } from '../modules/messaging/ports/agent.js'
+import { handleInbound } from '../modules/agent/conversations.js'
 import { registerCatalogRoutes } from '../modules/catalog/routes.js'
 import { registerCrmRoutes } from '../modules/crm/routes.js'
 import { registerIdentityRoutes } from '../modules/identity/routes.js'
@@ -51,6 +54,7 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerTaxiModule(app)
   await registerCrmModule(app)
   await registerMessagingModule(app)
+  await registerAgentModule(app)
   await registerPetModule(app)
   await registerTutorModule(app)
   await registerIdentityModule(app)
@@ -150,6 +154,26 @@ async function registerMessagingModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerMessagingRoutes(scope)
+  })
+}
+
+/**
+ * MOD-AI — a conversa que chega pelo WhatsApp.
+ *
+ * Registrado **logo depois do MOD-NOTIF**, e a ordem é a da dependência: quem chama é a
+ * mensageria, ao receber o webhook, e quem responde é este módulo. `setAgentInboundPort`
+ * é o que liga os dois — sem ele a mensagem vira linha em `messages` e para por aí, que
+ * é o comportamento correto de um processo que hospeda a mensageria sem o MOD-AI.
+ *
+ * É a mesma ligação que o `setSchedulingPort` da fatia 9 fez pelo AC-02 de MOD-PET-05:
+ * uma regra escrita e inerte passa a valer quando a porta ganha implementação.
+ */
+async function registerAgentModule(app: FastifyInstance): Promise<void> {
+  setAgentInboundPort({ onInbound: handleInbound })
+
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerAgentRoutes(scope)
   })
 }
 

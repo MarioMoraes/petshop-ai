@@ -2,6 +2,7 @@ import { createEventPublisher } from '@petshop/service-kit'
 import type {
   AdminEventMap,
   AgendaEventMap,
+  AgentEventMap,
   IdentityEventMap,
   LedgerEventMap,
   PortalEventMap,
@@ -41,7 +42,8 @@ export const { publishEvent, closeEvents, checkEvents } = createEventPublisher<
     AgendaEventMap &
     LedgerEventMap &
     PortalEventMap &
-    AdminEventMap
+    AdminEventMap &
+    AgentEventMap
 >({
   logger,
   getUrl: () => loadEnv().RABBITMQ_URL,

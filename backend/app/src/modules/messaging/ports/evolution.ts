@@ -41,6 +41,20 @@ export interface EvolutionSendResult {
   errorDetail: string | null
 }
 
+/**
+ * O que a Evolution manda de volta.
+ *
+ * Os dois primeiros são o pareamento, e foram os únicos até o MOD-AI. `MESSAGES_UPSERT`
+ * é a mensagem que o cliente escreveu — **sem ele o produto continua surdo**, e o
+ * sintoma é o pior tipo: nada falha, nada aparece no log, a fila de atendimento fica
+ * vazia para sempre e parece que ninguém escreveu.
+ *
+ * A lista é gravada do lado do provedor, uma vez, quando a instância nasce. Instância
+ * pareada antes desta linha existir continua com a lista antiga até alguém reafirmar o
+ * endereço de retorno — é o que o job `messaging.reaffirm-webhook` faz todo dia.
+ */
+const WEBHOOK_EVENTS = ['CONNECTION_UPDATE', 'QRCODE_UPDATED', 'MESSAGES_UPSERT']
+
 export interface EvolutionPort {
   /** `false` quando falta `EVOLUTION_API_URL`/`EVOLUTION_API_KEY` no ambiente. */
   readonly configured: boolean
@@ -201,7 +215,7 @@ function createHttpPort(baseUrl: string, globalApiKey: string): EvolutionPort {
             headers: { 'x-webhook-token': webhookToken },
             byEvents: false,
             base64: true,
-            events: ['CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+            events: WEBHOOK_EVENTS,
           },
         },
       })
@@ -238,7 +252,7 @@ function createHttpPort(baseUrl: string, globalApiKey: string): EvolutionPort {
             headers: { 'x-webhook-token': webhookToken },
             byEvents: false,
             base64: true,
-            events: ['CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+            events: WEBHOOK_EVENTS,
           },
         },
       })

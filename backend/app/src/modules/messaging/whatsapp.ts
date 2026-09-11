@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { hashSearchable, withTenant, type TenantTransaction } from '@petshop/db'
+import { getMaintenancePrisma, hashSearchable, withTenant, type TenantTransaction } from '@petshop/db'
 import {
   findTemplateDefinition,
   whatsappWarmupCap,
@@ -14,6 +14,7 @@ import { logger } from '../../shared/logger.js'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheDelete, cacheGet, cacheSet } from '../../shared/redis.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { openCipher } from './crypto.js'
+import { isInboundEvent, receiveInboundMessage, type InboundPayload } from './inbound.js'
 import { resolveDelivery } from './recipient.js'
 import { EvolutionRequestError, getEvolutionPort } from './ports/evolution.js'
 import { loadSettings } from './settings.js'
@@ -746,6 +747,22 @@ interface WebhookPayload {
 export async function applyWebhook(tenantId: string, payload: WebhookPayload): Promise<void> {
   const event = payload.event ?? ''
 
+  /**
+   * A mensagem recebida (MOD-AI-01).
+   *
+   * **Primeiro do `if`, e não por preferência**: é o evento mais frequente do webhook
+   * depois que o pareamento termina, e os dois acima só acontecem enquanto alguém está
+   * olhando a tela do QR code.
+   *
+   * Até esta fatia, `messages.upsert` caía no `return` mudo lá embaixo — o canal sabia
+   * falar e não sabia ouvir, e `MessageDirection.INBOUND` era um valor de enum sem
+   * nenhum escritor no sistema inteiro.
+   */
+  if (isInboundEvent(event)) {
+    await receiveInboundMessage(tenantId, payload as InboundPayload)
+    return
+  }
+
   if (QRCODE_EVENTS.has(event)) {
     const qrCode = payload.data?.qrcode?.base64
     // Só guarda o que dá para desenhar. Um evento sem imagem existe (o provedor avisa
@@ -791,4 +808,76 @@ function toProviderError(error: unknown, fallback: string): Error {
     return providerUnavailable(`${fallback}: o provedor não respondeu a tempo`)
   }
   return error instanceof Error ? error : invalid(fallback)
+}
+
+/**
+ * Reafirma o endereço de retorno das instâncias já pareadas (job diário).
+ *
+ * **Existe por causa de uma coisa que a Evolution grava uma vez e nunca revisita: a lista
+ * de eventos.** Ela nasce com a instância, do lado do provedor, e nada do lado de cá a
+ * atualiza — nem o deploy, nem a subida, nem a reconexão. Quando o MOD-AI acrescentou
+ * `MESSAGES_UPSERT` à lista, todo petshop já pareado continuou entregando só pareamento
+ * e conexão: a fila de atendimento ficaria vazia para sempre, sem erro em lugar nenhum,
+ * e a conclusão natural seria "ninguém escreveu para a gente".
+ *
+ * O mesmo vale para o endereço: `EVOLUTION_WEBHOOK_URL` já mudou uma vez (a consolidação
+ * trocou a porta do backend) e deixou instâncias falando com um destino morto. Ver o
+ * comentário de `refreshQrCode`, que reafirma o endereço pelo mesmo motivo — só que ele
+ * depende de alguém reabrir o QR, e quem já está conectado nunca reabre.
+ *
+ * O token gira a cada reafirmação porque o banco guarda só o hash. A ordem é: provedor
+ * primeiro, hash depois. Um callback que chegue entre as duas escritas traz o token novo
+ * contra o hash velho e leva 401 — a Evolution reentrega, e a segunda tentativa passa.
+ */
+export async function reaffirmWebhooks(): Promise<{ reaffirmed: number; failed: number }> {
+  if (!getEvolutionPort().configured) return { reaffirmed: 0, failed: 0 }
+
+  const instances = await getMaintenancePrisma().whatsappInstance.findMany({
+    where: { status: 'CONNECTED' },
+    select: { tenantId: true },
+  })
+
+  let reaffirmed = 0
+  let failed = 0
+
+  for (const instance of instances) {
+    try {
+      const credentials = await withTenant(instance.tenantId, async (tx) => {
+        const row = await readInstance(tx, instance.tenantId)
+        if (!row?.apiKeyEncrypted) return null
+        const cipher = await openCipher(tx, instance.tenantId)
+        return { instanceName: row.instanceName, apiKey: cipher.decrypt(row.apiKeyEncrypted) }
+      })
+      if (!credentials) continue
+
+      const token = randomBytes(32).toString('base64url')
+      await getEvolutionPort().setWebhook({
+        instanceName: credentials.instanceName,
+        apiKey: credentials.apiKey,
+        webhookUrl: webhookUrl(),
+        webhookToken: token,
+      })
+
+      await withTenant(instance.tenantId, (tx) =>
+        tx.whatsappInstance.update({
+          where: { tenantId: instance.tenantId },
+          data: { webhookTokenHash: hashToken(token) },
+        }),
+      )
+      reaffirmed += 1
+    } catch (error) {
+      // Um provedor fora do ar não pode interromper a varredura dos demais: o efeito de
+      // pular um tenant é ele continuar com o endereço de ontem por mais um dia.
+      failed += 1
+      logger.warn(
+        { err: error, tenantId: instance.tenantId },
+        'não foi possível reafirmar o webhook da instância',
+      )
+    }
+  }
+
+  if (reaffirmed > 0 || failed > 0) {
+    logger.info({ reaffirmed, failed }, 'endereços de retorno reafirmados na Evolution')
+  }
+  return { reaffirmed, failed }
 }

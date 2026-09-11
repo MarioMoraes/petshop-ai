@@ -95,7 +95,7 @@ Os módulos: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
 (`modules/identity`), MOD-PRONT (`modules/records`, `modules/attendances`,
 `modules/prescriptions`), MOD-AGENDA (`modules/scheduling`,
 `modules/schedule-catalog`), MOD-LEDGER (`modules/ledger`), MOD-SEC
-(`modules/security`) e MOD-PORTAL (`modules/portal`).
+(`modules/security`), MOD-PORTAL (`modules/portal`) e MOD-AI (`modules/agent`).
 
 **O MOD-PORTAL é o único que lê de todos os outros e escreve por porta.** Ele agrega: as
 leituras são banco direto, porque ler é escolher um recorte; as escritas passam pelas
@@ -103,6 +103,23 @@ cinco portas, porque gravar é aplicar regra. Cada porta **eleva permissão de p
 — o papel `TUTOR` não tem `tutor:update`, `schedule:write_all`, `taxi:operate` nem
 `finance:read` —, e o que as contém é sempre o mesmo: o `tutorId` vem de
 `requireOwnScope` e nunca do corpo, e a lista de métodos é curta e nomeada.
+
+**O MOD-AI é o único módulo que o canal chama, e não o contrário.** A mensagem recebida
+entra pelo webhook da Evolution, que é do MOD-NOTIF: `modules/messaging/inbound.ts`
+traduz o payload do provedor, grava a linha `INBOUND` e chama a
+`AgentInboundPort` — o vocabulário do provedor morre ali. A resposta volta pelo caminho de
+sempre, `modules/agent/messaging-port.ts` → `enqueueMessage`: o motor do MOD-NOTIF é a
+única saída do produto, e uma segunda seria uma saída sem fila, sem teto de vazão, sem
+supressão e sem histórico.
+
+**O turno do modelo não roda dentro do webhook.** A Evolution reentrega o que não recebe
+2xx depressa, e um turno com tools leva dezenas de segundos. O webhook grava e carimba
+`agent_conversations.pending_at`; quem responde é `modules/agent/runner.ts`, disparado
+logo depois do 204 — e `pending_at` é ao mesmo tempo o "desde quando espera" e a **posse**
+de quem está respondendo, então o job `agent.sweep-pending` recolhe o que um processo
+derrubado deixou pela metade. O provedor fica atrás de `model-port.ts` e as sete leituras
+atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o agente e a tela do
+tutor respondem a mesma pergunta com a mesma função.
 
 **O nome `modules/schedule-catalog` é o registro de uma colisão.** O MOD-AGENDA tinha
 `catalog` e `scheduling` enquanto era serviço, e aqui `modules/catalog` já é o catálogo

@@ -217,6 +217,12 @@ export type EnqueueMessageInput = z.output<typeof EnqueueMessageSchema>
 export const MessageListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  /**
+   * Saída ou entrada. **Ausente é `OUTBOUND`**, e não "as duas": o painel de entregas
+   * existia antes de o produto saber receber mensagem, e ele conta o que o petshop
+   * mandou. A conversa que chega tem tela própria, a fila de atendimento do MOD-AI.
+   */
+  direction: MessageDirectionSchema.optional(),
   status: MessageStatusSchema.optional(),
   channel: MessageChannelSchema.optional(),
   category: MessageCategorySchema.optional(),

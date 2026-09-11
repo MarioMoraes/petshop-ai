@@ -8,6 +8,7 @@ import { chavesAMarcar, contarNaoVistos, montarPendencias, type Pendencia } from
  */
 describe('montarPendencias', () => {
   const nada = {
+    atendimentos: null,
     aprovacoes: null,
     novosAgendamentos: null,
     exclusoes: null,
@@ -32,6 +33,7 @@ describe('montarPendencias', () => {
 
   it('conta cada fonte na sua própria linha, na ordem do fluxo de trabalho', () => {
     const linhas = montarPendencias({
+      atendimentos: 2,
       aprovacoes: { count: 4, nextDate: '2026-09-10' },
       novosAgendamentos: { count: 2, nextDate: '2026-09-11' },
       exclusoes: 1,
@@ -40,7 +42,11 @@ describe('montarPendencias', () => {
       inadimplentes: 1,
     })
     /**
-     * As duas com prazo abrem a lista, na ordem em que apertam.
+     * O cliente esperando no WhatsApp abre a lista, e as duas com prazo vêm logo atrás,
+     * na ordem em que apertam.
+     *
+     * Primeiro porque é a única espera de uma **pessoa**: ela mandou mensagem, viu a
+     * bolinha de entregue e está olhando para a tela. As outras são tarefas paradas.
      *
      * A triagem do Portal primeiro: o horário reservado expira em 24h e leva o cliente
      * junto. O pedido de exclusão logo depois: o prazo dele é de quinze dias, mas é de
@@ -50,6 +56,7 @@ describe('montarPendencias', () => {
      * tutor, mesmo Portal, e o que separa as duas é a triagem estar ligada ou não.
      */
     expect(linhas.map((l) => l.key)).toEqual([
+      'atendimentos',
       'aprovacoes',
       'novosAgendamentos',
       'exclusoes',
@@ -88,6 +95,7 @@ describe('montarPendencias', () => {
    */
   it('aponta cada linha para a tela que resolve a pendência, já filtrada', () => {
     const linhas = montarPendencias({
+      atendimentos: 1,
       aprovacoes: { count: 1, nextDate: '2026-09-10' },
       novosAgendamentos: { count: 1, nextDate: '2026-09-11' },
       exclusoes: 1,
@@ -96,6 +104,8 @@ describe('montarPendencias', () => {
       inadimplentes: 1,
     })
     expect(linhas.map((l) => l.href)).toEqual([
+      // A fila de atendimento abre no padrão dela, que já é quem está esperando.
+      '/crm/atendimentos',
       '/agenda/dia?date=2026-09-10',
       '/agenda/dia?date=2026-09-11',
       // A aba já selecionada: sem o `?aba=`, o clique cairia em "Dados" e o contador
@@ -163,6 +173,7 @@ describe('montarPendencias', () => {
  */
 describe('o ponto vermelho e a marca de lido', () => {
   const linhas = montarPendencias({
+    atendimentos: null,
     aprovacoes: { count: 2, nextDate: '2026-09-10' },
     novosAgendamentos: { count: 3, nextDate: '2026-09-11' },
     exclusoes: null,
@@ -194,6 +205,7 @@ describe('o ponto vermelho e a marca de lido', () => {
 
   it('nada a marcar quando o painel não tem a linha de novidade', () => {
     const semNovidade: Pendencia[] = montarPendencias({
+      atendimentos: null,
       aprovacoes: null,
       novosAgendamentos: null,
       exclusoes: null,

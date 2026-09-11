@@ -1,0 +1,11 @@
+-- MOD-AI-06 — a resposta que a recepção escreve pela tela tem origem própria.
+--
+-- Separada da migration das tabelas pelo mesmo motivo da do `ConsentSource`: um valor
+-- novo de enum precisa estar **commitado** antes de qualquer linha usá-lo, e juntar as
+-- duas coisas na mesma migration é o caminho mais curto para o erro "unsafe use of new
+-- value of enum type" no primeiro ambiente que aplicar tudo de uma vez.
+--
+-- `MANUAL` não serviria: ela é o disparo que alguém decidiu fazer (MOD-CRM-12), e esta é
+-- a resposta a um cliente que escreveu primeiro. A diferença aparece no painel de
+-- entregas, onde as duas passam a ser separáveis sem ler o corpo de nada.
+ALTER TYPE "MessageOriginType" ADD VALUE IF NOT EXISTS 'AGENT_HANDOFF';

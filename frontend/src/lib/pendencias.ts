@@ -1,3 +1,4 @@
+import { AGENT_SLA_MIN } from '@petshop/shared-types'
 import type { Route } from 'next'
 
 /**
@@ -23,7 +24,13 @@ import type { Route } from 'next'
  */
 
 export type PendenciaKey =
-  'aprovacoes' | 'novosAgendamentos' | 'exclusoes' | 'leads' | 'mensagens' | 'inadimplentes'
+  | 'atendimentos'
+  | 'aprovacoes'
+  | 'novosAgendamentos'
+  | 'exclusoes'
+  | 'leads'
+  | 'mensagens'
+  | 'inadimplentes'
 
 /**
  * As linhas que **não** são trabalho parado, e por isso precisam de marca de lido.
@@ -89,6 +96,15 @@ export interface Pendencia {
  */
 export interface ContagemPendencias {
   /**
+   * Conversas de WhatsApp esperando a recepção há mais de `AGENT_SLA_MIN` (MOD-AI-06,
+   * AC-04).
+   *
+   * A fonte mais imediata das sete, e a única em que **alguém está esperando agora**: um
+   * cliente mandou mensagem para o número do petshop e ninguém respondeu. As outras
+   * contam trabalho parado; esta conta uma pessoa parada.
+   */
+  atendimentos: number | null
+  /**
    * A fila da triagem do Portal, com o dia do pedido mais próximo.
    *
    * Traz um destino junto do número, e o motivo é a tela: a visão da agenda é por
@@ -129,6 +145,15 @@ export interface ContagemPendencias {
  */
 export const JANELA_HORAS = 24
 
+/**
+ * Quanto uma conversa pode esperar na fila antes de virar pendência (MOD-AI-06).
+ *
+ * Reexportado de `@petshop/shared-types` para a linha do painel **anunciar** o mesmo
+ * número que o servidor aplica no filtro. O texto e o recorte moram em lugares
+ * diferentes, e é assim que um deles começa a mentir sobre o outro.
+ */
+export { AGENT_SLA_MIN }
+
 function plural(n: number, singular: string, plural_: string): string {
   return `${n} ${n === 1 ? singular : plural_}`
 }
@@ -144,7 +169,28 @@ export function montarPendencias(contagem: ContagemPendencias): Pendencia[] {
   const linhas: Pendencia[] = []
 
   /**
-   * Primeiro da lista, e não em ordem alfabética: é a única pendência com **prazo**.
+   * Na frente de tudo, inclusive dos pedidos de horário.
+   *
+   * É a única linha em que a espera é de uma **pessoa**, e não de uma tarefa: o cliente
+   * mandou mensagem, viu a bolinha de entregue e está olhando para a tela. Dez minutos
+   * ali valem mais que um dia de qualquer outra fila.
+   */
+  if (contagem.atendimentos) {
+    linhas.push({
+      key: 'atendimentos',
+      count: contagem.atendimentos,
+      titulo: plural(
+        contagem.atendimentos,
+        'cliente esperando no WhatsApp',
+        'clientes esperando no WhatsApp',
+      ),
+      detalhe: `sem resposta há mais de ${AGENT_SLA_MIN} minutos`,
+      href: '/crm/atendimentos',
+    })
+  }
+
+  /**
+   * Depois dos atendimentos: é a primeira pendência com **prazo**.
    * O horário fica reservado por 24h e depois some sozinho, levando junto o cliente
    * que pediu. Contato do site e tutor inadimplente esperam sem estragar.
    */

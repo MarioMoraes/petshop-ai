@@ -417,6 +417,35 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'Para marcar um horário, fale com a gente pelo {{petshop.telefone}}.',
     },
   },
+  /**
+   * A resposta que a recepção escreve pela tela (AC-03 de MOD-AI-06).
+   *
+   * **O único texto do catálogo que não tem texto.** O corpo é a variável e nada mais:
+   * quem o escreve é a atendente, palavra por palavra, respondendo a um cliente que
+   * mandou mensagem primeiro. O template existe porque o motor do MOD-NOTIF é a única
+   * porta de saída do produto (RN-15) e ele pede uma chave — e porque é o que faz a
+   * resposta entrar no mesmo histórico, no mesmo teto de vazão e na mesma fila de tudo
+   * o mais que o petshop manda.
+   *
+   * `SYSTEM` para ficar **fora da tela de textos**: editá-lo não configuraria nada,
+   * só quebraria a resposta de todo mundo. `OPERATIONAL` porque responder a quem
+   * escreveu não é campanha nem cobrança — e é a categoria que atravessa a janela de
+   * silêncio, que é o que se espera de quem responde às dez da noite a um cliente que
+   * acabou de escrever.
+   */
+  {
+    key: 'agent_reply',
+    label: 'Resposta da recepção',
+    category: 'OPERATIONAL',
+    variables: [...BASE_VARIABLES, 'mensagem'],
+    subject: 'Resposta do {{petshop.nome}}',
+    authored: 'SYSTEM',
+    body: {
+      WHATSAPP: '{{mensagem}}',
+      EMAIL: '{{mensagem}}',
+    },
+  },
+
   {
     key: 'campaign_broadcast',
     label: 'Campanha (texto livre)',

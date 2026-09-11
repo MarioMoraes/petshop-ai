@@ -207,6 +207,19 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    * entrega. Estreitá-lo até o teto do Admin transformaria um pareamento normal em 429.
    */
   WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),
+
+  /**
+   * MOD-AI — a chave do provedor do modelo.
+   *
+   * **Opcional, e a ausência é um estado legítimo**: sem ela o agente se comporta como
+   * desligado e toda conversa vai para a recepção, que é exatamente o AC-02 de
+   * MOD-AI-07. Exigi-la na subida deixaria o processo inteiro de pé só quando alguém
+   * quisesse ligar o atendimento automático.
+   *
+   * A tela de configuração diz quando ela falta — a alternativa seria o petshop ligar o
+   * agente, ver o interruptor aceso e continuar sem resposta automática nenhuma.
+   */
+  ANTHROPIC_API_KEY: z.string().optional(),
 })
 
 export type Env = ReturnType<typeof loadEnv>
