@@ -244,8 +244,7 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
     body: {
       WHATSAPP: '{{tutor.primeiro_nome}}, {{pets.lista}} já está em casa. Até a próxima!',
       EMAIL:
-        '{{tutor.primeiro_nome}},\n\n' +
-        '{{pets.lista}} já está em casa. Obrigado pela confiança!',
+        '{{tutor.primeiro_nome}},\n\n' + '{{pets.lista}} já está em casa. Obrigado pela confiança!',
     },
   },
   {
@@ -437,12 +436,21 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
     key: 'agent_reply',
     label: 'Resposta da recepção',
     category: 'OPERATIONAL',
-    variables: [...BASE_VARIABLES, 'mensagem'],
+    /**
+     * **Com namespace, como todas as outras — e não por gosto.**
+     *
+     * O substituidor só reconhece `{{namespace.campo}}`: a expressão exige o ponto. Esta
+     * variável nasceu como `mensagem`, sem ponto, e por isso **nunca era substituída** —
+     * o cliente recebia no WhatsApp o texto `{{mensagem}}`, literal, no lugar da resposta
+     * do agente. Não havia erro em lugar nenhum: a mensagem saía, era entregue, e só quem
+     * estava do outro lado via o defeito.
+     */
+    variables: [...BASE_VARIABLES, 'atendimento.mensagem'],
     subject: 'Resposta do {{petshop.nome}}',
     authored: 'SYSTEM',
     body: {
-      WHATSAPP: '{{mensagem}}',
-      EMAIL: '{{mensagem}}',
+      WHATSAPP: '{{atendimento.mensagem}}',
+      EMAIL: '{{atendimento.mensagem}}',
     },
   },
 

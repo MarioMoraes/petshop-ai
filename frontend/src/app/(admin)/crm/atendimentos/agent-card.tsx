@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { formatBRL, type AgentSettings } from '@petshop/shared-types'
-import { Alert, Button, Card, SectionHead } from '@/components/ui'
+import { Alert, Button, Card, Field, SectionHead } from '@/components/ui'
 import { AlertTriangleIcon, BellIcon } from '@/components/icons'
 import { salvarConfiguracaoAction } from './actions'
 
@@ -16,12 +16,57 @@ import { salvarConfiguracaoAction } from './actions'
  * precisa saber.
  *
  * `Card tone="soft"`, como manda a regra 1 do design: é ficha com campos, não conteúdo.
+ *
+ * **O cartão tem três faixas, e a ordem é a da pergunta que se faz ao chegar:** está
+ * ligado? quanto já custou? em que horário e até quanto pode gastar? A primeira é um
+ * cabeçalho com o botão de estado à direita — o mesmo desenho do envio automático em
+ * `crm/configuracoes`, porque é a mesma frase dita sobre outro motor. A segunda é a régua
+ * do mês. A terceira são os campos.
  */
 
 interface Props {
   settings: AgentSettings
   /** `crm:configure`. Sem ela o cartão vira uma linha de estado, sem controles. */
   podeConfigurar: boolean
+}
+
+/**
+ * A régua do gasto do mês.
+ *
+ * **O número que decide se o módulo se paga**, e o único que a tela mostra em dinheiro.
+ * Era uma frase solta no pé do cartão, onde um teto quase estourado lia igualzinho a um
+ * teto intocado. Barra reusa `.meter` da ocupação da agenda — mesma peça, mesma física,
+ * e o `meter-fill-full` acende no acento a partir de 80%, que é onde ainda dá tempo de
+ * subir o teto antes de a fila começar a encher sozinha.
+ */
+function ReguaDoMes({ gastoCents, tetoCents }: { gastoCents: number; tetoCents: number }) {
+  const pct = tetoCents > 0 ? (gastoCents / tetoCents) * 100 : 0
+  const estourou = tetoCents > 0 && gastoCents >= tetoCents
+
+  return (
+    <div className="mt-6 border-t border-line pt-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <span className="section-eyebrow">Gasto deste mês</span>
+        <span className="text-sm tabular-nums">
+          <span className="font-semibold">{formatBRL(gastoCents)}</span>
+          <span className="text-subtle"> de {formatBRL(tetoCents)}</span>
+        </span>
+      </div>
+
+      <div className="meter mt-2">
+        <div
+          className={`meter-fill ${pct >= 80 ? 'meter-fill-full' : ''}`}
+          style={{ width: `${Math.min(100, Math.max(pct > 0 ? 2 : 0, pct))}%` }}
+        />
+      </div>
+
+      <p className="hint mt-2">
+        {estourou
+          ? 'O teto do mês foi atingido. Tudo o que chega está vindo para a fila.'
+          : 'Atingido o teto, tudo passa a vir para a fila.'}
+      </p>
+    </div>
+  )
 }
 
 export function AgentCard({ settings, podeConfigurar }: Props) {
@@ -31,40 +76,78 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
   const [teto, setTeto] = useState(String(Math.round(settings.monthlyCapCents / 100)))
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, startSave] = useTransition()
+  /** Separado de `salvando` para o anel girar só no botão que foi clicado. */
+  const [alternando, startToggle] = useTransition()
 
-  function salvar(patch: Parameters<typeof salvarConfiguracaoAction>[0]) {
+  function salvar(patch: Parameters<typeof salvarConfiguracaoAction>[0], toggle = false) {
     setErro(null)
-    startSave(async () => {
+    const run = async () => {
       const resultado = await salvarConfiguracaoAction(patch)
       if (resultado.ok) setAtual(resultado.data)
       else setErro(resultado.message)
-    })
+    }
+    if (toggle) startToggle(run)
+    else startSave(run)
   }
 
-  const gasto = formatBRL(atual.spentCents)
-  const teto_ = formatBRL(atual.monthlyCapCents)
+  /**
+   * A descrição diz o que o agente faz **de verdade** desde o MOD-AI-04.
+   *
+   * Até a fatia 2 ele só lia, e o texto prometia que nada seria marcado nem cancelado.
+   * Passou a marcar — em duas etapas, com a proposta que o cliente confirma —, e uma
+   * promessa vencida no cartão de configuração é pior que nenhuma: quem lê decide com ela
+   * se liga o robô.
+   */
+  const descricao = atual.enabled
+    ? `Responde no WhatsApp das ${atual.opensAt} às ${atual.closesAt}. Marca, cancela e remarca só depois de o cliente confirmar a proposta.`
+    : 'Desligado. Toda mensagem que chega vai direto para a fila, sem passar pelo agente.'
 
   if (!podeConfigurar) {
     return (
       <Card tone="soft">
-        <SectionHead icon={<BellIcon />} tone="icon-brand" title="Atendimento automático" />
-        <p className="text-sm text-muted">
-          {atual.enabled
-            ? `Ligado, das ${atual.opensAt} às ${atual.closesAt}. O que ele não resolve aparece aqui na fila.`
-            : 'Desligado. Toda mensagem que chega vem para esta fila.'}
-        </p>
+        <SectionHead
+          icon={<BellIcon />}
+          tone="icon-brand"
+          eyebrow="Atendimento automático"
+          title={atual.enabled ? 'O agente está respondendo' : 'O agente está desligado'}
+          description={descricao}
+        />
+        <ReguaDoMes gastoCents={atual.spentCents} tetoCents={atual.monthlyCapCents} />
       </Card>
     )
   }
 
   return (
-    <Card tone="soft">
-      <SectionHead
-        icon={<BellIcon />}
-        tone="icon-brand"
-        title="Atendimento automático"
-        description="Responde sobre agendamentos, serviços e situação da conta. Nunca marca nem cancela nada — isso ele passa para a equipe."
-      />
+    /**
+     * A borda de acento quando está desligado é a mesma do envio automático: o estado que
+     * **impede o produto de funcionar** é o que ganha aresta, e não o normal.
+     */
+    <Card tone="soft" className={atual.enabled ? '' : 'border-accent/40'}>
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+        <div className="min-w-0 flex-1">
+          <SectionHead
+            icon={<BellIcon />}
+            tone="icon-brand"
+            eyebrow="Atendimento automático"
+            title={atual.enabled ? 'O agente está respondendo' : 'O agente está desligado'}
+            description={descricao}
+          />
+        </div>
+
+        <Button
+          variant={atual.enabled ? 'ghost' : 'primary'}
+          busy={alternando}
+          busyLabel="Salvando"
+          /*
+           * Sem motor de mensagens **não se liga**, mas sempre se desliga: travar os dois
+           * sentidos deixaria preso no ar um agente que já não consegue responder.
+           */
+          disabled={salvando || (!atual.canEnable && !atual.enabled)}
+          onClick={() => salvar({ enabled: !atual.enabled }, true)}
+        >
+          {atual.enabled ? 'Desligar' : 'Ligar'}
+        </Button>
+      </div>
 
       {erro && (
         <Alert tone="danger" icon={<AlertTriangleIcon />} title="Não foi possível salvar">
@@ -84,93 +167,83 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
         </Alert>
       )}
 
-      <label className="check mt-4">
-        <input
-          type="checkbox"
-          checked={atual.enabled}
-          disabled={salvando || !atual.canEnable}
-          onChange={(event) => salvar({ enabled: event.target.checked })}
-        />
-        <span>
-          <span className="font-medium">Responder automaticamente</span>
-          <span className="hint block">
-            A primeira resposta de cada conversa avisa ao cliente que ele fala com um atendimento
-            automático.
-          </span>
-        </span>
-      </label>
-
-      <div className="mt-5 grid gap-4 sm:grid-cols-3">
-        <label className="block">
-          <span className="hint">Começa às</span>
-          <input
-            type="time"
-            className="field mt-1"
-            value={opensAt}
-            disabled={salvando}
-            onChange={(event) => setOpensAt(event.target.value)}
-            onBlur={() => opensAt !== atual.opensAt && salvar({ opensAt })}
-          />
-        </label>
-
-        <label className="block">
-          <span className="hint">Até às</span>
-          <input
-            type="time"
-            className="field mt-1"
-            value={closesAt}
-            disabled={salvando}
-            onChange={(event) => setClosesAt(event.target.value)}
-            onBlur={() => closesAt !== atual.closesAt && salvar({ closesAt })}
-          />
-        </label>
-
-        <label className="block">
-          <span className="hint">Teto do mês (R$)</span>
-          <input
-            type="number"
-            min={0}
-            step={10}
-            className="field mt-1"
-            value={teto}
-            disabled={salvando}
-            onChange={(event) => setTeto(event.target.value)}
-            onBlur={() => {
-              const cents = Math.round(Number(teto) * 100)
-              if (Number.isFinite(cents) && cents !== atual.monthlyCapCents) {
-                salvar({ monthlyCapCents: cents })
-              }
-            }}
-          />
-        </label>
-      </div>
-
-      {/* O número que decide se o módulo se paga, e o único que a tela mostra em dinheiro. */}
       <p className="hint mt-4">
-        Gasto deste mês: {gasto} de {teto_}. Atingido o teto, tudo passa a vir para a fila.
+        A primeira resposta de cada conversa avisa ao cliente que ele fala com um atendimento
+        automático.
       </p>
 
-      {salvando && (
-        <p className="hint mt-2" role="status">
-          Salvando…
-        </p>
-      )}
+      <ReguaDoMes gastoCents={atual.spentCents} tetoCents={atual.monthlyCapCents} />
 
-      <div className="mt-4 flex justify-end">
-        <Button
-          variant="ghost"
-          busy={salvando}
-          busyLabel="Salvando"
-          onClick={() =>
-            salvar({
-              opensAt,
-              closesAt,
-              monthlyCapCents: Math.round(Number(teto) * 100),
-            })
-          }
-        >
-          Salvar horário e teto
-        </Button>
+      <div className="mt-6 border-t border-line pt-4">
+        <p className="section-eyebrow">Janela e teto</p>
+
+        <div className="mt-3 grid gap-4 sm:grid-cols-3">
+          <Field label="Começa às" htmlFor="agent-opens-at">
+            <input
+              id="agent-opens-at"
+              type="time"
+              className="field"
+              value={opensAt}
+              disabled={salvando}
+              onChange={(event) => setOpensAt(event.target.value)}
+              onBlur={() => opensAt !== atual.opensAt && salvar({ opensAt })}
+            />
+          </Field>
+
+          <Field label="Até às" htmlFor="agent-closes-at">
+            <input
+              id="agent-closes-at"
+              type="time"
+              className="field"
+              value={closesAt}
+              disabled={salvando}
+              onChange={(event) => setClosesAt(event.target.value)}
+              onBlur={() => closesAt !== atual.closesAt && salvar({ closesAt })}
+            />
+          </Field>
+
+          <Field label="Teto do mês (R$)" htmlFor="agent-monthly-cap">
+            <input
+              id="agent-monthly-cap"
+              type="number"
+              min={0}
+              step={10}
+              className="field"
+              value={teto}
+              disabled={salvando}
+              onChange={(event) => setTeto(event.target.value)}
+              onBlur={() => {
+                const cents = Math.round(Number(teto) * 100)
+                if (Number.isFinite(cents) && cents !== atual.monthlyCapCents) {
+                  salvar({ monthlyCapCents: cents })
+                }
+              }}
+            />
+          </Field>
+        </div>
+
+        {/*
+         * A linha de ação fica **dentro** do cartão, e não em `<FormActions>`: a regra 9
+         * do design reserva a barra grudada para o formulário de página inteira, e aqui
+         * ela grudaria no cartão em vez de na tela.
+         */}
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <Button
+            variant="ghost"
+            busy={salvando}
+            busyLabel="Salvando"
+            disabled={alternando}
+            onClick={() =>
+              salvar({
+                opensAt,
+                closesAt,
+                monthlyCapCents: Math.round(Number(teto) * 100),
+              })
+            }
+          >
+            Salvar janela e teto
+          </Button>
+        </div>
       </div>
     </Card>
   )

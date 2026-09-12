@@ -11,3 +11,9 @@ allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
   '@clerk/shared': true
+  # Nenhum dos dois precisa rodar script de instalação para ser consumido do pacote
+  # publicado: o do `@google/genai` é `prepare`, que só roda em instalação a partir do
+  # git, e o do `protobufjs` é um aviso de pós-instalação. Ambos entraram com o provedor
+  # alternativo do MOD-AI (`AI_PROVIDER=gemini`).
+  '@google/genai': false
+  protobufjs: false

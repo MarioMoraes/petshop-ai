@@ -2846,7 +2846,12 @@ enum MessageOriginType {
   LEDGER_ENTRY
   CAMPAIGN_RUN
   PET
+  /// Disparo que alguém decidiu fazer pela tela (MOD-CRM-12).
   MANUAL
+  /// Resposta de uma conversa do WhatsApp — do agente ou da recepção (MOD-AI-06).
+  /// Separada de `MANUAL` porque aqui o cliente escreveu primeiro, e é o que torna as
+  /// duas distinguíveis no painel de entregas sem ler o corpo de nada.
+  AGENT_HANDOFF
 }
 
 enum SuppressionReason {

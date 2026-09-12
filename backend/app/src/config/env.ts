@@ -171,7 +171,11 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   /** Linhas por lote do expurgo. Um DELETE único sobre dois anos segura o lock. */
   AUDIT_RETENTION_BATCH: z.coerce.number().int().positive().default(5_000),
   /** Teto de tempo por execução do expurgo. O que sobrar fica para amanhã. */
-  AUDIT_RETENTION_MAX_MS: z.coerce.number().int().positive().default(5 * 60_000),
+  AUDIT_RETENTION_MAX_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 60_000),
 
   // ---- MOD-ADMIN ----
 
@@ -231,6 +235,36 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    * agente, ver o interruptor aceso e continuar sem resposta automática nenhuma.
    */
   ANTHROPIC_API_KEY: z.string().optional(),
+
+  /**
+   * MOD-AI — qual provedor atende o agente.
+   *
+   * `anthropic` é o alvo de produção. `gemini` existe para **desenvolvimento**: o free
+   * tier do Google AI Studio deixa exercitar o agente ponta a ponta — tools, propostas,
+   * confirmação — sem conta paga. Os dois implementam a mesma `ModelPort`, então nada
+   * acima da porta sabe qual está atendendo.
+   *
+   * A escolha é do processo, e não do estabelecimento: é decisão de quem opera a
+   * instalação, não de quem usa o produto. Um seletor por tenant faria dois petshops do
+   * mesmo servidor receberem qualidade de atendimento diferente sem que ninguém tivesse
+   * pedido isso.
+   */
+  AI_PROVIDER: z.enum(['anthropic', 'gemini']).default('anthropic'),
+
+  /**
+   * A chave do Google AI Studio (https://aistudio.google.com/apikey).
+   *
+   * Opcional pelo mesmo motivo da chave da Anthropic: sem ela, com `AI_PROVIDER=gemini`,
+   * o agente se comporta como desligado em vez de derrubar a subida.
+   */
+  GEMINI_API_KEY: z.string().optional(),
+
+  /**
+   * O free tier tem cota por minuto, e ela é o que decide este padrão — não a qualidade.
+   * Trocar por um modelo maior faz o segundo cliente do dia levar 429, que o runner lê
+   * como provedor fora do ar e manda a conversa para a recepção.
+   */
+  GEMINI_MODEL: z.string().default('gemini-3.5-flash-lite'),
 })
 
 export type Env = ReturnType<typeof loadEnv>

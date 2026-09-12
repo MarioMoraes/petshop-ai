@@ -102,6 +102,15 @@ export const MessageOriginTypeSchema = z.enum([
   'CAMPAIGN_RUN',
   'PET',
   'MANUAL',
+  /**
+   * A resposta de uma conversa do WhatsApp, do agente ou da recepção (MOD-AI-06).
+   *
+   * O valor entrou no banco pela migration `20260916120000_mod_ai_origem` e **não entrou
+   * aqui**, então `EnqueueMessageSchema` recusava toda resposta do agente antes de ela
+   * chegar ao motor. A suíte não pegou porque os testes do MOD-AI dublam a
+   * `AgentMessagingPort` e nunca exercitam este schema.
+   */
+  'AGENT_HANDOFF',
 ])
 export type MessageOriginType = z.infer<typeof MessageOriginTypeSchema>
 

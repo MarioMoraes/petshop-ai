@@ -45,7 +45,7 @@ function createInProcessPort(): AgentMessagingPort {
         // caminho. `AUTO` poderia mandar por e-mail a resposta de uma conversa de
         // WhatsApp, que é o tipo de coisa que faz o cliente achar que ninguém leu.
         channel: 'WHATSAPP',
-        variables: { mensagem: request.text },
+        variables: { 'atendimento.mensagem': request.text },
         dedupeKey: request.dedupeKey,
         originType: 'AGENT_HANDOFF',
         originId: request.conversationId,
