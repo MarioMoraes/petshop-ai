@@ -6,6 +6,7 @@ import {
   type AgentConversationDetail,
   type AgentConversationListQuery,
   type AgentConversationSummary,
+  type AgentToolCallView,
   type AgentTurnView,
   type PaginatedAgentConversations,
 } from '@petshop/shared-types'
@@ -125,13 +126,14 @@ export async function findConversation(
       },
     })
 
-    const [tutors, users, candidates] = await Promise.all([
+    const [tutors, users, candidates, toolCalls] = await Promise.all([
       tutorNames(tx, row.tutorId ? [row.tutorId] : []),
       userNames(tx, [
         ...(row.assignedTo ? [row.assignedTo] : []),
         ...turnRows.flatMap((turn) => (turn.authorId ? [turn.authorId] : [])),
       ]),
       row.tutorId ? Promise.resolve([]) : findCandidates(tx, row.contactHash),
+      readToolCalls(tx, id),
     ])
 
     const turns: AgentTurnView[] = turnRows.map((turn) => ({
@@ -162,8 +164,37 @@ export async function findConversation(
        */
       canReply: canReply(row).ok,
       replyBlockedReason: canReply(row).reason,
+      toolCalls,
     }
   })
+}
+
+/**
+ * O que o agente fez nesta conversa (MOD-AI-04).
+ *
+ * **Os argumentos não saem** — estão cifrados e carregam id de pet, data e horário, que
+ * não dizem nada a quem lê a conversa. O que diz é o resumo em claro, e o `status`: uma
+ * proposta ainda `PROPOSED` é a informação que muda o trabalho de quem acabou de assumir,
+ * porque quer dizer que existe um "confirma?" esperando resposta lá fora.
+ */
+async function readToolCalls(
+  tx: TenantTransaction,
+  conversationId: string,
+): Promise<AgentToolCallView[]> {
+  const rows = await tx.agentToolCall.findMany({
+    where: { conversationId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, tool: true, status: true, resultSummary: true, createdAt: true },
+    take: 100,
+  })
+
+  return rows.map((row) => ({
+    id: row.id,
+    tool: row.tool,
+    status: row.status,
+    resultSummary: row.resultSummary,
+    createdAt: row.createdAt.toISOString(),
+  }))
 }
 
 export function canReply(row: { tutorId: string | null; status: string }): {

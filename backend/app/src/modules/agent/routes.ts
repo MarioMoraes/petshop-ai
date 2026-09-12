@@ -1,6 +1,7 @@
 import {
   AgentConversationListQuerySchema,
   AgentReplySchema,
+  AgentStatsQuerySchema,
   UpdateAgentSettingsSchema,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
@@ -11,6 +12,7 @@ import type { ActorContext } from './actor.js'
 import { findConversation, listConversations } from './queries.js'
 import { assignConversation, closeConversation, replyToConversation } from './service.js'
 import { getSettings, updateSettings } from './settings.js'
+import { readStats } from './stats.js'
 
 /**
  * Rotas do MOD-AI (§5 do PRD agentes_ia_15).
@@ -124,6 +126,23 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
     async (request) => {
       const input = parseInput(UpdateAgentSettingsSchema, request.body)
       return updateSettings(actorOf(request), input)
+    },
+  )
+
+  /**
+   * O painel de qualidade (MOD-AI-09).
+   *
+   * `crm:read`, e não `crm:configure`: o §9 do PRD dá "ver o painel de qualidade" ao
+   * `RECEPTIONIST` junto do `TENANT_ADMIN`. Quem atende a fila é quem primeiro percebe
+   * que o agente parou de resolver, e uma métrica que só o dono enxerga chega tarde.
+   */
+  app.get(
+    '/v1/agent/stats',
+    { preHandler: requirePermission('crm:read', 'Você não tem permissão para ver o painel') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      const query = parseInput(AgentStatsQuerySchema, request.query)
+      return readStats(auth.tenantId, query)
     },
   )
 

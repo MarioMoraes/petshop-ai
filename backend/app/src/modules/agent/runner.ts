@@ -18,6 +18,7 @@ import { openCipher, decryptOrPlaceholder } from './crypto.js'
 import { getAgentMessagingPort } from './messaging-port.js'
 import { costOf, getModelPort, type ModelUsage } from './model-port.js'
 import { contextLine, systemPrompt } from './prompt.js'
+import { persistToolCalls, type ToolRecord } from './proposals.js'
 import { loadSettings, monthlySpendCents, withinWindow } from './settings.js'
 import { AGENT_TOOLS, runTool } from './tools.js'
 
@@ -163,7 +164,10 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
   }
 
   if (!withinWindow(settings)) {
-    await handoff(tenantId, conversationId, 'DISABLED', {
+    // `OUT_OF_HOURS` e não `DISABLED`: a fila precisa separar "o petshop desligou o
+    // atendimento automático" de "a mensagem chegou às 23h". Quem abre a fila de manhã
+    // resolve as duas de formas diferentes.
+    await handoff(tenantId, conversationId, 'OUT_OF_HOURS', {
       say: AGENT_OUT_OF_HOURS.replaceAll('{{abre}}', settings.opensAt).replaceAll(
         '{{fecha}}',
         settings.closesAt,
@@ -226,6 +230,18 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
   let toolSucceeded = false
   let output: { reply: string; sentiment: AgentSentiment; handoff: boolean } | null = null
 
+  /**
+   * O que as tools deste turno deixaram para gravar (MOD-AI-04).
+   *
+   * A gravação espera o fim do turno porque é lá que a linha de `agent_turns` nasce, e é
+   * ela que dá contexto a cada chamada. O adiamento é seguro: `persistTurn` roda **antes**
+   * de a resposta sair pelo WhatsApp, então o cliente nunca lê um "confirma?" cuja
+   * proposta ainda não esteja no banco.
+   */
+  const records: ToolRecord[] = []
+  /** A escrita que o domínio recusou depois do "sim" (AC-05 de MOD-AI-04). */
+  let writeFailed = false
+
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const response = await getModelPort().complete({
       system: systemPrompt(settings),
@@ -260,11 +276,12 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
     const results: Anthropic.ToolResultBlockParam[] = []
     for (const toolUse of toolUses) {
       const outcome = await runTool(
-        { tenantId, tutorId, timezone: settings.timezone },
+        { tenantId, tutorId, conversationId, timezone: settings.timezone, records },
         toolUse.name,
         toolUse.input,
       )
       if (!outcome.isError) toolSucceeded = true
+      if (outcome.handoff) writeFailed = true
       results.push({
         type: 'tool_result',
         tool_use_id: toolUse.id,
@@ -301,6 +318,7 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
       usage,
       cost,
       toolSucceeded,
+      records,
     })
     await handoff(tenantId, conversationId, 'UNRESOLVED', {
       say: 'Vou chamar alguém da equipe para continuar com você.',
@@ -319,9 +337,23 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
     usage,
     cost,
     toolSucceeded,
+    records,
   })
 
   await say(tenantId, conversationId, tutorId, reply)
+
+  /**
+   * AC-05 de MOD-AI-04 — o gate que recusa **depois** da confirmação.
+   *
+   * O tutor disse sim e o domínio recusou: inadimplência com bloqueio ligado, alerta
+   * clínico crítico, qualquer gate. **O agente não insiste nem contorna** — a conversa
+   * vai para gente, que é quem pode explicar o motivo e resolver. A frase que o cliente
+   * acabou de receber já foi a do próprio modelo, em linguagem de cliente.
+   */
+  if (writeFailed) {
+    await handoff(tenantId, conversationId, 'WRITE_FAILED')
+    return
+  }
 
   /**
    * O impasse (AC-03 de MOD-AI-05): três turnos seguidos sem nenhuma consulta que desse
@@ -434,6 +466,8 @@ interface PersistedTurn {
   usage: ModelUsage
   cost: number
   toolSucceeded: boolean
+  /** O que as tools do turno deixaram para gravar, agora com o turno para apontar. */
+  records: ToolRecord[]
 }
 
 async function persistTurn(
@@ -446,7 +480,7 @@ async function persistTurn(
 
     // O turno sem resposta também é gravado: ele custou dinheiro, e um gasto sem linha
     // seria um gasto que o painel de qualidade não explica.
-    await tx.agentTurn.create({
+    const created = await tx.agentTurn.create({
       data: {
         tenantId,
         conversationId,
@@ -459,7 +493,10 @@ async function persistTurn(
         costMillicents: turn.cost,
         ...(turn.sentiment ? { sentiment: turn.sentiment } : {}),
       },
+      select: { id: true },
     })
+
+    await persistToolCalls(tx, tenantId, conversationId, created.id, turn.records)
 
     await tx.agentConversation.update({
       where: { id: conversationId },

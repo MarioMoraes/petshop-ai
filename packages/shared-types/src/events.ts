@@ -1135,6 +1135,7 @@ export const AGENT_ROUTING_KEYS = {
   mensagemRecebida: 'agente.mensagem.recebida',
   handoff: 'agente.handoff',
   conversaEncerrada: 'agente.conversa.encerrada',
+  agendamentoCriado: 'agente.agendamento.criado',
 } as const
 
 export type AgentRoutingKey = (typeof AGENT_ROUTING_KEYS)[keyof typeof AGENT_ROUTING_KEYS]
@@ -1170,8 +1171,24 @@ export interface AgenteConversaEncerradaEvent extends AgentBaseEvent {
   resolved: boolean
 }
 
+/**
+ * O agente marcou um horário, e o tutor confirmou antes (MOD-AI-04).
+ *
+ * **Não substitui os eventos do MOD-AGENDA**: o agendamento nasce pela mesma função que
+ * o Portal chama, e os eventos de domínio saem de lá como sempre. Este conta a outra
+ * metade da história — que quem pediu foi uma conversa de WhatsApp, e qual foi ela.
+ *
+ * Sai só na criação, como o §8 do PRD o descreve. Cancelar e remarcar deixam a mesma
+ * marca onde ela é procurada de verdade: na trilha de auditoria, com o `conversation_id`
+ * no `after`.
+ */
+export interface AgenteAgendamentoCriadoEvent extends AgentBaseEvent {
+  appointmentId: string
+}
+
 export interface AgentEventMap {
   'agente.mensagem.recebida': AgenteMensagemRecebidaEvent
   'agente.handoff': AgenteHandoffEvent
   'agente.conversa.encerrada': AgenteConversaEncerradaEvent
+  'agente.agendamento.criado': AgenteAgendamentoCriadoEvent
 }

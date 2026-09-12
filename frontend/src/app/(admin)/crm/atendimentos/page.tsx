@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { AgentConversationStatusSchema, type AgentConversationStatus } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
 import { AgentCard } from './agent-card'
 import { AtendimentosBoard } from './atendimentos-board'
@@ -62,6 +63,11 @@ export default async function AtendimentosPage({ searchParams }: PageProps) {
           failed
             ? 'O serviço não respondeu'
             : 'O que os clientes mandaram pelo WhatsApp do estabelecimento.'
+        }
+        actions={
+          <ButtonLink href="/crm/atendimentos/qualidade" variant="ghost">
+            Qualidade
+          </ButtonLink>
         }
       />
 

@@ -3745,6 +3745,21 @@ enum AgentHandoffReason {
   UNKNOWN_NUMBER
   AMBIGUOUS
   MEDIA
+  OUT_OF_HOURS
+  WRITE_FAILED
+}
+
+/// O ciclo de uma chamada de tool (MOD-AI-04).
+///
+/// Leitura nasce e morre em `EXECUTED` ou `FAILED`. Escrita entra por `PROPOSED` e sai
+/// por um dos três: o tutor confirmou, pediu outra coisa, ou demorou demais.
+enum AgentToolCallStatus {
+  EXECUTED
+  PROPOSED
+  CONFIRMED
+  SUPERSEDED
+  EXPIRED
+  FAILED
 }
 
 enum AgentTurnRole {
@@ -3821,7 +3836,8 @@ model AgentConversation {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  turns AgentTurn[]
+  turns     AgentTurn[]
+  toolCalls AgentToolCall[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   /// `SetNull` e não `Cascade`: a anonimização do titular (MOD-TUTOR-08) apaga o corpo
@@ -3887,8 +3903,54 @@ model AgentTurn {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolCalls    AgentToolCall[]
 
   @@index([conversationId, createdAt], map: "idx_agent_turns_conv")
   @@index([tenantId, createdAt], map: "idx_agent_turns_custo")
   @@map("agent_turns")
+}
+
+/// O que o agente fez, e o que ele ainda só propôs (MOD-AI-04).
+///
+/// **A proposta existe para o "sim" ter um antecedente.** O agente oferece um horário, a
+/// linha nasce `PROPOSED` com um token e um prazo, e a confirmação do turno seguinte
+/// aponta para ela — e não para o que o modelo lembrar de ter oferecido. Uma viva por
+/// conversa, garantido por índice único parcial e não por leitura seguida de escrita.
+///
+/// A leitura também entra aqui, como `EXECUTED`: a pergunta do painel de qualidade é o
+/// que o agente fez na conversa, e uma consulta que falhou conta essa história tanto
+/// quanto uma proposta que virou agendamento.
+model AgentToolCall {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  conversationId String @map("conversation_id") @db.Uuid
+  /// Nulo enquanto a linha nasce dentro do turno — o turno só é gravado quando o modelo
+  /// termina de falar, e a chamada acontece no meio. O `runner` costura os dois.
+  turnId         String? @map("turn_id") @db.Uuid
+
+  tool String @db.VarChar(40)
+
+  /// **Cifrado** — carrega id de pet, data e horário escolhido (§4).
+  argumentsEncrypted String  @map("arguments_encrypted")
+  /// Em claro e curto: "3 horários", "Pet não encontrado", "agendamento criado".
+  resultSummary      String? @map("result_summary")
+
+  status AgentToolCallStatus
+
+  /// Só nas propostas, e conferido **dentro** da conversa: um token que valesse em
+  /// qualquer conversa seria uma chave de escrita viajando pelo WhatsApp.
+  confirmationToken String?   @map("confirmation_token") @db.VarChar(64)
+  expiresAt         DateTime? @map("expires_at") @db.Timestamptz(6)
+  /// Quando deixou de estar viva — confirmada, superada ou vencida.
+  resolvedAt        DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  turn         AgentTurn?        @relation(fields: [turnId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt], map: "idx_agent_tool_calls_conv")
+  @@index([tenantId, createdAt], map: "idx_agent_tool_calls_periodo")
+  @@map("agent_tool_calls")
 }

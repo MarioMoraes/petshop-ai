@@ -74,6 +74,7 @@ import {
   MessagingSettingsResponseSchema,
   AgentConversationDetailSchema,
   AgentSettingsSchema,
+  AgentStatsSchema,
   PaginatedAgentConversationsSchema,
   PaginatedMessagesSchema,
   ResolvedTemplateSchema,
@@ -702,7 +703,12 @@ export function createApiClient(options: ApiClientOptions) {
       request({ method: 'POST', path: '/v1/tutors', body: input, schema: TutorDetailSchema }),
 
     updateTutor: (id: string, patch: UpdateTutorInput) =>
-      request({ method: 'PATCH', path: `/v1/tutors/${id}`, body: patch, schema: TutorDetailSchema }),
+      request({
+        method: 'PATCH',
+        path: `/v1/tutors/${id}`,
+        body: patch,
+        schema: TutorDetailSchema,
+      }),
 
     deleteTutor: (id: string) => request<void>({ method: 'DELETE', path: `/v1/tutors/${id}` }),
 
@@ -812,8 +818,7 @@ export function createApiClient(options: ApiClientOptions) {
         schema: CepLookupSchema,
       }),
 
-    listTags: () =>
-      request({ method: 'GET', path: '/v1/tutors/tags', schema: z.array(TagSchema) }),
+    listTags: () => request({ method: 'GET', path: '/v1/tutors/tags', schema: z.array(TagSchema) }),
 
     createTag: (input: CreateTagInput) =>
       request({ method: 'POST', path: '/v1/tutors/tags', body: input, schema: TagSchema }),
@@ -952,7 +957,11 @@ export function createApiClient(options: ApiClientOptions) {
 
     /** Alergias, temperamento e alertas médicos — o que a aba do pet carrega. */
     getSafetyRecord: (petId: string) =>
-      request({ method: 'GET', path: `/v1/pets/${petId}/safety-record`, schema: SafetyRecordSchema }),
+      request({
+        method: 'GET',
+        path: `/v1/pets/${petId}/safety-record`,
+        schema: SafetyRecordSchema,
+      }),
 
     createAllergy: (petId: string, input: CreateAllergyInput) =>
       request({
@@ -1030,10 +1039,7 @@ export function createApiClient(options: ApiClientOptions) {
       }),
 
     /** Correção dentro da janela de 24h; fora dela o servidor devolve 409. */
-    updateAttendance: (
-      id: string,
-      patch: { observations?: string | null; type?: string },
-    ) =>
+    updateAttendance: (id: string, patch: { observations?: string | null; type?: string }) =>
       request({
         method: 'PATCH',
         path: `/v1/attendances/${id}`,
@@ -1777,7 +1783,15 @@ export function createApiClient(options: ApiClientOptions) {
         schema: AppointmentResponseSchema,
       }),
 
-    checkOutAppointment: (id: string, input: { idempotencyKey: string; weightKg?: number; notes?: string; extraItems?: { serviceId: string }[] }) =>
+    checkOutAppointment: (
+      id: string,
+      input: {
+        idempotencyKey: string
+        weightKg?: number
+        notes?: string
+        extraItems?: { serviceId: string }[]
+      },
+    ) =>
       request({
         method: 'POST',
         path: `/v1/appointments/${id}/checkout`,
@@ -1817,7 +1831,10 @@ export function createApiClient(options: ApiClientOptions) {
         schema: LedgerAccountSchema,
       }),
 
-    getStatement: (tutorId: string, query: { from?: string; to?: string; page?: number; limit?: number } = {}) =>
+    getStatement: (
+      tutorId: string,
+      query: { from?: string; to?: string; page?: number; limit?: number } = {},
+    ) =>
       request({
         method: 'GET',
         path: `/v1/ledger/accounts/${tutorId}/statement${toQueryString(query)}`,
@@ -1848,7 +1865,16 @@ export function createApiClient(options: ApiClientOptions) {
         schema: PaymentSchema,
       }),
 
-    listPayments: (query: { tutorId?: string; from?: string; to?: string; method?: string; page?: number; limit?: number } = {}) =>
+    listPayments: (
+      query: {
+        tutorId?: string
+        from?: string
+        to?: string
+        method?: string
+        page?: number
+        limit?: number
+      } = {},
+    ) =>
       request({
         method: 'GET',
         path: `/v1/payments${toQueryString(query)}`,
@@ -2069,6 +2095,20 @@ export function createApiClient(options: ApiClientOptions) {
         path: '/v1/agent/settings',
         body,
         schema: AgentSettingsSchema,
+      }),
+
+    /**
+     * O painel de qualidade (MOD-AI-09).
+     *
+     * A janela vai como **instante**, e não como data civil: o painel é do mês do
+     * estabelecimento, e quem converte um para o outro é a página, com o fuso do tenant
+     * — a mesma divisão de trabalho do painel de entregas.
+     */
+    getAgentStats: (query: { from?: string; to?: string } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/agent/stats${toQueryString(query)}`,
+        schema: AgentStatsSchema,
       }),
 
     // ─── MOD-CRM (PRD relacionamento_crm_08 §5) ───────────────────────────────
@@ -2491,7 +2531,6 @@ export type {
   TutorOverview,
   TutorSensitive,
 }
-
 
 /** Um documento binário já lido, pronto para ser repassado pela rota do Next. */
 export interface DownloadedFile {

@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import {
   AGENT_HANDOFF_LABELS,
   AGENT_REPLY_MAX,
+  AGENT_TOOL_CALL_LABELS,
   type AgentConversationDetail,
   type AgentConversationStatus,
   type AgentConversationSummary,
+  type AgentToolCallView,
   type PaginatedAgentConversations,
 } from '@petshop/shared-types'
 import { Alert, Badge, Button, Card, EmptyState, Tabs } from '@/components/ui'
@@ -210,6 +212,14 @@ function JanelaConversa({
   const [agindo, startAcao] = useTransition()
 
   const encerrada = conversa.status === 'CLOSED'
+  /**
+   * A proposta que ainda espera o "sim" do cliente (MOD-AI-04).
+   *
+   * É a informação que muda o trabalho de quem acabou de assumir: responder sem saber
+   * dela é oferecer de novo o que já foi oferecido, ou marcar em cima de uma proposta
+   * viva. Uma por conversa, e o banco garante isso.
+   */
+  const aguardando = conversa.toolCalls.find((chamada) => chamada.status === 'PROPOSED')
 
   function responder() {
     const limpo = texto.trim()
@@ -312,6 +322,19 @@ function JanelaConversa({
           </Alert>
         )}
 
+        {aguardando && (
+          <Alert
+            tone="accent"
+            role="status"
+            icon={<BellIcon />}
+            title="Há uma proposta esperando o cliente responder"
+          >
+            {aguardando.resultSummary ?? 'O atendimento automático propôs uma mudança na agenda.'}{' '}
+            Nada foi gravado ainda: ela vale até o cliente confirmar, e perde a validade se ele
+            pedir outra coisa.
+          </Alert>
+        )}
+
         <ol className="space-y-3">
           {conversa.turns.map((turno) => (
             <li
@@ -365,6 +388,8 @@ function JanelaConversa({
           </Alert>
         )}
 
+        <AcoesDoAgente chamadas={conversa.toolCalls} />
+
         {podeAtender && !encerrada && (
           <div className="pt-2">
             <button
@@ -380,4 +405,48 @@ function JanelaConversa({
       </div>
     </Modal>
   )
+}
+
+/**
+ * O que o atendimento automático fez na conversa (MOD-AI-04).
+ *
+ * **Os argumentos não vêm do servidor** — estão cifrados e carregam id de pet, data e
+ * horário, que não dizem nada a quem lê. O que diz é o resumo em claro; a consulta que
+ * falhou fica junto da que deu certo, porque é ela que explica por que o cliente ficou
+ * sem resposta.
+ */
+function AcoesDoAgente({ chamadas }: { chamadas: AgentToolCallView[] }) {
+  if (chamadas.length === 0) return null
+
+  return (
+    <details className="rounded-xl bg-black/[0.03] px-4 py-3">
+      <summary className="hint cursor-pointer select-none">
+        O que o atendimento automático fez ({chamadas.length})
+      </summary>
+
+      <ul className="mt-3 space-y-2">
+        {chamadas.map((chamada) => (
+          <li key={chamada.id} className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted">{chamada.resultSummary ?? chamada.tool}</span>
+            {chamada.status !== 'EXECUTED' && (
+              <Badge tone={selo(chamada.status)}>{AGENT_TOOL_CALL_LABELS[chamada.status]}</Badge>
+            )}
+            <span className="hint text-xs">
+              {new Date(chamada.createdAt).toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+function selo(status: AgentToolCallView['status']): 'neutral' | 'accent' | 'success' | 'danger' {
+  if (status === 'CONFIRMED') return 'success'
+  if (status === 'PROPOSED') return 'accent'
+  if (status === 'FAILED') return 'danger'
+  return 'neutral'
 }

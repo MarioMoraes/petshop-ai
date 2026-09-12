@@ -268,6 +268,18 @@ export async function close(
     data: { status: 'CLOSED', closedAt: now },
   })
 
+  /**
+   * A proposta que ficou pendurada morre com a conversa (MOD-AI-04).
+   *
+   * O prazo dela é conferido na confirmação, então uma linha `PROPOSED` esquecida não
+   * autoriza escrita nenhuma. O que ela faria é pior de um jeito mais chato: a tela da
+   * recepção mostraria "esperando confirmação" numa conversa encerrada há três semanas.
+   */
+  await tx.agentToolCall.updateMany({
+    where: { conversationId, status: 'PROPOSED' },
+    data: { status: 'EXPIRED', resolvedAt: now },
+  })
+
   return {
     turns: row.turnCount,
     // O evento fala em centavos, que é a unidade que quem o consome entende; o banco

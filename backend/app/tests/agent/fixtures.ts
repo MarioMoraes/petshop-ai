@@ -451,9 +451,124 @@ export function installFakePortal(overrides: Partial<AgentPortalPort> = {}): {
         windowMinutes: 60,
       }
     },
+
+    async appointment(tenantId, tutorId, appointmentId) {
+      calls.push({ method: 'appointment', tutorId })
+      if (overrides.appointment) return overrides.appointment(tenantId, tutorId, appointmentId)
+      return agendamentoFalso(appointmentId)
+    },
+
+    async book(tenantId, tutorId, input) {
+      calls.push({ method: 'book', tutorId })
+      if (overrides.book) return overrides.book(tenantId, tutorId, input)
+      return {
+        id: FAKE_IDS.novoAgendamento,
+        status: 'CONFIRMED',
+        startsAt: input.startsAt,
+        endsAt: input.startsAt,
+        petName: 'Thor',
+        professionalName: 'Ana',
+        services: ['Banho'],
+        totalCents: 5_000,
+        awaitingApproval: false,
+        duplicate: false,
+        taxi: [],
+        taxiWarning: null,
+      }
+    },
+
+    async cancelAppointment(tenantId, tutorId, appointmentId) {
+      calls.push({ method: 'cancelAppointment', tutorId })
+      if (overrides.cancelAppointment) {
+        return overrides.cancelAppointment(tenantId, tutorId, appointmentId)
+      }
+      return { ...agendamentoFalso(appointmentId), status: 'CANCELLED', cancelledLate: false }
+    },
+
+    async rescheduleAppointment(tenantId, tutorId, appointmentId, input) {
+      calls.push({ method: 'rescheduleAppointment', tutorId })
+      if (overrides.rescheduleAppointment) {
+        return overrides.rescheduleAppointment(tenantId, tutorId, appointmentId, input)
+      }
+      return {
+        ...agendamentoFalso(FAKE_IDS.novoAgendamento),
+        startsAt: input.startsAt,
+      }
+    },
   })
 
   return { calls }
+}
+
+/**
+ * Os ids que o roteiro do modelo usa.
+ *
+ * Fixos e nomeados porque o teste de escrita os escreve **como o modelo os escreveria**:
+ * dentro do argumento de uma tool, em texto. Um `randomUUID()` no meio do roteiro faria
+ * o teste montar o argumento a partir do dublê, que é o contrário do que ele prova.
+ */
+export const FAKE_IDS = {
+  pet: '22222222-2222-4222-8222-222222222222',
+  servico: '33333333-3333-4333-8333-333333333333',
+  profissional: '44444444-4444-4444-8444-444444444444',
+  agendamento: '55555555-5555-4555-8555-555555555555',
+  novoAgendamento: '66666666-6666-4666-8666-666666666666',
+} as const
+
+/** Um horário livre da grade dublada. Vem sempre no mesmo instante. */
+export const FAKE_SLOT = '2026-09-24T12:00:00.000Z'
+
+/** A grade com um horário só — o que `proporAgendamento` reconsulta antes de propor. */
+export function gradeComUmHorario(startsAt = FAKE_SLOT) {
+  return {
+    slots: [
+      {
+        startsAt,
+        endsAt: new Date(new Date(startsAt).getTime() + 3_600_000).toISOString(),
+        professionalId: FAKE_IDS.profissional,
+        professionalName: 'Ana',
+      },
+    ],
+    nextAvailable: startsAt,
+    durationMin: 60,
+    priceCents: 5_000,
+    timezone: TEST_TIMEZONE,
+    minNoticeHours: 0,
+  }
+}
+
+type PortalAppointmentDetail = Awaited<ReturnType<AgentPortalPort['appointment']>>
+
+/** Um agendamento do tutor, cancelável e remarcável, sem taxa. */
+export function agendamentoFalso(
+  id: string,
+  overrides: Partial<PortalAppointmentDetail> = {},
+): PortalAppointmentDetail {
+  return {
+    id,
+    status: 'CONFIRMED',
+    startsAt: '2026-09-23T12:00:00.000Z',
+    endsAt: '2026-09-23T13:00:00.000Z',
+    petId: FAKE_IDS.pet,
+    petName: 'Thor',
+    professionalName: 'Ana',
+    services: ['Banho'],
+    totalCents: 5_000,
+    awaitingApproval: false,
+    taxi: [],
+    source: 'PORTAL',
+    serviceIds: [FAKE_IDS.servico],
+    cancelledAt: null,
+    cancelledLate: null,
+    actions: {
+      canCancel: true,
+      canReschedule: true,
+      cancelIsLate: false,
+      cancelFeeCents: 0,
+      cancellationWindowHours: 24,
+    },
+    ...overrides,
+  }
 }
 
 /** O agendador do turno, trocado por um que só anota — ver `setTurnScheduler`. */

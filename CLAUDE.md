@@ -117,9 +117,20 @@ supressão e sem histórico.
 `agent_conversations.pending_at`; quem responde é `modules/agent/runner.ts`, disparado
 logo depois do 204 — e `pending_at` é ao mesmo tempo o "desde quando espera" e a **posse**
 de quem está respondendo, então o job `agent.sweep-pending` recolhe o que um processo
-derrubado deixou pela metade. O provedor fica atrás de `model-port.ts` e as sete leituras
-atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o agente e a tela do
-tutor respondem a mesma pergunta com a mesma função.
+derrubado deixou pela metade. O provedor fica atrás de `model-port.ts`, e as sete leituras
+mais as três escritas atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o
+agente e a tela do tutor respondem a mesma pergunta com a mesma função.
+
+**O agente escreve em duas etapas, e a etapa do meio é uma linha de banco.** Marcar,
+cancelar e remarcar não gravam: gravam uma proposta em `agent_tool_calls`, com token e
+prazo de 15 minutos, e quem grava é `confirmarProposta` no turno seguinte. É o que dá
+antecedente ao "sim" do cliente — sem a linha, a confirmação seria a interpretação de uma
+palavra de duas letras sobre um histórico que o próprio modelo resume. **Uma proposta viva
+por conversa é índice único parcial**, e não leitura seguida de escrita, porque duas
+mensagens do mesmo tutor chegam juntas. E a mensagem de erro do domínio **não é
+repassada ao modelo**: os textos do Portal foram escritos para uma tela com sessão, e um
+deles diz o valor exato da dívida — neste canal a prova de identidade é o número de quem
+escreveu (RN-01). O motivo completo fica em `result_summary`, que é onde a recepção o lê.
 
 **O nome `modules/schedule-catalog` é o registro de uma colisão.** O MOD-AGENDA tinha
 `catalog` e `scheduling` enquanto era serviço, e aqui `modules/catalog` já é o catálogo

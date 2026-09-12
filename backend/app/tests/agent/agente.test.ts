@@ -371,7 +371,9 @@ describe('MOD-AI-07 e 08 — configuração e teto', () => {
 
     expect(modelo.calls).toHaveLength(0)
     expect(motor.sent[0]?.text).toContain('das 08:00 às 08:01')
-    expect((await conversa(id)).handoffReason).toBe('DISABLED')
+    // `OUT_OF_HOURS` desde a fatia 3. Era `DISABLED`, e a fila lia "o atendimento
+    // automático está desligado" quando a verdade era "ainda não abriu".
+    expect((await conversa(id)).handoffReason).toBe('OUT_OF_HOURS')
   })
 
   it('AC-02 de MOD-AI-08: atingido o teto do mês, tudo vai para a fila', async () => {
