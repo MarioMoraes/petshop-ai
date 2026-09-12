@@ -495,6 +495,34 @@ export const TeamMemberSchema = z.object({
 })
 export type TeamMember = z.infer<typeof TeamMemberSchema>
 
+/** O corpo de `PATCH /v1/memberships/:id/status` (MOD-IDENT-05). */
+export const ChangeMembershipStatusSchema = z.object({
+  status: z.enum(['ACTIVE', 'SUSPENDED']),
+})
+export type ChangeMembershipStatusInput = z.output<typeof ChangeMembershipStatusSchema>
+
+export const MembershipActionResultSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(['ACTIVE', 'SUSPENDED', 'REMOVED']),
+})
+export type MembershipActionResult = z.infer<typeof MembershipActionResultSchema>
+
+/**
+ * A resposta de `POST /v1/sessions/switch-tenant` (MOD-IDENT-05).
+ *
+ * **Não é um par de tokens**, e o AC-01 do PRD diz que seria. Quem emite token nesta
+ * arquitetura é o Clerk, e quem reescreve o `org_id` da sessão é o `setActive` do SDK,
+ * no navegador. O que o backend pode dar é a permissão e a prova — conferir o vínculo e
+ * auditar a troca — mais o `clerkOrgId`, que é o que o cliente precisa para ativar.
+ */
+export const SwitchTenantResultSchema = z.object({
+  tenantId: z.uuid(),
+  tenantSlug: z.string(),
+  tenantName: z.string(),
+  clerkOrgId: z.string(),
+})
+export type SwitchTenantResult = z.infer<typeof SwitchTenantResultSchema>
+
 // ─── Convites de equipe (MOD-IDENT-06) ───────────────────────────────────────
 
 export const InvitationStatusSchema = z.enum(['PENDING', 'ACCEPTED', 'EXPIRED', 'REVOKED'])

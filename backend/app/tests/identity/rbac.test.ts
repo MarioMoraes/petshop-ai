@@ -7,11 +7,11 @@ import {
   callApi,
   closeHarness,
   givenClerkUser,
+  givenTeamMember,
   givenTenant,
   ownerPrisma,
   resetDatabase,
   resetFakeClerk,
-  type IdentityTenant,
 } from './fixtures.js'
 
 /**
@@ -24,28 +24,6 @@ import {
  * membership no banco e a matriz de papéis. Um cenário que a matriz não produz sozinha
  * se monta com `revokePermission`, que é o mecanismo real do MOD-IDENT-04.
  */
-
-/** Adiciona um segundo membro ao tenant com o papel indicado. */
-async function givenTeamMember(
-  session: IdentityTenant,
-  role: RoleKey,
-  label: string,
-): Promise<{ clerkUserId: string; userId: string; membershipId: string }> {
-  const clerkUserId = givenClerkUser(`${label}@petshop.test`)
-  const { encryptPlatform, hashEmail } = await import('@petshop/db')
-  const user = await ownerPrisma.user.create({
-    data: {
-      clerkUserId,
-      emailEncrypted: encryptPlatform(`${label}@petshop.test`),
-      emailHash: hashEmail(`${label}@petshop.test`),
-      fullName: label,
-    },
-  })
-  const membership = await ownerPrisma.membership.create({
-    data: { tenantId: session.tenantId, userId: user.id, roleKey: role, status: 'ACTIVE' },
-  })
-  return { clerkUserId, userId: user.id, membershipId: membership.id }
-}
 
 beforeEach(async () => {
   await resetDatabase()

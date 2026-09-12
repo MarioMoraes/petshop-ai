@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useOrganizationList } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import type { MeResponse } from '@petshop/shared-types'
+import { switchTenantAction } from '@/lib/tenant-actions'
 import { CheckIcon, ChevronDownIcon, StoreIcon } from './icons'
 
 /**
@@ -17,6 +18,11 @@ import { CheckIcon, ChevronDownIcon, StoreIcon } from './icons'
  * Client component porque a troca é do lado do cliente: quem carrega o `org_id` é o
  * token do Clerk, e só o `setActive` do SDK o reescreve. A lista, essa, chega pronta
  * do servidor por props — os vínculos já vieram no `/v1/me` que a moldura buscou.
+ *
+ * **O servidor entra antes do `setActive`** (MOD-IDENT-05): `switchTenantAction` confere
+ * o vínculo, registra a troca na trilha do destino e devolve o `clerkOrgId`. Antes dela,
+ * a Organization era procurada na lista do SDK e, quando não estava lá, o clique não
+ * fazia nada — sem erro, sem espera, sem nada.
  */
 
 type Membership = MeResponse['memberships'][number]
@@ -32,6 +38,7 @@ export function TenantSwitcher({
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const [trocando, setTrocando] = useState<string | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
   const caixa = useRef<HTMLDivElement>(null)
   const gatilho = useRef<HTMLButtonElement>(null)
 
@@ -77,16 +84,38 @@ export function TenantSwitcher({
     }
     if (!setActive) return
 
-    // O slug do tenant é o mesmo da Organization — é essa igualdade que o
-    // provisionamento garante (MOD-IDENT-01), e é por ela que se acha o `id` que o
-    // `setActive` pede.
-    const organization = (userMemberships.data ?? []).find(
-      (m) => m.organization.slug === destino.tenantSlug,
-    )?.organization
-    if (!organization) return
-
+    setErro(null)
     setTrocando(destino.tenantSlug)
-    await setActive({ organization: organization.id })
+
+    // O servidor primeiro: é ele que sabe se o vínculo está ativo, e é a viagem que
+    // deixa a troca na trilha. Recusado, nada é ativado — o contrário deixaria a pessoa
+    // num contexto que o gateway barraria na primeira tela.
+    const conferido = await switchTenantAction(destino.tenantId)
+    if (!conferido.ok) {
+      setTrocando(null)
+      setErro(conferido.message)
+      return
+    }
+
+    /**
+     * O `clerkOrgId` vem da resposta, e a lista do SDK é só reserva.
+     *
+     * O slug do tenant é o mesmo da Organization — é a igualdade que o provisionamento
+     * garante (MOD-IDENT-01) —, mas a lista do SDK pode estar desatualizada em relação
+     * ao que o backend acabou de confirmar. É a mesma defasagem que travava o fim do
+     * wizard.
+     */
+    const organization =
+      conferido.data.clerkOrgId ||
+      (userMemberships.data ?? []).find((m) => m.organization.slug === destino.tenantSlug)
+        ?.organization.id
+    if (!organization) {
+      setTrocando(null)
+      setErro('Não conseguimos abrir este estabelecimento. Recarregue a página e tente de novo.')
+      return
+    }
+
+    await setActive({ organization })
     setAberto(false)
 
     /*
@@ -133,6 +162,11 @@ export function TenantSwitcher({
           <p className="border-b border-line px-4 py-3 text-sm font-semibold">
             Seus estabelecimentos
           </p>
+          {erro && (
+            <p role="alert" className="border-b border-line px-4 py-3 text-sm text-danger">
+              {erro}
+            </p>
+          )}
           <ul>
             {ativos.map((membership) => {
               const atualEste = membership.tenantSlug === currentSlug

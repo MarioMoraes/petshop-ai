@@ -24,6 +24,10 @@ const ACOES = [
   'platform.admin_granted',
   'platform.audit_read',
   'tenant.updated',
+  // MOD-IDENT-03: sincronização de usuário pelo webhook do Clerk. São linhas sem tenant,
+  // e por isso só este painel as vê.
+  'user.synced',
+  'user.disabled',
 ]
 
 export function Filtros({

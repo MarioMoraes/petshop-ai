@@ -1,16 +1,15 @@
 # PetShop AI
 
-Micro-SaaS multi-tenant para petshops. Monorepo com frontend, microserviços e pacotes
-compartilhados, conforme `SPEC.md`.
+Micro-SaaS multi-tenant para petshops. Monorepo com frontend, um backend modular e
+pacotes compartilhados, conforme `SPEC.md`.
 
-**Estado:** Fase 7 concluída (segurança e compliance). O backend está em consolidação:
-os doze microserviços do SPEC estão virando módulos de um processo só — restam três —
-ver a seção "Backend" do `CLAUDE.md`.
+**Estado:** as oito fases do roadmap (`PRD.md` §10) estão concluídas, a última delas a
+Fase 8 — a camada de agentes de IA. A consolidação do backend terminou: os doze
+microserviços do SPEC são hoje módulos de um processo só, em `backend/app/src/modules/`
+— ver a seção "Backend" do `CLAUDE.md`.
 
-- `docs/prd/identidade_tenancy_01.md` — MOD-IDENT-01 (provisionamento), 02 (onboarding),
-  04 (RBAC) e 07 (isolamento RLS).
-- `docs/prd/tutores_02.md` — MOD-TUTOR-01 a 09: CRUD, deduplicação, endereço com CEP,
-  consentimento LGPD, tags, busca, visão 360º, anonimização e merge de duplicatas.
+Os quinze PRDs de `docs/prd/` estão implementados. O que resta está em **O que ainda não
+existe**, no fim deste arquivo.
 
 ## Rodando localmente
 
@@ -47,8 +46,8 @@ pnpm test
 ```
 
 Os testes de banco sobem contra o Postgres do `docker compose`, cada pacote no seu
-próprio banco (`petshop_test_db`, `petshop_test_gateway`, e um por serviço ainda não
-migrado), criado automaticamente na primeira execução.
+próprio banco (`petshop_test_db` e `petshop_test_gateway`), criado automaticamente na
+primeira execução. A suíte do backend fica por módulo, em `backend/app/tests/<modulo>/`.
 
 Para conferir o isolamento RLS à mão, conectado como a role da aplicação e **sem**
 contexto de tenant — deve devolver zero linhas:
@@ -97,16 +96,20 @@ design/                 Biblioteca de padrões visuais
 
 ## O que ainda não existe
 
-Lacunas conhecidas desta entrega, marcadas no código com `TODO(MOD-…)`:
-
-- Convites de equipe (MOD-IDENT-06) — a etapa 4 do wizard só oferece "pular".
-- Serviços e profissionais na etapa 3 (MOD-AGENDA).
-- Seed de espécies, portes e pelagens no provisionamento (MOD-PET, MOD-AGENDA).
-- Webhooks do Clerk (MOD-IDENT-03) — o espelho local do usuário é criado sob demanda.
-- Troca de tenant (MOD-IDENT-05) e suspensão por inadimplência (MOD-IDENT-10).
-- Importação de tutores por CSV (MOD-TUTOR-11) — o próprio PRD a joga para a Fase 1.5.
-- A visão 360º do tutor devolve `pendingModules` no lugar de pets, agenda, financeiro e
-  comunicações; o merge reaponta o que é do tutor e deixa o resto para os serviços que
-  consomem `tutor.mesclado`. Idem para o bloqueio de exclusão por agendamento futuro.
-- Os consumidores de `atendimento.concluido`, `lancamento.criado` e `mensagem.recebida`
-  existem e são testados — falta quem publique.
+- **Suspensão e encerramento de tenant (MOD-IDENT-10).** O tenant suspenso já é barrado
+  pela porta (`auth/session.ts` lê o status com TTL curto), mas ninguém o suspende: falta
+  o job de inadimplência, a tela de regularização e o encerramento com retenção legal.
+- **Webhooks `organization.*` do Clerk.** Os de usuário e a saída de Organization estão
+  ligados (MOD-IDENT-03); renomear ou excluir a Organization pelo painel do Clerk não
+  chega ao tenant local.
+- **Importação de tutores por CSV (MOD-TUTOR-11).** O próprio PRD a classifica como
+  *nice to have* e a joga para depois.
+- **Espelho de `professionals` por papel (RN-06 de MOD-IDENT).** Atribuir `GROOMER`,
+  `BATHER`, `VET` ou `DRIVER` deveria criar ou reativar o profissional da agenda; os
+  eventos são publicados (`membership.papel_alterado`, `membership.suspenso`) e não há
+  consumidor. Hoje o profissional é cadastrado à mão em `/agenda/profissionais`.
+- **Retenção de 24 meses dos dados do agente** (§9 do PRD de agentes).
+  `modules/security/retention.ts` expurga `audit_logs` e `security_events`;
+  `agent_turns` e `agent_tool_calls` ainda não têm job.
+- **Zero data retention com a Anthropic.** Contratual, não técnico — e é o que trava a
+  ida do MOD-AI a produção.

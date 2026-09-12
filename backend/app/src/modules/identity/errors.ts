@@ -32,8 +32,20 @@ export function forbidden(detail: string): AppError {
   return new AppError('ERR_IDENT_003', detail)
 }
 
-export function conflict(detail: string, fields?: FieldError[]): AppError {
-  return new AppError('ERR_IDENT_004', detail, fields)
+/**
+ * 409 — o conflito de recurso.
+ *
+ * `extra` vira campo de topo no problem+json, e é como a recusa de remover alguém da
+ * equipe carrega os agendamentos que a travaram (RN-07): "não dá" sem dizer **o que**
+ * travou é o tipo de resposta que faz o admin abrir um chamado. Mesmo mecanismo do
+ * `futureAppointmentsBlock` do MOD-AGENDA.
+ */
+export function conflict(
+  detail: string,
+  fields?: FieldError[],
+  extra?: Record<string, unknown>,
+): AppError {
+  return new AppError('ERR_IDENT_004', detail, fields, extra)
 }
 
 export function unauthorized(detail = 'Credenciais inválidas'): AppError {

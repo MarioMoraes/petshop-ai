@@ -150,14 +150,51 @@ A carência mora em `memberships.mfa_grace_until` e é escrita quando o papel é
 não quando a pessoa entra — ver `modules/security/mfa.ts`. A migration `20260911120000_mod_sec`
 concede sete dias a todo administrador que já existia no dia do deploy.
 
+## 6. Webhook de sincronização (MOD-IDENT-03)
+
+Sem ele o espelho local do usuário só nasce — nunca atualiza. Quem trocar nome, foto ou
+e-mail no Clerk fica com o dado velho no produto para sempre.
+
+Em **Configure → Webhooks → Add Endpoint**:
+
+| Campo | Valor |
+|---|---|
+| Endpoint URL | `https://{APP_DOMAIN}/internal/v1/clerk/webhook` |
+| Eventos | `user.created`, `user.updated`, `user.deleted`, `organizationMembership.deleted` |
+
+Copie o **Signing Secret** (`whsec_…`) para `CLERK_WEBHOOK_SECRET` no `.env`. Ele **não** é
+a `CLERK_SECRET_KEY`: um assina a entrega que chega, o outro autentica a nossa chamada à
+API deles. **Sem o segredo a rota recusa tudo com 401**, que é o comportamento certo de um
+endpoint sem meio de conferir quem bate.
+
+Marque só esses quatro. Os outros eventos são aceitos e descartados sem virar linha
+nenhuma no banco — `session.created` sozinho encheria a tabela de idempotência com
+milhares de registros por dia.
+
+**O caminho fica sob `/internal/`**, que é onde este repositório põe webhook de provedor,
+e não sob `/v1` como o PRD escreveu. O nome diz de onde a chamada nasce, não que ela seja
+privada: a borda o publica (`infra/Caddyfile`), só no domínio da aplicação e nunca nos
+subdomínios de tenant.
+
+O que cada evento faz:
+
+- `user.created` e `user.updated` atualizam nome, foto, e-mail e o espelho do segundo
+  fator. Entrega fora de ordem é descartada pela comparação com `users.clerk_synced_at`,
+  e entrega repetida pelo `svix-id` em `webhook_events`.
+- `user.deleted` desabilita o usuário e **suspende** os vínculos dele.
+- `organizationMembership.deleted` suspende o vínculo local de quem for tirado da
+  Organization pelo painel do Clerk. Suspende, não remove: a volta é um clique na tela de
+  Equipe.
+
+Em desenvolvimento o Clerk não alcança `localhost`. Para exercitar o caminho, assine um
+POST à mão com o mesmo segredo — o teste `tests/identity/webhooks.test.ts` mostra o
+formato do conteúdo assinado (`svix-id.svix-timestamp.corpo`).
+
 ## O que ainda não está ligado
 
-- **Webhooks `user.*` / `organization.*` (MOD-IDENT-03).** Não estão nesta entrega.
-  Até que estejam, o espelho local do usuário é criado sob demanda, na primeira
-  requisição em que ele aparece (`ensureLocalUser`). Alteração de nome ou e-mail feita
-  no Clerk **não** se propaga sozinha para o banco local.
-- **`POST /v1/webhooks/clerk`.** A rota não existe; não configure o endpoint no
-  dashboard ainda.
+- **Webhooks `organization.*`.** O nome e a exclusão da Organization não se propagam para
+  o tenant local. Renomear um estabelecimento é do lado do produto, em Configurações, e é
+  de lá que o nome sai.
 
 ## Conferindo
 

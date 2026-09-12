@@ -1,4 +1,9 @@
-import { getPrisma, resolveEffectivePermissions, withTenant } from '@petshop/db'
+import {
+  getPrisma,
+  resolveEffectivePermissions,
+  withTenant,
+  type TenantTransaction,
+} from '@petshop/db'
 import {
   IDENTITY_ROUTING_KEYS,
   ROLE_LABELS,
@@ -11,6 +16,7 @@ import {
   type RoleResponse,
 } from '@petshop/shared-types'
 import { recordAudit } from '../../../shared/audit.js'
+import { getScheduling } from '../scheduling-port.js'
 import { conflict, forbidden, notFound } from '../errors.js'
 import { publishEvent } from '../../../shared/events.js'
 import { getClerk } from '../clerk.js'
@@ -130,6 +136,31 @@ export interface ChangeRoleParams {
   userAgent?: string | null
 }
 
+/**
+ * RN-02 — o estabelecimento precisa de ao menos um administrador.
+ *
+ * Vale para os três caminhos que podem tirar o último: rebaixar o papel, suspender o
+ * acesso e remover o vínculo. **O `id: { not: … }` é o que faz a conta ser sobre o
+ * depois, e não sobre o agora** — sem ele o próprio membership em questão contaria como
+ * administrador remanescente e a guarda nunca dispararia.
+ *
+ * Roda dentro da transação de quem chama, e não antes dela: entre a contagem e a
+ * escrita cabe a promoção de outra pessoa, e a checagem precisa valer no mesmo instante
+ * da mudança.
+ */
+async function assertNotLastAdmin(
+  tx: TenantTransaction,
+  tenantId: string,
+  membershipId: string,
+): Promise<void> {
+  const remainingAdmins = await tx.membership.count({
+    where: { tenantId, roleKey: 'TENANT_ADMIN', status: 'ACTIVE', id: { not: membershipId } },
+  })
+  if (remainingAdmins === 0) {
+    throw conflict('O estabelecimento precisa de ao menos um administrador')
+  }
+}
+
 export async function changeMembershipRole(params: ChangeRoleParams) {
   const { tenantId, membershipId, newRole, actorUserId } = params
 
@@ -156,17 +187,7 @@ export async function changeMembershipRole(params: ChangeRoleParams) {
 
       // RN-02: o estabelecimento precisa de ao menos um administrador.
       if (previousRole === 'TENANT_ADMIN') {
-        const remainingAdmins = await tx.membership.count({
-          where: {
-            tenantId,
-            roleKey: 'TENANT_ADMIN',
-            status: 'ACTIVE',
-            id: { not: membershipId },
-          },
-        })
-        if (remainingAdmins === 0) {
-          throw conflict('O estabelecimento precisa de ao menos um administrador')
-        }
+        await assertNotLastAdmin(tx, tenantId, membershipId)
       }
 
       const updated = await tx.membership.update({
@@ -253,6 +274,257 @@ async function syncPermVersionToClerk(
     })
   } catch (error) {
     logger.warn({ err: error, tenantId, userId }, 'falha ao sincronizar permVersion no Clerk')
+  }
+}
+
+// ─── Suspensão, reativação e remoção (MOD-IDENT-05) ──────────────────────────
+
+export interface MembershipActionParams {
+  tenantId: string
+  membershipId: string
+  actorUserId: string
+  ipAddress?: string | null
+  userAgent?: string | null
+}
+
+export interface MembershipActionResult {
+  id: string
+  status: 'ACTIVE' | 'SUSPENDED' | 'REMOVED'
+}
+
+/**
+ * Suspender e reativar o acesso de alguém da equipe.
+ *
+ * **Suspender não consulta a agenda**, e é a diferença em relação a remover: quem entra
+ * de licença continua dono dos compromissos dela, e é normal que a agenda de sábado siga
+ * no nome de quem volta na quinta. O que a suspensão faz é fechar a porta — e quem a
+ * fecha de fato é `resolveEffectivePermissions`, que só enxerga vínculo `ACTIVE`.
+ *
+ * O `permVersion` incrementa nos dois sentidos. Sem isso, quem está com token válido na
+ * mão continuaria operando com a permissão de antes até ele expirar (RN-03).
+ */
+export async function changeMembershipStatus(
+  params: MembershipActionParams & { status: 'ACTIVE' | 'SUSPENDED' },
+): Promise<MembershipActionResult> {
+  const { tenantId, membershipId, actorUserId, status } = params
+
+  const result = await withTenant(
+    tenantId,
+    async (tx) => {
+      const membership = await requireMembership(tx, tenantId, membershipId, actorUserId)
+      if (membership.status === status) {
+        return { membership, changed: false as const }
+      }
+      if (membership.status === 'REMOVED') {
+        // Reativar quem foi removido seria devolver acesso sem passar por convite, e o
+        // convite é onde o assento do plano é conferido (RN-11).
+        throw conflict('Este vínculo foi removido. Envie um convite novo para readmitir.')
+      }
+
+      // RN-02, no caminho da suspensão: fechar a porta do único administrador tranca o
+      // estabelecimento inteiro, e ninguém de dentro consegue destrancar.
+      if (status === 'SUSPENDED' && membership.roleKey === 'TENANT_ADMIN') {
+        await assertNotLastAdmin(tx, tenantId, membershipId)
+      }
+
+      const updated = await tx.membership.update({
+        where: { id: membershipId },
+        data: { status, permVersion: { increment: 1 } },
+      })
+
+      await recordAudit(tx, {
+        tenantId,
+        actorUserId,
+        action: status === 'SUSPENDED' ? 'membership.suspended' : 'membership.reactivated',
+        entity: 'membership',
+        entityId: membershipId,
+        before: { status: membership.status },
+        after: { status },
+        ipAddress: params.ipAddress ?? null,
+        userAgent: params.userAgent ?? null,
+      })
+
+      return { membership: updated, changed: true as const }
+    },
+    { userId: actorUserId },
+  )
+
+  if (!result.changed) {
+    return { id: membershipId, status }
+  }
+
+  await invalidatePermissions(tenantId, result.membership.userId)
+  await syncPermVersionToClerk(tenantId, result.membership.userId, result.membership.permVersion)
+
+  await publishEvent(
+    status === 'SUSPENDED'
+      ? IDENTITY_ROUTING_KEYS.membershipSuspenso
+      : IDENTITY_ROUTING_KEYS.membershipReativado,
+    {
+      tenantId,
+      userId: result.membership.userId,
+      roleKey: result.membership.roleKey as RoleKey,
+      actorUserId,
+      reason: null,
+    },
+  )
+
+  return { id: membershipId, status }
+}
+
+/**
+ * Tirar alguém da equipe.
+ *
+ * `REMOVED` e não `DELETE`: o vínculo é o antecedente de tudo o que a pessoa fez no
+ * estabelecimento — atendimento assinado, receita emitida, lançamento feito —, e apagar
+ * a linha deixaria a trilha apontando para um id que não existe mais.
+ *
+ * Duas guardas, e a ordem entre elas é deliberada: **o último administrador é recusado
+ * antes de a agenda ser consultada**. As duas terminam em 409, e a primeira é a que a
+ * pessoa na tela pode resolver sozinha promovendo alguém; fazer a consulta da agenda
+ * primeiro daria uma lista de agendamentos para reatribuir num caminho que ia ser
+ * recusado de qualquer jeito.
+ */
+export async function removeMembership(
+  params: MembershipActionParams,
+): Promise<MembershipActionResult> {
+  const { tenantId, membershipId, actorUserId } = params
+
+  const result = await withTenant(
+    tenantId,
+    async (tx) => {
+      const membership = await requireMembership(tx, tenantId, membershipId, actorUserId)
+      if (membership.status === 'REMOVED') {
+        return { membership, changed: false as const }
+      }
+
+      if (membership.roleKey === 'TENANT_ADMIN') {
+        await assertNotLastAdmin(tx, tenantId, membershipId)
+      }
+
+      /**
+       * RN-07 — a agenda futura, pela porta.
+       *
+       * O corpo do 409 leva os agendamentos porque a decisão é de quem está na tela:
+       * reatribuir a outro profissional ou cancelar. Decidir aqui, cancelando em lote,
+       * seria o sistema desmarcando o banho de sábado de um cliente que não foi
+       * avisado.
+       */
+      const futuros = await getScheduling().listFutureProfessionalAppointments(
+        tx,
+        tenantId,
+        membership.userId,
+      )
+      if (futuros.length > 0) {
+        throw conflict(
+          `Esta pessoa tem ${futuros.length} ${futuros.length === 1 ? 'agendamento' : 'agendamentos'} futuro${futuros.length === 1 ? '' : 's'}. Reatribua ou cancele antes de remover.`,
+          undefined,
+          { appointments: futuros },
+        )
+      }
+
+      const updated = await tx.membership.update({
+        where: { id: membershipId },
+        data: {
+          status: 'REMOVED',
+          permVersion: { increment: 1 },
+          // Quem sai não tem prazo de MFA a cumprir. Readmitido, ganha prazo novo — a
+          // exigência é do papel, e o papel é atribuído de novo no aceite.
+          mfaGraceUntil: null,
+        },
+      })
+
+      await recordAudit(tx, {
+        tenantId,
+        actorUserId,
+        action: 'membership.removed',
+        entity: 'membership',
+        entityId: membershipId,
+        before: { status: membership.status, roleKey: membership.roleKey },
+        after: { status: 'REMOVED' },
+        ipAddress: params.ipAddress ?? null,
+        userAgent: params.userAgent ?? null,
+      })
+
+      return { membership: updated, changed: true as const }
+    },
+    { userId: actorUserId },
+  )
+
+  if (!result.changed) {
+    return { id: membershipId, status: 'REMOVED' }
+  }
+
+  await invalidatePermissions(tenantId, result.membership.userId)
+  await removeFromClerkOrganization(tenantId, result.membership.userId)
+
+  await publishEvent(IDENTITY_ROUTING_KEYS.membershipRemovido, {
+    tenantId,
+    userId: result.membership.userId,
+    roleKey: result.membership.roleKey as RoleKey,
+  })
+
+  return { id: membershipId, status: 'REMOVED' }
+}
+
+/**
+ * O vínculo que a ação vai mexer, com as duas recusas que valem para as três ações.
+ *
+ * O 404 de vínculo inexistente **não distingue** "não existe" de "é de outro
+ * estabelecimento": o RLS já garante o escopo, e um 403 aqui contaria que o id existe
+ * em algum lugar.
+ */
+async function requireMembership(
+  tx: TenantTransaction,
+  tenantId: string,
+  membershipId: string,
+  actorUserId: string,
+) {
+  const membership = await tx.membership.findFirst({
+    where: { id: membershipId, tenantId },
+    select: { id: true, userId: true, roleKey: true, status: true, permVersion: true },
+  })
+  if (!membership) throw notFound('Membro não encontrado')
+
+  /**
+   * Ninguém age sobre o próprio vínculo.
+   *
+   * Suspender-se ou remover-se é a via mais curta para um estabelecimento sem
+   * administrador, e o 409 da RN-02 só cobre o caso em que a pessoa é a última — quem
+   * tem um colega administrador conseguiria se trancar fora do sistema com um clique, e
+   * o desfazer não estaria mais ao alcance dela.
+   */
+  if (membership.userId === actorUserId) {
+    throw forbidden('Você não pode alterar o seu próprio acesso')
+  }
+
+  return membership
+}
+
+/**
+ * Tira a pessoa da Organization do Clerk, best-effort como `syncPermVersionToClerk`.
+ *
+ * O vínculo `REMOVED` já basta para barrar — `resolveEffectivePermissions` devolve nulo
+ * e a sessão não resolve permissão nenhuma. O que esta chamada evita é a incoerência
+ * visível: sem ela a pessoa continua vendo o estabelecimento na lista do seletor do
+ * Clerk, entra, e recebe uma tela vazia sem explicação.
+ */
+async function removeFromClerkOrganization(tenantId: string, userId: string): Promise<void> {
+  try {
+    const [tenant, user] = await Promise.all([
+      withTenant(tenantId, (tx) =>
+        tx.tenant.findUnique({ where: { id: tenantId }, select: { clerkOrgId: true } }),
+      ),
+      getPrisma().user.findUnique({ where: { id: userId }, select: { clerkUserId: true } }),
+    ])
+    if (!tenant?.clerkOrgId || !user?.clerkUserId) return
+
+    await getClerk().removeOrganizationMembership({
+      organizationId: tenant.clerkOrgId,
+      clerkUserId: user.clerkUserId,
+    })
+  } catch (error) {
+    logger.warn({ err: error, tenantId, userId }, 'falha ao remover membership no Clerk')
   }
 }
 

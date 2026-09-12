@@ -53,6 +53,19 @@ export interface ClerkPort {
   }): Promise<void>
 
   /**
+   * Tira a pessoa da Organization do tenant (MOD-IDENT-05).
+   *
+   * O inverso de `addOrganizationMembership`, e com a mesma tolerância: **já não ser
+   * membro é sucesso para quem chamou**. A remoção é best-effort — quem de fato barra é
+   * o vínculo local `REMOVED` —, e o que esta chamada conserta é a lista de
+   * estabelecimentos que o Clerk mostra a quem saiu.
+   */
+  removeOrganizationMembership(input: {
+    organizationId: string
+    clerkUserId: string
+  }): Promise<void>
+
+  /**
    * Grava `permVersion` no metadata público do membership, de onde o JWT template
    * do Clerk o publica como claim para o gateway comparar (RN-03).
    */
@@ -123,6 +136,20 @@ function createRealClerkPort(): ClerkPort {
         // Já ser membro é sucesso para quem chamou: o aceite é idempotente, e o
         // Clerk responde 422 nesse caso.
         if ((error as { status?: number })?.status === 422) return
+        throw error
+      }
+    },
+
+    async removeOrganizationMembership({ organizationId, clerkUserId }) {
+      try {
+        await clerk.organizations.deleteOrganizationMembership({
+          organizationId,
+          userId: clerkUserId,
+        })
+      } catch (error) {
+        // 404 é quem já não era membro: o Clerk e o banco local podem ter saído de
+        // sincronia, e a operação é idempotente por decisão.
+        if (isNotFound(error)) return
         throw error
       }
     },

@@ -191,6 +191,9 @@ const BUSINESS_TABLES = [
   // Plataforma, sem tenant: não referenciam nada e por isso vêm por último.
   'job_runs',
   'job_leases',
+  // MOD-IDENT-03: a idempotência do webhook é por `svix-id`, e um id que sobrevive ao
+  // cenário faz a segunda suíte receber "evento repetido" no primeiro POST.
+  'webhook_events',
 ]
 
 /**

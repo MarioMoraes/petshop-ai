@@ -29,6 +29,9 @@ export default async function EquipePage() {
   if (!me.permissions.includes('team:read')) redirect('/dashboard')
 
   const canInvite = me.permissions.includes('team:invite')
+  // Separada de `canInvite` porque a matriz as separa: `team:remove` é o que fecha a
+  // porta de alguém, e um tenant pode conceder uma sem a outra (MOD-IDENT-04).
+  const canRemove = me.permissions.includes('team:remove')
 
   const [members, invitations] = await Promise.all([
     serverApi().listTeam(),
@@ -52,6 +55,7 @@ export default async function EquipePage() {
           currentUserId={me.user.id}
           plan={me.currentTenant.plan}
           canInvite={canInvite}
+          canRemove={canRemove}
         />
       </div>
     </>

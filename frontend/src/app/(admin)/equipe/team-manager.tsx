@@ -11,13 +11,17 @@ import {
   type Plan,
   type TeamMember,
 } from '@petshop/shared-types'
-import { Badge, Button, Card, Field, FormError } from '@/components/ui'
-import { UsersIcon } from '@/components/icons'
+import { Alert, Badge, Button, Card, Field, FormError } from '@/components/ui'
+import { AlertTriangleIcon, IdCardIcon, UsersIcon } from '@/components/icons'
+import { Modal } from '@/components/modal'
 import {
+  changeMemberStatusAction,
   changeRoleAction,
   inviteMemberAction,
+  removeMemberAction,
   resendInvitationAction,
   revokeInvitationAction,
+  type BlockingAppointment,
 } from './actions'
 
 /**
@@ -38,15 +42,33 @@ interface Props {
   currentUserId: string
   plan: Plan
   canInvite: boolean
+  canRemove: boolean
 }
 
-export function TeamManager({ members, invitations, currentUserId, plan, canInvite }: Props) {
+export function TeamManager({
+  members,
+  invitations,
+  currentUserId,
+  plan,
+  canInvite,
+  canRemove,
+}: Props) {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<AssignableRoleKey>('RECEPTIONIST')
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [novoConvite, setNovoConvite] = useState<InvitationResponse | null>(null)
+  /** A quem o diálogo de remoção se refere. Nulo é diálogo fechado. */
+  const [removendo, setRemovendo] = useState<TeamMember | null>(null)
+  /**
+   * Qual linha está esperando resposta.
+   *
+   * `pending` é um só para o componente inteiro: usá-lo como `busy` faria girar o botão
+   * de **todas** as linhas a cada clique numa delas. Quem gira é a linha clicada; as
+   * outras ficam `disabled`, que é a diferença entre "estou fazendo isto" e "espere".
+   */
+  const [emAcao, setEmAcao] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const pendentes = invitations.filter((invitation) => invitation.status === 'PENDING')
@@ -105,6 +127,17 @@ export function TeamManager({ members, invitations, currentUserId, plan, canInvi
       const result = await changeRoleAction(membershipId, novo)
       if (result.ok) router.refresh()
       else setError(result.message)
+    })
+  }
+
+  function trocarAcesso(membershipId: string, status: 'ACTIVE' | 'SUSPENDED') {
+    setError(null)
+    setEmAcao(membershipId)
+    startTransition(async () => {
+      const result = await changeMemberStatusAction(membershipId, status)
+      if (result.ok) router.refresh()
+      else setError(result.message)
+      setEmAcao(null)
     })
   }
 
@@ -216,38 +249,85 @@ export function TeamManager({ members, invitations, currentUserId, plan, canInvi
                     </div>
                   </div>
 
-                  {canInvite && member.userId !== currentUserId ? (
-                    <select
-                      className="field w-auto"
-                      value={member.roleKey}
-                      onChange={(event) =>
-                        trocarPapel(member.id, event.target.value as AssignableRoleKey)
-                      }
-                      disabled={pending}
-                      aria-label={`Perfil de ${member.fullName}`}
-                    >
-                      {ASSIGNABLE_ROLE_KEYS.map((key) => (
-                        <option key={key} value={key}>
-                          {ROLE_LABELS[key]}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    /*
-                     * O próprio usuário não troca o próprio papel aqui: rebaixar-se
-                     * sozinho é a via mais curta para um estabelecimento sem
-                     * administrador, e o serviço recusaria com um 409 que não teria
-                     * como ser desfeito pela mesma pessoa.
-                     */
-                    <Badge tone={member.roleKey === 'TENANT_ADMIN' ? 'accent' : 'neutral'}>
-                      {member.roleLabel}
-                    </Badge>
-                  )}
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {canInvite && member.userId !== currentUserId ? (
+                      <select
+                        className="field w-auto"
+                        value={member.roleKey}
+                        onChange={(event) =>
+                          trocarPapel(member.id, event.target.value as AssignableRoleKey)
+                        }
+                        disabled={pending}
+                        aria-label={`Perfil de ${member.fullName}`}
+                      >
+                        {ASSIGNABLE_ROLE_KEYS.map((key) => (
+                          <option key={key} value={key}>
+                            {ROLE_LABELS[key]}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      /*
+                       * O próprio usuário não troca o próprio papel aqui: rebaixar-se
+                       * sozinho é a via mais curta para um estabelecimento sem
+                       * administrador, e o serviço recusaria com um 409 que não teria
+                       * como ser desfeito pela mesma pessoa.
+                       */
+                      <Badge tone={member.roleKey === 'TENANT_ADMIN' ? 'accent' : 'neutral'}>
+                        {member.roleLabel}
+                      </Badge>
+                    )}
+
+                    {/*
+                     * Suspender e remover só aparecem para quem tem `team:remove`, e
+                     * nunca na própria linha: o serviço recusa com 403, e oferecer um
+                     * botão que sempre falha é pior que não oferecer.
+                     */}
+                    {canRemove && member.userId !== currentUserId && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          busy={emAcao === member.id}
+                          disabled={pending}
+                          onClick={() =>
+                            trocarAcesso(
+                              member.id,
+                              member.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED',
+                            )
+                          }
+                          busyLabel="Salvando…"
+                        >
+                          {member.status === 'SUSPENDED' ? 'Reativar' : 'Suspender'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-danger"
+                          disabled={pending}
+                          onClick={() => setRemovendo(member)}
+                        >
+                          Remover
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </Card>
             ))}
         </div>
       </section>
+
+      {removendo && (
+        <DialogoDeRemocao
+          member={removendo}
+          onClose={() => setRemovendo(null)}
+          onDone={() => {
+            setRemovendo(null)
+            router.refresh()
+          }}
+        />
+      )}
 
       {canInvite && pendentes.length > 0 && (
         <section>
@@ -299,6 +379,112 @@ export function TeamManager({ members, invitations, currentUserId, plan, canInvi
 }
 
 /**
+ * A confirmação de remover alguém da equipe (MOD-IDENT-05).
+ *
+ * `<Modal>` e não um painel dentro do cartão: é a regra 8 de
+ * `docs/design-formularios.md` para o que responde a **uma linha de uma lista**.
+ *
+ * A ação principal é a destrutiva, e aqui isso é correto — a janela existe só para ela,
+ * e não há campo nenhum a preencher. O que a regra proíbe é a destrutiva **ao lado** de
+ * uma principal que não é ela.
+ *
+ * O 409 da agenda futura (RN-07) não é um erro a exibir e esquecer: ele vira a lista do
+ * corpo, porque a decisão — reatribuir a outro profissional ou cancelar — é de quem está
+ * na tela, e não do sistema.
+ */
+function DialogoDeRemocao({
+  member,
+  onClose,
+  onDone,
+}: {
+  member: TeamMember
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [erro, setErro] = useState<string | null>(null)
+  const [bloqueios, setBloqueios] = useState<BlockingAppointment[] | null>(null)
+  const [enviando, startTransition] = useTransition()
+
+  function confirmar() {
+    setErro(null)
+    setBloqueios(null)
+    startTransition(async () => {
+      const result = await removeMemberAction(member.id)
+      if (result.ok) {
+        onDone()
+        return
+      }
+      setErro(result.message)
+      setBloqueios(result.appointments ?? null)
+    })
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      icon={<IdCardIcon />}
+      tone="icon-people"
+      eyebrow="Remover da equipe"
+      title={member.fullName}
+      subtitle={`${member.roleLabel} · entrou em ${formatarData(member.joinedAt)}`}
+      busy={enviando}
+      footer={
+        <>
+          <Button type="button" variant="ghost" disabled={enviando} onClick={onClose}>
+            Manter o acesso
+          </Button>
+          <Button
+            type="button"
+            busy={enviando}
+            onClick={confirmar}
+            busyLabel="Removendo…"
+          >
+            Confirmar remoção
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <Alert tone="danger" icon={<AlertTriangleIcon />} title="O acesso termina na hora">
+          A pessoa deixa de entrar no sistema imediatamente, e o histórico do que ela fez
+          aqui continua no lugar. Para readmitir depois, é preciso enviar um convite novo.
+        </Alert>
+
+        <p className="text-sm">
+          Se a saída é temporária — férias, licença —, <strong>suspender</strong> é o
+          gesto certo: fecha a porta e devolve o acesso com um clique, sem gastar um
+          convite.
+        </p>
+
+        {bloqueios && bloqueios.length > 0 && (
+          <div className="card-soft rounded-xl p-4">
+            <p className="text-sm font-semibold">
+              {bloqueios.length === 1
+                ? 'Há 1 agendamento futuro no nome desta pessoa'
+                : `Há ${bloqueios.length} agendamentos futuros no nome desta pessoa`}
+            </p>
+            <p className="hint mt-1">
+              Reatribua a outro profissional ou cancele na agenda, e volte aqui depois.
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {bloqueios.map((agendamento) => (
+                <li key={agendamento.id} className="text-sm">
+                  {formatarDataHora(agendamento.startsAt)} · {agendamento.petName} ·{' '}
+                  <span className="text-subtle">{agendamento.serviceLabel}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <FormError message={bloqueios && bloqueios.length > 0 ? null : erro} />
+      </div>
+    </Modal>
+  )
+}
+
+/**
  * O link, exibido uma vez.
  *
  * `readOnly` em vez de texto solto porque o gesto que se quer é selecionar tudo de
@@ -338,4 +524,14 @@ function LinkDoConvite({ email, url }: { email: string; url: string }) {
 
 function formatarData(iso: string): string {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(iso))
+}
+
+/** Dia, mês e hora — o bastante para reconhecer o compromisso na agenda. */
+function formatarDataHora(iso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso))
 }

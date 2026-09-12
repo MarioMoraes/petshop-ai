@@ -1,9 +1,9 @@
-import { createHmac, timingSafeEqual } from 'node:crypto'
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
 import type { MessageChannel } from '@petshop/shared-types'
 import { loadEnv } from '../../config/env.js'
 import { publishEvent } from '../../shared/events.js'
 import { logger } from '../../shared/logger.js'
+import { verifySvixSignature, type SvixHeaders } from '../../shared/svix.js'
 import { openCipher } from './crypto.js'
 import { suppress } from './suppressions.js'
 
@@ -53,61 +53,28 @@ const HANDLED = new Set([
   'email.delivery_delayed',
 ])
 
-/**
- * A janela de tolerância do carimbo.
- *
- * Cinco minutos, que é o padrão do Svix. É o que impede repetição: um POST capturado e
- * reenviado amanhã traz assinatura perfeitamente válida e carimbo velho.
- */
-const TIMESTAMP_TOLERANCE_SECONDS = 5 * 60
-
-export interface WebhookHeaders {
-  id: string | undefined
-  timestamp: string | undefined
-  signature: string | undefined
-}
+/** Mantido como nome local: `WebhookHeaders` é o que a rota deste módulo importa. */
+export type WebhookHeaders = SvixHeaders
 
 /**
- * Verificação da assinatura, no padrão Svix — que é o que o Resend usa.
+ * Verificação da assinatura do Resend.
  *
- * O segredo vem como `whsec_<base64>`; o conteúdo assinado é `id.timestamp.corpo`, e o
- * cabeçalho `svix-signature` traz uma lista de `v1,<base64>` separada por espaço, porque
- * durante uma rotação de segredo as duas assinaturas viajam juntas.
- *
- * A verificação é feita sobre o **corpo cru**, e é por isso que a rota precisa dele: o
- * JSON reserializado pelo Fastify tem as mesmas chaves e outros bytes, e a assinatura é
- * dos bytes.
+ * O mecanismo é o Svix, e mora em `shared/svix.ts` desde que o MOD-IDENT-03 passou a
+ * usar o mesmo — o Clerk assina igual. O que sobra aqui é de onde sai o segredo, e a
+ * decisão de que **sem `RESEND_WEBHOOK_SECRET` nada passa**: aceitar tudo enquanto
+ * falta configuração seria uma porta aberta para suprimir o endereço de qualquer
+ * concorrente (AC-03).
  */
 export function verifyResendSignature(
   headers: WebhookHeaders,
   rawBody: string,
   now: Date = new Date(),
 ): boolean {
-  const secret = loadEnv().RESEND_WEBHOOK_SECRET
-  // Sem segredo configurado, **nada passa**. O contrário — aceitar tudo enquanto falta
-  // configuração — seria uma porta aberta para suprimir o endereço de qualquer
-  // concorrente (AC-03).
-  if (!secret) return false
-  if (!headers.id || !headers.timestamp || !headers.signature) return false
-
-  const timestamp = Number(headers.timestamp)
-  if (!Number.isFinite(timestamp)) return false
-  if (Math.abs(Math.floor(now.getTime() / 1000) - timestamp) > TIMESTAMP_TOLERANCE_SECONDS) {
-    return false
-  }
-
-  const key = Buffer.from(secret.replace(/^whsec_/, ''), 'base64')
-  const expected = createHmac('sha256', key)
-    .update(`${headers.id}.${headers.timestamp}.${rawBody}`)
-    .digest()
-
-  return headers.signature.split(' ').some((entry) => {
-    const [version, value] = entry.split(',')
-    if (version !== 'v1' || !value) return false
-    const candidate = Buffer.from(value, 'base64')
-    // `timingSafeEqual` estoura com tamanhos diferentes, e comprimento errado é o
-    // primeiro palpite de quem está tentando adivinhar.
-    return candidate.length === expected.length && timingSafeEqual(candidate, expected)
+  return verifySvixSignature({
+    secret: loadEnv().RESEND_WEBHOOK_SECRET,
+    headers,
+    rawBody,
+    now,
   })
 }
 

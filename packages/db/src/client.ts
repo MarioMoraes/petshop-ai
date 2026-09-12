@@ -145,6 +145,12 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   // tenant: quem a recebeu foi o número do petshop.
   'AgentConversation',
   'AgentTurn',
+  // A proposta de escrita (MOD-AI-04). **Ficou fora do guard quando a tabela entrou**, e
+  // o banco é que segurava sozinho: a política e o `FORCE ROW LEVEL SECURITY` estão na
+  // migration desde o primeiro dia, então o isolamento nunca esteve aberto — o que
+  // faltava era a guarda da aplicação, que troca o "devolve vazio" por um erro na cara
+  // de quem esqueceu o `withTenant`. `rls-models-sync.test.ts` é quem apanhou.
+  'AgentToolCall',
   'AgentSettings',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os

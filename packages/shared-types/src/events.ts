@@ -24,6 +24,8 @@ export const IDENTITY_ROUTING_KEYS = {
   tenantConfiguracaoAtualizada: 'tenant.configuracao.atualizada',
   membershipCriado: 'membership.criado',
   membershipPapelAlterado: 'membership.papel_alterado',
+  membershipSuspenso: 'membership.suspenso',
+  membershipReativado: 'membership.reativado',
   membershipRemovido: 'membership.removido',
   usuarioSincronizado: 'usuario.sincronizado',
   // MOD-IDENT-06. O PRD §8 nomeia estes três em inglês (`invitation.created`), mas
@@ -96,6 +98,25 @@ export interface MembershipRemovidoEvent extends BaseEvent {
 }
 
 /**
+ * Suspensão e reativação de vínculo (MOD-IDENT-05).
+ *
+ * `actorUserId` é **nulo** quando quem mexeu não foi ninguém daqui: a saída da
+ * Organization e a conta apagada no Clerk chegam por webhook (MOD-IDENT-03), e inventar
+ * um ator seria pior que a ausência.
+ *
+ * O consumidor que falta é o espelho de `professionals` (RN-06): um banhista suspenso
+ * não deveria receber agendamento novo. Enquanto ele não existe, o evento é o registro
+ * de que a coisa aconteceu — e é o que permite ligá-lo sem tocar em identidade.
+ */
+export interface MembershipStatusAlteradoEvent extends BaseEvent {
+  tenantId: string
+  userId: string
+  roleKey: RoleKey
+  actorUserId: string | null
+  reason: string | null
+}
+
+/**
  * O e-mail do convidado **não** entra em nenhum destes payloads. O broker não é
  * lugar de PII: a fila fica retida, é lida por qualquer consumidor futuro e sobrevive
  * ao expurgo do banco. Quem precisar do endereço consulta `invitations` sob RLS.
@@ -131,6 +152,8 @@ export interface IdentityEventMap {
   'tenant.configuracao.atualizada': TenantConfiguracaoAtualizadaEvent
   'membership.criado': MembershipCriadoEvent
   'membership.papel_alterado': MembershipPapelAlteradoEvent
+  'membership.suspenso': MembershipStatusAlteradoEvent
+  'membership.reativado': MembershipStatusAlteradoEvent
   'membership.removido': MembershipRemovidoEvent
   'convite.criado': ConviteCriadoEvent
   'convite.revogado': ConviteRevogadoEvent

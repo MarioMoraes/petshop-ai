@@ -12,9 +12,10 @@ import { platformHealth } from './health.js'
  * configuração perderia em alcance, e o que a equipe quer mudar de verdade (o limiar) é
  * uma linha aqui.
  *
- * Quatro regras, e a lista é curta de propósito: **alerta que acende sem que ninguém
+ * Cinco regras, e a lista é curta de propósito: **alerta que acende sem que ninguém
  * saiba o que fazer treina a equipe a ignorar o painel**. Cada uma destas tem uma ação
- * correspondente — destravar a fila, olhar o job, subir a dependência.
+ * correspondente — destravar a fila, olhar o job, subir a dependência, desempatar duas
+ * contas do Clerk com o mesmo e-mail.
  */
 
 export interface AlertBreach {
@@ -39,9 +40,18 @@ export interface AlertRule {
 const QUEUE_STUCK_MINUTES = 15
 
 /**
+ * A janela de falha do webhook do Clerk.
+ *
+ * Vinte e quatro horas, e não a última avaliação: a colisão de e-mail não se resolve
+ * sozinha, e um alarme que apaga na próxima rodada esconderia justamente o caso que
+ * espera por intervenção humana.
+ */
+const CLERK_WEBHOOK_WINDOW_HOURS = 24
+
+/**
  * O painel de saúde, uma vez por avaliação.
  *
- * Três das quatro regras olham para o mesmo retrato — jobs falhando, jobs parados,
+ * Três das cinco regras olham para o mesmo retrato — jobs falhando, jobs parados,
  * dependência fora. Sem esta memória, uma avaliação dispararia três rodadas de sondas, e
  * as sondas são a única parte do painel que sai do processo. O cache de quinze segundos do
  * `platformHealth` cobriria isso **quando há Redis**; em instalação sem cache, não cobre —
@@ -138,6 +148,29 @@ export const ALERT_RULES: AlertRule[] = [
         .map((dependency) => dependency.name)
       if (fora.length === 0) return []
       return [{ tenantId: null, value: fora.length, detail: firstFive(fora) }]
+    },
+  },
+
+  {
+    key: 'clerk_webhook_failing',
+    label: 'Sincronização com o Clerk falhando',
+    action:
+      'Veja `webhook_events` com status FAILED: o caso previsto é a colisão de e-mail da RN-12, em que duas contas do Clerk apontam para o mesmo endereço. Só sai à mão, escolhendo a dona legítima.',
+    /**
+     * A regra existe porque o webhook **não** devolve erro ao Clerk nesse caso (MOD-IDENT-03).
+     *
+     * Insistir faria o provedor reentregar para sempre um conflito que nenhuma reentrega
+     * resolve, então o evento fica gravado como `FAILED` e responde 204. Sem esta regra a
+     * linha ficaria no banco sem leitor, e o espelho do usuário pararia de atualizar em
+     * silêncio — que é exatamente o sintoma que o MOD-IDENT-03 veio acabar.
+     */
+    async evaluate(now) {
+      const desde = new Date(now.getTime() - CLERK_WEBHOOK_WINDOW_HOURS * 60 * 60 * 1000)
+      const falhas = await getMaintenancePrisma().webhookEvent.count({
+        where: { provider: 'clerk', status: 'FAILED', receivedAt: { gte: desde } },
+      })
+      if (falhas === 0) return []
+      return [{ tenantId: null, value: falhas }]
     },
   },
 ]

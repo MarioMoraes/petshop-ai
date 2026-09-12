@@ -234,11 +234,14 @@ Está aqui para não voltar:
 | Configurações de cobrança | `app/(admin)/financeiro/configuracoes/billing-settings-form.tsx` |
 | Site do estabelecimento | `app/(admin)/site/site-form.tsx` |
 | Ficha e check-out do atendimento | `app/(admin)/agenda/dia/appointment-dialog.tsx` |
+| Remoção de membro da equipe (só o diálogo) | `app/(admin)/equipe/team-manager.tsx` |
 
 Ainda **não** aplicado, por serem telas de lista com formulário embutido — o cartão
 branco de conteúdo continua correto nelas, e forçar seção numerada seria errado:
 `agenda/servicos`, `agenda/profissionais`, `financeiro/pacotes`, `equipe`,
-`taxi/configuracoes` (frota e zonas), `configuracoes/breed-catalog`. As caixas de seleção
+`taxi/configuracoes` (frota e zonas), `configuracoes/breed-catalog`. O que **é** da
+regra 8 nelas entra como diálogo, e não como painel dentro do cartão: a confirmação de
+remover alguém da equipe é o primeiro caso. As caixas de seleção
 delas **já** receberam o átomo `.check`.
 
 O onboarding (`app/(admin)/onboarding/steps/*`) roda fora do `AppShell`, com moldura própria, e

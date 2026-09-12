@@ -12,6 +12,7 @@ import { handleInbound } from '../modules/agent/conversations.js'
 import { registerCatalogRoutes } from '../modules/catalog/routes.js'
 import { registerCrmRoutes } from '../modules/crm/routes.js'
 import { registerIdentityRoutes } from '../modules/identity/routes.js'
+import { registerClerkWebhookRoutes } from '../modules/identity/webhooks/routes.js'
 import { registerLedgerRoutes } from '../modules/ledger/routes.js'
 import { registerMedicalRecordRoutes } from '../modules/records/routes-module.js'
 import {
@@ -232,8 +233,15 @@ async function registerTutorModule(app: FastifyInstance): Promise<void> {
  * não faz: `registerModuleAuth` exige **sessão**, nunca tenant. Três rotas do módulo
  * existem para quem ainda não tem tenant nenhum, e é `requireTenantContext`, dentro de
  * cada handler, que separa as duas coisas.
+ *
+ * O webhook do Clerk (MOD-IDENT-03) fica **fora** desse escopo, como os dois do
+ * MOD-NOTIF e pelo mesmo motivo: quem o autentica é a assinatura Svix sobre o corpo
+ * cru, e o provedor não apresenta token nenhum. Registrado antes do escopo autenticado
+ * porque ele traz um parser de corpo próprio, que não deve valer para as outras rotas.
  */
 async function registerIdentityModule(app: FastifyInstance): Promise<void> {
+  await app.register(registerClerkWebhookRoutes)
+
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerIdentityRoutes(scope)

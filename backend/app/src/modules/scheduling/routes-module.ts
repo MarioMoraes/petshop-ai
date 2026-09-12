@@ -7,6 +7,8 @@ import { livePort as liveBillingPort } from './billing-port.js'
 import { setBillingPort } from './gates.js'
 import { setSchedulingPort } from '../pets/scheduling-port.js'
 import { petSchedulingPort } from './pet-port.js'
+import { setSchedulingPort as setIdentitySchedulingPort } from '../identity/scheduling-port.js'
+import { identitySchedulingPort } from './identity-port.js'
 
 /**
  * MOD-AGENDA — o catálogo da agenda e os agendamentos.
@@ -36,6 +38,12 @@ export async function registerSchedulingModule(app: FastifyInstance): Promise<vo
    * A regra existia e não valia. Com a agenda no mesmo processo, ligar é uma linha.
    */
   setSchedulingPort(petSchedulingPort)
+  /**
+   * RN-07 do MOD-IDENT: tirar alguém da equipe com agendamento futuro exige reatribuir
+   * ou cancelar antes. Mesma forma da linha acima — a regra é da identidade, o dado é
+   * daqui, e quem as liga é o registro do módulo.
+   */
+  setIdentitySchedulingPort(identitySchedulingPort)
 
   await registerScheduleCatalogRoutes(app)
   await registerSchedulingRoutes(app)

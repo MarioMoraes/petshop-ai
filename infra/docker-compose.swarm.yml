@@ -283,6 +283,9 @@ services:
       <<: *backend-env
       GATEWAY_PORT: 3000
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?}
+      # MOD-IDENT-03: assinatura do webhook de sincronização. Opcional — sem ela a rota
+      # recusa tudo com 401, que é o comportamento certo de um endpoint sem segredo.
+      CLERK_WEBHOOK_SECRET: ${CLERK_WEBHOOK_SECRET:-}
       # Lista de origens exatas, e nunca um curinga: o `@clerk/backend` decide com
       # `authorizedParties.includes(azp)` — comparação de string, sem glob. Um
       # `https://*.${APP_DOMAIN}` não casa com nada e o host que de fato emite token,

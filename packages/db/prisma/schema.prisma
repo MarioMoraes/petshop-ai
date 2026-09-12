@@ -40,6 +40,16 @@ enum UserStatus {
   DISABLED
 }
 
+enum WebhookEventStatus {
+  /// Aplicado: o espelho local mudou.
+  PROCESSED
+  /// Recebido e descartado de propósito — evento que não tratamos, ou carimbo mais
+  /// velho que `users.clerk_synced_at` (RN-09).
+  IGNORED
+  /// Chegou, era para valer e não deu. Fica para intervenção humana.
+  FAILED
+}
+
 enum MembershipStatus {
   ACTIVE
   SUSPENDED
@@ -268,6 +278,47 @@ model User {
   supportGrants SupportAccessGrant[]
 
   @@map("users")
+}
+
+/// O evento de webhook já recebido (MOD-IDENT-03).
+///
+/// **Sem `tenant_id`, e portanto fora do RLS**, como `users`: o webhook do Clerk chega
+/// antes de se saber de que estabelecimento ele fala, e alguns eventos — `user.updated`
+/// à frente — não falam de nenhum.
+///
+/// A tabela existe por uma razão só: a idempotência da RN-09. O provedor reentrega o
+/// que não recebe 2xx depressa, e reaplicar um `user.updated` é inócuo, mas reaplicar
+/// um `organizationMembership.deleted` depois de alguém ter sido reativado à mão
+/// desfaria a reativação. Quem garante a unicidade é a **constraint**, e não uma
+/// leitura antes da escrita: duas entregas do mesmo evento chegam juntas.
+///
+/// `status` guarda o desfecho, e por isso o expurgo não a resume a um log: `FAILED` é
+/// o que a regra `clerk_webhook_failing` conta no painel da plataforma, e é a única
+/// pista de uma colisão de e-mail (RN-12), que só resolve à mão.
+model WebhookEvent {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  /// `clerk`. Coluna e não enum porque o próximo provedor a precisar de idempotência
+  /// entra sem migration de tipo.
+  provider String @db.VarChar(20)
+
+  /// O `svix-id` do cabeçalho — a identidade que o provedor dá à entrega.
+  externalEventId String @map("external_event_id") @db.VarChar(80)
+
+  eventType String @map("event_type") @db.VarChar(60)
+
+  status WebhookEventStatus @default(PROCESSED)
+
+  /// O motivo, quando `FAILED`. Curto e sem PII: "e-mail já pertence a outro usuário",
+  /// nunca o endereço.
+  error String? @db.VarChar(300)
+
+  receivedAt  DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(6)
+
+  @@unique([provider, externalEventId])
+  @@index([provider, status, receivedAt(sort: Desc)])
+  @@map("webhook_events")
 }
 
 /// O papel de plataforma (MOD-ADMIN-01).

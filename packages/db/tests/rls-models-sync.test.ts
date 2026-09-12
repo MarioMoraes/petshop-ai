@@ -57,6 +57,10 @@ const PLATFORM_MODELS = new Set([
   // guarda algo **de** um estabelecimento — se guardar, o lugar dela é `RLS_MODELS`.
   'PlatformMetric',
   'PlatformAlert',
+  // MOD-IDENT-03: a idempotência do webhook do Clerk. Sem `tenant_id` porque o evento
+  // chega antes de se saber de que estabelecimento ele fala — e `user.updated` não fala
+  // de nenhum. Guarda só o id da entrega, o tipo e o desfecho; nada de um tenant.
+  'WebhookEvent',
 ])
 
 function readSchema(): { modelToTable: Map<string, string>; modelsWithTenantId: Set<string> } {

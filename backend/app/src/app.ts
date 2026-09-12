@@ -48,13 +48,13 @@ const PUBLIC_PREFIX = '/public/'
  * As superfícies de webhook dos módulos.
  *
  * Aqui não chega token do Clerk nem assinatura nossa: quem bate são provedores de
- * fora (a Evolution no pareamento do WhatsApp, o Resend no retorno de entrega). Cada
- * rota se autentica sozinha, com o token da instância ou com a assinatura Svix sobre
- * o corpo cru — e é por isso que elas ficam fora do hook de sessão, não porque sejam
- * menos sensíveis.
+ * fora (a Evolution no pareamento do WhatsApp, o Resend no retorno de entrega, o Clerk
+ * na sincronização de usuário). Cada rota se autentica sozinha, com o token da
+ * instância ou com a assinatura Svix sobre o corpo cru — e é por isso que elas ficam
+ * fora do hook de sessão, não porque sejam menos sensíveis.
  *
- * O nome `/internal/` diz de onde a chamada nasce, não que ela seja privada: a rota do
- * Resend é a **única** superfície de backend que a borda publica (ver
+ * O nome `/internal/` diz de onde a chamada nasce, não que ela seja privada: as rotas do
+ * Resend e do Clerk são as duas superfícies de backend que a borda publica (ver
  * `infra/Caddyfile`).
  */
 const WEBHOOK_PREFIX = '/internal/'
@@ -135,6 +135,11 @@ export async function buildApp(): Promise<FastifyInstance> {
      * rajada — a Evolution empurra um QR novo a cada ~45s durante o pareamento, e o
      * Resend agrupa retornos de entrega. Estreitá-lo até o teto do Admin transformaria
      * um pareamento normal em 429.
+     *
+     * O webhook do Clerk (MOD-IDENT-03) entra no mesmo balde sem configuração nova — a
+     * chave é o prefixo. Os 600 por minuto cobrem com folga o tráfego dele, que é um
+     * evento por alteração de perfil; quem chegaria perto seria uma operação em lote no
+     * painel, e nesse caso o 429 é o comportamento certo: o Clerk reentrega.
      */
     max: (_request: FastifyRequest, key: string) =>
       key.startsWith('webhook:') ? env.WEBHOOK_RATE_LIMIT_MAX : env.RATE_LIMIT_MAX,

@@ -1,5 +1,15 @@
-import { randomBytes } from 'node:crypto'
-import { callApi, givenToken, ownerPrisma } from '../harness.js'
+import { createHmac, randomBytes, randomUUID } from 'node:crypto'
+import { callApi, getApp, givenToken, ownerPrisma } from '../harness.js'
+
+/**
+ * O segredo do webhook do Clerk (MOD-IDENT-03).
+ *
+ * Definido **antes** de o app subir, porque `loadEnv` guarda o ambiente em cache. Sem
+ * ele a rota recusa tudo com 401 e todo teste dela passaria pelo motivo errado — o
+ * mesmo cuidado que o dublê do Resend pede em `tests/messaging/fixtures.ts`.
+ */
+export const CLERK_WEBHOOK_SECRET = 'whsec_' + Buffer.from('segredo-do-clerk').toString('base64')
+process.env.CLERK_WEBHOOK_SECRET = CLERK_WEBHOOK_SECRET
 
 /**
  * O cenário do MOD-IDENT.
@@ -29,6 +39,8 @@ export interface FakeClerkState {
   failCreateOrganization: Error | null
   /** Quando definido, `addOrganizationMembership` estoura: o aceite pela metade. */
   failAddOrganizationMembership: Error | null
+  /** `org_...:user_...` de quem foi tirado da Organization (MOD-IDENT-05). */
+  organizationRemovals: string[]
   createOrganizationCalls: number
 }
 
@@ -39,6 +51,7 @@ export const fakeClerk: FakeClerkState = {
   organizationMembers: new Set(),
   failCreateOrganization: null,
   failAddOrganizationMembership: null,
+  organizationRemovals: [],
   createOrganizationCalls: 0,
 }
 
@@ -49,6 +62,7 @@ export function resetFakeClerk(): void {
   fakeClerk.organizationMembers.clear()
   fakeClerk.failCreateOrganization = null
   fakeClerk.failAddOrganizationMembership = null
+  fakeClerk.organizationRemovals.length = 0
   fakeClerk.createOrganizationCalls = 0
 }
 
@@ -88,6 +102,11 @@ setClerkPort({
   async addOrganizationMembership({ organizationId, clerkUserId }) {
     if (fakeClerk.failAddOrganizationMembership) throw fakeClerk.failAddOrganizationMembership
     fakeClerk.organizationMembers.add(`${organizationId}:${clerkUserId}`)
+  },
+
+  async removeOrganizationMembership({ organizationId, clerkUserId }) {
+    fakeClerk.organizationMembers.delete(`${organizationId}:${clerkUserId}`)
+    fakeClerk.organizationRemovals.push(`${organizationId}:${clerkUserId}`)
   },
 
   async setMembershipPermVersion({ organizationId, clerkUserId, permVersion }) {
@@ -180,6 +199,33 @@ export function asAdmin(tenant: IdentityTenant): { clerkUserId: string; clerkOrg
 }
 
 /**
+ * Um segundo membro no estabelecimento, com o papel indicado.
+ *
+ * Semeia direto, e não pelo convite: o que os testes de papel e de acesso precisam é do
+ * vínculo pronto, e atravessar o aceite inteiro os faria depender do MOD-IDENT-06.
+ */
+export async function givenTeamMember(
+  session: IdentityTenant,
+  role: string,
+  label: string,
+): Promise<{ clerkUserId: string; userId: string; membershipId: string }> {
+  const clerkUserId = givenClerkUser(`${label}@petshop.test`)
+  const { encryptPlatform, hashEmail } = await import('@petshop/db')
+  const user = await ownerPrisma.user.create({
+    data: {
+      clerkUserId,
+      emailEncrypted: encryptPlatform(`${label}@petshop.test`),
+      emailHash: hashEmail(`${label}@petshop.test`),
+      fullName: label,
+    },
+  })
+  const membership = await ownerPrisma.membership.create({
+    data: { tenantId: session.tenantId, userId: user.id, roleKey: role, status: 'ACTIVE' },
+  })
+  return { clerkUserId, userId: user.id, membershipId: membership.id }
+}
+
+/**
  * Um chamador **sem estabelecimento nenhum**.
  *
  * É o convidado antes de aceitar, e quem vai criar o primeiro tenant. O token existe e
@@ -192,3 +238,39 @@ export function asStranger(clerkUserId: string): { clerkUserId: string; clerkOrg
 
 /** Um token de sessão cru, para os testes que precisam montar a chamada à mão. */
 export { givenToken }
+
+// ─── O webhook do Clerk (MOD-IDENT-03) ───────────────────────────────────────
+
+/**
+ * A entrega do Clerk, assinada como o Svix a assina.
+ *
+ * O harness **assina de verdade** em vez de dublar a verificação, pelo mesmo motivo do
+ * webhook do Resend: a assinatura é a única coisa que protege o endpoint, e um teste que
+ * a contornasse não diria nada sobre a recusa do AC-02.
+ */
+export async function callClerkWebhook(
+  payload: unknown,
+  options: { secret?: string; timestamp?: number; signature?: string; id?: string } = {},
+) {
+  const instance = await getApp()
+  const raw = JSON.stringify(payload)
+  const id = options.id ?? `msg_${randomUUID()}`
+  const timestamp = String(options.timestamp ?? Math.floor(Date.now() / 1000))
+  const secret = options.secret ?? CLERK_WEBHOOK_SECRET
+  const key = Buffer.from(secret.replace(/^whsec_/, ''), 'base64')
+  const signature =
+    options.signature ??
+    `v1,${createHmac('sha256', key).update(`${id}.${timestamp}.${raw}`).digest('base64')}`
+
+  return instance.inject({
+    method: 'POST',
+    url: '/internal/v1/clerk/webhook',
+    headers: {
+      'content-type': 'application/json',
+      'svix-id': id,
+      'svix-timestamp': timestamp,
+      'svix-signature': signature,
+    },
+    payload: raw,
+  })
+}

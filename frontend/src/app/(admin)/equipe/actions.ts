@@ -18,13 +18,37 @@ import { serverApi } from '@/lib/api'
  * no campo antes da viagem de rede — quem decide é o 422 do serviço.
  */
 
+/**
+ * Um agendamento que impede a remoção (RN-07 de MOD-IDENT).
+ *
+ * O 409 traz a lista no corpo porque a decisão é de quem está na tela: reatribuir a
+ * outro profissional ou cancelar. O diálogo a exibe; o servidor não decide por ela.
+ */
+export interface BlockingAppointment {
+  id: string
+  startsAt: string
+  petName: string
+  serviceLabel: string
+}
+
 export type ActionResult<T> =
   | { ok: true; data: T }
-  | { ok: false; message: string; fieldErrors: Record<string, string> }
+  | {
+      ok: false
+      message: string
+      fieldErrors: Record<string, string>
+      appointments?: BlockingAppointment[]
+    }
 
 function toFailure(error: unknown): ActionResult<never> {
   if (error instanceof ApiError) {
-    return { ok: false, message: error.message, fieldErrors: error.fieldErrors }
+    const extra = error.problem?.appointments
+    return {
+      ok: false,
+      message: error.message,
+      fieldErrors: error.fieldErrors,
+      ...(Array.isArray(extra) ? { appointments: extra as BlockingAppointment[] } : {}),
+    }
   }
   return {
     ok: false,
@@ -84,6 +108,43 @@ export async function changeRoleAction(
   try {
     await serverApi().changeMemberRole(membershipId, role)
     // O papel muda o menu de quem foi alterado, e o painel mostra a equipe.
+    revalidatePath('/equipe')
+    revalidatePath('/dashboard')
+    return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Suspender e reativar o acesso (MOD-IDENT-05).
+ *
+ * `/dashboard` também é revalidado: quem foi suspenso perde o menu inteiro, e o
+ * contador de equipe do início conta quem tem acesso.
+ */
+export async function changeMemberStatusAction(
+  membershipId: string,
+  status: 'ACTIVE' | 'SUSPENDED',
+): Promise<ActionResult<null>> {
+  try {
+    await serverApi().changeMemberStatus(membershipId, status)
+    revalidatePath('/equipe')
+    revalidatePath('/dashboard')
+    return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Remover da equipe (MOD-IDENT-05).
+ *
+ * O 409 da agenda futura chega aqui como falha **com lista**: é o único caminho da tela
+ * em que a mensagem sozinha não basta para agir.
+ */
+export async function removeMemberAction(membershipId: string): Promise<ActionResult<null>> {
+  try {
+    await serverApi().removeMember(membershipId)
     revalidatePath('/equipe')
     revalidatePath('/dashboard')
     return { ok: true, data: null }

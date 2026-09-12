@@ -101,6 +101,8 @@ import {
   SlugAvailabilitySchema,
   SpeciesSchema,
   TeamMemberSchema,
+  MembershipActionResultSchema,
+  SwitchTenantResultSchema,
   TagSchema,
   SiteLeadCountSchema,
   SiteLeadListSchema,
@@ -624,6 +626,35 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'PATCH',
         path: `/v1/memberships/${membershipId}`,
         body: { role },
+      }),
+
+    // ─── MOD-IDENT-05 — acesso da equipe e troca de estabelecimento ────────
+
+    changeMemberStatus: (membershipId: string, status: 'ACTIVE' | 'SUSPENDED') =>
+      request({
+        method: 'PATCH',
+        path: `/v1/memberships/${membershipId}/status`,
+        body: { status },
+        schema: MembershipActionResultSchema,
+      }),
+
+    removeMember: (membershipId: string) =>
+      request({
+        method: 'DELETE',
+        path: `/v1/memberships/${membershipId}`,
+        schema: MembershipActionResultSchema,
+      }),
+
+    /**
+     * Confere o vínculo e audita a troca. **Quem de fato troca é o `setActive` do Clerk,
+     * no navegador** — o `clerkOrgId` da resposta é o que ele pede.
+     */
+    switchTenant: (tenantId: string) =>
+      request({
+        method: 'POST',
+        path: '/v1/sessions/switch-tenant',
+        body: { tenantId },
+        schema: SwitchTenantResultSchema,
       }),
 
     listInvitations: () =>

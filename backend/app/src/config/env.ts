@@ -28,6 +28,17 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   CLERK_AUTHORIZED_PARTIES: z.string().default(''),
 
   /**
+   * O segredo do webhook do Clerk (MOD-IDENT-03).
+   *
+   * Mesmo desenho do `RESEND_WEBHOOK_SECRET`: opcional, porque nem toda instalação
+   * configura o endpoint, e **sem ele a rota recusa tudo com 401**. O painel do Clerk o
+   * entrega no formato `whsec_…` ao criar o endpoint, e ele é diferente da
+   * `CLERK_SECRET_KEY` — um assina a entrega, o outro autentica a nossa chamada à API
+   * deles.
+   */
+  CLERK_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+  /**
    * Domínio da instalação, usado para montar o host que emite o token do Portal.
    *
    * O `authorizedParties` do `@clerk/backend` é comparação de string **sem glob**, e o

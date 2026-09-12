@@ -359,3 +359,23 @@ export async function revokePermission(
     data: { tenantId: fixture.tenantId, roleKey, permissionKey, granted: false },
   })
 }
+
+/**
+ * Concede a um papel uma permissão que a matriz padrão não lhe dá — o outro lado de
+ * `revokePermission`, e o mesmo `tenant_role_overrides`.
+ *
+ * É o que torna alcançável um cenário que a matriz sozinha esconde: `team:remove` só
+ * existe em `TENANT_ADMIN`, e por isso a guarda do último administrador (RN-02) não
+ * dispara no caminho da remoção — quem pode remover **é** um administrador ativo, e
+ * portanto nunca é o último. Com a permissão concedida à recepção, a regra volta a ter
+ * como ser exercida.
+ */
+export async function grantPermission(
+  fixture: TenantRef,
+  roleKey: string,
+  permissionKey: string,
+): Promise<void> {
+  await ownerPrisma.tenantRoleOverride.create({
+    data: { tenantId: fixture.tenantId, roleKey, permissionKey, granted: true },
+  })
+}
