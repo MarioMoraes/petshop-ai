@@ -121,9 +121,20 @@ derrubado deixou pela metade. O provedor fica atrás de `model-port.ts`, e as se
 mais as três escritas atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o
 agente e a tela do tutor respondem a mesma pergunta com a mesma função.
 
+**Nenhum instante chega ao modelo em UTC.** Um modelo repassa ao cliente o número que leu,
+e `2026-09-14T13:00:00.000Z` virava "13:00" para um horário das 10:00. Em `tools.ts`,
+`momento`, `horaDoDia` e `isoLocal` são a única forma de um horário sair do arquivo — e é
+por isso que os schemas das propostas aceitam offset (`z.iso.datetime({ offset: true })`).
+Pela mesma razão a grade desce **agrupada por horário**, com os profissionais numa tabela
+à parte: cortá-la por *slot* cortava o dia na primeira hora, porque um slot é um par
+horário×profissional.
+
 **O agente escreve em duas etapas, e a etapa do meio é uma linha de banco.** Marcar,
 cancelar e remarcar não gravam: gravam uma proposta em `agent_tool_calls`, com token e
-prazo de 15 minutos, e quem grava é `confirmarProposta` no turno seguinte. É o que dá
+prazo de 15 minutos, e quem grava é `confirmarProposta` no turno seguinte — que só
+alcança o token porque `readLiveProposal` devolve a proposta viva ao contexto da mensagem
+seguinte: o histórico entre turnos é **só texto**, e o `tool_result` onde o token nasceu
+morre com o turno. É o que dá
 antecedente ao "sim" do cliente — sem a linha, a confirmação seria a interpretação de uma
 palavra de duas letras sobre um histórico que o próprio modelo resume. **Uma proposta viva
 por conversa é índice único parcial**, e não leitura seguida de escrita, porque duas

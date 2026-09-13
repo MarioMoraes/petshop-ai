@@ -17,8 +17,13 @@ import { logger, recordMetric } from '../../shared/logger.js'
 import { openCipher, decryptOrPlaceholder } from './crypto.js'
 import { getAgentMessagingPort } from './messaging-port.js'
 import { costOf, getModelPort, type ModelUsage } from './model-port.js'
-import { contextLine, systemPrompt } from './prompt.js'
-import { persistToolCalls, type ToolRecord } from './proposals.js'
+import { contextLine, proposalLine, systemPrompt } from './prompt.js'
+import {
+  persistToolCalls,
+  readLiveProposal,
+  type LiveProposal,
+  type ToolRecord,
+} from './proposals.js'
 import { loadSettings, monthlySpendCents, withinWindow } from './settings.js'
 import { AGENT_TOOLS, runTool } from './tools.js'
 
@@ -212,12 +217,17 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
   const now = new Date()
   const messages = [...history.messages]
   // A linha de contexto entra **na mensagem**, depois do último `cache_control`. No
-  // prompt de sistema ela invalidaria o prefixo a cada turno (AC-04 de MOD-AI-02).
+  // prompt de sistema ela invalidaria o prefixo a cada turno (AC-04 de MOD-AI-02). A
+  // proposta em aberto entra pela mesma porta e pelo mesmo motivo — e é o que dá ao
+  // modelo o código que o "sim" do cliente confirma.
   const last = messages[messages.length - 1]
   if (last && last.role === 'user' && typeof last.content === 'string') {
+    const contexto = history.liveProposal
+      ? `${contextLine(settings, now)}\n${proposalLine(history.liveProposal, settings)}`
+      : contextLine(settings, now)
     messages[messages.length - 1] = {
       role: 'user',
-      content: `${contextLine(settings, now)}\n${last.content}`,
+      content: `${contexto}\n${last.content}`,
     }
   }
 
@@ -424,6 +434,8 @@ function parseOutput(
 interface History {
   messages: Anthropic.MessageParam[]
   hasAgentTurn: boolean
+  /** A proposta que espera o "sim" do cliente, quando há uma de pé. */
+  liveProposal: LiveProposal | null
 }
 
 /**
@@ -436,6 +448,7 @@ interface History {
 async function loadHistory(tenantId: string, conversationId: string): Promise<History> {
   return withTenant(tenantId, async (tx) => {
     const cipher = await openCipher(tx, tenantId)
+    const liveProposal = await readLiveProposal(tx, conversationId)
     const rows = await tx.agentTurn.findMany({
       where: { conversationId },
       orderBy: { createdAt: 'desc' },
@@ -456,7 +469,7 @@ async function loadHistory(tenantId: string, conversationId: string): Promise<Hi
       })
     }
 
-    return { messages, hasAgentTurn: rows.some((row) => row.role === 'AGENT') }
+    return { messages, hasAgentTurn: rows.some((row) => row.role === 'AGENT'), liveProposal }
   })
 }
 

@@ -91,3 +91,35 @@ export function contextLine(settings: ResolvedAgentSettings, now: Date): string 
 
   return `[agora: ${formatted} — a data de hoje em AAAA-MM-DD é ${isoDate}]`
 }
+
+/**
+ * A proposta em aberto, dita ao modelo junto da mensagem do cliente.
+ *
+ * **Sem esta linha o agente não consegue fechar um agendamento.** O código da proposta
+ * nasce num `tool_result` e some com o turno; no turno seguinte — o do "sim" — o modelo
+ * tinha só a própria pergunta "confirma?" e nenhum código para devolver. O que ele fazia
+ * era o que sobrava: propor o mesmo horário outra vez.
+ *
+ * Ela acompanha o `contextLine` e pelo mesmo motivo: muda a cada turno, e por isso fica
+ * depois do último `cache_control` em vez de no prompt de sistema.
+ *
+ * O texto diz as duas saídas, porque as duas são legítimas: confirmar o que está em pé,
+ * ou propor outra coisa se o cliente mudou de ideia. O que ele não pode fazer é repetir a
+ * pergunta.
+ */
+export function proposalLine(
+  proposal: { token: string; summary: string; expiresAt: Date },
+  settings: ResolvedAgentSettings,
+): string {
+  const validade = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: settings.timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(proposal.expiresAt)
+
+  return [
+    `[proposta em aberto: ${proposal.summary}. Código: ${proposal.token}. Vale até ${validade}.`,
+    'Se esta mensagem do cliente confirmar, chame confirmarProposta com este código.',
+    'Se ele pedir outra coisa, faça uma proposta nova. Não repita a mesma pergunta.]',
+  ].join(' ')
+}

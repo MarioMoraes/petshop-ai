@@ -449,11 +449,22 @@ export const AGENT_WRITE_TOOLS = [
 ] as const
 export type AgentWriteTool = (typeof AGENT_WRITE_TOOLS)[number]
 
+/**
+ * O `startsAt` das propostas aceita **offset**, e não só `Z`.
+ *
+ * O agente recebe a grade com a hora de parede do estabelecimento — `10:00-03:00`, e não
+ * `13:00Z` —, porque um modelo repassa ao cliente o número que leu, e o número que ele
+ * lia era o de Greenwich. Ele devolve esse mesmo texto aqui; o instante é idêntico, só a
+ * escrita muda. O que vai ao banco continua sendo o `startsAt` **do slot**, como o
+ * domínio o emitiu.
+ */
+const propostaStartsAt = z.iso.datetime({ offset: true })
+
 export const ProporAgendamentoArgsSchema = z.strictObject({
   petId: z.uuid(),
   serviceIds: z.array(z.uuid()).min(1).max(10),
   professionalId: z.uuid(),
-  startsAt: z.iso.datetime(),
+  startsAt: propostaStartsAt,
 })
 export type ProporAgendamentoArgs = z.output<typeof ProporAgendamentoArgsSchema>
 
@@ -465,7 +476,7 @@ export type ProporCancelamentoArgs = z.output<typeof ProporCancelamentoArgsSchem
 export const ProporRemarcacaoArgsSchema = z.strictObject({
   appointmentId: z.uuid(),
   professionalId: z.uuid(),
-  startsAt: z.iso.datetime(),
+  startsAt: propostaStartsAt,
 })
 export type ProporRemarcacaoArgs = z.output<typeof ProporRemarcacaoArgsSchema>
 

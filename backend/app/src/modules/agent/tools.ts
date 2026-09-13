@@ -124,7 +124,10 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     name: 'consultarDisponibilidade',
     description:
       'Os horários livres de um dia para um pet e uma combinação de serviços. Resolva ' +
-      '"quinta" ou "amanhã" para a data antes de chamar — hoje é informado no contexto.',
+      '"quinta" ou "amanhã" para a data antes de chamar — hoje é informado no contexto. ' +
+      'Cada horário já vem na hora do estabelecimento e traz em "com" quem o atende; o ' +
+      'id de cada profissional está na tabela "profissionais". Diga ao cliente o campo ' +
+      '"hora", nunca o "inicio".',
     strict: true,
     input_schema: {
       type: 'object',
@@ -186,7 +189,9 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
         },
         startsAt: {
           type: 'string',
-          description: 'O começo do horário, exatamente como consultarDisponibilidade o devolveu.',
+          description:
+            'O campo "inicio" do horário escolhido, copiado exatamente como ' +
+            'consultarDisponibilidade o devolveu.',
         },
       },
       required: ['petId', 'serviceIds', 'professionalId', 'startsAt'],
@@ -232,7 +237,9 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
         },
         startsAt: {
           type: 'string',
-          description: 'O começo do horário novo, como consultarDisponibilidade o devolveu.',
+          description:
+            'O campo "inicio" do horário novo, copiado exatamente como ' +
+            'consultarDisponibilidade o devolveu.',
         },
       },
       required: ['appointmentId', 'professionalId', 'startsAt'],
@@ -243,8 +250,9 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     name: 'confirmarProposta',
     description:
       'A ÚNICA ferramenta que grava. Use apenas depois de o cliente ter confirmado, na ' +
-      'mensagem dele, a proposta que você fez. Se ele não confirmou com clareza, ' +
-      'pergunte de novo em vez de chamar isto.',
+      'mensagem dele, a proposta que você fez. O código está na proposta em aberto que ' +
+      'o contexto da mensagem informa. Se ele não confirmou com clareza, pergunte de ' +
+      'novo em vez de chamar isto.',
     strict: true,
     input_schema: {
       type: 'object',
@@ -331,7 +339,7 @@ async function execute(scope: ToolScope, name: string, input: unknown): Promise<
             emMemoria: pet.inMemoriam,
             proximoAgendamento: pet.nextAppointment
               ? {
-                  quando: pet.nextAppointment.startsAt,
+                  quando: momento(pet.nextAppointment.startsAt, scope.timezone),
                   servicos: pet.nextAppointment.services,
                 }
               : null,
@@ -347,7 +355,7 @@ async function execute(scope: ToolScope, name: string, input: unknown): Promise<
         text: json(
           response.upcoming.map((appointment) => ({
             agendamentoId: appointment.id,
-            quando: appointment.startsAt,
+            quando: momento(appointment.startsAt, scope.timezone),
             pet: appointment.petName,
             servicos: appointment.services,
             profissional: appointment.professionalName,
@@ -392,16 +400,24 @@ async function execute(scope: ToolScope, name: string, input: unknown): Promise<
         serviceIds: requireStringArray(serviceIds, 'serviceIds'),
         date: requireString(date, 'date'),
       })
+      const grade = agruparGrade(response.slots, scope.timezone)
       return {
         text: json({
-          // Dez horários bastam para o cliente escolher; a grade inteira de um dia é
-          // prompt pago em todos os turnos seguintes.
-          horarios: response.slots.slice(0, 10).map((slot) => ({
-            comeca: slot.startsAt,
-            profissionalId: slot.professionalId,
-            profissional: slot.professionalName,
-          })),
-          proximoDisponivel: response.nextAvailable,
+          profissionais: grade.profissionais,
+          horarios: grade.horarios,
+          // Dizer que cortou, e nunca cortar calado: era o corte silencioso que fazia o
+          // agente afirmar "só tem 10:00" com o dia inteiro livre depois disso.
+          ...(grade.omitidos > 0
+            ? {
+                observacao:
+                  `Há mais ${grade.omitidos} horário(s) livres depois do último desta ` +
+                  'lista. Se o cliente quiser um horário mais tarde, diga que há e ' +
+                  'pergunte a faixa que ele prefere.',
+              }
+            : {}),
+          proximoDisponivel: response.nextAvailable
+            ? momento(response.nextAvailable, scope.timezone)
+            : null,
           duracaoMin: response.durationMin,
           preco: formatBRL(response.priceCents),
         }),
@@ -502,7 +518,7 @@ async function proporAgendamento(scope: ToolScope, input: unknown): Promise<Tool
     text: json({
       confirmationToken: token,
       oQueSeraFeito: 'marcar',
-      quando: slot.startsAt,
+      quando: momento(slot.startsAt, scope.timezone),
       profissional: slot.professionalName,
       duracaoMin: grade.durationMin,
       preco: formatBRL(grade.priceCents),
@@ -549,7 +565,7 @@ async function proporCancelamento(scope: ToolScope, input: unknown): Promise<Too
     text: json({
       confirmationToken: token,
       oQueSeraFeito: 'cancelar',
-      quando: appointment.startsAt,
+      quando: momento(appointment.startsAt, scope.timezone),
       pet: appointment.petName,
       servicos: appointment.services,
       taxaDeCancelamento: taxa > 0 ? formatBRL(taxa) : null,
@@ -605,8 +621,8 @@ async function proporRemarcacao(scope: ToolScope, input: unknown): Promise<ToolR
     text: json({
       confirmationToken: token,
       oQueSeraFeito: 'remarcar',
-      de: appointment.startsAt,
-      para: slot.startsAt,
+      de: momento(appointment.startsAt, scope.timezone),
+      para: momento(slot.startsAt, scope.timezone),
       pet: appointment.petName,
       profissional: slot.professionalName,
       // O preço é recalculado para a data nova pelo domínio (AC-04 de MOD-PORTAL-06).
@@ -658,6 +674,135 @@ function horaLocal(isoDate: string, timezone: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(isoDate))
+}
+
+/**
+ * **Nenhum instante chega ao modelo em UTC.**
+ *
+ * Um modelo repassa ao cliente o número que leu. Enquanto a grade descia como
+ * `2026-09-14T13:00:00.000Z`, o agente oferecia "13:00" para um horário que o petshop
+ * abre às 10:00 — e o cliente que aceitasse chegaria três horas atrasado. O registro do
+ * painel já dizia a hora certa (`horaLocal`, no `summary`), o que deixava as duas
+ * versões do mesmo horário lado a lado no banco.
+ *
+ * Daí estas três funções serem a única forma de um horário sair deste arquivo:
+ * `momento` para o que o agente **fala**, `horaDoDia` para a coluna curta da grade e
+ * `isoLocal` para o que ele **devolve** numa proposta.
+ */
+function momento(isoDate: string, timezone: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: timezone,
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(isoDate))
+}
+
+/** Só a hora de parede: a grade repete o dia uma vez só, no campo `dia`. */
+function horaDoDia(isoDate: string, timezone: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(isoDate))
+}
+
+/**
+ * O mesmo instante escrito com o offset do estabelecimento: `2026-09-14T10:00:00-03:00`.
+ *
+ * É o texto que o modelo copia de volta em `proporAgendamento`. `new Date()` o lê no
+ * instante idêntico ao do `Z` que o domínio emitiu — a reconsulta compara por
+ * `getTime()` e acha o mesmo slot —, com a diferença de que a hora visível é a que o
+ * cliente vai ouvir. Por isso os schemas das propostas aceitam offset.
+ */
+function isoLocal(isoDate: string, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZoneName: 'longOffset',
+  }).formatToParts(new Date(isoDate))
+
+  const get = (type: string): string => parts.find((part) => part.type === type)?.value ?? ''
+  // `hour12: false` escreve a meia-noite como "24" em algumas combinações de locale.
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  // "GMT-03:00" → "-03:00"; em UTC o próprio "GMT" vira o `Z` do formato.
+  const offset = get('timeZoneName').replace('GMT', '') || 'Z'
+
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}:${get('second')}${offset}`
+}
+
+/**
+ * Quantos **horários distintos** da grade descem ao modelo.
+ *
+ * O corte anterior era de dez *slots*, e um slot é um par horário×profissional: com dois
+ * banhistas na agenda, dez slots eram cinco horários — a primeira hora do dia — de uma
+ * grade de sessenta e seis. O agente respondia "a Ana só tem 13:00" porque era só o que
+ * ele tinha visto, e a recusa parecia do petshop: naquela agenda a Ana entrava às 10:00 e
+ * tinha, sim, o horário que o cliente pediu.
+ *
+ * Quarenta cobre um dia inteiro numa grade de quinze minutos, e cabe porque o formato
+ * encolheu junto — ver `agruparGrade`.
+ */
+const MAX_HORARIOS = 40
+
+interface GradeAgrupada {
+  profissionais: { id: string; nome: string }[]
+  horarios: { hora: string; inicio: string; com: string[] }[]
+  omitidos: number
+}
+
+/**
+ * A grade por **horário**, com os profissionais numa tabela à parte.
+ *
+ * Um slot é um par horário×profissional, e listá-los um a um repetia o UUID do
+ * profissional a cada quinze minutos — era o que obrigava a cortar a grade e o que fazia
+ * o corte cair na primeira hora do dia. Com a tabela no topo, cada horário custa uma
+ * linha curta e o dia inteiro desce por menos bytes do que dez slots custavam.
+ *
+ * O nome é o que aparece no horário porque é o que o agente **fala**; o id, que ele
+ * precisa copiar para a proposta, sai da tabela. Errar essa correspondência não cria
+ * dano: a proposta reconsulta a grade e recusa o par que não existe.
+ */
+function agruparGrade(
+  slots: { startsAt: string; professionalId: string; professionalName: string }[],
+  timezone: string,
+): GradeAgrupada {
+  const profissionais = new Map<string, string>()
+  // Os slots já chegam ordenados por instante, e o `Map` preserva a ordem de inserção.
+  const porHorario = new Map<string, string[]>()
+
+  for (const slot of slots) {
+    profissionais.set(slot.professionalId, slot.professionalName)
+    const nomes = porHorario.get(slot.startsAt) ?? []
+    nomes.push(slot.professionalName)
+    porHorario.set(slot.startsAt, nomes)
+  }
+
+  const todos = [...porHorario.entries()]
+  const mostrados = todos.slice(0, MAX_HORARIOS)
+
+  return {
+    // Só quem aparece na fatia mostrada: um profissional cujo primeiro horário ficou de
+    // fora do corte seria um nome que o modelo pode oferecer sem ter horário nenhum.
+    profissionais: [...profissionais.entries()]
+      .filter(([, nome]) => mostrados.some(([, nomes]) => nomes.includes(nome)))
+      .map(([id, nome]) => ({ id, nome })),
+    horarios: mostrados.map(([startsAt, nomes]) => ({
+      hora: horaDoDia(startsAt, timezone),
+      inicio: isoLocal(startsAt, timezone),
+      com: nomes,
+    })),
+    omitidos: Math.max(0, todos.length - MAX_HORARIOS),
+  }
 }
 
 function json(value: unknown): string {

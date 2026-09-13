@@ -130,6 +130,51 @@ export async function persistToolCalls(
   }
 }
 
+/** A proposta em aberto, como o contexto do turno seguinte precisa vê-la. */
+export interface LiveProposal {
+  token: string
+  /** O resumo em claro que a proposta gravou: "propôs marcar 14/09, 10:00". */
+  summary: string
+  expiresAt: Date
+}
+
+/**
+ * A proposta em aberto desta conversa — **o que faltava para o "sim" ter efeito**.
+ *
+ * O token nasce dentro de um `tool_result`, e `loadHistory` monta o histórico só com o
+ * texto que o cliente e o agente trocaram: no turno seguinte o modelo via a própria
+ * pergunta "confirma?" e nada mais. Sem o código, `confirmarProposta` era inalcançável —
+ * o cliente dizia "sim", o modelo propunha de novo o mesmo horário, e a conversa ia para
+ * a recepção sem nada marcado. A linha já existia no banco; ninguém a devolvia ao turno.
+ *
+ * Ela entra **junto da mensagem do cliente**, depois do `cache_control`, pela mesma razão
+ * que a data entra ali: é o que muda a cada turno.
+ *
+ * A proposta vencida não é devolvida e **também não é fechada aqui** — quem a fecha é
+ * `persistToolCalls`, no fim do turno, que é onde a distinção entre `EXPIRED` e
+ * `SUPERSEDED` tem o que a decida. Um turno de leitura que apagasse a proposta pelo
+ * caminho tiraria do painel a diferença entre o produto que demorou e o cliente que
+ * mudou de ideia.
+ */
+export async function readLiveProposal(
+  tx: TenantTransaction,
+  conversationId: string,
+  now = new Date(),
+): Promise<LiveProposal | null> {
+  const live = await tx.agentToolCall.findFirst({
+    where: { conversationId, status: 'PROPOSED' },
+    select: { confirmationToken: true, expiresAt: true, resultSummary: true },
+  })
+
+  if (!live?.confirmationToken || !live.expiresAt || live.expiresAt <= now) return null
+
+  return {
+    token: live.confirmationToken,
+    summary: live.resultSummary ?? 'uma proposta em aberto',
+    expiresAt: live.expiresAt,
+  }
+}
+
 /** Tira da frente a proposta viva da conversa, dizendo por quê. */
 async function closeLiveProposal(
   tx: TenantTransaction,
