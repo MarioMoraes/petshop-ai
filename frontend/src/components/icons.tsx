@@ -328,6 +328,64 @@ export function BellIcon() {
   )
 }
 
+/**
+ * Fagulhas — o atendimento por IA. Tom: `icon-brand`.
+ *
+ * Fica no tom da marca, e não num tom novo, porque é o único desenho aqui que representa
+ * o produto em vez de um módulo dele: o nome é PetShop AI. Ao lado do sino de mensagens,
+ * que é teal, a diferença de cor já diz que uma coisa sai sozinha e a outra conversa.
+ */
+export function SparkleIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M12 3l1.9 5.6a3 3 0 0 0 1.9 1.9L21.4 12l-5.6 1.9a3 3 0 0 0-1.9 1.9L12 21.4l-1.9-5.6a3 3 0 0 0-1.9-1.9L2.6 12l5.6-1.9a3 3 0 0 0 1.9-1.9Z" />
+      <path d="M19.5 3v3" />
+      <path d="M21 4.5h-3" />
+      <path d="M5 17v2.5" />
+      <path d="M6.25 18.25h-2.5" />
+    </svg>
+  )
+}
+
+/* ── Marcas de terceiro ────────────────────────────────────────────────────
+ *
+ * Instagram e WhatsApp não são ícones do sistema: são logotipos, e logotipo se
+ * reconhece pela forma exata que tem. Por isso saem do `BASE` — vêm preenchidos, com
+ * o desenho oficial, em vez de traçados a 1.5 como o resto do arquivo. Um balão de
+ * conversa genérico no lugar do glifo do WhatsApp não diz para onde o link leva, que
+ * é a única coisa que estes dois precisam dizer.
+ *
+ * Sem tom: herdam a cor de quem os embrulha. Colorir com o verde e o degradê das
+ * marcas puxaria para o rodapé um peso visual que ele não deve ter.
+ */
+
+const MARCA = {
+  width: 18,
+  height: 18,
+  viewBox: '0 0 24 24',
+  fill: 'currentColor',
+  'aria-hidden': true,
+} as const
+
+export function InstagramIcon() {
+  return (
+    <svg {...MARCA}>
+      <path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23a3.7 3.7 0 0 1-.9 1.38c-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16ZM12 0C8.74 0 8.33.01 7.05.07c-1.28.06-2.15.26-2.91.56-.79.3-1.46.72-2.13 1.38A5.9 5.9 0 0 0 .63 4.14c-.3.77-.5 1.64-.56 2.91C.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.28.26 2.15.56 2.91.3.79.72 1.46 1.38 2.13a5.9 5.9 0 0 0 2.13 1.38c.77.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.28-.06 2.15-.26 2.91-.56a5.9 5.9 0 0 0 2.13-1.38 5.9 5.9 0 0 0 1.38-2.13c.3-.77.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.28-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.38-2.13A5.9 5.9 0 0 0 19.86.63c-.77-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0Z" />
+      <path d="M12 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32ZM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z" />
+      <circle cx="18.41" cy="5.59" r="1.44" />
+    </svg>
+  )
+}
+
+export function WhatsAppIcon() {
+  return (
+    <svg {...MARCA}>
+      <path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.87 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.34" />
+      <path d="M20.52 3.48A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.69 1.45c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42M12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.89 9.89-9.89 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.43 9.89-9.89 9.89" />
+    </svg>
+  )
+}
+
 /* ── Glifos de formulário ──────────────────────────────────────────────────
  *
  * Menores em intenção que os de cima: não representam um módulo, e sim o tipo de

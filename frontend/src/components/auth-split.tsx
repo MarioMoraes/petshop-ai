@@ -4,10 +4,16 @@ import { Logo } from '@/components/ui'
 import {
   BellIcon,
   CalendarIcon,
+  DocumentIcon,
+  GlobeIcon,
   HeartPulseIcon,
+  InstagramIcon,
+  SmartphoneIcon,
+  SparkleIcon,
   UsersIcon,
   VanIcon,
   WalletIcon,
+  WhatsAppIcon,
 } from '@/components/icons'
 
 /**
@@ -35,58 +41,93 @@ interface Recurso {
   /** Família de cor do tipo, de `globals.css` §Tom do ícone. */
   tom: string
   titulo: string
-  descricao: string
 }
 
 /**
  * O que o sistema faz hoje, na ordem em que o dia do petshop acontece: o cliente e o
- * pet, o horário marcado, a busca em casa, o serviço, a conta e o aviso que sai depois.
+ * pet, o horário marcado, a busca em casa, o serviço, a conta, o que sai depois — e, no
+ * fim, as três superfícies em que o cliente se serve sozinho e o papel que sai delas.
+ *
+ * **Os títulos vão em Title Case**, com as palavras pequenas em caixa baixa — "Agenda
+ * de Banho e Tosa", e não "Agenda De Banho E Tosa". Preposição, artigo e conjunção
+ * ficam minúsculos; sigla mantém a forma que tem ("IA", "PDFs").
+ *
+ * **Só o título, sem descrição.** A lista não está aqui para ensinar o produto: está
+ * para responder, num relance, se ele cobre o que a pessoa veio procurar. Dez nomes
+ * lidos de cima a baixo respondem isso mais rápido do que dez parágrafos, e o que a
+ * descrição explicava é exatamente o que a primeira tela de uso mostra sozinha.
  *
  * **A lista cresce quando o código cresce, e só então.** Táxi Dog e mensagens entraram
- * quando os serviços passaram a responder; o Portal do Tutor e o site público do
- * petshop **não estão aqui** — o roteamento por host já existe, as telas não. É a mesma
- * regra do `roadmap.tsx` do painel, invertida: lá um item sai da lista quando ganha
- * endpoint, aqui ele só entra depois disso.
+ * quando os serviços passaram a responder. O Portal do Tutor, o site público e os
+ * documentos em PDF ficaram de fora por um tempo justamente por essa regra — o
+ * roteamento por host já existia, as telas não —, e entram agora pelo mesmo motivo, que
+ * é terem passado a existir. O atendimento por IA é o mais novo: o agente responde no
+ * WhatsApp, propõe horário e confirma na agenda. É a mesma regra do `roadmap.tsx` do
+ * painel, invertida: lá um item sai da lista quando ganha endpoint, aqui ele só entra
+ * depois disso.
  *
- * Seis itens e não mais: a coluna divide a tela com o formulário, e uma lista que
- * precisa de rolagem para terminar deixa de ser um resumo do produto e vira catálogo.
+ * **Dez itens e não mais.** O teto não é o número, é o que ele protege: a coluna divide
+ * a tela com o formulário, e uma lista que precisa de rolagem para terminar deixa de ser
+ * um resumo do produto e vira catálogo. Sem as descrições sobra folga, mas ela é para o
+ * respiro da coluna, não para um item novo — o décimo primeiro obriga a fundir dois que
+ * já estão aqui.
  */
 const RECURSOS: Recurso[] = [
   {
     icone: <UsersIcon />,
     tom: 'icon-people',
-    titulo: 'Tutores e pets',
-    descricao: 'Ficha, álbum de fotos e o histórico de cada animal num lugar só.',
+    titulo: 'Tutores e Pets',
   },
   {
     icone: <CalendarIcon />,
     tom: 'icon-time',
-    titulo: 'Agenda de banho e tosa',
-    descricao: 'Por profissional, com recorrência, check-in e check-out no balcão.',
+    titulo: 'Agenda de Banho e Tosa',
   },
   {
     icone: <VanIcon />,
     tom: 'icon-time',
     titulo: 'Táxi Dog',
-    descricao: 'Busca e entrega com motorista e veículo, e a rota do dia no celular.',
   },
   {
     icone: <HeartPulseIcon />,
     tom: 'icon-health',
-    titulo: 'Prontuário e atendimento',
-    descricao: 'Alergia e alerta médico antes de começar; o serviço vira histórico.',
+    titulo: 'Prontuário e Atendimento',
   },
   {
     icone: <WalletIcon />,
     tom: 'icon-money',
-    titulo: 'Conta corrente',
-    descricao: 'Débito no check-out, pacotes, pagamentos e recibo em PDF.',
+    titulo: 'Conta Corrente',
   },
   {
     icone: <BellIcon />,
     tom: 'icon-metric',
-    titulo: 'Avisos automáticos',
-    descricao: 'Confirmação e lembrete do horário saem por e-mail sozinhos.',
+    titulo: 'Mensagens e Campanhas',
+  },
+  {
+    icone: <SparkleIcon />,
+    tom: 'icon-brand',
+    titulo: 'Atendimento por IA',
+  },
+  {
+    icone: <SmartphoneIcon />,
+    tom: 'icon-people',
+    titulo: 'Portal do Tutor',
+  },
+  {
+    /*
+     * Globo e teal são os do item Site no menu lateral (`app-shell.tsx`), como
+     * `SmartphoneIcon` acima é o do Portal no `roadmap.tsx`. Um recurso que aparece em
+     * dois lugares com desenhos diferentes cobra do leitor o trabalho de descobrir que
+     * é a mesma coisa.
+     */
+    icone: <GlobeIcon />,
+    tom: 'icon-metric',
+    titulo: 'Site do Petshop',
+  },
+  {
+    icone: <DocumentIcon />,
+    tom: 'icon-system',
+    titulo: 'Documentos e PDFs',
   },
 ]
 
@@ -111,35 +152,46 @@ export function AuthSplit({
   /** `<SignIn />` ou `<SignUp />`. O cartão é o do próprio Clerk. */
   children: ReactNode
 }) {
+  /*
+   * Uma camada só, e não o cartão dentro da página.
+   *
+   * As telas internas usam `.shell`: um retângulo de `--color-surface` com raio, sombra e
+   * um respiro de `--color-canvas` em volta — a moldura que diz "isto é o aplicativo".
+   * Aqui não há aplicativo ainda, e a moldura só acrescentava uma borda contornando o
+   * hero. Sem ela o fundo é a própria página, que é o que o hero do modelo faz.
+   *
+   * O que se mantém é o fundo: a mesma `--color-surface` de `.shell` pintada na camada
+   * inteira, e a `<Atmosphere />` por cima. O `overflow-hidden` continua sendo o que
+   * segura os blooms dentro da tela — sem ele os três estouram e criam rolagem
+   * horizontal.
+   */
   return (
-    <div className="mx-auto max-w-[1400px] px-2 pt-2 sm:px-4 sm:pt-4">
-      <div className="shell relative flex min-h-[100svh] flex-col overflow-hidden">
-        <Atmosphere />
+    <div className="relative flex min-h-[100svh] flex-col overflow-hidden bg-surface">
+      <Atmosphere />
 
-        {/*
-          `items-center` em vez de esticar as colunas: as duas metades têm alturas
-          naturais bem diferentes (a do Clerk cresce com o método de login habilitado),
-          e esticá-las ancoraria o texto no topo enquanto o formulário flutua no meio.
-          Centradas, as duas compartilham a mesma linha de eixo.
-        */}
-        <div className="relative z-10 flex flex-1 items-center px-6 py-14 sm:px-10 lg:px-16">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-14 lg:grid-cols-[1.05fr_minmax(0,26rem)] lg:gap-20">
-            <ProdutoLado />
-            <FormularioLado chamada={chamada}>{children}</FormularioLado>
-            {/*
-              Vem depois do formulário no DOM, e não antes, de propósito. Quem abre esta
-              tela no celular quase sempre já é cliente e veio para entrar: colocar o
-              texto de produto acima empurraria o campo de e-mail para fora da primeira
-              tela e cobraria uma rolagem de todo mundo para servir a minoria que ainda
-              está avaliando. Abaixo, ele fica no caminho de quem procura, e fora do
-              caminho de quem não procura.
-            */}
-            <ProdutoCompacto />
-          </div>
+      {/*
+        `items-center` em vez de esticar as colunas: as duas metades têm alturas
+        naturais bem diferentes (a do Clerk cresce com o método de login habilitado),
+        e esticá-las ancoraria o texto no topo enquanto o formulário flutua no meio.
+        Centradas, as duas compartilham a mesma linha de eixo.
+      */}
+      <div className="relative z-10 flex flex-1 items-center px-6 py-14 sm:px-10 lg:px-16">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-14 lg:grid-cols-[1.05fr_minmax(0,26rem)] lg:gap-20">
+          <ProdutoLado />
+          <FormularioLado chamada={chamada}>{children}</FormularioLado>
+          {/*
+            Vem depois do formulário no DOM, e não antes, de propósito. Quem abre esta
+            tela no celular quase sempre já é cliente e veio para entrar: colocar o
+            texto de produto acima empurraria o campo de e-mail para fora da primeira
+            tela e cobraria uma rolagem de todo mundo para servir a minoria que ainda
+            está avaliando. Abaixo, ele fica no caminho de quem procura, e fora do
+            caminho de quem não procura.
+          */}
+          <ProdutoCompacto />
         </div>
-
-        <Rodape />
       </div>
+
+      <Rodape />
     </div>
   )
 }
@@ -153,7 +205,7 @@ function ProdutoLado() {
         style={{ animationDelay: ATRASO.selo }}
       >
         <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-        Software Para Gestão de PetShops
+        Gestão de Petshop
       </span>
 
       <h1
@@ -181,34 +233,32 @@ function ProdutoLado() {
           />
           PetShop
         </span>
-        <br />
-        em um só lugar
+        <br />e deixe a IA atender
       </h1>
 
       {/*
-        Duas colunas só a partir de `xl`. Entre 1024 e 1279 a coluna da esquerda tem
-        cerca de 460px: partida ao meio, cada descrição cai para cinco ou seis linhas e
-        o navegador começa a hifenizar no meio de "check-out". Uma lista alta e legível
-        é melhor do que uma grade que cabe.
+        Duas colunas em toda largura, e não só de `xl` para cima. Enquanto cada item
+        tinha uma descrição de duas linhas isto era impossível: a metade esquerda mede
+        ~370px a 1024, e partida ao meio sobram ~170px por coluna — largura em que a
+        descrição virava quatro linhas soltas e o navegador hifenizava no meio de
+        "check-out". Um título cabe nela: os mais longos quebram em duas linhas, mas
+        dentro da altura que o chip já ocupa, então a linha da grade não cresce.
 
-        E, onde há duas colunas, o `max-w-lg` sai. Ele foi medido para quatro itens em
-        duas linhas; com seis, prender a grade em 512px deixa 230px por coluna — menos
-        de 180px de texto ao lado do chip — e cada descrição vira quatro linhas soltas.
-        Sem o limite, a lista ocupa os ~650px que a coluna já tem e as descrições cabem
-        em duas. Abaixo de `xl` o `max-w-lg` continua valendo: lá a lista é uma coluna
-        só, e linha larga demais cansa mais que linha estreita.
+        O ganho é de altura. A lista de dez itens passou de 807px para 320px, que é o
+        que devolve a faixa de 1024 a 1279 para dentro da primeira tela — ela rolava
+        desde que a lista tinha seis itens com descrição.
+
+        O `max-w-lg` sai junto com a coluna única: ele limitava o comprimento da linha
+        de texto corrido, e não há mais texto corrido para limitar.
       */}
       <ul
-        className="rise mt-10 grid max-w-lg gap-5 xl:max-w-none xl:grid-cols-2 xl:gap-x-9 xl:gap-y-6"
+        className="rise mt-9 grid grid-cols-2 gap-x-8 gap-y-5"
         style={{ animationDelay: ATRASO.recursos }}
       >
         {RECURSOS.map((recurso) => (
-          <li key={recurso.titulo} className="flex gap-3.5">
+          <li key={recurso.titulo} className="flex items-center gap-3.5">
             <span className={`icon-chip shrink-0 ${recurso.tom}`}>{recurso.icone}</span>
-            <span>
-              <span className="block text-sm font-semibold">{recurso.titulo}</span>
-              <span className="hint mt-1 block leading-relaxed">{recurso.descricao}</span>
-            </span>
+            <span className="text-sm font-semibold leading-snug">{recurso.titulo}</span>
           </li>
         ))}
       </ul>
@@ -232,14 +282,11 @@ function ProdutoCompacto() {
           O que o PetShop AI faz
         </p>
 
-        <ul className="mt-7 grid gap-5 sm:grid-cols-2">
+        <ul className="mt-7 grid gap-4 sm:grid-cols-2 sm:gap-x-8">
           {RECURSOS.map((recurso) => (
-            <li key={recurso.titulo} className="flex gap-3.5">
+            <li key={recurso.titulo} className="flex items-center gap-3.5">
               <span className={`icon-chip shrink-0 ${recurso.tom}`}>{recurso.icone}</span>
-              <span>
-                <span className="block text-sm font-semibold">{recurso.titulo}</span>
-                <span className="hint mt-1 block leading-relaxed">{recurso.descricao}</span>
-              </span>
+              <span className="text-sm font-semibold leading-snug">{recurso.titulo}</span>
             </li>
           ))}
         </ul>
@@ -276,27 +323,77 @@ function FormularioLado({ chamada, children }: { chamada: string; children: Reac
 /**
  * O rodapé fica no shell, e não dentro de uma das colunas, porque vale para as duas.
  *
- * São as três garantias que um dono de petshop pergunta antes de colocar a carteira de
- * clientes num sistema — e todas as três já são verdade no código, não promessa: RLS
- * por tenant, papéis com permissão, consentimento registrado.
+ * Quem assina o produto e por onde falar com quem o fez. Estava aqui, antes, a lista de
+ * garantias de conformidade — RLS por tenant, papéis, MFA, trilha, LGPD. Saiu porque
+ * respondia a uma pergunta que ninguém faz nesta tela: quem chega por um convite quer
+ * entrar, e quem está avaliando quer saber com quem está falando. A conformidade continua
+ * sendo verdade no código e tem lugar próprio para ser contada — o rodapé da porta de
+ * entrada não era esse lugar.
+ *
+ * **Assinatura à esquerda, contatos à direita, a partir de `lg`.** A empresa nasce sob
+ * a coluna do produto, onde a leitura começa, e os contatos fecham a linha sob a coluna
+ * do formulário — o único trecho da faixa de baixo que ficaria vazio. Abaixo de `lg` o
+ * rodapé volta ao centro e as duas metades empilham, porque lá não há duas colunas para
+ * dividir.
+ *
+ * Os dois contatos são links de aplicativo, não páginas: `instagram.com/<perfil>` e
+ * `wa.me/<número>` abrem o app instalado no celular e caem no site quando não há app.
+ * O número vai só com dígitos e com o 55 na frente — `wa.me` não aceita a máscara que a
+ * pessoa lê na tela, e é por isso que o texto visível e o `href` são escritos separados.
  */
+
+const EMPRESA = 'Offices Tecnologia'
+
+const CONTATOS = [
+  {
+    rotulo: '@offices_aplicativos',
+    href: 'https://instagram.com/offices_aplicativos',
+    icone: <InstagramIcon />,
+    descricao: 'Instagram da Offices Tecnologia',
+  },
+  {
+    rotulo: '(35) 99252-7113',
+    href: 'https://wa.me/5535992527113',
+    icone: <WhatsAppIcon />,
+    descricao: 'WhatsApp da Offices Tecnologia',
+  },
+]
+
 function Rodape() {
   return (
     <div className="relative z-10 px-6 pb-8 sm:px-10 lg:px-16">
       <div
-        className="rise mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-line pt-6 text-xs text-subtle lg:justify-start"
+        className="rise mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 border-t border-line pt-6 text-xs text-subtle lg:justify-between"
         style={{ animationDelay: ATRASO.rodape }}
       >
-        <span className="font-semibold uppercase tracking-widest">Em conformidade</span>
-        <span>Dados isolados por estabelecimento</span>
-        <span aria-hidden="true" className="hidden opacity-40 sm:inline">
-          ·
-        </span>
-        <span>Acesso por papel</span>
-        <span aria-hidden="true" className="hidden opacity-40 sm:inline">
-          ·
-        </span>
-        <span>Consentimento LGPD registrado</span>
+        <span className="font-semibold uppercase tracking-widest">{EMPRESA}</span>
+
+        {/*
+          Os dois contatos andam num invólucro próprio porque o `justify-between` do pai
+          distribui os filhos que encontra: soltos, seriam três blocos espalhados na
+          largura inteira e o Instagram pararia no meio do vazio. Agrupados, o pai vê dois
+          filhos — a assinatura e os contatos —, que é a divisão que se quer ver.
+        */}
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+          {CONTATOS.map((contato) => (
+            /*
+             * O link envolve ícone e texto, e não só o ícone: num rodapé de 12px o glifo
+             * sozinho é um alvo de 18px, abaixo do que um dedo acerta sem mirar. Com o
+             * rótulo junto, o alvo passa de 100px sem mudar nada do que se vê.
+             */
+            <a
+              key={contato.href}
+              href={contato.href}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={contato.descricao}
+              className="inline-flex items-center gap-2 transition-colors hover:text-ink"
+            >
+              {contato.icone}
+              {contato.rotulo}
+            </a>
+          ))}
+        </div>
       </div>
     </div>
   )
