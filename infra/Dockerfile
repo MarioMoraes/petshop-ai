@@ -100,10 +100,34 @@ ENV NODE_ENV=production
 # O `until pg_isready` existe para o Swarm, onde não há `depends_on`: sem ele o
 # migrator perde a corrida com o Postgres num deploy novo e o Swarm o reinicia às
 # cegas, misturando "o banco ainda não subiu" com "a migração falhou" no mesmo log.
+# `PG_URL` é a `DATABASE_URL` SEM a query string, e ela existe por um motivo
+# concreto: `?schema=public` é parâmetro do **Prisma**, e o libpq — que é quem
+# `pg_isready` e `psql` usam — recusa parâmetro que não conhece:
+#
+#     pg_isready: error: invalid URI query parameter: "schema"   (exit 3)
+#
+# Com o `2>&1` que havia aqui antes, esse erro ia para /dev/null e o laço girava
+# para sempre repetindo "esperando o Postgres…" contra um banco que estava
+# saudável o tempo todo. O Prisma continua recebendo a `DATABASE_URL` inteira.
+#
+# O teto de 60 tentativas troca o laço infinito por uma falha legível: o
+# `depends_on` do compose já garante que o Postgres está saudável antes disto
+# rodar, então dois minutos sem resposta é configuração errada, não partida lenta.
 CMD ["sh", "-c", "set -e; \
-  until pg_isready -d \"$DATABASE_URL\" >/dev/null 2>&1; do echo 'migrator: esperando o Postgres…'; sleep 2; done; \
-  psql \"$DATABASE_URL\" -tAc \"SELECT 1 FROM pg_database WHERE datname = 'evolution'\" | grep -q 1 \
-    || psql \"$DATABASE_URL\" -c 'CREATE DATABASE evolution'; \
+  PG_URL=\"${DATABASE_URL%%\\?*}\"; \
+  i=0; \
+  until pg_isready -d \"$PG_URL\" >/dev/null 2>&1; do \
+    i=$((i+1)); \
+    if [ $i -gt 60 ]; then \
+      echo 'migrator: o Postgres não respondeu em 120s. Erro real:'; \
+      pg_isready -d \"$PG_URL\" || true; \
+      exit 1; \
+    fi; \
+    echo \"migrator: esperando o Postgres… ($i/60)\"; \
+    sleep 2; \
+  done; \
+  psql \"$PG_URL\" -tAc \"SELECT 1 FROM pg_database WHERE datname = 'evolution'\" | grep -q 1 \
+    || psql \"$PG_URL\" -c 'CREATE DATABASE evolution'; \
   pnpm --filter @petshop/db exec prisma migrate deploy; \
   pnpm --filter @petshop/db exec tsx prisma/set-role-passwords.ts; \
   pnpm --filter @petshop/db exec tsx prisma/seed.ts"]
