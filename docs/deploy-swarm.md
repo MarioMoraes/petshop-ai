@@ -1,6 +1,6 @@
 # Deploy em Docker Swarm (VPS Hostinger)
 
-Um nó, uma stack, quinze serviços. As imagens são construídas no seu Mac e
+Um nó, uma stack, nove serviços. As imagens são construídas no seu Mac e
 publicadas no ghcr.io; a VPS só puxa e sobe.
 
 ```
@@ -20,10 +20,10 @@ depende:
 | `env_file:` / `--env-file` | carregava o `.env.production` | `set -a; . .env.production` antes do deploy |
 | `restart: unless-stopped` | reiniciava container caído | `deploy.restart_policy` |
 
-O segundo é o que morde. Sem `depends_on`, num banco novo os dez serviços sobem
+O segundo é o que morde. Sem `depends_on`, num banco novo o backend sobe
 antes de a role `app_user` existir — e **não caem**: o Prisma conecta
 preguiçosamente e o `/health` responde `{"status":"ok"}` sem tocar no banco. O
-Swarm mostraria dez serviços verdes servindo 500 em toda requisição.
+Swarm mostraria um serviço verde servindo 500 em toda requisição.
 
 O gate resolve isso perguntando ao banco quantas migrações entraram e comparando
 com quantas a **própria imagem** carrega em `packages/db/prisma/migrations/`. Não
@@ -38,7 +38,7 @@ atendendo enquanto o novo espera — a migração acontece no meio, sem janela d
 ### 0. A VPS
 
 Mínimo confortável: **4 vCPU / 8 GB**. Em repouso a stack fica perto de 3,5 GB
-(dez serviços Node a ~150 MB, o Next, o Postgres, o RabbitMQ, o Gotenberg). Numa
+(o backend, o Next, o Postgres, o RabbitMQ, o Gotenberg, a Evolution). Numa
 de 4 GB ela sobe, mas o `next build` não caberia lá — e não precisa, porque o
 build é no Mac.
 
@@ -94,6 +94,28 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 > o que está lá dentro é o texto cifrado. Guarde-a **fora deste servidor** antes
 > do primeiro cliente real entrar.
 
+### 3.1. Conferir o que você preencheu
+
+```sh
+bash scripts/conferir-ambiente.sh --dns
+```
+
+Não sobe nada — só lê. Existe porque erro de configuração neste projeto quase
+nunca aparece como erro, e sim como um serviço verde servindo coisa errada. Ele
+separa dois níveis:
+
+- **erro** — o deploy não funciona (variável obrigatória vazia, `sk_live_...`
+  deixado como está, senha de role com caractere que o `ALTER ROLE` não aceita,
+  registro de DNS em nuvem laranja);
+- **aviso** — o deploy funciona com um recurso **desligado em silêncio**, e ele
+  diz qual: sem `ANTHROPIC_API_KEY` o agente de IA não responde ninguém embora a
+  tela deixe ligá-lo; sem `RESEND_API_KEY` todo e-mail vira log e consta como
+  enviado; sem `CLERK_WEBHOOK_SECRET` a sincronização de usuário recusa tudo
+  com 401.
+
+`atualizar-vps.sh` roda esta mesma conferência antes do `stack deploy` e aborta
+nos erros, então rodá-la aqui é só antecipar a resposta.
+
 ### 4. Login no ghcr.io
 
 Na VPS, com um PAT clássico do GitHub de escopo `read:packages` — só leitura, e
@@ -116,6 +138,40 @@ Na VPS:
 ```sh
 cd /opt/petshop && git pull && bash scripts/atualizar-vps.sh 0.1.0
 ```
+
+### 6. Depois que a stack subir
+
+Quatro coisas não moram no `.env.production` porque dependem de o endereço já
+estar no ar. Nenhuma delas quebra nada se ficar para depois — cada uma liga um
+pedaço do produto.
+
+**Webhook do Clerk (MOD-IDENT-03).** No painel do Clerk, endpoint
+`https://petshop.officestecnologia.com.br/internal/v1/clerk/webhook`. Ele
+devolve um `whsec_…`: é o `CLERK_WEBHOOK_SECRET`. Sem ele a rota recusa tudo com
+401 e mudança de nome ou e-mail feita no Clerk não desce para o banco.
+
+**Webhook do Resend (MOD-NOTIF-10).** Endpoint
+`https://petshop.officestecnologia.com.br/internal/v1/email/webhook`, e o
+`whsec_…` dele é o `RESEND_WEBHOOK_SECRET`. É por onde bounce e reclamação de
+spam voltam. **É a única superfície de backend que a borda publica** — as duas
+rotas de `/internal/` valem só no domínio da aplicação, nunca nos subdomínios de
+tenant, e o que as protege é inteiramente a assinatura Svix sobre o corpo cru.
+
+**O primeiro administrador de plataforma.** Crie a conta pelo Clerk (ou entre uma
+vez em `https://app.petshop.officestecnologia.com.br`), ponha esse e-mail em
+`PLATFORM_ADMIN_BOOTSTRAP_EMAIL` e redeploy. Vale **só enquanto não houver
+nenhum** administrador ativo; depois disso a concessão é pela tela, com trilha.
+`/plataforma` responde 404 — não 403 — para quem não é da plataforma, então
+"não encontrei a tela" é o sintoma esperado de ainda não ter feito isto.
+
+**Parear o WhatsApp.** Pela tela do CRM em cada estabelecimento. A Evolution não
+tem porta publicada nem rota no Caddy de propósito: ela manda mensagem pelo número
+da empresa, e só o backend fala com ela pela rede interna.
+
+Ordem sugerida: entre em `app.petshop.officestecnologia.com.br`, crie o primeiro
+estabelecimento pelo onboarding, confira que o site dele abre em
+`{slug}.petshop.officestecnologia.com.br` — é o que prova que o wildcard saiu — e
+só então volte para os webhooks.
 
 ---
 

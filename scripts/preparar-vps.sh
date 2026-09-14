@@ -108,7 +108,14 @@ Falta você fazer, nesta ordem:
    o PII de todos os tenants — o backup não salva, porque o que está lá dentro
    é o texto cifrado. Guarde-a FORA deste servidor antes do primeiro cliente.
 
-4. Do seu Mac:   bash scripts/publicar-imagens.sh 0.1.0
-5. Daqui:        bash scripts/atualizar-vps.sh 0.1.0
+4. Conferir o que você preencheu, sem subir nada:
+
+     bash scripts/conferir-ambiente.sh --dns
+
+   Ele separa erro (não sobe) de aviso (sobe com um recurso desligado) e diz,
+   para cada variável em branco, o que exatamente para de funcionar.
+
+5. Do seu Mac:   bash scripts/publicar-imagens.sh 0.1.0
+6. Daqui:        bash scripts/atualizar-vps.sh 0.1.0
 ─────────────────────────────────────────────────────────────────────────────
 FIM

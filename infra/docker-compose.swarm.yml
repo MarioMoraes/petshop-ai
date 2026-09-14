@@ -64,15 +64,34 @@ x-backend: &backend
     EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:?}
     INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?}
     FRONTEND_INTERNAL_URL: http://frontend:3002
-    SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET}
+    # `:?` e não vazio: o par com o frontend só vale se os dois lados tiverem o MESMO
+    # valor, e um segredo em branco de um lado só é justamente o caso que não falha.
+    SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET:?}
     APP_DOMAIN: ${APP_DOMAIN}
     # MOD-ADMIN: o primeiro administrador de plataforma, e só enquanto não houver nenhum.
     # Vazia é o estado normal depois do primeiro deploy.
     PLATFORM_ADMIN_BOOTSTRAP_EMAIL: ${PLATFORM_ADMIN_BOOTSTRAP_EMAIL:-}
     SUPPORT_GRANT_MAX_HOURS: ${SUPPORT_GRANT_MAX_HOURS:-72}
+    # MOD-ADMIN-06 — para quem vai o alarme operacional. Vazia é o padrão e significa
+    # "os administradores de plataforma ativos", que é a lista que anda junto com a
+    # equipe sem precisar de deploy.
+    PLATFORM_ALERT_EMAILS: ${PLATFORM_ALERT_EMAILS:-}
     GOTENBERG_URL: http://gotenberg:3000
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     MAIL_FROM: ${MAIL_FROM:-}
+    # ─── MOD-AI: o agente de atendimento (Fase 8) ───────────────────────────────
+    # A chave é opcional no schema, e a ausência é um estado legítimo: sem ela o
+    # agente se comporta como desligado e toda conversa vai para a recepção (AC-02 de
+    # MOD-AI-07). Esquecê-la **aqui** é que é o erro caro — a tela de configuração
+    # deixa ligar o atendimento automático, o interruptor acende, e nenhuma mensagem
+    # de cliente é respondida. Foi o que faltava passar até 2026-09-14.
+    #
+    # `gemini` existe para desenvolvimento (free tier do AI Studio); produção é
+    # `anthropic`. `GEMINI_MODEL` não é interpolado de propósito: o padrão mora no
+    # schema, e repeti-lo aqui criaria dois lugares para mudar o mesmo valor.
+    AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
   deploy: &backend-deploy
     replicas: 1
     restart_policy: *restart
@@ -273,8 +292,8 @@ services:
         limits: { memory: 768M }
 
   # ─── Serviços ───────────────────────────────────────────────────────────────
-  # O `command` de todos começa pelo gate: sem ele, num banco novo, os dez sobem
-  # antes de a role `app_user` existir e respondem 500 parecendo saudáveis.
+  # O `command` começa pelo gate: sem ele, num banco novo, o backend sobe antes de
+  # a role `app_user` existir e responde 500 parecendo saudável.
   api-gateway:
     <<: *backend
     command:
@@ -306,6 +325,7 @@ services:
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET: ${R2_BUCKET:-petshop-media}
+      R2_REGION: ${R2_REGION:-auto}
       # O canal WhatsApp (MOD-CRM-01) e o retorno do Resend (MOD-NOTIF-10), que vieram
       # com o módulo de mensagens na consolidação.
       EVOLUTION_API_URL: http://evolution:8080
@@ -359,6 +379,13 @@ services:
       # variável o padrão é `localhost:3002` e TODO host cai no Admin — nada fica
       # exposto, mas o site do petshop e o Portal do Tutor não respondem.
       APP_DOMAIN: ${APP_DOMAIN:?}
+      # A outra ponta do segredo de revalidação (AC-03 de MOD-SITE-11). **As duas
+      # pontas ou nenhuma**: o backend já recebia a variável, o frontend não, e
+      # `/api/site/revalidate` respondia 401 a toda invalidação. Nada falha alto —
+      # `revalidateSite` só registra um `warn` — e o sintoma é o site do petshop
+      # servindo horário velho por até dez minutos depois de corrigido, que é
+      # exatamente a promessa que o módulo existe para cumprir.
+      SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET:?}
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?}
       # Assada no bundle do browser em tempo de BUILD. O valor aqui só serve ao
       # lado servidor; trocá-la de verdade exige republicar a imagem do frontend.

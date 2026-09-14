@@ -17,7 +17,14 @@ import { siteTag } from '@/lib/site-api'
  * passar pelo mesmo caminho de `/api/health`.
  */
 
-const SECRET = process.env.SITE_REVALIDATE_SECRET ?? 'dev-site-revalidate-secret'
+/**
+ * `||` e não `??`: variável ausente do `.env.production` chega ao container como
+ * string vazia (`${VAR:-}` nos composes), e o `??` a deixaria passar como segredo
+ * válido — um segredo vazio que só o outro lado saberia não ter. É a mesma regra que
+ * `semVazias` aplica no backend (`packages/service-kit/src/env.ts`); aqui o Next lê
+ * `process.env` direto, sem passar por lá.
+ */
+const SECRET = process.env.SITE_REVALIDATE_SECRET || 'dev-site-revalidate-secret'
 
 export async function POST(request: Request) {
   if (request.headers.get('x-site-revalidate-secret') !== SECRET) {

@@ -2,14 +2,14 @@
 #
 # Imagens de produção do PetShop AI. Três alvos, um estágio de build compartilhado:
 #
-#   --target backend   onze serviços Fastify numa imagem só
+#   --target backend   o backend Fastify (um processo, todos os módulos)
 #   --target frontend  o Next em modo standalone
 #   --target migrator  roda `migrate deploy` + seed e morre
 #
-# Uma imagem para os onze serviços porque eles compartilham as MESMAS dependências
-# (fastify, prisma, ioredis, amqplib): onze imagens seriam o mesmo node_modules
-# multiplicado por onze. O `command` de cada container escolhe qual server.js sobe
-# — ver infra/docker-compose.prod.yml e infra/docker-compose.swarm.yml.
+# Uma imagem só porque o backend é um processo só: a consolidação em monólito modular
+# fechou na fatia 11 e os doze serviços viraram `backend/app`, com as fronteiras de
+# módulo em `src/modules/*` — ver o CLAUDE.md. O `command` do container ainda nomeia o
+# server.js porque em Swarm ele carrega o gate de migração na frente.
 #
 # Build a partir da RAIZ do monorepo:
 #   docker build -f infra/Dockerfile --target backend -t petshop/backend .
@@ -62,7 +62,7 @@ RUN node scripts/verificar-exports.mjs
 # ─── frontend-build ───────────────────────────────────────────────────────────
 # Estágio à parte, e não uma linha a mais em `build`, por causa do cache: a chave
 # publicável do Clerk muda por instância, e se ela vivesse no estágio comum toda
-# troca de ambiente invalidaria também a compilação dos dez serviços.
+# troca de ambiente invalidaria também a compilação do backend.
 FROM build AS frontend-build
 
 # Esta chave PRECISA existir no build. É o SDK React do Clerk que a exige, e o

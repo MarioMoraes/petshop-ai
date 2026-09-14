@@ -44,6 +44,47 @@ describe('defineEnv', () => {
     )
   })
 
+  /**
+   * A armadilha do `${VAR:-}` dos composes: variável ausente do `.env.production` chega
+   * ao container como string vazia, não como ausência. Sem o descarte, os dois casos
+   * abaixo passam pela suíte e só aparecem na VPS — um derruba a subida, o outro cala.
+   */
+  describe('variável vazia conta como ausente', () => {
+    it('não reprova opcional com `min(1)` — era o que impedia o backend de subir', () => {
+      const { loadEnv } = defineEnv('teste', {
+        ...serviceEnvShape,
+        CLERK_WEBHOOK_SECRET: z.string().min(1).optional(),
+        PLATFORM_ADMIN_BOOTSTRAP_EMAIL: z.string().email().optional(),
+      })
+
+      const env = loadEnv({
+        ...VALID,
+        CLERK_WEBHOOK_SECRET: '',
+        PLATFORM_ADMIN_BOOTSTRAP_EMAIL: '',
+      })
+
+      expect(env.CLERK_WEBHOOK_SECRET).toBeUndefined()
+      expect(env.PLATFORM_ADMIN_BOOTSTRAP_EMAIL).toBeUndefined()
+    })
+
+    it('deixa o padrão valer, em vez de aceitar o vazio por cima dele', () => {
+      const { loadEnv } = defineEnv('teste', {
+        ...serviceEnvShape,
+        SITE_REVALIDATE_SECRET: z.string().default('dev-site-revalidate-secret'),
+      })
+
+      expect(loadEnv({ ...VALID, SITE_REVALIDATE_SECRET: '' }).SITE_REVALIDATE_SECRET).toBe(
+        'dev-site-revalidate-secret',
+      )
+    })
+
+    it('continua exigindo o que é obrigatório: vazio não substitui valor', () => {
+      const { loadEnv } = defineEnv('teste', serviceEnvShape)
+
+      expect(() => loadEnv({ ...VALID, DATABASE_URL: '' })).toThrow(/DATABASE_URL/)
+    })
+  })
+
   it('memoiza a leitura, e `resetEnvCache` a solta de novo', () => {
     const { loadEnv, resetEnvCache } = defineEnv('teste', serviceEnvShape)
 

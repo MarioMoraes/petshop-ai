@@ -100,7 +100,7 @@ Um detalhe menor do `Caddyfile`: o `preload` do HSTS só vale para apex, então 
 domínio assim ele é ignorado pela lista — o `max-age` e o `includeSubDomains` seguem
 valendo.
 
-Os onze serviços de backend saem da **mesma imagem** (`infra/Dockerfile`, alvo
+O backend sai de uma **imagem só** (`infra/Dockerfile`, alvo
 `backend`). Eles compartilham as mesmas dependências; onze imagens seriam o mesmo
 `node_modules` onze vezes. O `command` de cada container escolhe qual `server.js`
 sobe.

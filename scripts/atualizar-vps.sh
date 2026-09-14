@@ -36,6 +36,19 @@ if [ "$PERM" != "600" ]; then
   chmod 600 "$ENV_FILE"
 fi
 
+# ── Conferir a configuração ANTES de tocar em qualquer coisa ──────────────────
+# O `${VAR:?}` do stack file já barra o que está vazio, mas só depois de o deploy
+# começar, e ele não tem opinião sobre o que está PREENCHIDO ERRADO: um
+# `sk_live_...` deixado como está, uma senha de role com caractere que o ALTER ROLE
+# não aceita, uma chave de IA em branco que desliga o agente sem avisar ninguém.
+echo "→ conferindo $ENV_FILE"
+if ! ENV_FILE="$ENV_FILE" bash scripts/conferir-ambiente.sh; then
+  echo >&2
+  echo "ERRO: a configuração tem erros. Corrija o $ENV_FILE e rode de novo." >&2
+  echo "      (para conferir sem fazer deploy: bash scripts/conferir-ambiente.sh --dns)" >&2
+  exit 1
+fi
+
 # `docker stack deploy` NÃO lê `env_file` nem `--env-file`: ele interpola a partir
 # do ambiente do shell, e só. Sem este `set -a` todo `${VAR:?}` do stack file
 # aborta o deploy — que é o comportamento desejado, mas pela razão errada.

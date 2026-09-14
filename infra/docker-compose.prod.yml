@@ -37,17 +37,25 @@ x-backend: &backend
     # O site é rota do Next: o serviço precisa alcançá-lo para invalidar a página de
     # um tenant quando o horário ou o catálogo mudam (AC-03 de MOD-SITE-11).
     FRONTEND_INTERNAL_URL: http://frontend:3002
-    SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET}
+    # As duas pontas do segredo precisam do MESMO valor — ver o serviço `frontend`.
+    SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET:?}
     APP_DOMAIN: ${APP_DOMAIN}
     # MOD-ADMIN: o primeiro administrador de plataforma, e só enquanto não houver nenhum.
     # Vazia é o estado normal depois do primeiro deploy.
     PLATFORM_ADMIN_BOOTSTRAP_EMAIL: ${PLATFORM_ADMIN_BOOTSTRAP_EMAIL:-}
     SUPPORT_GRANT_MAX_HOURS: ${SUPPORT_GRANT_MAX_HOURS:-72}
+    # MOD-ADMIN-06 — vazia significa "os administradores de plataforma ativos".
+    PLATFORM_ALERT_EMAILS: ${PLATFORM_ALERT_EMAILS:-}
     GOTENBERG_URL: http://gotenberg:3000
     # Sem elas o e-mail vira log e a mensagem consta como enviada com
     # `provider = 'log'` — ver a nota em `ports/email.ts`.
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     MAIL_FROM: ${MAIL_FROM:-}
+    # MOD-AI — sem chave o agente se comporta como desligado e toda conversa vai para
+    # a recepção (AC-02 de MOD-AI-07). Ver o comentário longo no compose do swarm.
+    AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
   networks: [interna]
 
 services:
@@ -208,6 +216,7 @@ services:
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET: ${R2_BUCKET:-petshop-media}
+      R2_REGION: ${R2_REGION:-auto}
       # O canal WhatsApp (MOD-CRM-01) e o retorno do Resend (MOD-NOTIF-10), que vieram
       # com o módulo de mensagens na consolidação.
       EVOLUTION_API_URL: http://evolution:8080
@@ -228,7 +237,10 @@ services:
       # MOD-IDENT: o link do convite e o prazo dele, que vieram com o módulo na
       # fatia 7. `APP_URL` é a URL pública completa e **não** o `APP_DOMAIN`: o
       # convite vai num e-mail que uma pessoa clica, fora desta rede.
-      APP_URL: https://${APP_DOMAIN}
+      # `app.` e não o ápice: com o roteamento por host (MOD-SITE-11) o Admin tem
+      # endereço próprio, e `/convite` é rota de Admin. O ápice também serve o Admin
+      # hoje, mas o link do convite dura dias — vale apontar para o endereço canônico.
+      APP_URL: https://app.${APP_DOMAIN}
       INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
     healthcheck:
       test: ['CMD', 'curl', '-sf', 'http://localhost:3000/health']
@@ -261,6 +273,10 @@ services:
       # execução, e não como `NEXT_PUBLIC_`: o prefixo público seria inlinado no
       # build e amarraria a imagem a uma instalação.
       APP_DOMAIN: ${APP_DOMAIN}
+      # A outra ponta do segredo de revalidação. Sem ela aqui o frontend cai no padrão
+      # de desenvolvimento, o backend manda o valor real, e `/api/site/revalidate`
+      # responde 401 a toda invalidação — em silêncio, porque a chamada é best-effort.
+      SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET:?}
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
