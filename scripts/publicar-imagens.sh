@@ -61,7 +61,20 @@ if [ -z "$PK" ] && [ -f .env.production ]; then
 fi
 if [ -z "$PK" ]; then
   echo "ERRO: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY não encontrada." >&2
-  echo "      Exporte a variável ou deixe-a em .env.production nesta máquina." >&2
+  echo >&2
+  echo "      Ela é assada no bundle do browser em tempo de BUILD, e o build é aqui —" >&2
+  echo "      por isso a chave precisa existir NESTA máquina. O .env.production mora" >&2
+  echo "      na VPS e normalmente não existe aqui; não é de lá que este script lê." >&2
+  echo >&2
+  echo "      Para reaproveitar a chave de desenvolvimento (fase de testes):" >&2
+  echo "        export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=\$(grep -m1 '^NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=' .env | cut -d= -f2- | tr -d '\"')" >&2
+  echo >&2
+  echo "      Ou exporte a chave da instância de produção:" >&2
+  echo "        export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_..." >&2
+  echo >&2
+  echo "      Seja qual for, o .env.production da VPS precisa ter ESTA MESMA pk_ e o" >&2
+  echo "      sk_ correspondente: frontend e backend têm de falar com a mesma" >&2
+  echo "      instância do Clerk, ou todo login vira 401 depois do deploy." >&2
   exit 1
 fi
 case "$PK" in
