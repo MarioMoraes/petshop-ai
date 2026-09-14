@@ -190,6 +190,13 @@ services:
       NODE_ENV: production
       # Migrations rodam como owner: só ele cria papéis, políticas de RLS e triggers.
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/petshop?schema=public
+      # `directUrl` do schema.prisma. A CLI do Prisma PARSEIA o schema e aborta se a
+      # variável não existir (P1012), mesmo que a URL não fosse usada — foi o que
+      # derrubou o primeiro deploy real. O cliente em runtime não precisa dela, por
+      # isso ela não aparece no backend: só a CLI (migrate/generate) a exige.
+      # Mesmo valor da DATABASE_URL acima: migração roda como owner, e é o owner que
+      # cria role, política de RLS e trigger.
+      DATABASE_MIGRATION_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/petshop?schema=public
       APP_USER_PASSWORD: ${APP_USER_PASSWORD}
       APP_MAINTENANCE_PASSWORD: ${APP_MAINTENANCE_PASSWORD}
       ENCRYPTION_KEK: ${ENCRYPTION_KEK}
