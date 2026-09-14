@@ -99,7 +99,19 @@ opcional() {
   fi
 }
 
-echo "Conferindo $ENV_FILE"
+# ── Qual alvo de deploy? ──────────────────────────────────────────────────────
+# Duas bordas possíveis, e elas pedem coisas diferentes:
+#
+#   • **Caddy nosso** (docker-compose.swarm.yml / .prod.yml) — emite o wildcard
+#     por DNS-01 e por isso EXIGE o token da Cloudflare.
+#   • **Traefik do EasyPanel** (docker-compose.easypanel.yml) — as portas 80/443
+#     já têm dono; quem emite certificado é ele, por HTTP-01, e cada host precisa
+#     estar nomeado em PETSHOP_HOSTS. O token da Cloudflare não é usado.
+#
+# `PETSHOP_HOSTS` só existe no segundo caminho, então ela é o sinal.
+if [ -n "${PETSHOP_HOSTS:-}" ]; then ALVO=easypanel; else ALVO=caddy; fi
+
+echo "Conferindo $ENV_FILE  (borda: $ALVO)"
 
 # ── Permissão ─────────────────────────────────────────────────────────────────
 PERM=$(stat -c '%a' "$ENV_FILE" 2>/dev/null || stat -f '%Lp' "$ENV_FILE")
@@ -109,8 +121,29 @@ if [ "$PERM" = "600" ]; then ok "permissão 600"; else aviso "permissão $PERM (
 # ── Domínio e TLS ─────────────────────────────────────────────────────────────
 titulo "Domínio e TLS"
 obrigatoria APP_DOMAIN "sem ele TODO host cai no Admin e nem o site nem o Portal respondem"
-obrigatoria ACME_EMAIL "é para onde a Let's Encrypt avisa que o certificado expira"
-obrigatoria CLOUDFLARE_API_TOKEN "assina o desafio DNS-01; sem ele não sai certificado wildcard e nenhum petshop abre"
+if [ "$ALVO" = caddy ]; then
+  obrigatoria ACME_EMAIL "é para onde a Let's Encrypt avisa que o certificado expira"
+  obrigatoria CLOUDFLARE_API_TOKEN "assina o desafio DNS-01; sem ele não sai certificado wildcard e nenhum petshop abre"
+else
+  ok "borda é o Traefik do EasyPanel — CLOUDFLARE_API_TOKEN e ACME_EMAIL não são usados"
+  obrigatoria PETSHOP_HOSTS "cada host precisa estar nomeado aqui; sem wildcard, é o que faz o certificado existir"
+  # A linha CRUA do arquivo, e não a variável já carregada. O escape só é problema
+  # para o `docker compose --env-file`, que lê o texto literalmente; o bash que
+  # carregou este script já consumiu a barra invertida, então pela variável o
+  # defeito é invisível. Foi assim que ele passou despercebido na primeira vez.
+  CRUA=$(grep -m1 '^PETSHOP_HOSTS=' "$CAMINHO" || true)
+  case "$CRUA" in
+    *'\`'*) erro 'PETSHOP_HOSTS tem crase escapada (\`). Use ASPAS SIMPLES: o compose entrega a barra invertida ao Traefik e a regra é recusada' ;;
+  esac
+  case "${PETSHOP_HOSTS:-}" in
+    *'`'*) ;;
+    *)     erro "PETSHOP_HOSTS não parece regra do Traefik — esperado algo como: Host(\`app.dominio\`)" ;;
+  esac
+  case "${PETSHOP_HOSTS:-}" in
+    *"app.${APP_DOMAIN:-}"*) ;;
+    *) aviso "PETSHOP_HOSTS não inclui app.${APP_DOMAIN:-} — é o host do Admin; sem ele ninguém entra" ;;
+  esac
+fi
 
 case "${APP_DOMAIN:-}" in
   http*|*/*) erro "APP_DOMAIN deve ser só o domínio, sem esquema e sem barra (está '$APP_DOMAIN')" ;;
@@ -209,7 +242,7 @@ obrigatoria GHCR_NAMESPACE "compõe o nome da imagem"
 titulo "Cobertura (variáveis dos composes sem entrada no exemplo)"
 declare -a nao_cobertas=()
 exportadas_pelo_script=" BACKEND_IMAGE FRONTEND_IMAGE MIGRATOR_IMAGE CADDY_IMAGE IMAGE_TAG STACK_NAME "
-for nome in $(grep -ohE '\$\{[A-Z_][A-Z_0-9]*' infra/docker-compose.swarm.yml infra/docker-compose.prod.yml \
+for nome in $(grep -ohE '\$\{[A-Z_][A-Z_0-9]*' infra/docker-compose.swarm.yml infra/docker-compose.prod.yml infra/docker-compose.easypanel.yml \
                 | sed 's/\${//' | sort -u); do
   case "$exportadas_pelo_script" in *" $nome "*) continue ;; esac
   grep -qE "^${nome}=" .env.production.example || nao_cobertas+=("$nome")

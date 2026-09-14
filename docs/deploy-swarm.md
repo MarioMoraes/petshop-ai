@@ -37,10 +37,18 @@ atendendo enquanto o novo espera — a migração acontece no meio, sem janela d
 
 ### 0. A VPS
 
-Mínimo confortável: **4 vCPU / 8 GB**. Em repouso a stack fica perto de 3,5 GB
-(o backend, o Next, o Postgres, o RabbitMQ, o Gotenberg, a Evolution). Numa
-de 4 GB ela sobe, mas o `next build` não caberia lá — e não precisa, porque o
-build é no Mac.
+Mínimo confortável: **2 vCPU / 4 GB**. Em repouso a stack fica perto de **1 GB**
+— backend ~200 MB, Next ~200 MB, Postgres ~150 MB, RabbitMQ ~130 MB, Evolution
+~250 MB, Redis e Gotenberg o resto. (O número anterior, 3,5 GB, era da era dos dez
+serviços Node; a consolidação em monólito o derrubou e a linha tinha ficado para trás.)
+
+O que o número de repouso esconde: o Gotenberg sobe um Chromium para cada PDF, e
+ali são +500 MB e um núcleo inteiro por alguns segundos. **Com 1 vCPU e sem swap,
+é esse pico que mata** — o OOM killer escolhe a vítima, e ela pode ser o Postgres.
+Swap não substitui memória, mas transforma um kill em lentidão.
+
+O `next build` não cabe numa máquina desse porte — e não precisa, porque o build é
+no Mac.
 
 ```sh
 ssh root@<ip>

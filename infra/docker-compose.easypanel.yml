@@ -1,0 +1,340 @@
+# Stack do PetShop AI para uma VPS que JÁ RODA EASYPANEL.
+#
+#   cd /opt/petshop
+#   docker compose -f infra/docker-compose.easypanel.yml --env-file .env.production up -d
+#
+# ═══ Por que este arquivo existe, e não o swarm/prod ═════════════════════════
+#
+# O `docker-compose.swarm.yml` assume que as portas 80 e 443 estão livres e sobe
+# o nosso Caddy nelas. Nesta máquina elas são do **Traefik do EasyPanel**, e dois
+# proxies na mesma porta significam que o segundo simplesmente não sobe. Aqui não
+# há Caddy: a stack se anuncia ao Traefik por labels, como a stack da imobiliária
+# (`/opt/offices/docker-compose.easypanel.yml`) já faz.
+#
+# O que se perde junto com o Caddy, e é bom saber:
+#   • **O certificado wildcard.** O nosso Caddy o emitia por DNS-01 com o token
+#     da Cloudflare. O Traefik do EasyPanel emite por HTTP-01, que não faz
+#     wildcard — então cada host precisa ser NOMEADO em `PETSHOP_HOSTS` abaixo.
+#     Serve para uma fase de teste com poucos estabelecimentos; não escala para
+#     clientes de verdade, e é a dívida a pagar antes disso.
+#   • **O `CLOUDFLARE_API_TOKEN` deixa de ser usado.** Pode ficar vazio.
+#   • A CSP em modo relatório e os cabeçalhos de segurança do Caddyfile. O
+#     Traefik do EasyPanel não os aplica; voltam quando a borda voltar a ser nossa.
+#
+# ── Por que cada label aparece DUAS vezes ────────────────────────────────────
+# Esta máquina roda o EasyPanel em Swarm, mas esta stack sobe por `docker
+# compose`. O Traefik lê labels do CONTAINER no provider Docker e do SERVIÇO
+# (`deploy.labels`) no provider Swarm. Declarar nos dois lugares, com valores
+# idênticos, faz o arquivo funcionar dos dois jeitos. **Mexeu numa regra, mexa
+# nas duas cópias.**
+
+name: petshop
+
+x-backend-env: &backend-env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD:?}@postgres:5432/petshop?schema=public
+  DATABASE_MAINTENANCE_URL: postgresql://app_maintenance:${APP_MAINTENANCE_PASSWORD:?}@postgres:5432/petshop?schema=public
+  REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+  RABBITMQ_URL: amqp://petshop:${RABBITMQ_PASSWORD:?}@rabbitmq:5672
+  ENCRYPTION_KEK: ${ENCRYPTION_KEK:?}
+  EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:?}
+  INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?}
+  FRONTEND_INTERNAL_URL: http://frontend:3002
+  # As duas pontas do mesmo segredo — ver o serviço `frontend`.
+  SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET:?}
+  APP_DOMAIN: ${APP_DOMAIN:?}
+  PLATFORM_ADMIN_BOOTSTRAP_EMAIL: ${PLATFORM_ADMIN_BOOTSTRAP_EMAIL:-}
+  PLATFORM_ALERT_EMAILS: ${PLATFORM_ALERT_EMAILS:-}
+  SUPPORT_GRANT_MAX_HOURS: ${SUPPORT_GRANT_MAX_HOURS:-72}
+  GOTENBERG_URL: http://gotenberg:3000
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  MAIL_FROM: ${MAIL_FROM:-}
+  AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+
+services:
+  # ─── Dependências ───────────────────────────────────────────────────────────
+  # Todas na rede `interna` e sem `ports`: nada delas é alcançável de fora, nem
+  # pela stack da imobiliária.
+  #
+  # Um Postgres PRÓPRIO, e não o `offices-ai-postgres-1` que já roda nesta
+  # máquina. O motivo não é isolamento teórico: as migrations dos dois produtos
+  # criam uma role chamada `app_user` — literalmente a mesma — e role no Postgres
+  # é do CLUSTER, não do database. Numa instância só, cada deploy reescreveria a
+  # senha e derrubaria a autenticação do outro produto, de forma intermitente e
+  # sem relação óbvia com a causa. Unificar exige renomear as roles do petshop,
+  # o que mexe na camada de RLS; fica para depois do primeiro deploy de pé.
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: petshop
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d petshop']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [interna]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:?}']
+    volumes:
+      - redis-data:/data
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [interna]
+
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: petshop
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks: [interna]
+
+  # O Gotenberg sobe um Chromium por PDF: +500 MB e um núcleo por alguns
+  # segundos. Numa máquina de 1 vCPU sem swap, é este pico que mata — e o OOM
+  # killer escolhe a vítima, que pode ser o Postgres da imobiliária. Crie swap
+  # (ver docs/deploy-easypanel.md) antes de emitir o primeiro relatório.
+  # Se a memória apertar, este é o primeiro serviço a cortar: já existe um
+  # `offices-ai-gotenberg-1` nesta máquina para reaproveitar.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '--silent', '--fail', 'http://localhost:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [interna]
+
+  evolution:
+    # Tag fixa: uma sessão pareada é estado, e uma atualização silenciosa
+    # desconectaria todos os petshops de uma vez. É a MESMA versão que a
+    # imobiliária já roda — o segundo candidato a ser reaproveitado se faltar
+    # memória, lembrando que aí um restart afeta o WhatsApp dos dois produtos.
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      SERVER_URL: http://evolution:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?}
+      DATABASE_ENABLED: 'true'
+      DATABASE_PROVIDER: postgresql
+      # O database `evolution` é criado pelo migrator — aqui não há
+      # `docker-entrypoint-initdb.d` montado.
+      DATABASE_CONNECTION_URI: postgresql://postgres:${POSTGRES_PASSWORD:?}@postgres:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: petshop
+      DATABASE_SAVE_DATA_INSTANCE: 'true'
+      # O histórico é do produto, cifrado com a DEK do tenant. Uma segunda cópia
+      # em claro aqui seria dado pessoal fora de todo o controle do MOD-CRM.
+      DATABASE_SAVE_DATA_NEW_MESSAGE: 'false'
+      DATABASE_SAVE_MESSAGE_UPDATE: 'false'
+      DATABASE_SAVE_DATA_CONTACTS: 'false'
+      DATABASE_SAVE_DATA_CHATS: 'false'
+      CACHE_REDIS_ENABLED: 'true'
+      CACHE_REDIS_URI: redis://:${REDIS_PASSWORD:?}@redis:6379/7
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_LOCAL_ENABLED: 'false'
+      WEBHOOK_GLOBAL_ENABLED: 'false'
+      DEL_INSTANCE: 'false'
+      LOG_LEVEL: ERROR,WARN
+    volumes:
+      - evolution-instances:/evolution/instances
+    networks: [interna]
+
+  # ─── Migração ───────────────────────────────────────────────────────────────
+  # Roda uma vez por `up`, antes de tudo. Aqui o `depends_on` FUNCIONA (é compose,
+  # não Swarm), então não há gate: `service_completed_successfully` segura os
+  # outros. Se a migração falhar, nada sobe com o schema errado.
+  migrator:
+    image: ${MIGRATOR_IMAGE:?defina MIGRATOR_IMAGE, ex. ghcr.io/mariomoraes/petshop-migrator:0.1.0}
+    restart: 'no'
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      # Como owner: só ele cria roles, políticas de RLS e triggers.
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?}@postgres:5432/petshop?schema=public
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?}
+      APP_MAINTENANCE_PASSWORD: ${APP_MAINTENANCE_PASSWORD:?}
+      ENCRYPTION_KEK: ${ENCRYPTION_KEK:?}
+      EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:?}
+    networks: [interna]
+
+  # ─── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    image: ${BACKEND_IMAGE:?defina BACKEND_IMAGE, ex. ghcr.io/mariomoraes/petshop-backend:0.1.0}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      migrator: { condition: service_completed_successfully }
+    environment:
+      <<: *backend-env
+      GATEWAY_PORT: 3000
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?}
+      CLERK_WEBHOOK_SECRET: ${CLERK_WEBHOOK_SECRET:-}
+      # Origens exatas: o `@clerk/backend` compara com `includes(azp)`, sem
+      # curinga. Para `/portal/v1` o host do tenant é derivado do slug em tempo
+      # de requisição (`portalAuthorizedParty` em app.ts) — mais estreito que um
+      # curinga, e é o que dispensa enumerar tenant aqui.
+      CLERK_AUTHORIZED_PARTIES: https://app.${APP_DOMAIN:?},https://${APP_DOMAIN}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-petshop-media}
+      R2_REGION: ${R2_REGION:-auto}
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
+      # Rede interna: este webhook nunca passa pela borda.
+      EVOLUTION_WEBHOOK_URL: http://backend:3000/internal/v1/whatsapp/webhook
+      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+      VIACEP_BASE_URL: ${VIACEP_BASE_URL:-https://viacep.com.br/ws}
+      CEP_LOOKUP_TIMEOUT_MS: ${CEP_LOOKUP_TIMEOUT_MS:-3000}
+      INACTIVITY_THRESHOLD_DAYS: ${INACTIVITY_THRESHOLD_DAYS:-90}
+      # URL pública completa, para o link do convite que vai num e-mail.
+      APP_URL: https://app.${APP_DOMAIN:?}
+      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3000/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - interna
+      - traefik
+    # **Só os dois webhooks de provedor são publicados.** O resto de `/v1` não
+    # tem rota na borda: o cliente HTTP do frontend é `server-only`, então o
+    # navegador nunca fala com o backend e a superfície pública da API é zero.
+    # Os dois valem só no domínio da aplicação, nunca em host de tenant — webhook
+    # é da instalação, não de um petshop —, e o que os protege é a assinatura
+    # Svix sobre o corpo cru.
+    labels: &backend-labels
+      traefik.enable: 'true'
+      # Duas grafias do mesmo conceito: o provider Docker lê
+      # `traefik.docker.network`, o provider Swarm da v3 lê `traefik.swarm.network`.
+      # O serviço está em duas redes; sem isto o Traefik pode escolher a `interna`
+      # e não alcançar o container.
+      traefik.docker.network: ${TRAEFIK_NETWORK:-easypanel}
+      traefik.swarm.network: ${TRAEFIK_NETWORK:-easypanel}
+      traefik.http.routers.petshop-backend.rule: Host(`${APP_DOMAIN:?}`) && PathPrefix(`/internal/v1/`)
+      traefik.http.routers.petshop-backend.entrypoints: ${TRAEFIK_ENTRYPOINT:-https}
+      traefik.http.routers.petshop-backend.tls.certresolver: ${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      # Acima do frontend: a regra dele pega tudo e engoliria `/internal`.
+      # E acima de 2, porque o EasyPanel mantém um router `https-error-page` com
+      # `HostRegexp(.+)` e priority 1 — empatar com ele é sorteio.
+      traefik.http.routers.petshop-backend.priority: '200'
+      traefik.http.services.petshop-backend.loadbalancer.server.port: '3000'
+    deploy:
+      labels: *backend-labels
+
+  # ─── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    image: ${FRONTEND_IMAGE:?defina FRONTEND_IMAGE, ex. ghcr.io/mariomoraes/petshop-frontend:0.1.0}
+    restart: unless-stopped
+    stop_grace_period: 20s
+    depends_on:
+      backend: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      # Nome de serviço, não domínio: o cliente é `server-only` e a chamada não
+      # sai da rede interna.
+      API_URL: http://backend:3000
+      # É daqui que o middleware tira qual host é de tenant e qual é do Admin.
+      # Em tempo de execução, e não `NEXT_PUBLIC_`: o prefixo público seria
+      # inlinado no build e amarraria a imagem a uma instalação. Sem esta
+      # variável o padrão é `localhost:3002` e TODO host cai no Admin — nada fica
+      # exposto, mas o site do petshop e o Portal do Tutor não respondem.
+      APP_DOMAIN: ${APP_DOMAIN:?}
+      # A outra ponta do segredo de revalidação (AC-03 de MOD-SITE-11). As duas
+      # ou nenhuma: se divergirem, `/api/site/revalidate` responde 401 a toda
+      # invalidação — em silêncio, porque a chamada é best-effort — e o site do
+      # petshop serve horário velho por até dez minutos depois de corrigido.
+      SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET:?}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?}
+      # Assada no bundle do browser em tempo de BUILD. O valor aqui só serve ao
+      # lado servidor; trocá-la de verdade exige republicar a imagem do frontend.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:?}
+      NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+      NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+    healthcheck:
+      # O Next responde 307 para o login em `/`; sem `-f`, qualquer resposta HTTP
+      # serve. O que se quer saber é se o processo atende.
+      test: ['CMD-SHELL', 'curl -s -o /dev/null http://localhost:3002/ || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - interna
+      - traefik
+    labels: &frontend-labels
+      traefik.enable: 'true'
+      traefik.docker.network: ${TRAEFIK_NETWORK:-easypanel}
+      traefik.swarm.network: ${TRAEFIK_NETWORK:-easypanel}
+      # ── A regra de host, e por que ela é uma lista ────────────────────────
+      # O petshop endereça por host: o ápice e `app.` servem o Admin, e cada
+      # `{slug}.` serve o site público do estabelecimento e o Portal do Tutor.
+      # Com o nosso Caddy isso era um wildcard, emitido por DNS-01.
+      #
+      # O Traefik do EasyPanel emite por HTTP-01, que **não faz wildcard**: cada
+      # host precisa ser nomeado para que o certificado dele exista. Daí
+      # `PETSHOP_HOSTS` — uma expressão de regra do Traefik, no .env.production:
+      #
+      #   PETSHOP_HOSTS=Host(`petshop.x.com.br`) || Host(`app.petshop.x.com.br`) || Host(`joao.petshop.x.com.br`)
+      #
+      # Cada estabelecimento novo entra aqui e pede um `up -d` — o preço de não
+      # ter wildcard, e a razão de isto servir a uma fase de teste e não a
+      # clientes de verdade.
+      traefik.http.routers.petshop-frontend.rule: ${PETSHOP_HOSTS:?defina PETSHOP_HOSTS no .env.production}
+      traefik.http.routers.petshop-frontend.entrypoints: ${TRAEFIK_ENTRYPOINT:-https}
+      traefik.http.routers.petshop-frontend.tls.certresolver: ${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      traefik.http.routers.petshop-frontend.priority: '100'
+      traefik.http.services.petshop-frontend.loadbalancer.server.port: '3002'
+    deploy:
+      labels: *frontend-labels
+
+networks:
+  # Privada desta stack: banco, fila, cache e Evolution só existem aqui dentro.
+  # A stack da imobiliária tem a sua, com o mesmo papel e sem contato com esta.
+  interna:
+  # Onde o Traefik do EasyPanel já está. `external: true` porque quem a criou foi
+  # o EasyPanel — esta stack se conecta, não a gerencia.
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK:-easypanel}
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  # Pareamento do aparelho. Apagar este volume DESPAREIA o WhatsApp de todos os
+  # estabelecimentos e exige ler o QR de novo.
+  evolution-instances:
