@@ -170,7 +170,6 @@ function Trilha({ itens, cursor }: { itens: AuditLogEntry[]; cursor: string | nu
       {proximo && (
         <Button
           type="button"
-          variant="ghost"
           className="mt-4 h-9"
           onClick={carregarMais}
           busy={carregando}
@@ -242,7 +241,6 @@ function Eventos({ resumo }: { resumo: SecurityEventSummary[] }) {
           {detalhe === null ? (
             <Button
               type="button"
-              variant="ghost"
               className="mt-4 h-9"
               onClick={abrirDetalhe}
               busy={carregando}

@@ -125,7 +125,7 @@ export function ServicesManager({ services, sizes }: Props) {
           }
         />
       ) : (
-        <Button type="button" variant="ghost" onClick={() => setCreating(true)}>
+        <Button type="button" onClick={() => setCreating(true)}>
           Adicionar serviço
         </Button>
       )}
@@ -216,16 +216,10 @@ function ServiceRow({
         </div>
 
         <div className="flex shrink-0 gap-2">
-          <Button type="button" variant="ghost" onClick={onToggle}>
+          <Button type="button" variant={expanded ? 'ghost' : 'primary'} onClick={onToggle}>
             {expanded ? 'Fechar' : 'Preços'}
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            busy={pending}
-            onClick={onToggleActive}
-            busyLabel="Salvando…"
-          >
+          <Button type="button" busy={pending} onClick={onToggleActive} busyLabel="Salvando…">
             {service.active ? 'Desativar' : 'Reativar'}
           </Button>
         </div>
@@ -295,14 +289,7 @@ function ServiceRow({
           )}
 
           <div className="mt-5 flex flex-wrap justify-between gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-danger"
-              busy={pending}
-              onClick={onDelete}
-              busyLabel="Excluindo…"
-            >
+            <Button type="button" busy={pending} onClick={onDelete} busyLabel="Excluindo…">
               Excluir serviço
             </Button>
             <Button

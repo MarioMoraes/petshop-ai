@@ -110,7 +110,7 @@ export function DateRail({
       */}
       <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
         {date !== today && (
-          <Button type="button" variant="ghost" onClick={() => onPick(today)}>
+          <Button type="button" onClick={() => onPick(today)}>
             Hoje
           </Button>
         )}

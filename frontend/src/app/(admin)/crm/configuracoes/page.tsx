@@ -62,11 +62,7 @@ export default async function CrmConfigPage() {
             ? 'O envio automático está ligado'
             : 'O envio automático está desligado'
       }
-      actions={
-        <ButtonLink href="/crm/textos" variant="ghost">
-          Textos
-        </ButtonLink>
-      }
+      actions={<ButtonLink href="/crm/textos">Textos</ButtonLink>}
     />
   )
 

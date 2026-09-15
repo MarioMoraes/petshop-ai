@@ -134,7 +134,6 @@ function CampaignRow({
           {campaign.lastRun && (
             <Button
               type="button"
-              variant="ghost"
               onClick={async () => {
                 onError(null)
                 const result = await listCampaignTargetsAction(campaign.lastRun!.id)
@@ -359,7 +358,7 @@ function TargetsModal({
       title={campaign.name}
       subtitle={`${sent.length} receberam · ${skipped.length} ficaram de fora`}
       footer={
-        <Button type="button" variant="ghost" onClick={onClose}>
+        <Button type="button" onClick={onClose}>
           Fechar
         </Button>
       }

@@ -64,11 +64,7 @@ export default async function AtendimentosPage({ searchParams }: PageProps) {
             ? 'O serviço não respondeu'
             : 'O que os clientes mandaram pelo WhatsApp do estabelecimento.'
         }
-        actions={
-          <ButtonLink href="/crm/atendimentos/qualidade" variant="ghost">
-            Qualidade
-          </ButtonLink>
-        }
+        actions={<ButtonLink href="/crm/atendimentos/qualidade">Qualidade</ButtonLink>}
       />
 
       {failed ? (

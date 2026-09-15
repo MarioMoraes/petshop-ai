@@ -207,7 +207,7 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
                 </p>
                 <p className="hint">{pet.tutorName}</p>
               </div>
-              <Button type="button" variant="ghost" onClick={() => setPet(null)}>
+              <Button type="button" onClick={() => setPet(null)}>
                 Trocar
               </Button>
             </div>
@@ -327,7 +327,6 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
                 {nextAvailable && (
                   <Button
                     type="button"
-                    variant="ghost"
                     className="mt-2"
                     onClick={() => setDate(dayKey(nextAvailable, timezone))}
                   >

@@ -166,7 +166,6 @@ export function TimelineTab({
       {cursor && (
         <Button
           type="button"
-          variant="ghost"
           className="w-full"
           busy={carregando}
           onClick={carregarMais}
@@ -437,24 +436,13 @@ function AttendanceDetail({
 
       <div className="flex flex-wrap gap-2">
         {canWrite && (
-          <Button
-            type="button"
-            variant="ghost"
-            busy={salvando}
-            onClick={salvar}
-            busyLabel="Salvando…"
-          >
+          <Button type="button" busy={salvando} onClick={salvar} busyLabel="Salvando…">
             {attendance.editable ? 'Salvar correção' : 'Adicionar adendo'}
           </Button>
         )}
 
         {canVoid && !anulando && (
-          <Button
-            type="button"
-            variant="ghost"
-            className="text-danger"
-            onClick={() => setAnulando(true)}
-          >
+          <Button type="button" onClick={() => setAnulando(true)}>
             Anular atendimento
           </Button>
         )}
@@ -573,7 +561,7 @@ function BeforeAfter({
               )}
 
               {canUpload && !photo && (
-                <label className="btn btn-ghost w-full cursor-pointer text-sm">
+                <label className="btn btn-primary w-full cursor-pointer text-sm">
                   {enviando ? 'Enviando…' : `Enviar ${label.toLowerCase()}`}
                   <input
                     type="file"
@@ -690,7 +678,7 @@ function Prescriptions({
       <FormError message={erro} />
 
       {canPrescribe && (
-        <Button type="button" variant="ghost" onClick={() => setEmitindo(true)}>
+        <Button type="button" onClick={() => setEmitindo(true)}>
           Emitir receituário
         </Button>
       )}
@@ -1005,11 +993,7 @@ function PrescriptionForm({
 
         {items.length < 20 && (
           <div>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setItems((atual) => [...atual, novoItem()])}
-            >
+            <Button type="button" onClick={() => setItems((atual) => [...atual, novoItem()])}>
               Adicionar medicamento
             </Button>
           </div>

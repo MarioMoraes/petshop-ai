@@ -119,7 +119,6 @@ function MasterSwitch({
         </div>
         <Button
           type="button"
-          variant={settings.enabled ? 'ghost' : 'primary'}
           busy={pending}
           onClick={() => toggle(!settings.enabled)}
           busyLabel="Salvando…"
@@ -728,7 +727,6 @@ function Suppressions({
               </div>
               <Button
                 type="button"
-                variant="ghost"
                 className="px-3 py-1 text-xs"
                 busy={pending}
                 onClick={() => remove(suppression.id)}

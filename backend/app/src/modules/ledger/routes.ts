@@ -16,6 +16,7 @@ import {
   UpdateServicePackageSchema,
   todayIn,
   zonedDayRange,
+  FinanceIndicatorsQuerySchema,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
@@ -38,6 +39,7 @@ import {
 } from './packages.js'
 import { getPayment, listPayments, recordPayment, reversePayment } from './payments.js'
 import { getReceiptForPayment } from './receipts.js'
+import { financeIndicators } from './indicators.js'
 import { cashflowByMethod, receivablesByBucket } from './reconciliation.js'
 import { accountsReceivableReport, receiptsByDayReport } from './reports.js'
 import { renderAccountsReceivableHtml, renderReceiptsByDayHtml } from './report-template.js'
@@ -276,6 +278,12 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
 
   app.get('/v1/ledger/reports/receivables', CONFIGURE, async (request) => {
     return receivablesByBucket(actorFrom(request).tenantId)
+  })
+
+  /** Prazo de recebimento, adesão a pacotes e crédito vencido — a faixa do Início. */
+  app.get('/v1/ledger/reports/indicators', CONFIGURE, async (request) => {
+    const query = parseInput(FinanceIndicatorsQuerySchema, request.query)
+    return financeIndicators(actorFrom(request).tenantId, query.days)
   })
 
   /**

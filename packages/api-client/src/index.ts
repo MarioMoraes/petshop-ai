@@ -14,6 +14,7 @@ import {
   PaginatedPetsSchema,
   PaginatedTutorsSchema,
   PortalAdoptionSchema,
+  PortfolioQualitySchema,
   AllergyCheckResultSchema,
   AllergySchema,
   AttendanceSchema,
@@ -26,6 +27,7 @@ import {
   type PublishTermVersionInput,
   type TermKind,
   PetClinicalSummarySchema,
+  CriticalPetsSchema,
   TimelinePageSchema,
   ManagedBreedSchema,
   MedicalAlertSchema,
@@ -51,6 +53,7 @@ import {
   PaymentSchema,
   ReceiptSchema,
   ReceivablesSchema,
+  FinanceIndicatorsSchema,
   AccountsReceivableReportSchema,
   ReceiptsByDayReportSchema,
   CashflowSchema,
@@ -62,6 +65,7 @@ import {
   DayViewSchema,
   MovementResponseSchema,
   BookingSourcesSchema,
+  NoShowReportSchema,
   AvailableTaxiDriverSchema,
   ClosedTaxiRideSchema,
   AutomationResponseSchema,
@@ -730,6 +734,14 @@ export function createApiClient(options: ApiClientOptions) {
         schema: PortalAdoptionSchema,
       }),
 
+    /** Cadastros completos e opt-in de marketing no WhatsApp, sobre a carteira ativa. */
+    getPortfolioQuality: () =>
+      request({
+        method: 'GET',
+        path: '/v1/tutors/reports/portfolio',
+        schema: PortfolioQualitySchema,
+      }),
+
     createTutor: (input: CreateTutorInput) =>
       request({ method: 'POST', path: '/v1/tutors', body: input, schema: TutorDetailSchema }),
 
@@ -1052,6 +1064,14 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'GET',
         path: `/v1/pets/${petId}/summary`,
         schema: PetClinicalSummarySchema,
+      }),
+
+    /** Quantos pets têm alerta crítico ativo, e de que origem. */
+    getCriticalPets: () =>
+      request({
+        method: 'GET',
+        path: '/v1/records/reports/critical-pets',
+        schema: CriticalPetsSchema,
       }),
 
     getAttendance: (id: string) =>
@@ -1545,6 +1565,14 @@ export function createApiClient(options: ApiClientOptions) {
         schema: BookingSourcesSchema,
       }),
 
+    /** As faltas do período, contadas pela data do atendimento, e o valor que não entrou. */
+    getNoShows: (query: { days?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/agenda/reports/no-shows${toQueryString(query)}`,
+        schema: NoShowReportSchema,
+      }),
+
     // ─── MOD-TAXI (PRD taxi_dog_07 §5) ────────────────────────────────────────
 
     getTaxiSettings: () =>
@@ -2002,6 +2030,14 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'GET',
         path: '/v1/ledger/reports/receivables',
         schema: ReceivablesSchema,
+      }),
+
+    /** Prazo médio de recebimento, adesão a pacotes e crédito vencido sem uso. */
+    getFinanceIndicators: (query: { days?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/ledger/reports/indicators${toQueryString(query)}`,
+        schema: FinanceIndicatorsSchema,
       }),
 
     /** Sem `from`/`to`, o dia de hoje no fuso do estabelecimento. */

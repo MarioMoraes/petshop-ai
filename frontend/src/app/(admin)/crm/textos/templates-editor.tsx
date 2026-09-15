@@ -252,24 +252,11 @@ function TemplateForm({ template }: { template: ResolvedTemplate }) {
         <Button type="button" busy={pending} disabled={!dirty} onClick={save} busyLabel="Salvando…">
           Salvar
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          busy={pending}
-          onClick={runPreview}
-          busyLabel="Gerando…"
-        >
+        <Button type="button" busy={pending} onClick={runPreview} busyLabel="Gerando…">
           Ver como fica
         </Button>
         {!template.isDefault && (
-          <Button
-            type="button"
-            variant="ghost"
-            className="text-danger"
-            busy={pending}
-            onClick={reset}
-            busyLabel="Restaurando…"
-          >
+          <Button type="button" busy={pending} onClick={reset} busyLabel="Restaurando…">
             Voltar ao texto padrão
           </Button>
         )}

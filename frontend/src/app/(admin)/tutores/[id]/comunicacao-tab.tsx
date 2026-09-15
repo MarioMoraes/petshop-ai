@@ -63,7 +63,6 @@ export function ComunicacaoTab({ tutorId, initial, canSend }: Props) {
         <div className="flex items-center justify-between gap-3">
           <Button
             type="button"
-            variant="ghost"
             busy={pending}
             disabled={page.page <= 1}
             onClick={() => go(page.page - 1)}
@@ -76,7 +75,6 @@ export function ComunicacaoTab({ tutorId, initial, canSend }: Props) {
           </p>
           <Button
             type="button"
-            variant="ghost"
             busy={pending}
             disabled={page.page >= totalPages}
             onClick={() => go(page.page + 1)}

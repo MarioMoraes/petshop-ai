@@ -95,13 +95,7 @@ export function FleetEditor({ vehicles }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-medium text-fg">Frota</h2>
         {!criando && (
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-9"
-            disabled={pending}
-            onClick={() => setCriando(true)}
-          >
+          <Button type="button" className="h-9" disabled={pending} onClick={() => setCriando(true)}>
             Novo veículo
           </Button>
         )}

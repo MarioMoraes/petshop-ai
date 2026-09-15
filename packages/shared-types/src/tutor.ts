@@ -594,6 +594,23 @@ export const PortalAdoptionSchema = z.object({
 })
 export type PortalAdoption = z.infer<typeof PortalAdoptionSchema>
 
+// ─── Qualidade da carteira (painel do Início) ────────────────────────────────
+
+/**
+ * O quanto a carteira ativa sustenta automação: cadastro completo e opt-in de WhatsApp.
+ *
+ * Os dois são tetos, e não metas. `complete` limita tudo o que depende de dado confiável
+ * sobre o tutor; `whatsappMarketing` é o alcance máximo de uma campanha nesse canal,
+ * porque sem consentimento vigente de marketing a mensagem não sai (RN-01 do MOD-CRM).
+ * `active` vem na mesma resposta para que a razão seja entre números do mesmo instante.
+ */
+export const PortfolioQualitySchema = z.object({
+  active: z.number().int(),
+  complete: z.number().int(),
+  whatsappMarketing: z.number().int(),
+})
+export type PortfolioQuality = z.infer<typeof PortfolioQualitySchema>
+
 // ─── Pedido de exclusão de dados (LGPD art. 18, V) ───────────────────────────
 
 /**

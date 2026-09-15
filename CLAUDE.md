@@ -14,6 +14,8 @@ O resumo que mais importa:
 - um tom de ícone por formulário, o do domínio no menu lateral, repetido em todas as
   seções;
 - nenhum controle nativo sem estilo: `<Choice>`, `<Segmented>`, `.check`, `.field`;
+- botão é escuro (`primary`), no topo e dentro da tela; `ghost` só para desistir
+  (Cancelar, Voltar, Fechar) ao lado da ação que grava, e destrutivo sem `text-danger`;
 - alerta é `<Alert>`; barra de ação de formulário de página inteira é `<FormActions>`;
 - formulário que responde a **uma linha de uma lista** é `<Modal>`, nunca um painel
   aberto dentro do cartão.

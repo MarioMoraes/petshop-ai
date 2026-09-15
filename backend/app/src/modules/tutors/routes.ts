@@ -29,6 +29,7 @@ import { findProbableDuplicates, toSearchKeys } from './dedupe.js'
 import { mergeTutors } from './merge.js'
 import { exportTutor, getTutorOverview } from './overview.js'
 import { portalAdoption } from './portal-adoption.js'
+import { portfolioQuality } from './portfolio.js'
 import {
   countOpenDeletionRequests,
   listDeletionRequests,
@@ -123,6 +124,18 @@ export async function registerTutorRoutes(app: FastifyInstance): Promise<void> {
       const query = parseInput(PortalAdoptionQuerySchema, request.query)
       return portalAdoption(auth.tenantId, query.days)
     },
+  )
+
+  /**
+   * Qualidade da carteira — cadastros completos e opt-in de WhatsApp, na faixa "Sua base".
+   *
+   * `tutor:read`, o mesmo gate da contagem de tutores ao lado: os dois números são o
+   * estado do cadastro, e quem vê a carteira vê o quanto ela está preenchida.
+   */
+  app.get(
+    '/v1/tutors/reports/portfolio',
+    { preHandler: requirePermission('tutor:read') },
+    async (request) => portfolioQuality(requireTenantContext(request).tenantId),
   )
 
   app.get('/v1/tutors/tags', { preHandler: requirePermission('tutor:read') }, async (request) => {

@@ -51,7 +51,7 @@ export function ReportFilters({ basePath, pdfHref, children, onSubmitLabel = 'Ap
       {children}
 
       <div className="ml-auto flex items-center gap-2">
-        <Button type="submit" variant="ghost" busy={pending} busyLabel="Carregando…">
+        <Button type="submit" busy={pending} busyLabel="Carregando…">
           {onSubmitLabel}
         </Button>
         {/*
@@ -71,9 +71,5 @@ export function ReportFilters({ basePath, pdfHref, children, onSubmitLabel = 'Ap
 
 /** Volta ao menu. Sempre no mesmo canto, nos dois relatórios. */
 export function BackToCobranca() {
-  return (
-    <ButtonLink href="/cobranca" variant="ghost">
-      Voltar
-    </ButtonLink>
-  )
+  return <ButtonLink href="/cobranca">Voltar</ButtonLink>
 }

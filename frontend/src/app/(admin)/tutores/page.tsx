@@ -133,18 +133,14 @@ function PageLink({
   children: React.ReactNode
 }) {
   if (disabled) {
-    return <span className="btn btn-ghost opacity-40">{children}</span>
+    return <span className="btn btn-primary opacity-40">{children}</span>
   }
   const search = new URLSearchParams()
   if (params.q) search.set('q', params.q)
   if (params.tag) search.set('tag', params.tag)
   search.set('page', String(page))
 
-  return (
-    <ButtonLink href={`/tutores?${search.toString()}`} variant="ghost">
-      {children}
-    </ButtonLink>
-  )
+  return <ButtonLink href={`/tutores?${search.toString()}`}>{children}</ButtonLink>
 }
 
 function formatCurrency(value: number): string {

@@ -593,8 +593,7 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
 
                     <Button
                       type="button"
-                      variant="ghost"
-                      className="px-2 py-1 text-xs text-danger"
+                      className="px-2 py-1 text-xs"
                       onClick={() => removeTutor(tutor.tutorId)}
                     >
                       Remover

@@ -150,7 +150,7 @@ export function ProfessionalsManager({ professionals, services }: Props) {
           }
         />
       ) : (
-        <Button type="button" variant="ghost" onClick={() => setCreating(true)}>
+        <Button type="button" onClick={() => setCreating(true)}>
           Adicionar profissional
         </Button>
       )}
@@ -225,12 +225,11 @@ function ProfessionalRow({
         </div>
 
         <div className="flex shrink-0 gap-2">
-          <Button type="button" variant="ghost" onClick={onToggle}>
+          <Button type="button" variant={expanded ? 'ghost' : 'primary'} onClick={onToggle}>
             {expanded ? 'Fechar' : 'Editar'}
           </Button>
           <Button
             type="button"
-            variant="ghost"
             busy={pending}
             onClick={() => onPatch({ active: !person.active })}
             busyLabel="Salvando…"
@@ -363,7 +362,6 @@ function ProfessionalRow({
 
                   <Button
                     type="button"
-                    variant="ghost"
                     onClick={() =>
                       setWindows((current) => current.filter((item) => item.key !== window.key))
                     }
@@ -377,7 +375,6 @@ function ProfessionalRow({
 
             <Button
               type="button"
-              variant="ghost"
               className="mt-3"
               onClick={() =>
                 setWindows((current) => [
@@ -482,7 +479,6 @@ function CrmvFields({
 
         <Button
           type="button"
-          variant="ghost"
           disabled={!mudou || pelaMetade}
           onClick={() =>
             onPatch({

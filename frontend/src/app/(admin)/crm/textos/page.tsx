@@ -76,11 +76,7 @@ function Header({ canConfigure }: { canConfigure: boolean }) {
           ? 'O que o cliente recebe em cada situação'
           : 'O que o cliente recebe em cada situação — só o administrador edita'
       }
-      actions={
-        <ButtonLink href="/crm/configuracoes" variant="ghost">
-          Configuração
-        </ButtonLink>
-      }
+      actions={<ButtonLink href="/crm/configuracoes">Configuração</ButtonLink>}
     />
   )
 }

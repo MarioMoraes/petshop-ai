@@ -1,5 +1,5 @@
 import { withTenant } from '@petshop/db'
-import type { BookingSources, MovementDay } from '@petshop/shared-types'
+import type { BookingSources, MovementDay, NoShowReport } from '@petshop/shared-types'
 import type { ActorContext } from '../schedule-catalog/actor.js'
 import { addDays, zonedDate, zonedMidnight } from './timezone.js'
 
@@ -90,4 +90,42 @@ export async function getBookingSources(
   )
 
   return { days, from: from.toISOString(), to: to.toISOString(), total, portal }
+}
+
+/**
+ * As faltas do período — o "prejuízo das faltas" do PRD financeiro_tutor_05 §10.
+ *
+ * Mora na agenda, e não no financeiro, porque a falta é um estado do agendamento e o
+ * valor perdido é o `total_cents` dele: não existe lançamento para o que não aconteceu.
+ * A metade "quanto foi cobrado" do indicador não está aqui por não ter de onde sair —
+ * `markNoShow` calcula a multa e a publica em `agendamento.no_show`, mas nenhum
+ * consumidor a lança como `NO_SHOW_FEE`. Somar lançamentos que nunca nascem daria um
+ * zero com cara de resultado.
+ *
+ * Conta pelo `starts_at`, na janela corrida que termina agora: a falta de amanhã ainda
+ * não é falta.
+ */
+export async function getNoShows(
+  tenantId: string,
+  days: number,
+  now: Date = new Date(),
+): Promise<NoShowReport> {
+  const to = now
+  const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000)
+
+  const result = await withTenant(tenantId, (tx) =>
+    tx.appointment.aggregate({
+      where: { status: 'NO_SHOW', startsAt: { gte: from, lt: to } },
+      _count: { _all: true },
+      _sum: { totalCents: true },
+    }),
+  )
+
+  return {
+    days,
+    from: from.toISOString(),
+    to: to.toISOString(),
+    count: result._count._all,
+    totalCents: Number(result._sum.totalCents ?? 0),
+  }
 }

@@ -138,6 +138,34 @@ rótulo quem pediu menos movimento clica em Salvar e não vê nada mudar — que
 exatamente o defeito de onde a peça partiu. Escreva-o em todo botão que grava ou que
 espera uma resposta do servidor; o Cancelar e a paginação puramente local dispensam.
 
+**Botão é escuro.** A variante padrão (`primary`) vale para toda ação do Admin: a do
+topo da tela, no `actions` do `PageHeader`, e as de dentro dela — Editar, Adicionar,
+Filtrar, paginação, Baixar PDF, Tornar capa. Não se passa `variant` para dizer "esta é
+menos importante".
+
+**`ghost` tem um uso só: desistir ao lado da ação que grava.** Cancelar, Voltar, Fechar,
+Agora não, Manter o horário — no rodapé do `<Modal>`, no `<FormActions>` e na linha de
+confirmação dentro de um cartão. Ali o fantasma é o que deixa ver, sem ler, qual dos dois
+encerra o caso; dois escuros lado a lado empatam. Pela mesma razão:
+
+- o **Fechar sozinho**, sem ação ao lado, é escuro — não há de quem se distinguir;
+- o botão que **alterna** entre abrir e desistir troca de variante com o estado:
+  `variant={open ? 'ghost' : 'primary'}` para "Registrar alergia" ↔ "Cancelar";
+- o **Pular por enquanto** do onboarding é desistência ao lado de Salvar, e fica fantasma.
+
+**Destrutivo não leva `text-danger` no botão.** Vermelho sobre o grafite do `primary`
+não se lê. Excluir, Remover, Anonimizar e Descartar são escuros com texto branco; o aviso
+de perigo mora na confirmação que eles abrem, e é lá que `text-danger` e `<Alert
+tone="danger">` continuam. O link sublinhado vermelho no pé do corpo (regra 8) segue
+valendo — ele não é `.btn`.
+
+**A exceção é a fila de filtros.** Onde o botão marca a opção escolhida (`active`, como
+em Contatos do site), o escolhido é escuro e os outros são fantasma: ali a variante é o
+próprio estado, e pintar todos de escuro apagaria a seleção.
+
+A regra é do Admin. O Portal tem peça própria desenhada para o celular, e o console da
+plataforma não entrou na troca.
+
 `Choice` embrulha a caixa numa linha inteira clicável — num balcão ninguém mira 20px.
 Use o átomo `.check` sozinho quando a linha **já** é um alvo com outra coisa dentro
 (o dia da semana com os horários ao lado), para não criar alvo dentro de alvo.
@@ -218,6 +246,8 @@ Está aqui para não voltar:
 | Painel de formulário aberto dentro do cartão da lista | Espremido na largura de uma coluna, e empurrava o resto da lista para baixo. Virou `<Modal>`. |
 | Três botões no rodapé do diálogo | Quebrava em duas linhas e a ação principal ia para a segunda. |
 | Ação destrutiva ao lado da principal no rodapé | Alvo vizinho do botão mais clicado da janela. |
+| Botão fantasma como ação secundária (Mural ao lado de Marcar horário, os atalhos do topo, Editar e Excluir no detalhe) | Recusado. A ação lia como desabilitada; toda ação é escuro, e o fantasma ficou só para desistir. |
+| Botão destrutivo com texto vermelho sobre o escuro | Vermelho sobre grafite não se lê. O aviso vai na confirmação. |
 
 ---
 

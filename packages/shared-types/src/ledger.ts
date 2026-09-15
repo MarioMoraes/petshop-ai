@@ -516,6 +516,43 @@ export const ReceivablesSchema = z.object({
 })
 export type Receivables = z.infer<typeof ReceivablesSchema>
 
+// ─── Indicadores do financeiro (painel do Início) ────────────────────────────
+
+export const FinanceIndicatorsQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).default(30),
+})
+export type FinanceIndicatorsQuery = z.output<typeof FinanceIndicatorsQuerySchema>
+
+/**
+ * Os números do §10 do PRD financeiro_tutor_05 que os relatórios de cobrança não dão.
+ *
+ * - `collection.averageDays`: do fato gerador ao pagamento que o quitou, ponderado pelo
+ *   valor — um banho de R$ 60 pago em 40 dias não pesa o mesmo que uma tosa de R$ 300
+ *   paga na hora. `null` quando nada foi quitado no período.
+ * - `packages`: tutores ativos com pacote vigente agora, sobre a carteira ativa.
+ * - `expired`: o que venceu no período sem ser usado. É crédito que o tutor perdeu
+ *   (RN-08) — alerta de cliente frustrado, e não receita.
+ */
+export const FinanceIndicatorsSchema = z.object({
+  days: z.number().int(),
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  collection: z.object({
+    averageDays: z.number().nullable(),
+    settledCents: z.number().int(),
+  }),
+  packages: z.object({
+    tutorsWithActive: z.number().int(),
+    activeTutors: z.number().int(),
+  }),
+  expired: z.object({
+    purchases: z.number().int(),
+    credits: z.number().int(),
+    valueCents: z.number().int(),
+  }),
+})
+export type FinanceIndicators = z.infer<typeof FinanceIndicatorsSchema>
+
 // ─── Cobrança — os dois relatórios imprimíveis ───────────────────────────────
 
 /**

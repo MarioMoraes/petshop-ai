@@ -35,6 +35,11 @@ const TEMPERAMENT_SEVERITY: Record<string, ClinicalSeverity | null> = {
   UNKNOWN: null,
 }
 
+/** As classificações que viram alerta `CRITICAL` — lidas pelo indicador do Início. */
+export const CRITICAL_TEMPERAMENTS: string[] = Object.entries(TEMPERAMENT_SEVERITY)
+  .filter(([, severity]) => severity === 'CRITICAL')
+  .map(([classification]) => classification)
+
 export interface AlertSources {
   allergies: Allergy[]
   temperament: Temperament | null

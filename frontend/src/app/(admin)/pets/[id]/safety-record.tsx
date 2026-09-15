@@ -179,7 +179,7 @@ function AllergySection({
         {canCreate && (
           <Button
             type="button"
-            variant="ghost"
+            variant={open ? 'ghost' : 'primary'}
             className="ml-auto px-3 py-1 text-xs"
             onClick={() => setOpen((value) => !value)}
           >
@@ -300,7 +300,6 @@ function AllergySection({
                 {canManage && allergy.active && (
                   <Button
                     type="button"
-                    variant="ghost"
                     className="ml-auto px-3 py-1 text-xs"
                     disabled={pending}
                     onClick={() => {
@@ -399,7 +398,7 @@ function TemperamentSection({
         {canWrite && (
           <Button
             type="button"
-            variant="ghost"
+            variant={open ? 'ghost' : 'primary'}
             className="ml-auto px-3 py-1 text-xs"
             onClick={() => setOpen((value) => !value)}
           >
@@ -622,7 +621,7 @@ function MedicalAlertSection({
         {canCreate && (
           <Button
             type="button"
-            variant="ghost"
+            variant={open ? 'ghost' : 'primary'}
             className="ml-auto px-3 py-1 text-xs"
             onClick={() => setOpen((value) => !value)}
           >
@@ -719,7 +718,6 @@ function MedicalAlertSection({
                 {canManage && alert.active && (
                   <Button
                     type="button"
-                    variant="ghost"
                     className="ml-auto px-3 py-1 text-xs"
                     disabled={pending}
                     onClick={() => {

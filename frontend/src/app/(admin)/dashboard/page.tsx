@@ -5,11 +5,16 @@ import {
   formatBRL,
   todayIn,
   type BookingSources,
+  type CriticalPets,
+  type FinanceIndicators,
+  type NoShowReport,
   type PortalAdoption,
+  type PortfolioQuality,
   type TaxiOperationReport,
 } from '@petshop/shared-types'
 import { CardBloom } from '@/components/atmosphere'
 import {
+  HeartPulseIcon,
   PawPrintIcon,
   SmartphoneIcon,
   UsersIcon,
@@ -19,7 +24,7 @@ import {
 } from '@/components/icons'
 import { carregarMe, serverApi } from '@/lib/api'
 import { MovementChart } from './movement-chart'
-import { Roadmap } from './roadmap'
+import { STAT_GRID, STAT_MIN_HEIGHT } from './stat-grid'
 
 /**
  * Início — o painel do estabelecimento.
@@ -41,7 +46,15 @@ import { Roadmap } from './roadmap'
  * `null` sozinho: um serviço fora do ar apaga o número dele, não a tela toda. E cada
  * cartão respeita a permissão do módulo — um banhista não vê contas a receber.
  *
- * Embaixo, o roadmap com o que os PRDs especificaram e ainda não tem quem responda.
+ * O roadmap do que os PRDs pedem e ainda não tem dado ("Em breve") saiu em 2026-09-15, a
+ * pedido: o painel mostra o que responde. Os três indicadores que esperam o dado ser
+ * gravado — vacinas atrasadas, bloqueios por alergia e bloqueios do self-service do
+ * Portal — voltam como cartão quando existirem, e não como promessa.
+ *
+ * **A grade é de três, e toda faixa fecha a linha.** Cartão de número tem altura mínima
+ * própria (`STAT_MIN_HEIGHT`), para que a régua seja a mesma de uma faixa para a outra e
+ * não a do cartão mais alto de cada linha; e a dica é escrita para caber em duas linhas
+ * na coluna de um terço. Dica que precisa de três está dizendo demais para um cartão.
  *
  * É a única tela com a atmosfera do design ligada. Ela custa nada e dá identidade ao
  * ponto de entrada; repetida nas telas de trabalho passaria a disputar atenção com o dado.
@@ -70,7 +83,13 @@ interface Stat {
    * dinheiro é verde mesmo quando o valor está vencido e sai em vermelho.
    */
   iconTone: IconTone
-  href?: '/tutores' | '/pets' | '/agenda/dia' | '/financeiro/configuracoes' | '/taxi'
+  href?:
+    | '/tutores'
+    | '/pets'
+    | '/agenda/dia'
+    | '/financeiro/configuracoes'
+    | '/financeiro/pacotes'
+    | '/taxi'
   /** Destaca o número quando ele pede ação — dívida vencida, dia lotado. */
   tone?: 'danger'
 }
@@ -108,6 +127,10 @@ export default async function DashboardPage() {
     taxi,
     bookingSources,
     portal,
+    portfolio,
+    critical,
+    finance,
+    noShows,
   ] = await Promise.all([
     countOf(() => serverApi().listTutors({ status: 'ACTIVE', limit: 1 })),
     countOf(() => serverApi().listTutors({ status: 'INACTIVE', limit: 1 })),
@@ -152,6 +175,32 @@ export default async function DashboardPage() {
     can('tenant:configure')
       ? serverApi()
           .getPortalAdoption({ days: REPORT_DAYS })
+          .catch(() => null)
+      : Promise.resolve(null),
+    // O preenchimento da carteira é de quem vê a carteira — o mesmo gate da contagem.
+    can('tutor:read')
+      ? serverApi()
+          .getPortfolioQuality()
+          .catch(() => null)
+      : Promise.resolve(null),
+    /*
+     * `record:read_summary`, e não o `record:read_alerts` que todo mundo tem: o alerta
+     * de um pet é de quem encosta nele, a contagem da casa é leitura de gestão.
+     */
+    can('record:read_summary')
+      ? serverApi()
+          .getCriticalPets()
+          .catch(() => null)
+      : Promise.resolve(null),
+    can('finance:configure')
+      ? serverApi()
+          .getFinanceIndicators({ days: REPORT_DAYS })
+          .catch(() => null)
+      : Promise.resolve(null),
+    // As faltas servem para decidir ligar a multa, e quem liga é quem configura a casa.
+    can('tenant:configure')
+      ? serverApi()
+          .getNoShows({ days: REPORT_DAYS })
           .catch(() => null)
       : Promise.resolve(null),
   ])
@@ -228,6 +277,17 @@ export default async function DashboardPage() {
       href: '/pets',
     },
   ]
+  /*
+   * A ordem fecha duas linhas de três: em cima, quem está na carteira (tutores, pets e os
+   * pets que pedem cuidado); embaixo, o quanto essa carteira está preenchida e presa à
+   * casa. "Clientes com pacote" mora aqui, e não na faixa do Financeiro, porque é retrato
+   * de hoje — lá tudo é dos últimos 30 dias, e o título da faixa diz isso.
+   */
+  if (critical) base.push(criticalCard(critical))
+  if (portfolio) base.push(...portfolioCards(portfolio))
+  if (finance) base.push(packagesCard(finance))
+
+  const financeStats = financeCards(finance, noShows, settings?.noShowFeePercent ?? null)
   const taxiStats = taxi ? taxiCards(taxi) : []
   const portalStats = portalCards(bookingSources, portal)
 
@@ -252,6 +312,10 @@ export default async function DashboardPage() {
       )}
       <StatSection title="Sua base" stats={base} />
 
+      {financeStats.length > 0 && (
+        <StatSection title="Financeiro" note={`Últimos ${REPORT_DAYS} dias`} stats={financeStats} />
+      )}
+
       {taxiStats.length > 0 && (
         <StatSection title="Taxi Dog" note={`Últimos ${REPORT_DAYS} dias`} stats={taxiStats} />
       )}
@@ -262,8 +326,6 @@ export default async function DashboardPage() {
           stats={portalStats}
         />
       )}
-
-      <Roadmap permissions={me.permissions} />
     </>
   )
 }
@@ -302,7 +364,7 @@ function StatSection({
         {note && <p className="hint">{note}</p>}
       </div>
 
-      <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={`mt-4 ${STAT_GRID}`}>
         {lead}
 
         {stats.map((stat) => {
@@ -343,12 +405,15 @@ function StatSection({
             <Link
               key={stat.label}
               href={stat.href}
-              className="card card-interactive relative overflow-hidden p-6"
+              className={`card card-interactive relative overflow-hidden p-6 ${STAT_MIN_HEIGHT}`}
             >
               {body}
             </Link>
           ) : (
-            <div key={stat.label} className="card relative overflow-hidden p-6">
+            <div
+              key={stat.label}
+              className={`card relative overflow-hidden p-6 ${STAT_MIN_HEIGHT}`}
+            >
               {body}
             </div>
           )
@@ -470,6 +535,163 @@ function portalCards(sources: BookingSources | null, adoption: PortalAdoption | 
   }
 
   return cards
+}
+
+/**
+ * Os dois números de preenchimento da carteira, na faixa "Sua base".
+ *
+ * Os dois dividem pelo `active` que veio na mesma resposta, e não pelo "Tutores ativos"
+ * do cartão ao lado: aquela contagem é outra chamada, e uma porcentagem entre instantes
+ * diferentes pode passar de 100% no dia em que alguém cadastra um tutor entre as duas.
+ */
+function portfolioCards(portfolio: PortfolioQuality): Stat[] {
+  const { active, complete, whatsappMarketing } = portfolio
+
+  return [
+    {
+      label: 'Cadastros completos',
+      value: active === 0 ? null : formatPercent(complete / active),
+      hint:
+        active === 0
+          ? 'Nenhum tutor ativo na carteira.'
+          : `${format(complete)} de ${format(active)} tutores ativos com o cadastro completo.`,
+      icon: <UsersIcon />,
+      iconTone: 'icon-people',
+      href: '/tutores',
+    },
+    {
+      label: 'Aceitam WhatsApp',
+      value: active === 0 ? null : formatPercent(whatsappMarketing / active),
+      hint:
+        active === 0
+          ? 'Nenhum tutor ativo na carteira.'
+          : `${format(whatsappMarketing)} de ${format(active)} autorizaram promoções pelo WhatsApp.`,
+      icon: <UsersIcon />,
+      iconTone: 'icon-people',
+    },
+  ]
+}
+
+/**
+ * Pets com alerta crítico: quantos, e de que origem.
+ *
+ * Não sai em vermelho. O número não é pendência a zerar — um pet agressivo continua
+ * agressivo —, e a cor de perigo nesta faixa é da dívida vencida, que se resolve.
+ */
+function criticalCard(critical: CriticalPets): Stat {
+  const origens = [
+    critical.byAllergy > 0 ? `${format(critical.byAllergy)} por alergia` : null,
+    critical.byTemperament > 0 ? `${format(critical.byTemperament)} por temperamento` : null,
+    critical.byMedical > 0 ? `${format(critical.byMedical)} por condição médica` : null,
+  ].filter((origem): origem is string => origem !== null)
+
+  return {
+    label: 'Pets com alerta crítico',
+    value: format(critical.pets),
+    hint: critical.pets === 0 ? 'Nenhum pet com alerta crítico ativo.' : `${origens.join(' · ')}.`,
+    icon: <HeartPulseIcon />,
+    iconTone: 'icon-pet',
+    href: '/pets',
+  }
+}
+
+/**
+ * A faixa do Financeiro: quanto se espera para receber, e o que se perdeu por pacote
+ * vencido e por falta — os três olhando para os últimos 30 dias.
+ *
+ * As duas origens entram sozinhas, como na faixa do Portal: os dois primeiros números
+ * vêm do financeiro, o das faltas vem da agenda, e um serviço fora do ar tira só o
+ * cartão dele.
+ *
+ * O cartão das faltas não diz "quanto foi cobrado", que é a outra metade do indicador no
+ * PRD: a multa é calculada na falta e não vira lançamento, então não há cobrança a
+ * somar. O que ele diz no lugar é se a multa está ligada — que é a decisão que o número
+ * serve para tomar.
+ */
+function financeCards(
+  finance: FinanceIndicators | null,
+  noShows: NoShowReport | null,
+  noShowFeePercent: number | null,
+): Stat[] {
+  const cards: Stat[] = []
+
+  if (finance) {
+    const { averageDays, settledCents } = finance.collection
+    const { purchases, credits, valueCents } = finance.expired
+
+    cards.push({
+      label: 'Prazo médio de recebimento',
+      value: averageDays === null ? null : formatDays(averageDays),
+      hint:
+        averageDays === null
+          ? 'Nenhum débito quitado no período.'
+          : `Do serviço prestado ao pagamento, sobre ${formatBRL(settledCents)} quitados.`,
+      icon: <WalletIcon />,
+      iconTone: 'icon-money',
+    })
+
+    cards.push({
+      label: 'Crédito vencido sem uso',
+      value: formatBRL(valueCents),
+      hint:
+        purchases === 0
+          ? 'Nenhum pacote venceu com crédito sobrando.'
+          : `${plural(credits, 'crédito perdido', 'créditos perdidos')} em ${plural(purchases, 'pacote', 'pacotes')} — cliente que pagou e não usou.`,
+      icon: <WalletIcon />,
+      iconTone: 'icon-money',
+      href: '/financeiro/pacotes',
+    })
+  }
+
+  if (noShows) {
+    const multa =
+      noShowFeePercent === null
+        ? ''
+        : noShowFeePercent === 0
+          ? ' A multa por falta está desligada.'
+          : ` A multa por falta está em ${noShowFeePercent}%.`
+
+    cards.push({
+      label: 'Perdido com faltas',
+      value: formatBRL(noShows.totalCents),
+      hint:
+        noShows.count === 0
+          ? 'Nenhuma falta no período.'
+          : `${plural(noShows.count, 'horário vazio', 'horários vazios')} por falta.${multa}`,
+      icon: <WalletIcon />,
+      iconTone: 'icon-money',
+    })
+  }
+
+  return cards
+}
+
+/** Quanto da carteira ativa tem pacote vigente agora — estado da base, não do período. */
+function packagesCard(finance: FinanceIndicators): Stat {
+  const { tutorsWithActive, activeTutors } = finance.packages
+
+  return {
+    label: 'Clientes com pacote',
+    value: activeTutors === 0 ? null : formatPercent(tutorsWithActive / activeTutors),
+    hint:
+      activeTutors === 0
+        ? 'Nenhum tutor ativo na carteira.'
+        : `${format(tutorsWithActive)} de ${format(activeTutors)} tutores ativos com pacote vigente.`,
+    icon: <WalletIcon />,
+    iconTone: 'icon-money',
+    href: '/financeiro/pacotes',
+  }
+}
+
+/** "1 pacote", "3 pacotes" — com o separador de milhar do resto do painel. */
+function plural(count: number, singular: string, pluralForm: string): string {
+  return `${count.toLocaleString('pt-BR')} ${count === 1 ? singular : pluralForm}`
+}
+
+/** "12,5 dias", e "1 dia" — o mesmo arredondamento de uma casa das médias do Taxi. */
+function formatDays(days: number): string {
+  const rounded = Math.round(days * 10) / 10
+  return `${formatDecimal(rounded)} ${rounded === 1 ? 'dia' : 'dias'}`
 }
 
 /** Sem casas decimais: "34%". A precisão de uma proporção de painel acaba aí. */

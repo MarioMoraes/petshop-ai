@@ -135,7 +135,6 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
         </div>
 
         <Button
-          variant={atual.enabled ? 'ghost' : 'primary'}
           busy={alternando}
           busyLabel="Salvando"
           /*
@@ -229,7 +228,6 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
          */}
         <div className="mt-5 flex items-center justify-end gap-3">
           <Button
-            variant="ghost"
             busy={salvando}
             busyLabel="Salvando"
             disabled={alternando}

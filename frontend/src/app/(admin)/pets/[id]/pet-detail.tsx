@@ -230,7 +230,6 @@ function DadosTab({ pet, canUpdate, canDelete, canManageLifecycle }: Props) {
                 {canUpdate && (
                   <Button
                     type="button"
-                    variant="ghost"
                     className="px-3 py-1 text-xs"
                     busy={pending}
                     onClick={reveal}
@@ -262,8 +261,6 @@ function DadosTab({ pet, canUpdate, canDelete, canManageLifecycle }: Props) {
           {canDelete && (
             <Button
               type="button"
-              variant="ghost"
-              className="text-danger"
               disabled={pending}
               onClick={() => setConfirmingDelete((value) => !value)}
             >
@@ -379,7 +376,6 @@ function ResponsaveisTab({ pet, transfers, canUpdate, canDelete, canManageLifecy
 
                     <Button
                       type="button"
-                      variant="ghost"
                       className="px-3 py-1 text-xs"
                       busy={pending}
                       onClick={() =>
@@ -397,8 +393,7 @@ function ResponsaveisTab({ pet, transfers, canUpdate, canDelete, canManageLifecy
                     {canDelete && (
                       <Button
                         type="button"
-                        variant="ghost"
-                        className="px-3 py-1 text-xs text-danger"
+                        className="px-3 py-1 text-xs"
                         busy={pending}
                         onClick={() => run(() => unlinkTutorAction(pet.id, link.linkId))}
                         busyLabel="Desvinculando…"
@@ -470,7 +465,6 @@ function RoleButton({
     return (
       <Button
         type="button"
-        variant="ghost"
         className="px-3 py-1 text-xs"
         busy={pending}
         onClick={() => onChange('SECONDARY')}
@@ -485,7 +479,6 @@ function RoleButton({
   return (
     <Button
       type="button"
-      variant="ghost"
       className="px-3 py-1 text-xs"
       busy={pending}
       disabled={hasPrimary}
@@ -741,7 +734,6 @@ function FotosTab({ pet, album, canUploadPhoto, canUpdate }: Props) {
                     {!photo.isCover && (
                       <Button
                         type="button"
-                        variant="ghost"
                         className="px-2 py-1 text-[11px]"
                         busy={pending}
                         onClick={() =>
@@ -759,7 +751,6 @@ function FotosTab({ pet, album, canUploadPhoto, canUpdate }: Props) {
                     */}
                     <Button
                       type="button"
-                      variant="ghost"
                       className="px-2 py-1 text-[11px]"
                       busy={pending}
                       onClick={() =>
@@ -776,8 +767,7 @@ function FotosTab({ pet, album, canUploadPhoto, canUpdate }: Props) {
 
                     <Button
                       type="button"
-                      variant="ghost"
-                      className="px-2 py-1 text-[11px] text-danger"
+                      className="px-2 py-1 text-[11px]"
                       busy={pending}
                       onClick={() => run(() => deletePhotoAction(pet.id, photo.id))}
                       busyLabel="Excluindo…"
@@ -836,7 +826,7 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
             Adoção, venda ou falecimento do tutor. O prontuário continua com o pet.
           </p>
         </div>
-        <Button type="button" variant="ghost" onClick={() => setOpen(true)}>
+        <Button type="button" onClick={() => setOpen(true)}>
           Transferir
         </Button>
       </Card>
@@ -881,12 +871,7 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
       {toTutor ? (
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-medium">{toTutor.displayName}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            className="px-3 py-1 text-xs"
-            onClick={() => setToTutor(null)}
-          >
+          <Button type="button" className="px-3 py-1 text-xs" onClick={() => setToTutor(null)}>
             Trocar
           </Button>
         </div>
@@ -1010,7 +995,7 @@ function DeathPanel({ pet }: { pet: PetResponse }) {
 
   if (!open) {
     return (
-      <Button type="button" variant="ghost" onClick={() => setOpen(true)}>
+      <Button type="button" onClick={() => setOpen(true)}>
         Registrar óbito
       </Button>
     )
@@ -1094,7 +1079,7 @@ function DeathReversalPanel({ pet }: { pet: PetResponse }) {
           <h3 className="font-semibold">Registro feito por engano?</h3>
           <p className="hint">A reversão é permitida em até 30 dias, com justificativa.</p>
         </div>
-        <Button type="button" variant="ghost" onClick={() => setOpen(true)}>
+        <Button type="button" onClick={() => setOpen(true)}>
           Reverter óbito
         </Button>
       </Card>

@@ -116,7 +116,7 @@ export default async function DiaPage({ searchParams }: PageProps) {
                 href={`/mural?date=${date}`}
                 target="_blank"
                 rel="noopener"
-                className="btn btn-ghost"
+                className="btn btn-primary"
                 title="Abrir o Mural do dia numa aba própria"
               >
                 <ExpandIcon />

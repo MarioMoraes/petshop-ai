@@ -171,7 +171,6 @@ function Pedido({
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
               className="h-9"
               onClick={recusar}
               busy={pendente}
@@ -313,8 +312,7 @@ function Ativo({
       {canEdit && (
         <Button
           type="button"
-          variant="ghost"
-          className="mt-3 px-3 py-1 text-xs text-danger"
+          className="mt-3 px-3 py-1 text-xs"
           onClick={encerrar}
           busy={pendente}
           busyLabel="Encerrando…"

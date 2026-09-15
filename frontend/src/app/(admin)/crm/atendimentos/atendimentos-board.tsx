@@ -163,13 +163,7 @@ function LinhaConversa({
           </p>
         </div>
 
-        <Button
-          variant="ghost"
-          onClick={onAbrir}
-          busy={abrindo}
-          busyLabel="Abrindo"
-          disabled={travado && !abrindo}
-        >
+        <Button onClick={onAbrir} busy={abrindo} busyLabel="Abrindo" disabled={travado && !abrindo}>
           Abrir
         </Button>
       </div>
@@ -282,7 +276,7 @@ function JanelaConversa({
         podeAtender && !encerrada ? (
           <>
             {!conversa.assignedTo && (
-              <Button variant="ghost" onClick={assumir} busy={agindo} busyLabel="Assumindo">
+              <Button onClick={assumir} busy={agindo} busyLabel="Assumindo">
                 Assumir
               </Button>
             )}

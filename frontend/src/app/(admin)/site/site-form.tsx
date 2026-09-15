@@ -107,7 +107,6 @@ function Publication({ preview, onError, onSaved }: BlockProps) {
 
         <Button
           type="button"
-          variant={preview.published ? 'ghost' : 'primary'}
           busy={pending}
           onClick={() =>
             preview.published

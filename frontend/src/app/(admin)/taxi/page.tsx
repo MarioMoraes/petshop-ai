@@ -84,13 +84,7 @@ export default async function TaxiPage({ searchParams }: PageProps) {
                   board.totals.unassigned > 0 ? ` · ${board.totals.unassigned} sem motorista` : ''
                 }`
         }
-        actions={
-          canConfigure && (
-            <ButtonLink href="/taxi/configuracoes" variant="ghost">
-              Configurar
-            </ButtonLink>
-          )
-        }
+        actions={canConfigure && <ButtonLink href="/taxi/configuracoes">Configurar</ButtonLink>}
       />
 
       {desligado ? (

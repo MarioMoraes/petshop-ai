@@ -212,12 +212,7 @@ export function AppointmentDialog({
       footer={
         <>
           {podePedirTaxi && (
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={enviando}
-              onClick={() => setVista('taxi')}
-            >
+            <Button type="button" disabled={enviando} onClick={() => setVista('taxi')}>
               {rides.length === 0 ? 'Taxi Dog' : 'Pedir a outra perna'}
             </Button>
           )}
@@ -242,7 +237,7 @@ export function AppointmentDialog({
             </Button>
           )}
           {!podeChegar && !podeConcluir && !podeAprovar && (
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" onClick={onClose}>
               Fechar
             </Button>
           )}

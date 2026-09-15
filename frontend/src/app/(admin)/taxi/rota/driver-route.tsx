@@ -152,7 +152,6 @@ export function DriverRoute({ route }: Props) {
               {['EN_ROUTE', 'ARRIVED', 'ONBOARD'].includes(stop.status) && (
                 <Button
                   type="button"
-                  variant="ghost"
                   className="h-11"
                   disabled={pending}
                   onClick={() => setFalhando(falhando === stop.id ? null : stop.id)}
@@ -170,7 +169,6 @@ export function DriverRoute({ route }: Props) {
               <Button
                 key={reason.value}
                 type="button"
-                variant="ghost"
                 className="h-10 text-sm"
                 busy={pending}
                 onClick={() => {

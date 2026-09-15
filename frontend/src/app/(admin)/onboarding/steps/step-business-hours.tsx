@@ -320,7 +320,6 @@ export function StepBusinessHours(props: Props) {
                 {team.length > 1 && (
                   <Button
                     type="button"
-                    variant="ghost"
                     onClick={() =>
                       setTeam((current) => current.filter((item) => item.key !== person.key))
                     }
@@ -335,7 +334,6 @@ export function StepBusinessHours(props: Props) {
 
           <Button
             type="button"
-            variant="ghost"
             className="mt-3"
             disabled={team.length >= 30}
             onClick={() => setTeam((current) => [...current, emptyProfessional()])}

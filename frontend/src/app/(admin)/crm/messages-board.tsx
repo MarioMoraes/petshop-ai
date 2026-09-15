@@ -213,7 +213,6 @@ export function MessagesBoard({ page, filters, canSend }: Props) {
         <div className="flex items-center justify-between gap-3">
           <Button
             type="button"
-            variant="ghost"
             busy={pending}
             disabled={page.page <= 1}
             onClick={() => apply({ page: page.page - 1 })}
@@ -227,7 +226,6 @@ export function MessagesBoard({ page, filters, canSend }: Props) {
           </p>
           <Button
             type="button"
-            variant="ghost"
             busy={pending}
             disabled={page.page >= totalPages}
             onClick={() => apply({ page: page.page + 1 })}

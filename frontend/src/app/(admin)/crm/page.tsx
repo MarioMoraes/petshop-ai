@@ -97,18 +97,10 @@ export default async function CrmPage({ searchParams }: PageProps) {
         }
         actions={
           <>
-            <ButtonLink href="/crm/atendimentos" variant="ghost">
-              Atendimentos
-            </ButtonLink>
-            <ButtonLink href="/crm/campanhas" variant="ghost">
-              Campanhas
-            </ButtonLink>
-            <ButtonLink href="/crm/textos" variant="ghost">
-              Textos
-            </ButtonLink>
-            <ButtonLink href="/crm/configuracoes" variant="ghost">
-              Configuração
-            </ButtonLink>
+            <ButtonLink href="/crm/atendimentos">Atendimentos</ButtonLink>
+            <ButtonLink href="/crm/campanhas">Campanhas</ButtonLink>
+            <ButtonLink href="/crm/textos">Textos</ButtonLink>
+            <ButtonLink href="/crm/configuracoes">Configuração</ButtonLink>
           </>
         }
       />

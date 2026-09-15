@@ -100,7 +100,7 @@ function TermoDoTipo({
 
         <div className="flex items-center gap-2">
           {vigente && (
-            <Button type="button" variant="ghost" className="h-9" onClick={() => setLendo(vigente)}>
+            <Button type="button" className="h-9" onClick={() => setLendo(vigente)}>
               Ler
             </Button>
           )}
@@ -121,7 +121,6 @@ function TermoDoTipo({
               <Button
                 key={item.id}
                 type="button"
-                variant="ghost"
                 className="h-7 px-2 text-xs"
                 onClick={() => setLendo(item)}
               >

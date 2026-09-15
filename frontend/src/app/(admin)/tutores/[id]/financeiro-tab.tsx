@@ -122,19 +122,11 @@ export function FinanceiroTab({
           <Button type="button" onClick={() => setPanel(panel === 'payment' ? null : 'payment')}>
             Registrar pagamento
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setPanel(panel === 'entry' ? null : 'entry')}
-          >
+          <Button type="button" onClick={() => setPanel(panel === 'entry' ? null : 'entry')}>
             Lançar {can.credit ? 'débito ou crédito' : 'débito'}
           </Button>
           {catalog.length > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setPanel(panel === 'package' ? null : 'package')}
-            >
+            <Button type="button" onClick={() => setPanel(panel === 'package' ? null : 'package')}>
               Vender pacote
             </Button>
           )}
@@ -193,7 +185,6 @@ export function FinanceiroTab({
             </Field>
             <Button
               type="button"
-              variant="ghost"
               busy={pending}
               onClick={() => reload({ page: 1 })}
               busyLabel="Filtrando…"
@@ -203,7 +194,6 @@ export function FinanceiroTab({
             {(from || to) && (
               <Button
                 type="button"
-                variant="ghost"
                 busy={pending}
                 onClick={() => {
                   setFrom('')
@@ -222,7 +212,7 @@ export function FinanceiroTab({
             */}
             <a
               href={`/tutores/${tutorId}/extrato${periodoNaUrl(from, to)}`}
-              className="btn btn-ghost"
+              className="btn btn-primary"
             >
               Baixar PDF
             </a>
@@ -260,7 +250,6 @@ export function FinanceiroTab({
               <div className="mt-4 flex items-center justify-between">
                 <Button
                   type="button"
-                  variant="ghost"
                   busy={pending}
                   disabled={page <= 1}
                   onClick={() => reload({ page: page - 1 })}
@@ -273,7 +262,6 @@ export function FinanceiroTab({
                 </span>
                 <Button
                   type="button"
-                  variant="ghost"
                   busy={pending}
                   disabled={page >= totalPages}
                   onClick={() => reload({ page: page + 1 })}

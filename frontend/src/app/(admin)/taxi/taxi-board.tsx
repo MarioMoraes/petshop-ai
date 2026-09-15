@@ -220,7 +220,6 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           {['EN_ROUTE', 'ARRIVED', 'ONBOARD'].includes(ride.status) && (
             <Button
               type="button"
-              variant="ghost"
               className="h-9"
               disabled={pending}
               onClick={() => setFalhando(falhando === ride.id ? null : ride.id)}
@@ -232,8 +231,7 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           {['REQUESTED', 'ASSIGNED', 'EN_ROUTE', 'ARRIVED'].includes(ride.status) && (
             <Button
               type="button"
-              variant="ghost"
-              className="h-9 text-danger"
+              className="h-9"
               busy={pending}
               onClick={() => act(() => cancelRideAction(ride.id, { reason: 'TUTOR_REQUEST' }))}
               busyLabel="Cancelando…"
@@ -249,7 +247,6 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
               <Button
                 key={reason.value}
                 type="button"
-                variant="ghost"
                 className="h-8 text-sm"
                 busy={pending}
                 onClick={() => {
@@ -273,7 +270,6 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
         <div className="flex gap-2">
           <Button
             type="button"
-            variant="ghost"
             className="h-9"
             onClick={() => router.push(`/taxi?date=${shiftDay(board.date, -1)}`)}
           >
@@ -281,7 +277,6 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           </Button>
           <Button
             type="button"
-            variant="ghost"
             className="h-9"
             onClick={() => router.push(`/taxi?date=${shiftDay(board.date, 1)}`)}
           >

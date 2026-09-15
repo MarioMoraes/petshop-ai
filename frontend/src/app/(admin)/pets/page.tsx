@@ -151,16 +151,12 @@ function PageLink({
   children: React.ReactNode
 }) {
   if (disabled) {
-    return <span className="btn btn-ghost opacity-40">{children}</span>
+    return <span className="btn btn-primary opacity-40">{children}</span>
   }
   const search = new URLSearchParams()
   if (params.q) search.set('q', params.q)
   if (params.speciesId) search.set('speciesId', params.speciesId)
   search.set('page', String(page))
 
-  return (
-    <ButtonLink href={`/pets?${search.toString()}`} variant="ghost">
-      {children}
-    </ButtonLink>
-  )
+  return <ButtonLink href={`/pets?${search.toString()}`}>{children}</ButtonLink>
 }

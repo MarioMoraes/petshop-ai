@@ -287,7 +287,6 @@ export function TeamManager({
                       <>
                         <Button
                           type="button"
-                          variant="ghost"
                           busy={emAcao === member.id}
                           disabled={pending}
                           onClick={() =>
@@ -302,8 +301,6 @@ export function TeamManager({
                         </Button>
                         <Button
                           type="button"
-                          variant="ghost"
-                          className="text-danger"
                           disabled={pending}
                           onClick={() => setRemovendo(member)}
                         >
@@ -350,7 +347,6 @@ export function TeamManager({
                   <div className="flex shrink-0 gap-2">
                     <Button
                       type="button"
-                      variant="ghost"
                       busy={pending}
                       onClick={() => reenviar(invitation.id)}
                       busyLabel="Reenviando…"
@@ -359,8 +355,6 @@ export function TeamManager({
                     </Button>
                     <Button
                       type="button"
-                      variant="ghost"
-                      className="text-danger"
                       busy={pending}
                       onClick={() => revogar(invitation.id)}
                       busyLabel="Cancelando…"
@@ -434,12 +428,7 @@ function DialogoDeRemocao({
           <Button type="button" variant="ghost" disabled={enviando} onClick={onClose}>
             Manter o acesso
           </Button>
-          <Button
-            type="button"
-            busy={enviando}
-            onClick={confirmar}
-            busyLabel="Removendo…"
-          >
+          <Button type="button" busy={enviando} onClick={confirmar} busyLabel="Removendo…">
             Confirmar remoção
           </Button>
         </>
@@ -447,14 +436,13 @@ function DialogoDeRemocao({
     >
       <div className="space-y-5">
         <Alert tone="danger" icon={<AlertTriangleIcon />} title="O acesso termina na hora">
-          A pessoa deixa de entrar no sistema imediatamente, e o histórico do que ela fez
-          aqui continua no lugar. Para readmitir depois, é preciso enviar um convite novo.
+          A pessoa deixa de entrar no sistema imediatamente, e o histórico do que ela fez aqui
+          continua no lugar. Para readmitir depois, é preciso enviar um convite novo.
         </Alert>
 
         <p className="text-sm">
-          Se a saída é temporária — férias, licença —, <strong>suspender</strong> é o
-          gesto certo: fecha a porta e devolve o acesso com um clique, sem gastar um
-          convite.
+          Se a saída é temporária — férias, licença —, <strong>suspender</strong> é o gesto certo:
+          fecha a porta e devolve o acesso com um clique, sem gastar um convite.
         </p>
 
         {bloqueios && bloqueios.length > 0 && (
@@ -510,7 +498,6 @@ function LinkDoConvite({ email, url }: { email: string; url: string }) {
         />
         <Button
           type="button"
-          variant="ghost"
           onClick={() => {
             void navigator.clipboard?.writeText(url).then(() => setCopiado(true))
           }}

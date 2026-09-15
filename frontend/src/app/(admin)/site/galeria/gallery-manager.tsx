@@ -165,7 +165,6 @@ export function GalleryManager({ photos }: { photos: SitePhoto[] }) {
                   ) : (
                     <Button
                       type="button"
-                      variant="ghost"
                       busy={pending}
                       onClick={() => {
                         // Uma capa só: a antiga volta para a galeria no mesmo gesto.
@@ -180,8 +179,6 @@ export function GalleryManager({ photos }: { photos: SitePhoto[] }) {
 
                   <Button
                     type="button"
-                    variant="ghost"
-                    className="text-danger"
                     busy={pending}
                     onClick={() => remove(photo.id)}
                     busyLabel="Removendo…"

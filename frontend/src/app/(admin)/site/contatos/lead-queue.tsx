@@ -154,7 +154,6 @@ function LeadRow({
             {lead.status === 'NEW' && (
               <Button
                 type="button"
-                variant="ghost"
                 busy={pending}
                 onClick={() => move('CONTACTED')}
                 busyLabel="Salvando…"
@@ -180,8 +179,6 @@ function LeadRow({
             {lead.status !== 'DISCARDED' && (
               <Button
                 type="button"
-                variant="ghost"
-                className="text-danger"
                 busy={pending}
                 onClick={() => move('DISCARDED')}
                 busyLabel="Descartando…"

@@ -11,6 +11,7 @@ import {
   ListAppointmentsQuerySchema,
   MovementQuerySchema,
   NewPortalBookingsQuerySchema,
+  NoShowReportQuerySchema,
   NOVOS_AGENDAMENTOS_JANELA_DIAS,
   RecurrenceScopeSchema,
   RescheduleSchema,
@@ -27,7 +28,7 @@ import type { ActorContext } from '../schedule-catalog/actor.js'
 import { resolveAvailability } from './availability.js'
 import { createBooking } from './booking.js'
 import { getDayView } from './day-view.js'
-import { getBookingSources, getMovement } from './movement.js'
+import { getBookingSources, getMovement, getNoShows } from './movement.js'
 import { getAppointment, listAppointments } from './queries.js'
 import { createRecurrence, endRecurrence } from './recurrence.js'
 import { loadTimezone } from './timezone.js'
@@ -326,6 +327,22 @@ export async function registerSchedulingRoutes(app: FastifyInstance): Promise<vo
       const actor = actorFrom(request)
       const query = parseInput(BookingSourcesQuerySchema, request.query)
       return getBookingSources(actor.tenantId, query.days)
+    },
+  )
+
+  /**
+   * As faltas do período e o valor que ficou sem faturar.
+   *
+   * `tenant:configure`, como a origem dos agendamentos: o número serve para decidir
+   * ligar a multa por falta, e quem liga é quem configura o estabelecimento.
+   */
+  app.get(
+    '/v1/agenda/reports/no-shows',
+    { preHandler: requirePermission('tenant:configure') },
+    async (request) => {
+      const actor = actorFrom(request)
+      const query = parseInput(NoShowReportQuerySchema, request.query)
+      return getNoShows(actor.tenantId, query.days)
     },
   )
 

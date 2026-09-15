@@ -146,7 +146,6 @@ export function BreedCatalog({ species, canManage }: Props) {
           {hiddenCount > 0 && (
             <Button
               type="button"
-              variant="ghost"
               className="ml-auto px-3 py-1 text-xs"
               onClick={() => setShowHidden((value) => !value)}
             >
@@ -179,7 +178,6 @@ export function BreedCatalog({ species, canManage }: Props) {
                   <div className="ml-auto flex flex-wrap gap-2">
                     <Button
                       type="button"
-                      variant="ghost"
                       className="px-3 py-1 text-xs"
                       busy={pending}
                       onClick={() => toggle(breed)}
@@ -197,8 +195,7 @@ export function BreedCatalog({ species, canManage }: Props) {
                     {breed.custom && breed.petsCount === 0 && (
                       <Button
                         type="button"
-                        variant="ghost"
-                        className="px-3 py-1 text-xs text-danger"
+                        className="px-3 py-1 text-xs"
                         busy={pending}
                         onClick={() => remove(breed)}
                         busyLabel="Excluindo…"

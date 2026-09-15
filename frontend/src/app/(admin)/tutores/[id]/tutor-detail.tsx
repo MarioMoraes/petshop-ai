@@ -191,7 +191,6 @@ function DadosTab({ overview }: { overview: TutorOverview }) {
           {tutor.status === 'INACTIVE' && (
             <Button
               type="button"
-              variant="ghost"
               busy={pending}
               onClick={() => run(() => reactivateTutorAction(tutor.id))}
               busyLabel="Reativando…"
@@ -202,8 +201,6 @@ function DadosTab({ overview }: { overview: TutorOverview }) {
 
           <Button
             type="button"
-            variant="ghost"
-            className="text-danger"
             busy={pending}
             onClick={() => run(() => deleteTutorAction(tutor.id))}
             busyLabel="Excluindo…"
@@ -211,12 +208,7 @@ function DadosTab({ overview }: { overview: TutorOverview }) {
             Excluir
           </Button>
 
-          <Button
-            type="button"
-            variant="ghost"
-            className="text-danger"
-            onClick={() => setAnonymizing((value) => !value)}
-          >
+          <Button type="button" onClick={() => setAnonymizing((value) => !value)}>
             Anonimizar (LGPD)
           </Button>
         </div>
@@ -361,7 +353,6 @@ function ConsentimentosTab({ tutorId, consents }: { tutorId: string; consents: C
                 </span>
                 <Button
                   type="button"
-                  variant="ghost"
                   className="px-3 py-1 text-xs"
                   busy={pending}
                   onClick={() => toggle(state.channel, !state.granted)}
@@ -483,7 +474,6 @@ function TermoLinha({
 
         <Button
           type="button"
-          variant={aceito ? 'ghost' : 'primary'}
           className="h-9"
           onClick={apresentar}
           busy={pending}
@@ -510,7 +500,12 @@ function TermoLinha({
         subtitle={termo ? `Versão ${termo.version}` : ''}
         footer={
           <>
-            <Button type="button" variant="ghost" disabled={pending} onClick={() => setTermo(null)}>
+            <Button
+              type="button"
+              variant={aceito ? 'primary' : 'ghost'}
+              disabled={pending}
+              onClick={() => setTermo(null)}
+            >
               Fechar
             </Button>
             {!aceito && (
@@ -689,9 +684,7 @@ function PetsTab({ tutorId, pets }: { tutorId: string; pets: PetResponse[] }) {
         })}
       </ul>
 
-      <ButtonLink href="/pets/novo" variant="ghost">
-        Cadastrar outro pet
-      </ButtonLink>
+      <ButtonLink href="/pets/novo">Cadastrar outro pet</ButtonLink>
     </div>
   )
 }

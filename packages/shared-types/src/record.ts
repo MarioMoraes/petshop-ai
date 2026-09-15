@@ -586,3 +586,20 @@ export const PetClinicalSummarySchema = z.object({
   blockingFlags: z.array(z.string()),
 })
 export type PetClinicalSummary = z.infer<typeof PetClinicalSummarySchema>
+
+// ─── Pets com alerta crítico (painel do Início) ──────────────────────────────
+
+/**
+ * Quantos pets têm hoje um alerta `CRITICAL` ativo, e de que origem.
+ *
+ * `pets` não é a soma das origens: o pet agressivo com alergia crítica conta uma vez em
+ * `pets` e uma vez em cada origem. A origem desce junto porque o número sozinho não diz
+ * o que fazer — alergia se resolve no serviço oferecido, temperamento em quem atende.
+ */
+export const CriticalPetsSchema = z.object({
+  pets: z.number().int(),
+  byAllergy: z.number().int(),
+  byTemperament: z.number().int(),
+  byMedical: z.number().int(),
+})
+export type CriticalPets = z.infer<typeof CriticalPetsSchema>

@@ -122,9 +122,7 @@ export function MessageList({ messages, canSend, showTutor, empty }: Props) {
 
                 <div className="flex flex-wrap items-center gap-2">
                   {showTutor && (
-                    <ButtonLink href={`/tutores/${message.tutorId}`} variant="ghost">
-                      Abrir a ficha
-                    </ButtonLink>
+                    <ButtonLink href={`/tutores/${message.tutorId}`}>Abrir a ficha</ButtonLink>
                   )}
 
                   {canSend && canRetry(message.status) && (
@@ -141,7 +139,6 @@ export function MessageList({ messages, canSend, showTutor, empty }: Props) {
                   {canCancel(message.status) && (
                     <Button
                       type="button"
-                      variant="ghost"
                       busy={pending}
                       onClick={() => run(() => cancelMessageAction(message.id))}
                       busyLabel="Cancelando…"

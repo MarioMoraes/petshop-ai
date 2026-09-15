@@ -31,7 +31,7 @@ import {
  * nunca viu o sistema, e o dono que está avaliando. Para esses, uma caixa de e-mail
  * sozinha no meio de uma tela branca não diz o que há do outro lado.
  *
- * **A lista de recursos só menciona o que existe.** É a mesma regra do `roadmap.tsx`
+ * **A lista de recursos só menciona o que existe.** É a mesma regra que tirou o "Em breve"
  * do painel: prometer na porta de entrada o que o sistema ainda não faz é a forma mais
  * cara de perder confiança, porque a decepção chega no primeiro dia de uso.
  */
@@ -62,9 +62,8 @@ interface Recurso {
  * documentos em PDF ficaram de fora por um tempo justamente por essa regra — o
  * roteamento por host já existia, as telas não —, e entram agora pelo mesmo motivo, que
  * é terem passado a existir. O atendimento por IA é o mais novo: o agente responde no
- * WhatsApp, propõe horário e confirma na agenda. É a mesma regra do `roadmap.tsx` do
- * painel, invertida: lá um item sai da lista quando ganha endpoint, aqui ele só entra
- * depois disso.
+ * WhatsApp, propõe horário e confirma na agenda. O Início segue a mesma regra: um
+ * indicador só aparece lá depois de existir dado que o responda.
  *
  * **Dez itens e não mais.** O teto não é o número, é o que ele protege: a coluna divide
  * a tela com o formulário, e uma lista que precisa de rolagem para terminar deixa de ser
@@ -116,7 +115,7 @@ const RECURSOS: Recurso[] = [
   {
     /*
      * Globo e teal são os do item Site no menu lateral (`app-shell.tsx`), como
-     * `SmartphoneIcon` acima é o do Portal no `roadmap.tsx`. Um recurso que aparece em
+     * `SmartphoneIcon` acima é o da faixa do Portal no Início. Um recurso que aparece em
      * dois lugares com desenhos diferentes cobra do leitor o trabalho de descobrir que
      * é a mesma coisa.
      */

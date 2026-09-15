@@ -226,7 +226,6 @@ export function WhatsappCard({ initial, canConnect }: Props) {
           {status === 'CONNECTED' ? (
             <Button
               type="button"
-              variant="ghost"
               busy={pending}
               onClick={() => run(disconnectWhatsappAction)}
               busyLabel="Desconectando…"
@@ -236,7 +235,6 @@ export function WhatsappCard({ initial, canConnect }: Props) {
           ) : waitingScan ? (
             <Button
               type="button"
-              variant={qrExpired ? 'primary' : 'ghost'}
               busy={pending}
               onClick={() => run(refreshWhatsappQrCodeAction)}
               busyLabel="Gerando…"
@@ -257,13 +255,7 @@ export function WhatsappCard({ initial, canConnect }: Props) {
           {/* Recuperação. Só fora do estado conectado, e o backend recusa de novo lá —
               um clique errado não pode derrubar uma sessão que funciona. */}
           {status !== 'NOT_CONFIGURED' && status !== 'CONNECTED' && !confirmingRecreate && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-danger"
-              disabled={pending}
-              onClick={() => setConfirmingRecreate(true)}
-            >
+            <Button type="button" disabled={pending} onClick={() => setConfirmingRecreate(true)}>
               Refazer a conexão
             </Button>
           )}

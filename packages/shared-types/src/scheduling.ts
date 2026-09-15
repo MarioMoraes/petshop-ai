@@ -662,3 +662,27 @@ export const BookingSourcesSchema = z.object({
   portal: z.number().int(),
 })
 export type BookingSources = z.infer<typeof BookingSourcesSchema>
+
+// ─── Faltas (painel do Início) ───────────────────────────────────────────────
+
+export const NoShowReportQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).default(30),
+})
+export type NoShowReportQuery = z.output<typeof NoShowReportQuerySchema>
+
+/**
+ * As faltas do período e o que elas custaram.
+ *
+ * Conta pela **data do atendimento**, ao contrário da origem dos agendamentos: a pergunta
+ * é qual horário ficou vazio, e o horário vazio é o do dia marcado. `totalCents` é o
+ * valor dos agendamentos que não aconteceram — o que se deixou de faturar, e a base para
+ * decidir ligar a multa por falta (`no_show_fee_percent`).
+ */
+export const NoShowReportSchema = z.object({
+  days: z.number().int(),
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  count: z.number().int(),
+  totalCents: z.number().int(),
+})
+export type NoShowReport = z.infer<typeof NoShowReportSchema>

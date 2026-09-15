@@ -11,6 +11,7 @@ import { requirePermission, requireTenantContext } from './auth.js'
 import { parseInput } from './validate.js'
 import type { ActorContext } from './actor.js'
 import { petAlerts } from './alerts.js'
+import { criticalPets } from './critical-pets.js'
 import {
   checkAllergies,
   createAllergy,
@@ -46,6 +47,19 @@ function actorOf(request: FastifyRequest): ActorContext {
 }
 
 export async function registerRecordRoutes(app: FastifyInstance): Promise<void> {
+  /**
+   * Pets com alerta crítico — o indicador de segurança do Início (§10).
+   *
+   * `record:read_summary`, e não `record:read_alerts`: o alerta de um pet é de todo
+   * mundo que encosta nele, mas a contagem da casa inteira é leitura de gestão — a
+   * recepção e o veterinário a têm, o motorista e o banhista não.
+   */
+  app.get(
+    '/v1/records/reports/critical-pets',
+    { preHandler: requirePermission('record:read_summary') },
+    async (request) => criticalPets(requireTenantContext(request).tenantId),
+  )
+
   // ─── Visão consolidada ─────────────────────────────────────────────────────
 
   app.get<{ Params: PetParams }>(
