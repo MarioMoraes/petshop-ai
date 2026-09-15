@@ -21,18 +21,40 @@ import { createApiClient, type ApiClient } from '@petshop/api-client'
  */
 const baseUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000'
 
+/**
+ * O token da requisição, emitido uma vez só.
+ *
+ * **Era um por chamada à API**, e o painel faz umas quatorze em paralelo: cada
+ * `getToken({ template })` é uma ida ao Clerk, e a rajada estourava o limite da instância.
+ * O pedido recusado caía, em silêncio, no token de sessão padrão — que o backend não lia
+ * como tendo estabelecimento, e a tela quebrava com o 403 "Selecione um estabelecimento
+ * para continuar" (2026-09-15). O `cache` do React vale por render de servidor, como o
+ * `carregarMe` abaixo: todas as chamadas de uma página dividem o mesmo token, e o token
+ * do template vive 60 segundos, bem mais que qualquer render.
+ *
+ * **A queda continua existindo, mas deixou de ser muda.** Sem o template o backend ainda
+ * resolve o estabelecimento (lê `o.id` do token padrão), e perde só o `permVersion` e o
+ * `mfa`, que ele trata como "não sei". O aviso no log é o que diz que isso aconteceu.
+ */
+const tokenDaRequisicao = cache(async (): Promise<string | null> => {
+  const session = await auth()
+
+  try {
+    const token = await session.getToken({ template: 'petshop' })
+    if (token) return token
+    console.warn('[auth] o template petshop voltou vazio; seguindo com o token de sessão padrão')
+  } catch (error) {
+    console.warn(
+      '[auth] o Clerk não emitiu o token do template petshop; seguindo com o token de sessão padrão',
+      error instanceof Error ? error.message : error,
+    )
+  }
+
+  return session.getToken()
+})
+
 export function serverApi(): ApiClient {
-  return createApiClient({
-    baseUrl,
-    getToken: async () => {
-      const session = await auth()
-      // O template nomeado publica o claim `permVersion` que o gateway compara
-      // (ver docs/setup-clerk.md). Sem ele, cai no token de sessão padrão.
-      return (
-        (await session.getToken({ template: 'petshop' }).catch(() => null)) ?? session.getToken()
-      )
-    },
-  })
+  return createApiClient({ baseUrl, getToken: tokenDaRequisicao })
 }
 
 /**

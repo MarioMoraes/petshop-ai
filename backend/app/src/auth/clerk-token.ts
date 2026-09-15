@@ -2,6 +2,7 @@ import { createPublicKey } from 'node:crypto'
 import { verifyToken } from '@clerk/backend'
 import { listFromEnv, loadEnv } from '../config/env.js'
 import { logger } from '../shared/logger.js'
+import { readOrgId } from './org-claim.js'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../shared/redis.js'
 
 /**
@@ -19,7 +20,10 @@ import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../shared/red
 export interface SessionClaims {
   /** `sub` — id do usuário no Clerk. */
   clerkUserId: string
-  /** `org_id` — Organization ativa, que é o tenant (SPEC §3.3). */
+  /**
+   * Organization ativa, que é o tenant (SPEC §3.3): `org_id` no JWT template, `o.id` no
+   * token de sessão padrão. Ver `readOrgId`.
+   */
   clerkOrgId: string | null
   /**
    * `permVersion` — publicado pelo JWT template a partir do metadata do membership
@@ -97,10 +101,7 @@ export function readKid(token: string): string | null {
   }
 }
 
-export type TokenVerifier = (
-  token: string,
-  extraAuthorizedParty?: string,
-) => Promise<SessionClaims>
+export type TokenVerifier = (token: string, extraAuthorizedParty?: string) => Promise<SessionClaims>
 
 let verifier: TokenVerifier | null = null
 
@@ -165,7 +166,7 @@ async function verifyWithClerk(
 
   return {
     clerkUserId: sub,
-    clerkOrgId: typeof payload.org_id === 'string' ? payload.org_id : null,
+    clerkOrgId: readOrgId(payload),
     permVersion: readPermVersion(payload),
     mfaEnabled: readMfa(payload),
     expiresAt: typeof payload.exp === 'number' ? payload.exp : null,
