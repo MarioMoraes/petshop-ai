@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server'
-import { routeFor, SITE_PREFIX } from '@/lib/host'
+import { exigeEstabelecimento, routeFor, SITE_PREFIX } from '@/lib/host'
 
 /**
  * Roteamento por host, e depois por estado da conta.
@@ -46,9 +46,12 @@ const APP_DOMAIN = process.env.APP_DOMAIN ?? 'localhost:3002'
  */
 const REDIRECT_PROTOCOL = APP_DOMAIN.startsWith('localhost') ? 'http:' : 'https:'
 
-/** O Admin como sempre foi: quem não tem sessão vai ao login, quem tem não fica nele. */
+/**
+ * O Admin: quem não tem sessão vai ao login, quem tem não fica nele — e quem tem sessão
+ * sem estabelecimento ativo não chega a uma tela que precisa de um.
+ */
 const withClerk = clerkMiddleware(async (auth, request) => {
-  const { userId } = await auth()
+  const { userId, orgId } = await auth()
 
   if (!userId && !isPublicRoute(request)) {
     return (await auth()).redirectToSignIn({ returnBackUrl: request.url })
@@ -56,6 +59,27 @@ const withClerk = clerkMiddleware(async (auth, request) => {
 
   if (userId && isPublicRoute(request)) {
     return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  /*
+   * Sessão sem Organization ativa numa tela do estabelecimento: vai ao `/onboarding`,
+   * que a reativa (`EnsureActiveOrganization`) e devolve ao painel.
+   *
+   * Tem de ser aqui, e não no layout, porque layout e página renderizam em paralelo: o
+   * `redirect` do layout não impede a página de chamar a API, levar o 403 "Selecione um
+   * estabelecimento para continuar" e derrubar a tela com "Application error". A razão
+   * completa, e a lista do que fica de fora, estão em `exigeEstabelecimento`.
+   *
+   * Só GET e HEAD, que é navegação. Um Server Action é POST para o endereço da própria
+   * tela, e redirecioná-lo devolveria HTML a quem espera a resposta da ação.
+   */
+  if (
+    userId &&
+    !orgId &&
+    (request.method === 'GET' || request.method === 'HEAD') &&
+    exigeEstabelecimento(request.nextUrl.pathname)
+  ) {
+    return NextResponse.redirect(new URL('/onboarding', request.url))
   }
 
   return NextResponse.next()

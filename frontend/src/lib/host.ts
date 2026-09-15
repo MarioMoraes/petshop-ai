@@ -169,6 +169,43 @@ export function isAdminPath(pathname: string): boolean {
 }
 
 /**
+ * As telas do Admin que funcionam **sem** estabelecimento ativo na sessão.
+ *
+ * - `/onboarding` é justamente quem reativa a Organization, e onde nasce o primeiro
+ *   estabelecimento de quem acabou de se cadastrar;
+ * - `/convite` é de quem ainda não é membro de lugar nenhum;
+ * - `/plataforma` exige o contrário: a sessão da equipe da PetShop AI é a que **não**
+ *   traz Organization (AC-03 de MOD-ADMIN-01);
+ * - `/sign-in` e `/sign-up` vêm antes de haver sessão.
+ */
+const SEM_ESTABELECIMENTO: readonly string[] = [
+  '/onboarding',
+  '/convite',
+  '/plataforma',
+  '/sign-in',
+  '/sign-up',
+]
+
+/**
+ * Esta tela do Admin precisa de estabelecimento ativo (a Organization do Clerk) na sessão?
+ *
+ * **Por que a pergunta existe.** No App Router, layout e página renderizam **em paralelo**.
+ * O layout que manda para `/onboarding` quem está sem estabelecimento não segura a página:
+ * ela chama a API ao mesmo tempo, recebe o 403 "Selecione um estabelecimento para
+ * continuar" e derruba a tela com "Application error" antes de o desvio valer. Foi o que
+ * se viu em produção em 2026-09-15, em tutores e pets — e "depois de um tempo funciona"
+ * era o `/onboarding` reativando a Organization numa outra navegação.
+ *
+ * **A regra é invertida de propósito:** toda tela do Admin exige, e a exceção tem nome.
+ * Uma tela nova nasce protegida; esquecer de listá-la custa um desvio a mais, e não uma
+ * tela quebrando em produção.
+ */
+export function exigeEstabelecimento(pathname: string): boolean {
+  if (!isAdminPath(pathname)) return false
+  return !SEM_ESTABELECIMENTO.some((prefix) => matchesPrefix(pathname, prefix))
+}
+
+/**
  * O que fazer com esta requisição.
  *
  * No host do tenant o **301 é reservado às rotas do Admin**, que de fato mudaram de

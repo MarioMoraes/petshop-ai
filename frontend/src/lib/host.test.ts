@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isAdminPath, resolveHost, routeFor } from './host.js'
+import { exigeEstabelecimento, isAdminPath, resolveHost, routeFor } from './host.js'
 
 /** Roteamento por host (MOD-SITE-11). */
 
@@ -65,12 +65,9 @@ describe('isAdminPath', () => {
     // publica no subdomínio de todo estabelecimento.
     '/plataforma',
     '/plataforma/estabelecimentos',
-  ])(
-    '%s é do Admin',
-    (path) => {
-      expect(isAdminPath(path)).toBe(true)
-    },
-  )
+  ])('%s é do Admin', (path) => {
+    expect(isAdminPath(path)).toBe(true)
+  })
 
   it.each(['/', '/sobre', '/portal', '/portal/pets', '/agendamento-online'])(
     '%s não é do Admin',
@@ -83,6 +80,40 @@ describe('isAdminPath', () => {
   it('não casa prefixo pela metade', () => {
     expect(isAdminPath('/petsitting')).toBe(false)
     expect(isAdminPath('/agendamentos')).toBe(false)
+  })
+})
+
+describe('exigeEstabelecimento', () => {
+  it.each([
+    '/dashboard',
+    '/tutores',
+    '/tutores/123',
+    '/pets/abc/editar',
+    '/agenda/dia',
+    '/mural',
+    '/configuracoes',
+    // Rota de arquivo também consulta a API com o tenant da sessão.
+    '/cobranca/pdf/contas-a-receber',
+  ])('%s exige estabelecimento ativo', (path) => {
+    expect(exigeEstabelecimento(path)).toBe(true)
+  })
+
+  it.each([
+    // A raiz decide sozinha entre painel e wizard, sem consultar nada do tenant.
+    '/',
+    // Quem reativa a Organization não pode exigir que ela já esteja ativa.
+    '/onboarding',
+    '/convite/abc123',
+    // O console da plataforma é o contrário: a sessão dele é a que não tem Organization.
+    '/plataforma',
+    '/plataforma/estabelecimentos',
+    '/sign-in',
+    '/sign-up/verify',
+    // Fora do Admin a pergunta nem se aplica.
+    '/portal/pets',
+    '/api/health',
+  ])('%s não exige', (path) => {
+    expect(exigeEstabelecimento(path)).toBe(false)
   })
 })
 
