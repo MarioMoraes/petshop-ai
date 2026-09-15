@@ -5,29 +5,73 @@ O caso desta instalação: a VPS `72.60.254.125` já hospeda a imobiliária
 80 e 443**.
 
 Use `infra/docker-compose.easypanel.yml`. O `docker-compose.swarm.yml` **não serve
-aqui**: ele sobe o nosso Caddy nas mesmas portas, e o segundo processo a tentar
-simplesmente não sobe.
+aqui**: ele publica o nosso Caddy em 80/443, e o segundo processo a tentar ocupar
+uma porta ocupada simplesmente não sobe.
 
 ```sh
 cd /opt/petshop
 docker compose -f infra/docker-compose.easypanel.yml --env-file .env.production up -d
 ```
 
-## O que muda ao perder a nossa borda
+## A borda: o Caddy atrás do Traefik
 
-| | Com o nosso Caddy | Aqui |
+A primeira versão desta configuração não tinha Caddy — cada serviço se anunciava
+ao Traefik do EasyPanel por labels HTTP. O custo era o certificado: **o Traefik
+do EasyPanel emite por HTTP-01, que não faz wildcard**, então todo host precisava
+estar nomeado numa lista (`PETSHOP_HOSTS`).
+
+Isso não sobrevive ao produto. O slug do estabelecimento é subdomínio, vai
+impresso em QR code, e **nasce quando um cliente se cadastra sozinho pelo
+wizard** — sem passar por ninguém. Com uma lista, o site e o Portal do Tutor
+desse cliente nasciam mortos, 404 com certificado inválido, até alguém editar um
+arquivo e redeployar. E nada avisava: nem log de erro, nem alerta.
+
+A saída é o Caddy de volta, **atrás** do Traefik, sem disputar porta nenhuma:
+
+```
+navegador ──443──▶ Traefik  ──router TCP, tls.passthrough──▶  Caddy ──▶ Next
+                  (EasyPanel)   casa PETSHOP_HOST_REGEXP      (termina o TLS)
+```
+
+`tls.passthrough` faz o Traefik **não** desembrulhar o TLS: ele lê só o SNI do
+ClientHello para escolher o destino e encaminha os bytes crus. Quem apresenta
+certificado é o Caddy — e por isso o certificado pode ser um wildcard, emitido
+por DNS-01 com o token da Cloudflare, que o Traefik nem sabe que existe.
+
+Um router TCP com SNI específico ganha dos routers HTTP no mesmo entrypoint:
+eles vivem atrás de um `HostSNI(*)` interno, o mais genérico possível. É o que
+faz a regra valer sem competir em prioridade com o `https-error-page` do
+EasyPanel. **Nada da configuração do EasyPanel é tocado** — são labels do nosso
+serviço.
+
+| | Lista de hosts (antes) | Caddy por passthrough (agora) |
 |---|---|---|
-| Certificado | wildcard `*.petshop…`, por DNS-01 | um por host, por HTTP-01 |
-| Host de tenant novo | automático | entra em `PETSHOP_HOSTS` + `up -d` |
-| `CLOUDFLARE_API_TOKEN` | obrigatório | **não é usado** |
-| Cabeçalhos de segurança e CSP | aplicados pelo Caddyfile | ausentes |
+| Certificado | um por host, HTTP-01 | wildcard `*.petshop…`, DNS-01 |
+| Host de tenant novo | `PETSHOP_HOSTS` + `up -d` | **automático** |
+| `CLOUDFLARE_API_TOKEN` | não usado | **obrigatório** |
+| Cabeçalhos de segurança e CSP | ausentes | aplicados pelo Caddyfile |
+| IP do cliente | direto | por PROXY protocol (v2) |
 
-**A ausência do wildcard é a dívida desta configuração.** O slug de cada
-estabelecimento é subdomínio e vai impresso em QR code; nomear host a host serve
-para dois ou três petshops de teste e não escala para clientes reais. Quando
-escalar for necessário, as saídas são um certificado wildcard configurado no
-próprio EasyPanel ou a nossa borda de volta — o que exige tirar o EasyPanel das
-portas 80/443.
+### PROXY protocol, e por que ele não é opcional
+
+Passthrough entrega bytes crus: sem PROXY protocol o Caddy veria o IP do
+container do Traefik em **toda** requisição. O `X-Forwarded-For` que ele monta
+viraria constante, e o rate limit do backend — que confia nele por
+`trustProxy: true` — contaria o mundo inteiro num balde só. O sintoma seria um
+Portal trancando sozinho sob carga normal, sem erro em lugar nenhum.
+
+Daí `PROXY_PROTOCOL_ALLOW`, que precisa ser a sub-rede **real** da rede do
+Traefik:
+
+```sh
+docker network inspect easypanel -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}'
+```
+
+O `allow` do Caddy é o que impede que o cabeçalho vire a mentira — só de uma
+origem listada ele é lido. Ele **aceita** o PROXY, não o exige: origem fora da
+lista, ou dentro dela mas sem cabeçalho, passa normalmente com o IP do socket. É
+por isso que o mesmo Caddyfile serve à borda dedicada, onde ninguém envia PROXY
+nenhum.
 
 ## A máquina é apertada
 
@@ -88,22 +132,28 @@ bem-sucedido. A imagem a usar seria a `pgvector/pgvector:pg16` da imobiliária, 
 
 ## Acrescentar um estabelecimento
 
-1. Registro `A` na Cloudflare: `{slug}.petshop.officestecnologia.com.br` →
-   `72.60.254.125`, **DNS-only** (nuvem cinza).
-2. Acrescente à regra em `.env.production`:
+Só o DNS:
 
-```sh
-PETSHOP_HOSTS='Host(`petshop.officestecnologia.com.br`) || Host(`app.petshop.officestecnologia.com.br`) || Host(`joao.petshop.officestecnologia.com.br`)'
-```
+1. Registro `A` **curinga** na Cloudflare: `*.petshop.officestecnologia.com.br` →
+   `72.60.254.125`, **DNS-only** (nuvem cinza). Feito uma vez, serve a todos.
+2. Não há passo 2. O regexp da borda já casa o host, e o Caddy pede o
+   certificado ao abrir — o wildcard cobre o slug que ainda não existia quando
+   ele foi emitido.
 
-3. `docker compose -f infra/docker-compose.easypanel.yml --env-file .env.production up -d`
+> A nuvem precisa ficar **cinza**. Em laranja a Cloudflare termina o TLS e o
+> ClientHello que chega ao Traefik é o dela: o SNI continua certo, mas o
+> certificado que o visitante vê passa a ser o da Cloudflare, e o `allow` do
+> PROXY protocol deixa de descrever quem de fato conecta.
+
+`PETSHOP_HOST_REGEXP` só muda se o `APP_DOMAIN` mudar. Os pontos vão
+**escapados** (`\.`): sem escape, `.` casa qualquer caractere e a borda aceita
+domínio que não é seu. `conferir-ambiente.sh` exercita a regra contra o ápice,
+`app.`, um host de tenant e um contra-exemplo — e reprova os três defeitos.
 
 > **Aspas simples, sempre.** O arquivo é lido de dois jeitos: o compose o parseia
 > literalmente e o `conferir-ambiente.sh` o carrega pelo bash. Entre aspas duplas
-> o bash trataria as crases como substituição de comando; escapá-las resolveria
-> para o bash e quebraria para o compose, que entregaria a barra invertida ao
-> Traefik — e a regra seria recusada. `conferir-ambiente.sh` reprova esse caso,
-> lendo a linha crua do arquivo.
+> o bash consome as barras invertidas do regexp, e a regra chega ao Traefik sem
+> os escapes.
 
 ## Rotas publicadas
 
@@ -118,10 +168,15 @@ Todo o resto vai para o Next. **`/v1` não tem rota na borda**: o cliente HTTP d
 frontend é `server-only`, o navegador nunca fala com o backend, e a superfície
 pública da API é zero.
 
-As prioridades do Traefik (`200` no backend, `100` no frontend) não são
-decorativas: o EasyPanel mantém um router `https-error-page` com
-`HostRegexp(.+)` e priority 1 — empatar com ele é sorteio —, e o backend precisa
-ficar acima do frontend, cuja regra pega tudo e engoliria `/internal`.
+Quem desempata agora é o **Caddyfile**, não o Traefik: `backend` e `frontend`
+saíram da rede do Traefik e só existem para o Caddy. Tirá-los de lá não é
+higiene — é o que impede que o Next seja alcançável por um caminho que não passa
+pelo Caddyfile, e portanto sem HSTS, sem CSP e sem os cabeçalhos de segurança.
+
+No Traefik sobrou um router TCP e um HTTP, os dois no serviço `caddy`. O segundo
+existe porque passthrough é de TLS: em texto claro não há SNI para casar, e quem
+digita o endereço sem `https://` — o caso real de quem lê o slug num cartão —
+precisa do desvio para o 443.
 
 ## Diagnóstico
 
@@ -130,11 +185,18 @@ docker compose -f infra/docker-compose.easypanel.yml --env-file .env.production 
 docker compose -f infra/docker-compose.easypanel.yml --env-file .env.production logs -f backend
 ```
 
-**A página 404 do EasyPanel em vez da aplicação** — o host não está em
-`PETSHOP_HOSTS`, ou a regra tem crase escapada. Rode `conferir-ambiente.sh`.
+**A página 404 do EasyPanel, com certificado `CN=Easypanel`** — nenhum router
+casou o SNI, então a conexão nem chegou ao Caddy. Confira o regexp com
+`conferir-ambiente.sh` e o router com
+`docker logs <traefik> 2>&1 | grep -i petshop-tls`.
 
-**Certificado inválido num host de tenant** — o registro DNS não existe, ou está
-em nuvem laranja. O HTTP-01 precisa alcançar a máquina pelo nome.
+**Certificado inválido, mas emitido pelo Caddy** — o ACME não terminou. O
+DNS-01 depende do token: `docker compose … logs caddy | grep -i acme`. Token sem
+`Zone:DNS:Edit` na zona falha em silêncio por minutos antes de desistir.
+
+**Todo mundo trancado pelo rate limit ao mesmo tempo** — `PROXY_PROTOCOL_ALLOW`
+não cobre a sub-rede do Traefik, e o backend está vendo um IP só. Confira com
+`docker network inspect easypanel -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}'`.
 
 **`network easypanel not found`** — confirme o nome real com
 `docker network ls | grep -i easypanel` e ajuste `TRAEFIK_NETWORK`.

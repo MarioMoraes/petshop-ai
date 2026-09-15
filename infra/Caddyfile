@@ -12,9 +12,45 @@
 # 2. O wildcard existe porque o slug do tenant é subdomínio. Ele exige DNS-01, que
 #    exige o módulo da Cloudflare (ver Dockerfile.caddy) e um token de API com
 #    permissão de editar a zona.
-
 {
 	email {$ACME_EMAIL}
+
+	servers {
+		# ── Quando o Caddy NÃO é o primeiro a tocar a conexão ────────────────
+		#
+		# Na VPS com EasyPanel as portas 80/443 são do Traefik, e ele nos entrega
+		# `*.{$APP_DOMAIN}` por um router TCP com `tls.passthrough` — bytes crus,
+		# sem cabeçalho nenhum acrescentado. Sem PROXY protocol o Caddy enxergaria
+		# o IP do container do Traefik em TODA requisição: o `X-Forwarded-For` que
+		# ele monta viraria constante, e o rate limit do backend — que confia nele
+		# por `trustProxy: true` — passaria a contar o mundo inteiro num balde só.
+		# O sintoma seria um Portal que tranca sozinho sob carga normal.
+		#
+		# `allow` é o que impede que o próprio cabeçalho vire a mentira: só de uma
+		# origem listada ele é lido. Medido contra o caddy:2: origem FORA da lista
+		# sem cabeçalho passa normalmente, e origem DENTRO da lista sem cabeçalho
+		# também — o wrapper não exige o PROXY, só o aceita. É por isso que esta
+		# mesma configuração serve ao caminho do swarm, onde o Caddy está na porta
+		# e ninguém envia cabeçalho algum: lá o padrão `127.0.0.1/32` não casa com
+		# cliente nenhum e o IP real continua vindo do socket.
+		#
+		# O valor certo é a sub-rede da rede do Traefik:
+		#   docker network inspect easypanel -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}'
+		listener_wrappers {
+			proxy_protocol {
+				allow {$PROXY_PROTOCOL_ALLOW:127.0.0.1/32}
+			}
+			# O wrapper de TLS vem por último, sempre: ele desembrulha o que os
+			# anteriores já entregaram em claro.
+			tls
+		}
+
+		# HTTP/3 fica de fora porque o 443/UDP não atravessa um proxy de camada 4.
+		# Anunciá-lo por Alt-Svc atrás do Traefik manda o navegador bater numa porta
+		# que não leva a lugar nenhum, para depois cair de volta no TCP — custo sem
+		# contrapartida. Na borda dedicada o que se perde é só o QUIC.
+		protocols h1 h2
+	}
 }
 
 {$APP_DOMAIN}, *.{$APP_DOMAIN} {
@@ -63,11 +99,11 @@
 		path /internal/v1/email/webhook /internal/v1/clerk/webhook
 	}
 	handle @webhooks {
-		reverse_proxy api-gateway:3000
+		reverse_proxy {$BACKEND_UPSTREAM:api-gateway:3000}
 	}
 
 	handle {
-		reverse_proxy frontend:3002
+		reverse_proxy {$FRONTEND_UPSTREAM:frontend:3002}
 	}
 
 	log {

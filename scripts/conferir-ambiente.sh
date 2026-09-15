@@ -102,14 +102,25 @@ opcional() {
 # ── Qual alvo de deploy? ──────────────────────────────────────────────────────
 # Duas bordas possíveis, e elas pedem coisas diferentes:
 #
-#   • **Caddy nosso** (docker-compose.swarm.yml / .prod.yml) — emite o wildcard
-#     por DNS-01 e por isso EXIGE o token da Cloudflare.
-#   • **Traefik do EasyPanel** (docker-compose.easypanel.yml) — as portas 80/443
-#     já têm dono; quem emite certificado é ele, por HTTP-01, e cada host precisa
-#     estar nomeado em PETSHOP_HOSTS. O token da Cloudflare não é usado.
+#   • **Caddy na porta** (docker-compose.swarm.yml / .prod.yml) — numa VPS onde
+#     80/443 estão livres.
+#   • **Caddy atrás do Traefik** (docker-compose.easypanel.yml) — as portas já
+#     têm dono, e o Traefik do EasyPanel entrega a conexão por um router TCP com
+#     `tls.passthrough`, casando PETSHOP_HOST_REGEXP.
 #
-# `PETSHOP_HOSTS` só existe no segundo caminho, então ela é o sinal.
-if [ -n "${PETSHOP_HOSTS:-}" ]; then ALVO=easypanel; else ALVO=caddy; fi
+# Os DOIS emitem o wildcard por DNS-01 e por isso exigem o token da Cloudflare —
+# o que muda é só quem atende a porta. `PETSHOP_HOST_REGEXP` só existe no segundo
+# caminho, então ela é o sinal.
+if [ -n "${PETSHOP_HOST_REGEXP:-}" ]; then ALVO=easypanel; else ALVO=caddy; fi
+
+# Um `PETSHOP_HOSTS` sobrando é de uma configuração que não existe mais: enquanto
+# a borda era o Traefik puro, ela nomeava host a host. Quem atualizar o repo sem
+# atualizar o `.env` cairia no ramo `caddy` e receberia uma lista de erros que não
+# explicam o que houve.
+if [ -n "${PETSHOP_HOSTS:-}" ] && [ -z "${PETSHOP_HOST_REGEXP:-}" ]; then
+  ALVO=easypanel
+  erro "PETSHOP_HOSTS foi substituída por PETSHOP_HOST_REGEXP. A borda voltou a ser o nosso Caddy, atrás do Traefik: um regexp no lugar da lista é o que faz estabelecimento novo abrir sem deploy. Ver .env.production.example"
+fi
 
 echo "Conferindo $ENV_FILE  (borda: $ALVO)"
 
@@ -121,28 +132,47 @@ if [ "$PERM" = "600" ]; then ok "permissão 600"; else aviso "permissão $PERM (
 # ── Domínio e TLS ─────────────────────────────────────────────────────────────
 titulo "Domínio e TLS"
 obrigatoria APP_DOMAIN "sem ele TODO host cai no Admin e nem o site nem o Portal respondem"
-if [ "$ALVO" = caddy ]; then
-  obrigatoria ACME_EMAIL "é para onde a Let's Encrypt avisa que o certificado expira"
-  obrigatoria CLOUDFLARE_API_TOKEN "assina o desafio DNS-01; sem ele não sai certificado wildcard e nenhum petshop abre"
-else
-  ok "borda é o Traefik do EasyPanel — CLOUDFLARE_API_TOKEN e ACME_EMAIL não são usados"
-  obrigatoria PETSHOP_HOSTS "cada host precisa estar nomeado aqui; sem wildcard, é o que faz o certificado existir"
+# Os dois caminhos emitem o wildcard por DNS-01: o slug do estabelecimento é
+# subdomínio e nasce sozinho, pelo wizard, então não há lista de hosts possível.
+obrigatoria ACME_EMAIL "é para onde a Let's Encrypt avisa que o certificado expira"
+obrigatoria CLOUDFLARE_API_TOKEN "assina o desafio DNS-01; sem ele não sai certificado wildcard e nenhum petshop abre"
+
+if [ "$ALVO" = easypanel ]; then
+  obrigatoria PETSHOP_HOST_REGEXP "é o que o Traefik casa para entregar a conexão ao nosso Caddy; sem ela nada chega"
+  obrigatoria CADDY_IMAGE "a borda tem imagem própria (o módulo DNS da Cloudflare é compilado nela)"
+
   # A linha CRUA do arquivo, e não a variável já carregada. O escape só é problema
   # para o `docker compose --env-file`, que lê o texto literalmente; o bash que
   # carregou este script já consumiu a barra invertida, então pela variável o
   # defeito é invisível. Foi assim que ele passou despercebido na primeira vez.
-  CRUA=$(grep -m1 '^PETSHOP_HOSTS=' "$CAMINHO" || true)
+  CRUA=$(grep -m1 '^PETSHOP_HOST_REGEXP=' "$CAMINHO" || true)
   case "$CRUA" in
-    *'\`'*) erro 'PETSHOP_HOSTS tem crase escapada (\`). Use ASPAS SIMPLES: o compose entrega a barra invertida ao Traefik e a regra é recusada' ;;
+    *'"'*) erro 'PETSHOP_HOST_REGEXP está entre aspas DUPLAS. Use simples: o bash deste script consome as barras invertidas do regexp e a regra chega ao Traefik sem os escapes' ;;
   esac
-  case "${PETSHOP_HOSTS:-}" in
-    *'`'*) ;;
-    *)     erro "PETSHOP_HOSTS não parece regra do Traefik — esperado algo como: Host(\`app.dominio\`)" ;;
-  esac
-  case "${PETSHOP_HOSTS:-}" in
-    *"app.${APP_DOMAIN:-}"*) ;;
-    *) aviso "PETSHOP_HOSTS não inclui app.${APP_DOMAIN:-} — é o host do Admin; sem ele ninguém entra" ;;
-  esac
+
+  # ── O regexp faz o que promete? ───────────────────────────────────────────
+  # Esta é a guarda que faltava quando a borda nomeava host a host: a lista podia
+  # esquecer um estabelecimento e ninguém sabia até o cliente reclamar. Agora a
+  # regra é uma só, então dá para EXERCITÁ-LA — com os três hosts que precisam
+  # casar e um que não pode casar de jeito nenhum.
+  #
+  # `grep -E` é POSIX ERE e o Traefik usa RE2; para uma âncora, um grupo opcional
+  # e classes de caractere — que é tudo o que esta regra tem — os dois concordam.
+  casa() { printf '%s' "$1" | grep -Eq "${PETSHOP_HOST_REGEXP}"; }
+  for host in "${APP_DOMAIN}" "app.${APP_DOMAIN}" "petshopdojoao.${APP_DOMAIN}"; do
+    casa "$host" || erro "PETSHOP_HOST_REGEXP não casa '$host' — esse host não teria rota nem certificado"
+  done
+  # O contra-exemplo é o que separa um regexp certo de um `.*`: pontos sem escape
+  # fazem `.` casar qualquer caractere, e a borda passa a aceitar domínio alheio.
+  # `petshop.officestecnologia…` com o primeiro ponto trocado por um `x`. Com os
+  # pontos escapados não casa; sem escapar, `.` casa o `x` e casa — que é
+  # exatamente a diferença que se quer apanhar.
+  if casa "${APP_DOMAIN/./x}"; then
+    erro "PETSHOP_HOST_REGEXP casa '${APP_DOMAIN/./x}', que não é seu domínio — os pontos precisam ir escapados (\\.)"
+  fi
+  unset -f casa
+else
+  ok "borda é o nosso Caddy na porta (80/443 livres)"
 fi
 
 case "${APP_DOMAIN:-}" in

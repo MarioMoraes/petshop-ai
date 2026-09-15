@@ -7,19 +7,31 @@
 #
 # O `docker-compose.swarm.yml` assume que as portas 80 e 443 estão livres e sobe
 # o nosso Caddy nelas. Nesta máquina elas são do **Traefik do EasyPanel**, e dois
-# proxies na mesma porta significam que o segundo simplesmente não sobe. Aqui não
-# há Caddy: a stack se anuncia ao Traefik por labels, como a stack da imobiliária
-# (`/opt/offices/docker-compose.easypanel.yml`) já faz.
+# proxies na mesma porta significam que o segundo simplesmente não sobe.
 #
-# O que se perde junto com o Caddy, e é bom saber:
-#   • **O certificado wildcard.** O nosso Caddy o emitia por DNS-01 com o token
-#     da Cloudflare. O Traefik do EasyPanel emite por HTTP-01, que não faz
-#     wildcard — então cada host precisa ser NOMEADO em `PETSHOP_HOSTS` abaixo.
-#     Serve para uma fase de teste com poucos estabelecimentos; não escala para
-#     clientes de verdade, e é a dívida a pagar antes disso.
-#   • **O `CLOUDFLARE_API_TOKEN` deixa de ser usado.** Pode ficar vazio.
-#   • A CSP em modo relatório e os cabeçalhos de segurança do Caddyfile. O
-#     Traefik do EasyPanel não os aplica; voltam quando a borda voltar a ser nossa.
+# ── O Caddy voltou, e não pela porta ─────────────────────────────────────────
+#
+# A primeira versão deste arquivo não tinha Caddy: cada serviço se anunciava ao
+# Traefik por labels HTTP, como a stack da imobiliária faz. O preço era o
+# certificado: o Traefik do EasyPanel emite por **HTTP-01, que não faz wildcard**,
+# então todo host precisava estar NOMEADO numa lista (`PETSHOP_HOSTS`). Só que o
+# slug do estabelecimento é subdomínio e nasce quando um cliente se cadastra —
+# pelo wizard, sozinho, sem passar por ninguém. O site e o Portal do Tutor dele
+# nasciam mortos, com 404 e certificado inválido, até alguém editar o `.env` e
+# redeployar. Nada avisava.
+#
+# A saída é o Caddy de volta **atrás** do Traefik, sem disputar porta nenhuma: um
+# router TCP com `tls.passthrough` entrega a ele os bytes crus de tudo que casa
+# `PETSHOP_HOST_REGEXP`, e quem termina o TLS é o Caddy — que emite o wildcard por
+# DNS-01 com o token da Cloudflare, como sempre soube fazer. São labels do NOSSO
+# serviço; a configuração do EasyPanel não é tocada.
+#
+# O que isso devolve, além do wildcard: a CSP em modo relatório, o HSTS e os
+# cabeçalhos de segurança do Caddyfile, que o Traefik do EasyPanel não aplica.
+#
+# O que isso exige, e é a parte fácil de esquecer: o `CLOUDFLARE_API_TOKEN` volta
+# a ser obrigatório, e o `PROXY_PROTOCOL_ALLOW` precisa ser a sub-rede real da
+# rede do Traefik — ver o comentário do serviço `caddy`.
 #
 # ── Por que cada label aparece DUAS vezes ────────────────────────────────────
 # Esta máquina roda o EasyPanel em Swarm, mas esta stack sobe por `docker
@@ -233,33 +245,15 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    # Só a rede interna: quem fala com o Traefik é o Caddy, e é o Caddy quem
+    # alcança este serviço. **Só os dois webhooks de provedor saem para o mundo**
+    # — o retorno de entrega do Resend e a sincronização de usuário do Clerk —, e
+    # quem os publica é o bloco `@webhooks` do Caddyfile, casando o host da
+    # aplicação e os dois caminhos exatos. O resto de `/v1` não tem rota na borda:
+    # o cliente HTTP do frontend é `server-only`, então o navegador nunca fala com
+    # o backend e a superfície pública da API é zero.
     networks:
       - interna
-      - traefik
-    # **Só os dois webhooks de provedor são publicados.** O resto de `/v1` não
-    # tem rota na borda: o cliente HTTP do frontend é `server-only`, então o
-    # navegador nunca fala com o backend e a superfície pública da API é zero.
-    # Os dois valem só no domínio da aplicação, nunca em host de tenant — webhook
-    # é da instalação, não de um petshop —, e o que os protege é a assinatura
-    # Svix sobre o corpo cru.
-    labels: &backend-labels
-      traefik.enable: 'true'
-      # Duas grafias do mesmo conceito: o provider Docker lê
-      # `traefik.docker.network`, o provider Swarm da v3 lê `traefik.swarm.network`.
-      # O serviço está em duas redes; sem isto o Traefik pode escolher a `interna`
-      # e não alcançar o container.
-      traefik.docker.network: ${TRAEFIK_NETWORK:-easypanel}
-      traefik.swarm.network: ${TRAEFIK_NETWORK:-easypanel}
-      traefik.http.routers.petshop-backend.rule: Host(`${APP_DOMAIN:?}`) && PathPrefix(`/internal/v1/`)
-      traefik.http.routers.petshop-backend.entrypoints: ${TRAEFIK_ENTRYPOINT:-https}
-      traefik.http.routers.petshop-backend.tls.certresolver: ${TRAEFIK_CERTRESOLVER:-letsencrypt}
-      # Acima do frontend: a regra dele pega tudo e engoliria `/internal`.
-      # E acima de 2, porque o EasyPanel mantém um router `https-error-page` com
-      # `HostRegexp(.+)` e priority 1 — empatar com ele é sorteio.
-      traefik.http.routers.petshop-backend.priority: '200'
-      traefik.http.services.petshop-backend.loadbalancer.server.port: '3000'
-    deploy:
-      labels: *backend-labels
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:
@@ -299,34 +293,109 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+    # Só a rede interna: quem responde ao mundo é o Caddy, e é dele que este
+    # serviço recebe. Tirá-lo da rede do Traefik não é higiene — é o que impede
+    # que o Next seja alcançável por um caminho que não passa pelo Caddyfile, e
+    # portanto sem HSTS, sem CSP e sem os cabeçalhos de segurança.
+    networks:
+      - interna
+
+  # ─── Borda ──────────────────────────────────────────────────────────────────
+  # O Caddy, atrás do Traefik e sem porta publicada.
+  #
+  # Ele existe aqui por um motivo só, e é o certificado: o slug do estabelecimento
+  # é subdomínio, nasce quando um cliente se cadastra sozinho pelo wizard, e vai
+  # impresso em QR code. Nomear host a host — que é tudo o que o HTTP-01 do
+  # Traefik do EasyPanel permite — significa um estabelecimento novo nascer com o
+  # site e o Portal do Tutor em 404 até alguém editar um arquivo. O wildcard sai
+  # por DNS-01, o DNS-01 exige um módulo de provedor compilado no binário, e é
+  # exatamente essa a imagem que `infra/Dockerfile.caddy` constrói.
+  caddy:
+    image: ${CADDY_IMAGE:?defina CADDY_IMAGE, ex. ghcr.io/mariomoraes/petshop-caddy:0.1.0}
+    restart: unless-stopped
+    depends_on:
+      frontend: { condition: service_healthy }
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?}
+      ACME_EMAIL: ${ACME_EMAIL:?é para onde a Let's Encrypt avisa que o certificado expira}
+      # Zone:DNS:Edit na zona de APP_DOMAIN. Sem ele não há DNS-01, sem DNS-01 não
+      # há wildcard, e sem wildcard nenhum host de tenant abre. Deixou de ser
+      # dispensável quando o Caddy voltou.
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?}
+      # Os nomes de serviço deste arquivo, que não são os do swarm: lá o backend
+      # ainda se chama `api-gateway`, que é o padrão embutido no Caddyfile.
+      BACKEND_UPSTREAM: backend:3000
+      FRONTEND_UPSTREAM: frontend:3002
+      # De onde o cabeçalho PROXY é aceito — ver o comentário no Caddyfile. Tem de
+      # ser a sub-rede REAL da rede do Traefik; errar aqui não quebra nada de
+      # forma visível, só faz todo cliente chegar ao backend com o mesmo IP e o
+      # rate limit do Portal virar um balde só. Conferir com:
+      #   docker network inspect ${TRAEFIK_NETWORK:-easypanel} \
+      #     -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}'
+      PROXY_PROTOCOL_ALLOW: ${PROXY_PROTOCOL_ALLOW:-10.0.0.0/8}
+    volumes:
+      # Os certificados. Perder este volume é pedir tudo de novo à Let's Encrypt,
+      # que limita emissões por domínio por semana — e com wildcard sobra pouca
+      # margem para tentativa e erro.
+      - caddy-data:/data
+      - caddy-config:/config
+    healthcheck:
+      # A API de administração, e não o 443. Medido contra esta imagem: o Caddy
+      # serve os sites de `{$APP_DOMAIN}` e `*.{$APP_DOMAIN}`, e um ClientHello
+      # com SNI `localhost` não casa nenhum — o handshake morre com `tlsv1 alert
+      # internal error` e o container ficaria unhealthy para sempre. O 2019 é
+      # local ao container, não é publicado, e responde assim que o processo sobe.
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     networks:
       - interna
       - traefik
-    labels: &frontend-labels
+    labels: &caddy-labels
       traefik.enable: 'true'
       traefik.docker.network: ${TRAEFIK_NETWORK:-easypanel}
       traefik.swarm.network: ${TRAEFIK_NETWORK:-easypanel}
-      # ── A regra de host, e por que ela é uma lista ────────────────────────
-      # O petshop endereça por host: o ápice e `app.` servem o Admin, e cada
-      # `{slug}.` serve o site público do estabelecimento e o Portal do Tutor.
-      # Com o nosso Caddy isso era um wildcard, emitido por DNS-01.
+
+      # ── O router TCP, que é a peça toda ──────────────────────────────────
+      # `tls.passthrough` faz o Traefik NÃO desembrulhar o TLS: ele lê só o SNI
+      # do ClientHello para decidir o destino e encaminha os bytes crus. Quem
+      # apresenta certificado é o Caddy, e por isso o certificado pode ser um
+      # wildcard que o Traefik nem sabe que existe.
       #
-      # O Traefik do EasyPanel emite por HTTP-01, que **não faz wildcard**: cada
-      # host precisa ser nomeado para que o certificado dele exista. Daí
-      # `PETSHOP_HOSTS` — uma expressão de regra do Traefik, no .env.production:
+      # Um router TCP com SNI específico ganha dos routers HTTP no mesmo
+      # entrypoint — eles vivem atrás de um `HostSNI(*)` interno, que é o mais
+      # genérico possível. É o que faz esta regra valer sem competir por
+      # prioridade com o `https-error-page` do EasyPanel.
       #
-      #   PETSHOP_HOSTS=Host(`petshop.x.com.br`) || Host(`app.petshop.x.com.br`) || Host(`joao.petshop.x.com.br`)
-      #
-      # Cada estabelecimento novo entra aqui e pede um `up -d` — o preço de não
-      # ter wildcard, e a razão de isto servir a uma fase de teste e não a
-      # clientes de verdade.
-      traefik.http.routers.petshop-frontend.rule: ${PETSHOP_HOSTS:?defina PETSHOP_HOSTS no .env.production}
-      traefik.http.routers.petshop-frontend.entrypoints: ${TRAEFIK_ENTRYPOINT:-https}
-      traefik.http.routers.petshop-frontend.tls.certresolver: ${TRAEFIK_CERTRESOLVER:-letsencrypt}
-      traefik.http.routers.petshop-frontend.priority: '100'
-      traefik.http.services.petshop-frontend.loadbalancer.server.port: '3002'
+      # **A regra é um regexp e não uma lista, e é esse o ponto**: host de tenant
+      # novo passa a funcionar sem deploy nenhum.
+      traefik.tcp.routers.petshop-tls.rule: HostSNIRegexp(`${PETSHOP_HOST_REGEXP:?defina PETSHOP_HOST_REGEXP no .env.production}`)
+      traefik.tcp.routers.petshop-tls.entrypoints: ${TRAEFIK_ENTRYPOINT:-https}
+      traefik.tcp.routers.petshop-tls.tls.passthrough: 'true'
+      traefik.tcp.services.petshop-tls.loadbalancer.server.port: '443'
+      # Sem isto o Caddy vê o IP do Traefik em toda conexão. O Caddyfile só o
+      # aceita das origens em `PROXY_PROTOCOL_ALLOW`.
+      traefik.tcp.services.petshop-tls.loadbalancer.proxyProtocol.version: '2'
+
+      # ── E o 80, que o passthrough não cobre ───────────────────────────────
+      # Passthrough é de TLS; em texto claro não há SNI para casar. Quem digita o
+      # endereço sem `https://` — o caso real de quem lê o slug num QR code ou
+      # num cartão — precisa deste desvio. O redirecionamento é do Traefik porque
+      # o Caddy não recebe a porta 80 aqui.
+      traefik.http.routers.petshop-http.rule: HostRegexp(`${PETSHOP_HOST_REGEXP:?}`)
+      traefik.http.routers.petshop-http.entrypoints: ${TRAEFIK_HTTP_ENTRYPOINT:-http}
+      # Sem sufixo de provider: `@docker` e `@swarm` são nomes diferentes para o
+      # mesmo middleware, e este arquivo roda dos dois jeitos.
+      traefik.http.routers.petshop-http.middlewares: petshop-https
+      traefik.http.routers.petshop-http.priority: '100'
+      traefik.http.middlewares.petshop-https.redirectscheme.scheme: https
+      traefik.http.middlewares.petshop-https.redirectscheme.permanent: 'true'
+      # O router precisa de um serviço mesmo só para redirecionar.
+      traefik.http.services.petshop-http.loadbalancer.server.port: '80'
     deploy:
-      labels: *frontend-labels
+      labels: *caddy-labels
 
 networks:
   # Privada desta stack: banco, fila, cache e Evolution só existem aqui dentro.
@@ -339,6 +408,8 @@ networks:
     name: ${TRAEFIK_NETWORK:-easypanel}
 
 volumes:
+  caddy-data:
+  caddy-config:
   postgres-data:
   redis-data:
   rabbitmq-data:

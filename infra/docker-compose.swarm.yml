@@ -427,7 +427,11 @@ services:
       # enxergar um cliente só. Com um nó, a malha também não traz benefício.
       - { target: 80, published: 80, protocol: tcp, mode: host }
       - { target: 443, published: 443, protocol: tcp, mode: host }
-      - { target: 443, published: 443, protocol: udp, mode: host }
+      # Sem 443/UDP: o Caddyfile desliga o HTTP/3 (`protocols h1 h2`), porque na
+      # VPS com EasyPanel o Caddy fica atrás de um proxy de camada 4, que não
+      # encaminha UDP — e anunciar Alt-Svc para uma porta que não leva a lugar
+      # nenhum custa uma tentativa perdida por visitante. O Caddyfile é um só
+      # para as duas bordas; o que se perde aqui é o QUIC.
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?}
       ACME_EMAIL: ${ACME_EMAIL:?}
