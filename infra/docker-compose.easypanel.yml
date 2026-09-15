@@ -245,6 +245,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    # **Apelido próprio, e não o nome do serviço.** A stack da imobiliária, na
+    # mesma VPS, também tem serviços chamados `frontend` e `backend`, e eles
+    # ganham esse nome como alias na rede `easypanel` do Traefik. O Caddy está
+    # nas DUAS redes, e o DNS do Docker respondia `frontend` com o container
+    # dela — que não escuta na nossa porta. O sintoma era 502 nos dois upstreams
+    # com tudo saudável no `ps`.
+    #
     # Só a rede interna: quem fala com o Traefik é o Caddy, e é o Caddy quem
     # alcança este serviço. **Só os dois webhooks de provedor saem para o mundo**
     # — o retorno de entrega do Resend e a sincronização de usuário do Clerk —, e
@@ -253,7 +260,8 @@ services:
     # o cliente HTTP do frontend é `server-only`, então o navegador nunca fala com
     # o backend e a superfície pública da API é zero.
     networks:
-      - interna
+      interna:
+        aliases: [petshop-backend]
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:
@@ -293,12 +301,20 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+    # **Apelido próprio, e não o nome do serviço.** A stack da imobiliária, na
+    # mesma VPS, também tem serviços chamados `frontend` e `backend`, e eles
+    # ganham esse nome como alias na rede `easypanel` do Traefik. O Caddy está
+    # nas DUAS redes, e o DNS do Docker respondia `frontend` com o container
+    # dela — que não escuta na nossa porta. O sintoma era 502 nos dois upstreams
+    # com tudo saudável no `ps`.
+    #
     # Só a rede interna: quem responde ao mundo é o Caddy, e é dele que este
     # serviço recebe. Tirá-lo da rede do Traefik não é higiene — é o que impede
     # que o Next seja alcançável por um caminho que não passa pelo Caddyfile, e
     # portanto sem HSTS, sem CSP e sem os cabeçalhos de segurança.
     networks:
-      - interna
+      interna:
+        aliases: [petshop-frontend]
 
   # ─── Borda ──────────────────────────────────────────────────────────────────
   # O Caddy, atrás do Traefik e sem porta publicada.
@@ -324,8 +340,8 @@ services:
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?}
       # Os nomes de serviço deste arquivo, que não são os do swarm: lá o backend
       # ainda se chama `api-gateway`, que é o padrão embutido no Caddyfile.
-      BACKEND_UPSTREAM: backend:3000
-      FRONTEND_UPSTREAM: frontend:3002
+      BACKEND_UPSTREAM: petshop-backend:3000
+      FRONTEND_UPSTREAM: petshop-frontend:3002
       # De onde o cabeçalho PROXY é aceito — ver o comentário no Caddyfile. Tem de
       # ser a sub-rede REAL da rede do Traefik; errar aqui não quebra nada de
       # forma visível, só faz todo cliente chegar ao backend com o mesmo IP e o
