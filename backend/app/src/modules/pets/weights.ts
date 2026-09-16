@@ -10,7 +10,7 @@ import { invalid, notFound } from './errors.js'
 import { publishEvent } from '../../shared/events.js'
 import { recordMetric } from '../../shared/logger.js'
 import { invalidatePet } from '../../shared/redis.js'
-import { assertWritable } from './service.js'
+import { assertWritable } from './guards.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 
 /**

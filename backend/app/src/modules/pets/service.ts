@@ -12,6 +12,7 @@ import {
 } from '@petshop/shared-types'
 import { recordAudit } from '../../shared/audit.js'
 import { conflict, notFound } from './errors.js'
+import { assertWritable } from './guards.js'
 import { publishEvent } from '../../shared/events.js'
 import { recordMetric } from '../../shared/logger.js'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet, invalidatePet } from '../../shared/redis.js'
@@ -414,16 +415,6 @@ export async function deletePet(actor: ActorContext, petId: string): Promise<voi
 }
 
 // ─── Regras compartilhadas ───────────────────────────────────────────────────
-
-/** Estados terminais recusam escrita: o pet não é mais deste tenant, ou não vive mais. */
-export function assertWritable(row: Pick<Pet, 'status'>): void {
-  if (row.status === 'TRANSFERRED_OUT') {
-    throw conflict('Este pet foi transferido para outro estabelecimento e não aceita alterações')
-  }
-  if (row.status === 'DECEASED') {
-    throw conflict('Este pet está registrado como falecido. Reverta o óbito para editar.')
-  }
-}
 
 /** RN-15: 409 carregando o pet existente, para a UI abrir o cadastro em vez de só recusar. */
 async function assertMicrochipFree(

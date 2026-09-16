@@ -203,3 +203,28 @@ webhooks dos provedores (Evolution no pareamento do WhatsApp, Resend no retorno 
 entrega). O nome diz de onde a chamada nasce, não que ela seja privada — a rota do
 Resend é a única superfície de backend que a borda publica (`infra/Caddyfile`). Cada uma
 se autentica sozinha, com o token da instância ou a assinatura Svix sobre o corpo cru.
+
+## O grafo do repositório (graphify)
+
+`graphify-out/graph.json` é um grafo de conhecimento do código e dos documentos — quem
+chama quem, quem importa o quê, que PRD fala de que tabela. Fica fora do git.
+
+**Antes de implementar um recurso, consulte o grafo.** Ele responde em segundos o que
+um grep responde em dez leituras:
+
+- `graphify query "<pergunta>"` — o subgrafo em volta de um assunto;
+- `graphify explain "<símbolo>"` — um nó e seus vizinhos (quem usa `withTenant`, por
+  exemplo);
+- `graphify path "<A>" "<B>"` — o caminho mais curto entre dois conceitos, que é como
+  se descobre um acoplamento entre módulos que devia passar por porta.
+
+O grafo é mapa, não fonte: o nó diz onde olhar (`source_file` e linha), e a decisão
+sai da leitura do arquivo. `graphify-out/GRAPH_REPORT.md` só para visão de conjunto.
+
+**Depois de mudar código, o grafo se atualiza no commit.** Os hooks `post-commit` e
+`post-checkout` (`graphify hook install`, locais em `.git/hooks`) refazem em segundo
+plano só a parte estrutural (AST, sem custo de modelo), com log em
+`~/.cache/graphify-rebuild.log`. Duas coisas eles **não** fazem: reler documento
+alterado — PRD, `SPEC.md`, este arquivo — e aceitar um grafo menor que o anterior. Mudança
+em documento ou refatoração que apaga código pede `/graphify . --update` à mão. Na dúvida
+sobre o frescor, a data do `graph.json` diz.

@@ -13,7 +13,8 @@ import { getScheduling } from './scheduling-port.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { openCipher } from './crypto.js'
 import { enrichPets, toDateString, toPetResponse, type PetRow } from './mapper.js'
-import { assertWritable, WITH_DOMAIN } from './service.js'
+import { assertWritable } from './guards.js'
+import { WITH_DOMAIN } from './service.js'
 
 /**
  * Transferência de titularidade (MOD-PET-05).

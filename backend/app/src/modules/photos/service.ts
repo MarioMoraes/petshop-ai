@@ -24,7 +24,7 @@ function objectKey(tenantId: string, petId: string, photoId: string, variant: st
   return `tenants/${tenantId}/pets/${petId}/${photoId}/${variant}.webp`
 }
 import { tenantOptions, type ActorContext } from '../pets/actor.js'
-import { assertWritable } from '../pets/service.js'
+import { assertWritable } from '../pets/guards.js'
 import { processPhoto } from './image.js'
 
 /**
