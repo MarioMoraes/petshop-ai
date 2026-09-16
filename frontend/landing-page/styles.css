@@ -1745,7 +1745,13 @@ ul {
   color: var(--muted);
 }
 
+/*
+ * O selo vai DENTRO do texto, e não como irmão dele: o <li> é flex, e um item flex
+ * a mais esticava o selo na altura das duas linhas quando o texto quebrava.
+ */
 .catalog .ticks .plan-tag {
+  display: inline-block;
+  line-height: 1.5;
   margin-left: 6px;
   padding: 1px 7px;
   font-size: 10.5px;
