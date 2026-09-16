@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PetShop AI — gestão e atendimento com IA para pet shops</title>
+    <meta
+      name="description"
+      content="Agenda, fichas de tutores e pets, prontuário, financeiro, WhatsApp, Portal do Tutor, site próprio, Taxi Dog e um agente de IA que marca horários. Teste grátis por 14 dias."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="PetShop AI — o Petshop inteiro num lugar só" />
+    <meta
+      property="og:description"
+      content="Gestão completa e atendimento com IA no WhatsApp para banho e tosa, clínicas e hotéis pet."
+    />
+    <meta name="theme-color" content="#f4f5f7" />
+    <!--
+      Endereço do Admin, para onde vão os botões de cadastro e de login.
+      Vazio, o `main.js` deduz: `http://localhost:3002` em desenvolvimento e
+      `https://app.<domínio desta página>` em produção — o mesmo desenho de hosts do
+      produto (`frontend/src/lib/host.ts`). Preencha só se o Admin morar em outro lugar.
+    -->
+    <meta name="app-url" content="" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      document.documentElement.classList.add('js')
+    </script>
+  </head>
+  <body>
+    <!-- Ícones: os mesmos traços de `frontend/src/components/icons.tsx`. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-paw" viewBox="0 0 24 24"><circle cx="11" cy="4" r="2" /><circle cx="18" cy="8" r="2" /><circle cx="20" cy="16" r="2" /><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" /></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></symbol>
+      <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></symbol>
+      <symbol id="i-van" viewBox="0 0 24 24"><path d="M2 17V7a1 1 0 0 1 1-1h11v11" /><path d="M14 9h4l3 4v4h-2" /><circle cx="7" cy="17" r="2" /><circle cx="17" cy="17" r="2" /><path d="M9 17h6" /></symbol>
+      <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></symbol>
+      <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /><path d="M3.5 13H9l.5-1 2 4.5 2-7 1.5 3.5h5.2" /></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6a3 3 0 0 0 1.9 1.9L21.4 12l-5.6 1.9a3 3 0 0 0-1.9 1.9L12 21.4l-1.9-5.6a3 3 0 0 0-1.9-1.9L2.6 12l5.6-1.9a3 3 0 0 0 1.9-1.9Z" /><path d="M19.5 3v3" /><path d="M21 4.5h-3" /><path d="M5 17v2.5" /><path d="M6.25 18.25h-2.5" /></symbol>
+      <symbol id="i-wa" viewBox="0 0 24 24"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.87 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.34" /><path d="M20.52 3.48A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.69 1.45c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42M12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.89 9.89-9.89 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.43 9.89-9.89 9.89" /></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v5h6" /><path d="M9 13h6M9 17h4" /></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 12c0 5-3.5 7.7-7.4 9.1a1.7 1.7 0 0 1-1.2 0C7.5 19.7 4 17 4 12V6.4a1.7 1.7 0 0 1 1.1-1.6l6.3-2.3a1.7 1.7 0 0 1 1.2 0l6.3 2.3A1.7 1.7 0 0 1 20 6.4Z" /><path d="m9 12 2 2 4-4" /></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" /></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" /><path d="M12 18h.01" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+      <symbol id="i-trend" viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17" /><path d="M16 7h6v6" /></symbol>
+      <symbol id="i-cake" viewBox="0 0 24 24"><path d="M4 14a2 2 0 0 1 2 2 2 2 0 0 0 4 0 2 2 0 0 1 4 0 2 2 0 0 0 4 0 2 2 0 0 1 2-2" /><path d="M4 12a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9H4Z" /><path d="M12 7V5M8 7V6M16 7V6" /></symbol>
+      <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5 3h14v18l-2.3-1.6L14.4 21l-2.4-1.6L9.6 21l-2.3-1.6L5 21Z" /><path d="M9 8h6M9 12h6" /></symbol>
+      <symbol id="i-store" viewBox="0 0 24 24"><path d="m3.5 8 1.9-3.4A2 2 0 0 1 7.2 3.6h9.6a2 2 0 0 1 1.8 1L20.5 8" /><path d="M5 11v7.4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V11" /><path d="M10 20.4V16h4v4.4" /><path d="M3.5 8h17v1.2a2.4 2.4 0 0 1-4.25 1.5 2.4 2.4 0 0 1-4.25 0 2.4 2.4 0 0 1-4.25 0A2.4 2.4 0 0 1 3.5 9.2Z" /></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m2 7 8.9 5.9a2 2 0 0 0 2.2 0L22 7" /></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z" /></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></symbol>
+      <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5" /><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></symbol>
+      <symbol id="i-headset" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2" /><path d="M20 14v2a2 2 0 0 1-2 2h-2v-6h2a2 2 0 0 1 2 2Z" /><path d="M4 14v2a2 2 0 0 0 2 2h2v-6H6a2 2 0 0 0-2 2Z" /><path d="M18 18a4 4 0 0 1-4 3h-2" /></symbol>
+      <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0v5" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol>
+      <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></symbol>
+    </svg>
+
+    <div class="shell">
+      <div class="bloom bloom-cool" aria-hidden="true"></div>
+      <div class="bloom bloom-warm" aria-hidden="true"></div>
+
+      <!-- ═══ Navegação ═══ -->
+      <header class="nav-wrap">
+        <nav class="nav" aria-label="Principal">
+          <a href="#topo" class="brand" aria-label="PetShop AI — início">
+            <span class="brand-mark"><svg class="icon"><use href="#i-paw" /></svg></span>
+            <span>PetShop <span class="brand-ai">AI</span></span>
+          </a>
+          <div class="nav-links">
+            <a href="#recursos">Recursos</a>
+            <a href="#ia">Agente de IA</a>
+            <a href="#portal">Portal e site</a>
+            <a href="#planos">Planos</a>
+            <a href="#duvidas">Dúvidas</a>
+          </div>
+          <div class="nav-actions">
+            <a class="nav-login" href="/sign-in" data-app-path="/sign-in">Entrar</a>
+            <a class="btn btn-dark btn-sm" href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">Testar grátis</a>
+          </div>
+          <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="menu-movel" aria-label="Abrir menu">
+            <svg class="icon"><use href="#i-menu" /></svg>
+          </button>
+        </nav>
+        <div class="mobile-menu" id="menu-movel">
+          <a href="#recursos">Recursos</a>
+          <a href="#ia">Agente de IA</a>
+          <a href="#portal">Portal e site</a>
+          <a href="#planos">Planos</a>
+          <a href="#duvidas">Dúvidas</a>
+          <a href="/sign-in" data-app-path="/sign-in">Entrar</a>
+          <a class="btn btn-dark" href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">Testar grátis por 14 dias</a>
+        </div>
+      </header>
+
+      <main id="topo">
+        <!-- ═══ Hero ═══ -->
+        <section class="hero">
+          <div class="container">
+            <span class="eyebrow reveal"><svg class="icon"><use href="#i-spark" /></svg>Gestão + Atendimento com IA</span>
+            <h1 class="reveal" style="--d: 0.08s">
+              O <span class="hl">Petshop</span> inteiro,<br />
+              <span class="serif">num lugar só</span>
+            </h1>
+            <p class="lead reveal" style="--d: 0.16s">
+              Agenda, fichas de tutores e pets, prontuário, financeiro e WhatsApp — com um agente de IA que responde
+              seus clientes e marca horários enquanto a equipe cuida dos bichos.
+            </p>
+            <div class="hero-cta reveal" style="--d: 0.24s">
+              <a class="btn btn-dark btn-lg" href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">
+                Começar teste grátis <svg class="icon icon-arrow"><use href="#i-arrow" /></svg>
+              </a>
+              <a class="btn btn-light btn-lg" href="#planos">Ver planos</a>
+            </div>
+            <div class="hero-note reveal" style="--d: 0.3s">
+              <span><svg class="icon"><use href="#i-check" /></svg>14 dias grátis</span>
+              <span><svg class="icon"><use href="#i-check" /></svg>Sem cartão de crédito</span>
+              <span><svg class="icon"><use href="#i-check" /></svg>Troque de plano quando quiser</span>
+            </div>
+          </div>
+
+          <!-- A cena: a Agenda do Dia, como ela é no produto. -->
+          <div class="stage reveal" style="--d: 0.35s" aria-hidden="true">
+            <div class="window">
+              <div class="window-bar">
+                <div class="dots"><i></i><i></i><i></i></div>
+                <div class="window-url">app.petshop.ai/agenda/dia</div>
+              </div>
+              <div class="app">
+                <aside class="app-side">
+                  <div class="brand"><span class="brand-mark"><svg class="icon"><use href="#i-paw" /></svg></span>PetShop AI</div>
+                  <div class="side-item"><span class="chip tone-brand"><svg class="icon"><use href="#i-home" /></svg></span>Início</div>
+                  <div class="side-item"><span class="chip tone-people"><svg class="icon"><use href="#i-users" /></svg></span>Tutores</div>
+                  <div class="side-item"><span class="chip tone-pet"><svg class="icon"><use href="#i-paw" /></svg></span>Pets</div>
+                  <div class="side-item is-active"><span class="chip tone-time"><svg class="icon"><use href="#i-cal" /></svg></span>Agenda</div>
+                  <div class="side-item"><span class="chip tone-time"><svg class="icon"><use href="#i-van" /></svg></span>Taxi Dog</div>
+                  <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-wallet" /></svg></span>Financeiro</div>
+                  <div class="side-item"><span class="chip tone-brand"><svg class="icon"><use href="#i-bell" /></svg></span>Mensagens</div>
+                  <div class="side-item"><span class="chip tone-metric"><svg class="icon"><use href="#i-globe" /></svg></span>Site</div>
+                </aside>
+                <div class="app-main">
+                  <div class="app-head">
+                    <div>
+                      <div class="app-eyebrow">Agenda</div>
+                      <div class="app-title">Hoje</div>
+                      <div class="app-sub">quarta-feira, 16 de setembro</div>
+                    </div>
+                    <span class="app-btn">Marcar horário</span>
+                  </div>
+                  <div class="days">
+                    <div class="day">S<b>13</b></div>
+                    <div class="day">S<b>14</b></div>
+                    <div class="day">T<b>15</b></div>
+                    <div class="day is-active">Q<b>16</b></div>
+                    <div class="day">Q<b>17</b></div>
+                    <div class="day">S<b>18</b></div>
+                    <div class="day">S<b>19</b></div>
+                  </div>
+                  <div class="board">
+                    <div></div>
+                    <div class="board-col-head"><span class="avatar" style="background: #466fbd">A</span>Ana · banho</div>
+                    <div class="board-col-head"><span class="avatar" style="background: #7e5db1">B</span>Bruno · tosa</div>
+                    <div class="board-col-head hide-sm"><span class="avatar" style="background: #a94d79">C</span>Dra. Carla</div>
+
+                    <div class="board-hours"><span>08:00</span><span>09:00</span><span>10:00</span><span>11:00</span><span>12:00</span></div>
+                    <div class="board-col">
+                      <div class="appt tone-time" style="grid-row: 1 / span 3">
+                        <b>Thor</b><span>Banho · Golden</span>
+                        <div class="appt-tag"><svg class="icon"><use href="#i-van" /></svg>Taxi Dog</div>
+                      </div>
+                      <div class="appt tone-time" style="grid-row: 5 / span 2"><b>Mel</b><span>Banho · Shih-tzu</span></div>
+                      <div class="appt tone-time" style="grid-row: 8 / span 2"><b>Pipoca</b><span>Hidratação</span></div>
+                    </div>
+                    <div class="board-col">
+                      <div class="appt tone-people" style="grid-row: 2 / span 4">
+                        <b>Luna</b><span>Banho e tosa · Poodle</span>
+                        <div class="appt-tag" style="color: var(--t-health)">Alergia a clorexidina</div>
+                      </div>
+                      <div class="appt tone-people" style="grid-row: 7 / span 3"><b>Bento</b><span>Tosa higiênica</span></div>
+                    </div>
+                    <div class="board-col hide-sm">
+                      <div class="appt tone-health" style="grid-row: 1 / span 2"><b>Nina</b><span>Consulta</span></div>
+                      <div class="appt tone-health" style="grid-row: 4 / span 2"><b>Fred</b><span>Vacina V10</span></div>
+                    </div>
+                    <div class="now-line"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="float float-notif">
+              <span class="chip tone-brand"><svg class="icon"><use href="#i-bell" /></svg></span>
+              <div><small>Lembrete enviado · WhatsApp</small><strong>Thor amanhã às 9h ✓</strong></div>
+            </div>
+
+            <div class="float float-money">
+              <small>Recebido hoje</small>
+              <strong>R$ 1.480,00</strong>
+              <em>12 atendimentos concluídos</em>
+            </div>
+
+            <div class="float float-chat">
+              <div class="chat-head">
+                <span class="chip"><svg class="icon icon-fill"><use href="#i-wa" /></svg></span>
+                <div><b>Mariana · tutora da Mel</b><small>respondido pelo agente</small></div>
+              </div>
+              <div class="bubbles">
+                <div class="bubble bubble-in">Tem horário amanhã de manhã pra Mel?</div>
+                <div class="bubble bubble-out">Tenho às 9h e às 10h30 com a Ana. Posso reservar às 9h? 🐾</div>
+                <div class="bubble bubble-in">Pode sim!</div>
+                <div class="bubble bubble-out bubble-ok"><svg class="icon"><use href="#i-check" /></svg>Pronto, banho da Mel marcado para quinta às 9h.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ Para quem ═══ -->
+        <section class="audience">
+          <div class="container">
+            <p class="kicker reveal">Feito para quem cuida de pets todos os dias</p>
+            <ul class="audience-list reveal" style="--d: 0.08s">
+              <li><span class="chip tone-time"><svg class="icon"><use href="#i-spark" /></svg></span>Banho e tosa</li>
+              <li><span class="chip tone-health"><svg class="icon"><use href="#i-heart" /></svg></span>Clínicas veterinárias</li>
+              <li><span class="chip tone-pet"><svg class="icon"><use href="#i-home" /></svg></span>Hotéis e creches</li>
+              <li><span class="chip tone-brand"><svg class="icon"><use href="#i-store" /></svg></span>Pet shops de bairro</li>
+              <li><span class="chip tone-metric"><svg class="icon"><use href="#i-van" /></svg></span>Leva e traz</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ═══ Módulos principais ═══ -->
+        <section class="section" id="recursos">
+          <div class="container">
+            <div class="section-head">
+              <span class="kicker reveal">O dia a dia</span>
+              <h2 class="h2 reveal" style="--d: 0.06s">Do primeiro “oi” ao <span class="serif">recibo</span></h2>
+              <p class="lead reveal" style="--d: 0.12s">
+                Cada parte do atendimento conversa com a outra: o agendamento já sabe da alergia, o check-out já lança
+                na conta do tutor e o lembrete sai sozinho.
+              </p>
+            </div>
+
+            <div class="bento">
+              <article class="card span-4 wide reveal tone-time">
+                <span class="chip"><svg class="icon"><use href="#i-cal" /></svg></span>
+                <h3>Agenda que não deixa encavalar</h3>
+                <p>A visão do dia por profissional, com duração e preço por porte e pelagem, bloqueios e capacidade de atender mais de um pet ao mesmo tempo.</p>
+                <div class="mini" aria-hidden="true">
+                  <div class="mini-row"><span><b>09:00</b> Thor · Banho</span><span class="pill pill-ok">Confirmado</span></div>
+                  <div class="mini-row"><span><b>10:30</b> Luna · Banho e tosa</span><span class="pill pill-time">Em atendimento</span></div>
+                  <div class="mini-row"><span><b>11:15</b> Bento · Tosa</span><span class="pill pill-warn">Débito em aberto</span></div>
+                </div>
+              </article>
+
+              <article class="card span-2 reveal tone-pet" style="--d: 0.08s">
+                <span class="chip"><svg class="icon"><use href="#i-paw" /></svg></span>
+                <h3>Tutores e pets</h3>
+                <p>Fichas completas, fotos, vários tutores por pet, endereços e consentimentos LGPD.</p>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Espécie, raça, porte e pelagem</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Etiquetas e busca rápida</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Transferência de tutela</li>
+                </ul>
+              </article>
+
+              <article class="card span-2 reveal tone-health">
+                <span class="chip"><svg class="icon"><use href="#i-heart" /></svg></span>
+                <h3>Prontuário</h3>
+                <p>Alergias, temperamento e alertas médicos aparecem para quem vai atender — antes do banho.</p>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Histórico de atendimentos</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Receituário com CRMV</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Peso e observações no check-out</li>
+                </ul>
+              </article>
+
+              <article class="card span-2 reveal tone-money" style="--d: 0.08s">
+                <span class="chip"><svg class="icon"><use href="#i-wallet" /></svg></span>
+                <h3>Financeiro</h3>
+                <p>Conta corrente por tutor, pacotes pré-pagos, recibos e extratos em PDF.</p>
+                <div class="mini" aria-hidden="true">
+                  <div class="bars"><i style="height: 44%"></i><i style="height: 62%"></i><i style="height: 38%"></i><i style="height: 80%"></i><i style="height: 58%"></i><i style="height: 92%"></i><i class="is-today" style="height: 70%"></i></div>
+                  <div class="bars-legend"><span>qui</span><span>sex</span><span>sáb</span><span>dom</span><span>seg</span><span>ter</span><span>hoje</span></div>
+                </div>
+              </article>
+
+              <article class="card span-2 reveal tone-brand" style="--d: 0.16s">
+                <span class="chip"><svg class="icon"><use href="#i-bell" /></svg></span>
+                <h3>Mensagens automáticas</h3>
+                <p>Confirmação, lembrete de véspera, aniversário do pet e cobrança — por WhatsApp e e-mail.</p>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Textos editáveis com prévia</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Janela de horário para enviar</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Campanhas por segmento</li>
+                </ul>
+              </article>
+
+              <article class="card span-3 reveal tone-metric">
+                <span class="chip"><svg class="icon"><use href="#i-van" /></svg></span>
+                <h3>Taxi Dog</h3>
+                <p>O leva e traz pedido junto com o agendamento, com frota, zonas de atendimento e taxa por região. O motorista sabe onde buscar; a recepção sabe quando chega.</p>
+              </article>
+
+              <article class="card span-3 reveal tone-system" style="--d: 0.08s">
+                <span class="chip"><svg class="icon"><use href="#i-monitor" /></svg></span>
+                <h3>Mural do dia</h3>
+                <p>A agenda em tela cheia para a TV da bancada: quem está no banho, quem é o próximo e quem já pode ir embora, atualizado sozinho.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ Agente de IA ═══ -->
+        <section class="section" id="ia">
+          <div class="container spot">
+            <div>
+              <span class="kicker reveal">Agente de IA no WhatsApp</span>
+              <h2 class="h2 reveal" style="--d: 0.06s">Um atendente que <span class="serif">nunca</span> deixa cliente no vácuo</h2>
+              <p class="lead reveal" style="--d: 0.12s">
+                O agente conversa com os tutores pelo WhatsApp do seu pet shop, com o nome e o tom que você escolher. Ele
+                consulta a agenda de verdade e marca, cancela ou remarca — sempre pedindo a confirmação do cliente antes.
+              </p>
+              <ul class="spot-list">
+                <li class="reveal tone-time">
+                  <span class="chip"><svg class="icon"><use href="#i-clock" /></svg></span>
+                  <div><h4>Horários reais, no seu fuso</h4><p>Oferece só o que está livre na grade, com o profissional certo para o serviço.</p></div>
+                </li>
+                <li class="reveal tone-brand" style="--d: 0.08s">
+                  <span class="chip"><svg class="icon"><use href="#i-check" /></svg></span>
+                  <div><h4>Nada é gravado sem um “sim”</h4><p>Toda marcação vira uma proposta com prazo, e só entra na agenda quando o cliente confirma.</p></div>
+                </li>
+                <li class="reveal tone-people" style="--d: 0.16s">
+                  <span class="chip"><svg class="icon"><use href="#i-hand" /></svg></span>
+                  <div><h4>Passa para a equipe na hora certa</h4><p>Quando o cliente pede um humano, fica insatisfeito ou o assunto não se resolve, a recepção assume a conversa.</p></div>
+                </li>
+                <li class="reveal tone-metric" style="--d: 0.24s">
+                  <span class="chip"><svg class="icon"><use href="#i-trend" /></svg></span>
+                  <div><h4>Painel de qualidade</h4><p>Quanto o agente resolveu sozinho, por que passou adiante e quanto custou cada conversa.</p></div>
+                </li>
+              </ul>
+            </div>
+
+            <div class="spot-media reveal" style="--d: 0.1s" aria-hidden="true">
+              <div class="phone">
+                <div class="phone-screen">
+                  <div class="wa-top">
+                    <span class="avatar">🐾</span>
+                    <div><b>Pet Feliz Banho & Tosa</b><small>online</small></div>
+                  </div>
+                  <div class="wa-body">
+                    <div class="wa-msg wa-in">Oi! Queria remarcar o banho do Thor de sábado 😕<time>14:02</time></div>
+                    <div class="wa-msg wa-out">Oi, Rafael! Claro 😊 Para o banho do Thor tenho sexta às 16h ou sábado às 11h, os dois com a Ana. Qual prefere?<time>14:02</time></div>
+                    <div class="wa-msg wa-in">Sexta às 16h<time>14:03</time></div>
+                    <div class="wa-msg wa-out">
+                      Confirma a troca?
+                      <div class="wa-card"><b>Banho · Thor</b>de sáb 10h → <b style="display: inline">sex 19/09 às 16h</b></div>
+                      Responda “sim” para eu confirmar.<time>14:03</time>
+                    </div>
+                    <div class="wa-msg wa-in">sim<time>14:03</time></div>
+                    <div class="wa-msg wa-out">Feito! Thor remarcado para sexta às 16h. Te mando um lembrete na véspera 🐶<time>14:03</time></div>
+                  </div>
+                </div>
+              </div>
+              <div class="badge-float badge-a">
+                <span class="chip tone-time"><svg class="icon"><use href="#i-cal" /></svg></span>
+                <div><small>Agenda atualizada</small><b>Sex · 16:00 · Ana</b></div>
+              </div>
+              <div class="badge-float badge-b">
+                <span class="chip tone-brand"><svg class="icon"><use href="#i-spark" /></svg></span>
+                <div><small>Resolvido pelo agente</small><b>sem ninguém da equipe</b></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ Portal + site ═══ -->
+        <section class="section" id="portal">
+          <div class="container spot reverse">
+            <div>
+              <span class="kicker reveal">Portal do Tutor e site próprio</span>
+              <h2 class="h2 reveal" style="--d: 0.06s">Seu pet shop aberto <span class="serif">24 horas</span></h2>
+              <p class="lead reveal" style="--d: 0.12s">
+                Um site com a sua marca para quem ainda não é cliente, e um portal para quem já é: o tutor agenda, acompanha
+                os pets e vê o que deve sem precisar ligar.
+              </p>
+              <ul class="spot-list">
+                <li class="reveal tone-metric">
+                  <span class="chip"><svg class="icon"><use href="#i-globe" /></svg></span>
+                  <div><h4>Site do estabelecimento</h4><p>Serviços, horários, endereço e formulário de contato, com as suas cores e o seu domínio.</p></div>
+                </li>
+                <li class="reveal tone-time" style="--d: 0.08s">
+                  <span class="chip"><svg class="icon"><use href="#i-phone" /></svg></span>
+                  <div><h4>Agendamento online</h4><p>O tutor escolhe serviço, dia e horário, e pede o Taxi Dog junto. Você decide se entra direto ou passa por aprovação.</p></div>
+                </li>
+                <li class="reveal tone-money" style="--d: 0.16s">
+                  <span class="chip"><svg class="icon"><use href="#i-receipt" /></svg></span>
+                  <div><h4>Financeiro e documentos</h4><p>Extrato, pacotes, recibos, receitas e termos aceitos — tudo baixável em PDF.</p></div>
+                </li>
+                <li class="reveal tone-people" style="--d: 0.24s">
+                  <span class="chip"><svg class="icon"><use href="#i-mail" /></svg></span>
+                  <div><h4>Central de comunicação</h4><p>O histórico do que foi enviado e a escolha de receber ou não promoções.</p></div>
+                </li>
+              </ul>
+            </div>
+
+            <div class="spot-media reveal" style="--d: 0.1s" aria-hidden="true">
+              <div class="duo">
+                <div class="site-card">
+                  <div class="window-bar"><div class="dots"><i></i><i></i><i></i></div><div class="window-url">petfeliz.petshop.ai</div></div>
+                  <div class="site-hero">
+                    <small>Banho & Tosa · Vila Mariana</small>
+                    <h4>Pet Feliz</h4>
+                    <p>Banho, tosa e carinho desde 2014. Agende online em menos de um minuto.</p>
+                    <div class="row"><span class="fake-btn">Agendar agora</span><span class="fake-btn alt">WhatsApp</span></div>
+                  </div>
+                  <div class="site-services">
+                    <div><b>Banho</b><span>a partir de R$ 50</span></div>
+                    <div><b>Banho e tosa</b><span>a partir de R$ 90</span></div>
+                    <div><b>Consulta</b><span>R$ 120</span></div>
+                  </div>
+                </div>
+                <div class="portal-phone">
+                  <div class="portal-screen">
+                    <div class="hello">Olá, Rafael</div>
+                    <h5>Seus pets</h5>
+                    <div class="p-card">
+                      <div class="top"><span class="chip tone-pet"><svg class="icon"><use href="#i-paw" /></svg></span><div><b>Thor</b><small>Golden · 4 anos</small></div></div>
+                    </div>
+                    <div class="p-card">
+                      <div class="top"><span class="chip tone-time"><svg class="icon"><use href="#i-cal" /></svg></span><div><b>Próximo banho</b><small>sex, 19/09 às 16h · Ana</small></div></div>
+                    </div>
+                    <div class="p-card">
+                      <div class="top"><span class="chip tone-money"><svg class="icon"><use href="#i-wallet" /></svg></span><div><b>Pacote 4 banhos</b><small>2 restantes · vence em 41 dias</small></div></div>
+                    </div>
+                    <div class="p-card"><span class="fake-btn">Marcar horário</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ Tudo o que vem no produto ═══ -->
+        <section class="section" id="tudo">
+          <div class="container">
+            <div class="section-head">
+              <span class="kicker reveal">Recursos</span>
+              <h2 class="h2 reveal" style="--d: 0.06s">Tudo o que vem no <span class="serif">PetShop AI</span></h2>
+              <p class="lead reveal" style="--d: 0.12s">A etiqueta de cada grupo mostra a partir de qual plano ele está disponível.</p>
+            </div>
+
+            <div class="catalog">
+              <article class="card reveal tone-time">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-cal" /></svg></span><h3>Agenda</h3><span class="plan-tag all">Todos</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Visão do dia por profissional e faixa de datas</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Mural do dia em tela cheia</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Serviços com preço e duração por porte</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Profissionais, jornadas e bloqueios</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Agendamentos recorrentes</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Check-in, check-out e serviço extra</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Regra de cancelamento e falta</li>
+                </ul>
+              </article>
+
+              <article class="card reveal tone-pet" style="--d: 0.06s">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-paw" /></svg></span><h3>Tutores e pets</h3><span class="plan-tag all">Todos</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Ficha do tutor com endereços e contatos</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Ficha do pet com fotos</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Catálogo de espécies, raças e pelagens</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Vários tutores por pet e transferência</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Etiquetas e busca</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Consentimentos e termos (LGPD)</li>
+                </ul>
+              </article>
+
+              <article class="card reveal tone-health" style="--d: 0.12s">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-heart" /></svg></span><h3>Prontuário</h3><span class="plan-tag all">Todos</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Alergias, temperamento e alertas</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Registro de cada atendimento</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Peso e observações no check-out</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Receituário assinado com CRMV</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Histórico completo do pet</li>
+                </ul>
+              </article>
+
+              <article class="card reveal tone-money">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-wallet" /></svg></span><h3>Financeiro</h3><span class="plan-tag all">Todos</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Conta corrente por tutor</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Pagamentos em dinheiro, PIX e cartão</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Pacotes pré-pagos com validade</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Recibos e extratos em PDF</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Limite de crédito e alerta de débito</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Relatórios da operação em PDF</li>
+                </ul>
+              </article>
+
+              <article class="card reveal tone-system" style="--d: 0.06s">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-users" /></svg></span><h3>Equipe e painel</h3><span class="plan-tag all">Todos</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Convites por e-mail</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Papéis: recepção, banhista, tosador, veterinário, motorista</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Permissões ajustáveis por papel</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Início com indicadores do dia</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Sino de pendências</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Lembretes e avisos por e-mail</li>
+                </ul>
+              </article>
+
+              <article class="card reveal tone-brand" style="--d: 0.12s">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-bell" /></svg></span><h3>Mensagens e CRM</h3><span class="plan-tag pro">Pro</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>WhatsApp do seu número, conectado por QR code</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Confirmação e lembrete de agendamento</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Aniversário do pet</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Régua de cobrança</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Campanhas por segmento</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Painel de entregas e textos editáveis</li>
+                </ul>
+              </article>
+
+              <article class="card reveal tone-metric">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-phone" /></svg></span><h3>Portal do Tutor</h3><span class="plan-tag pro">Pro</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Agendamento online</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Meus pets e histórico</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Extrato, pacotes e recibos</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Meus documentos</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Central de comunicação</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Meus dados e pedido de exclusão</li>
+                </ul>
+              </article>
+
+              <article class="card reveal tone-time" style="--d: 0.06s">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-globe" /></svg></span><h3>Site e Taxi Dog</h3><span class="plan-tag pro">Pro</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Site com sua marca e cores</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Domínio próprio</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Formulário de contato</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Leva e traz junto do agendamento</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Frota, zonas e taxa por região</li>
+                </ul>
+              </article>
+
+              <article class="card reveal tone-brand" style="--d: 0.12s">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-spark" /></svg></span><h3>Agente de IA</h3><span class="plan-tag pro">Pro</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Atendimento no WhatsApp 24 horas</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Marca, cancela e remarca com confirmação</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Nome e tom de voz do seu pet shop <span class="plan-tag ent">Enterprise</span></li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Passagem para a equipe</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Painel de qualidade e custo <span class="plan-tag ent">Enterprise</span></li>
+                </ul>
+              </article>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ═══ Segurança ═══ -->
+    <section class="dark-band on-dark section" id="seguranca">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker reveal">Segurança e LGPD</span>
+          <h2 class="h2 reveal" style="--d: 0.06s">Os dados dos seus clientes, <span class="serif">bem guardados</span></h2>
+          <p class="lead reveal" style="--d: 0.12s">Segurança não é um plano: vale para todos os estabelecimentos, desde o primeiro dia.</p>
+        </div>
+        <div class="sec-grid">
+          <div class="sec-item reveal">
+            <svg class="icon"><use href="#i-db" /></svg>
+            <h4>Isolamento por estabelecimento</h4>
+            <p>Cada pet shop só enxerga os próprios dados, garantido no banco de dados.</p>
+          </div>
+          <div class="sec-item reveal" style="--d: 0.06s">
+            <svg class="icon"><use href="#i-lock" /></svg>
+            <h4>Verificação em duas etapas</h4>
+            <p>Obrigatória para administradores, porque é quem pode mais.</p>
+          </div>
+          <div class="sec-item reveal" style="--d: 0.12s">
+            <svg class="icon"><use href="#i-eye" /></svg>
+            <h4>Trilha de auditoria</h4>
+            <p>Quem fez o quê e quando, com registro que não se apaga nem se edita.</p>
+          </div>
+          <div class="sec-item reveal" style="--d: 0.18s">
+            <svg class="icon"><use href="#i-shield" /></svg>
+            <h4>Consentimento por finalidade</h4>
+            <p>O tutor pode sair das promoções e continuar recebendo o lembrete do banho.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="shell">
+      <div class="bloom bloom-warm" aria-hidden="true" style="top: 200px"></div>
+
+      <!-- ═══ Planos ═══ -->
+      <section class="section" id="planos">
+        <div class="container">
+          <div class="section-head">
+            <span class="kicker reveal">Planos</span>
+            <h2 class="h2 reveal" style="--d: 0.06s">Escolha o tamanho <span class="serif">da sua operação</span></h2>
+            <p class="lead reveal" style="--d: 0.12s">Todos começam com 14 dias grátis, sem cartão. Troque de plano a qualquer momento.</p>
+          </div>
+
+          <div class="plans">
+            <article class="plan reveal">
+              <div class="plan-name">Starter <span class="seats"><svg class="icon" style="width: 14px; height: 14px"><use href="#i-users" /></svg>Até 5 usuários</span></div>
+              <p class="plan-pitch">Para organizar a operação e sair do caderno e da planilha.</p>
+              <div class="price"><span class="cur">R$</span><span class="val">149</span><span class="per">/mês</span></div>
+              <p class="price-note">por estabelecimento</p>
+              <a class="btn btn-light" href="/sign-up?plan=starter" data-app-path="/sign-up?plan=starter">Começar com o Starter</a>
+              <div class="plan-divider"></div>
+              <p class="plan-inc">Inclui</p>
+              <ul class="ticks">
+                <li><svg class="icon"><use href="#i-check" /></svg>Agenda do dia e Mural</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Tutores, pets e fotos</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Prontuário e receituário</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Financeiro, pacotes e recibos</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Relatórios e documentos em PDF</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Lembretes por e-mail</li>
+              </ul>
+            </article>
+
+            <article class="plan plan-featured reveal on-dark" style="--d: 0.08s">
+              <div class="plan-name">Pro <span class="popular"><svg class="icon" style="width: 13px; height: 13px"><use href="#i-spark" /></svg>Recomendado</span></div>
+              <p class="plan-pitch">Para equipes que querem o cliente perto: WhatsApp com IA, portal e site.</p>
+              <div class="price"><span class="cur">R$</span><span class="val">299</span><span class="per">/mês</span></div>
+              <p class="price-note">por estabelecimento · até 15 usuários</p>
+              <a class="btn btn-light" href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">Começar com o Pro <svg class="icon icon-arrow"><use href="#i-arrow" /></svg></a>
+              <div class="plan-divider"></div>
+              <p class="plan-inc">Tudo do Starter, mais</p>
+              <ul class="ticks">
+                <li><svg class="icon"><use href="#i-check" /></svg>WhatsApp com mensagens automáticas</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Campanhas, aniversário e cobrança</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Portal do Tutor com agendamento online</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Site do estabelecimento</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Taxi Dog</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Agente de IA no WhatsApp</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Suporte por WhatsApp</li>
+              </ul>
+            </article>
+
+            <article class="plan reveal" style="--d: 0.16s">
+              <div class="plan-name">Enterprise <span class="seats"><svg class="icon" style="width: 14px; height: 14px"><use href="#i-users" /></svg>Usuários ilimitados</span></div>
+              <p class="plan-pitch">Para redes e operações grandes, com o agente de IA sob medida.</p>
+              <div class="price"><span class="serif">Sob consulta</span></div>
+              <p class="price-note">conforme volume e número de unidades</p>
+              <a class="btn btn-dark" href="/sign-up?plan=enterprise" data-app-path="/sign-up?plan=enterprise">Começar com o Enterprise</a>
+              <div class="plan-divider"></div>
+              <p class="plan-inc">Tudo do Pro, mais</p>
+              <ul class="ticks">
+                <li><svg class="icon"><use href="#i-check" /></svg>Persona e tom de voz próprios do agente</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Painel de qualidade do atendimento</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Usuários ilimitados</li>
+                <li><svg class="icon"><use href="#i-check" /></svg>Suporte prioritário e implantação assistida</li>
+              </ul>
+            </article>
+          </div>
+
+          <p class="plans-foot reveal">Valores mensais por estabelecimento. Segurança, backups e atualizações incluídos em todos os planos.</p>
+
+          <div class="compare reveal">
+            <div class="compare-scroll">
+              <table>
+                <caption class="sr-only">Comparativo de recursos por plano</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Compare os planos</th>
+                    <th scope="col">Starter</th>
+                    <th scope="col" class="col-pro">Pro</th>
+                    <th scope="col">Enterprise</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="group"><td colspan="4">Operação</td></tr>
+                  <tr><td>Usuários da equipe</td><td class="txt">5</td><td class="txt col-pro">15</td><td class="txt">Ilimitados</td></tr>
+                  <tr><td>Agenda do dia, Mural e recorrência</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Tutores, pets, fotos e etiquetas</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Prontuário, atendimentos e receituário</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Conta corrente, pacotes e recibos</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Relatórios e documentos em PDF</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr class="group"><td colspan="4">Relacionamento</td></tr>
+                  <tr><td>Lembretes por e-mail</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>WhatsApp com mensagens automáticas</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Campanhas, aniversário e régua de cobrança</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Portal do Tutor e agendamento online</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Site do estabelecimento com domínio próprio</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Taxi Dog</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr class="group"><td colspan="4">Inteligência artificial</td></tr>
+                  <tr><td>Agente de IA no WhatsApp</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Persona própria e painel de qualidade do agente</td><td class="no">—</td><td class="no col-pro">—</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr class="group"><td colspan="4">Segurança e suporte</td></tr>
+                  <tr><td>Duas etapas, auditoria e LGPD</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr><td>Suporte</td><td class="txt">E-mail</td><td class="txt col-pro">E-mail e WhatsApp</td><td class="txt">Prioritário</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ Dúvidas ═══ -->
+      <section class="section" id="duvidas" style="padding-top: 24px">
+        <div class="container faq">
+          <div class="section-head left">
+            <span class="kicker reveal">Dúvidas</span>
+            <h2 class="h2 reveal" style="--d: 0.06s">Perguntas <span class="serif">frequentes</span></h2>
+            <p class="lead reveal" style="--d: 0.12s">Não achou o que procurava? Comece o teste e fale com a gente de dentro do sistema.</p>
+          </div>
+          <div class="faq-list">
+            <details class="faq-item reveal">
+              <summary>Preciso de cartão de crédito para testar?<span class="faq-plus" aria-hidden="true"></span></summary>
+              <div class="faq-body">Não. São 14 dias com todos os recursos do plano escolhido, sem cobrança nenhuma. No fim do teste você decide se continua.</div>
+            </details>
+            <details class="faq-item reveal" style="--d: 0.04s">
+              <summary>Posso trocar de plano depois?<span class="faq-plus" aria-hidden="true"></span></summary>
+              <div class="faq-body">Pode, a qualquer momento — para cima ou para baixo. Seus dados continuam onde estão.</div>
+            </details>
+            <details class="faq-item reveal" style="--d: 0.08s">
+              <summary>Como o WhatsApp é conectado?<span class="faq-plus" aria-hidden="true"></span></summary>
+              <div class="faq-body">Você usa o número do próprio pet shop e conecta lendo um QR code, como no WhatsApp Web. Os envios respeitam uma janela de horário, um limite diário e um período de aquecimento, para proteger o seu número.</div>
+            </details>
+            <details class="faq-item reveal" style="--d: 0.12s">
+              <summary>O agente de IA marca horários sozinho?<span class="faq-plus" aria-hidden="true"></span></summary>
+              <div class="faq-body">Ele propõe o horário e só grava depois que o cliente confirma. Se o cliente pedir para falar com uma pessoa, ficar insatisfeito ou o assunto não se resolver, a conversa passa para a sua equipe.</div>
+            </details>
+            <details class="faq-item reveal" style="--d: 0.16s">
+              <summary>O sistema recebe os pagamentos dos clientes?<span class="faq-plus" aria-hidden="true"></span></summary>
+              <div class="faq-body">O dinheiro continua entrando do jeito que você já recebe — dinheiro, PIX na sua chave ou maquininha. O PetShop AI registra o pagamento, abate da conta do tutor e emite o recibo em PDF.</div>
+            </details>
+            <details class="faq-item reveal" style="--d: 0.2s">
+              <summary>Serve para clínica veterinária?<span class="faq-plus" aria-hidden="true"></span></summary>
+              <div class="faq-body">Sim. O prontuário guarda alergias, temperamento e alertas médicos, registra cada atendimento e emite receituário com o CRMV de quem está atendendo.</div>
+            </details>
+            <details class="faq-item reveal" style="--d: 0.24s">
+              <summary>Meus dados e os dos meus clientes estão seguros?<span class="faq-plus" aria-hidden="true"></span></summary>
+              <div class="faq-body">Cada estabelecimento é isolado no banco de dados, administradores entram com verificação em duas etapas e toda ação sensível fica numa trilha de auditoria. Os consentimentos dos tutores seguem a LGPD.</div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══ Chamada final ═══ -->
+    <section class="final on-dark">
+      <span class="kicker reveal" style="color: rgb(255 255 255 / 0.55)">Comece hoje</span>
+      <h2 class="h2 reveal" style="--d: 0.06s; margin-top: 14px">Menos telefone tocando, <span class="serif">mais pets bem cuidados</span></h2>
+      <p class="lead reveal" style="--d: 0.12s">Configure horários, serviços e equipe em poucos minutos e veja a agenda do seu pet shop funcionando ainda hoje.</p>
+      <div class="hero-cta reveal" style="--d: 0.18s">
+        <a class="btn btn-light btn-lg" href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">Começar teste grátis <svg class="icon icon-arrow"><use href="#i-arrow" /></svg></a>
+        <a class="btn btn-ghost-dark btn-lg" href="#planos">Comparar planos</a>
+      </div>
+      <div class="hero-note reveal" style="--d: 0.24s">
+        <span><svg class="icon"><use href="#i-check" /></svg>14 dias grátis</span>
+        <span><svg class="icon"><use href="#i-check" /></svg>Sem cartão de crédito</span>
+      </div>
+    </section>
+
+    <div class="shell">
+      <footer class="footer">
+        <div class="container">
+          <div class="footer-grid">
+            <div>
+              <a href="#topo" class="brand"><span class="brand-mark"><svg class="icon"><use href="#i-paw" /></svg></span><span>PetShop <span class="brand-ai">AI</span></span></a>
+              <p>Gestão e atendimento com IA para pet shops, clínicas e hotéis pet.</p>
+            </div>
+            <div>
+              <h5>Produto</h5>
+              <ul>
+                <li><a href="#recursos">Recursos</a></li>
+                <li><a href="#ia">Agente de IA</a></li>
+                <li><a href="#portal">Portal e site</a></li>
+                <li><a href="#planos">Planos</a></li>
+              </ul>
+            </div>
+            <div>
+              <h5>Empresa</h5>
+              <ul>
+                <li><a href="#seguranca">Segurança</a></li>
+                <li><a href="#duvidas">Dúvidas</a></li>
+              </ul>
+            </div>
+            <div>
+              <h5>Acesso</h5>
+              <ul>
+                <li><a href="/sign-in" data-app-path="/sign-in">Entrar</a></li>
+                <li><a href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">Criar conta</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="footer-bottom">
+            <span>© <span data-year>2026</span> Offices Tecnologia. Todos os direitos reservados.</span>
+            <span>Feito no Brasil 🐾</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script src="main.js" defer></script>
+  </body>
+</html>
