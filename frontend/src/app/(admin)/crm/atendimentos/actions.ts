@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { ApiError } from '@petshop/api-client'
-import type { AgentConversationDetail, AgentSettings } from '@petshop/shared-types'
+import type { AgentConversationDetail, AgentSettings, AgentTone } from '@petshop/shared-types'
 import { serverApi } from '@/lib/api'
 
 /**
@@ -94,6 +94,9 @@ export async function salvarConfiguracaoAction(input: {
   opensAt?: string
   closesAt?: string
   monthlyCapCents?: number
+  /** `null` apaga o nome da persona; ausente o deixa como está. */
+  personaName?: string | null
+  tone?: AgentTone
 }): Promise<ActionResult<AgentSettings>> {
   try {
     const atualizada = await serverApi().updateAgentSettings(input)

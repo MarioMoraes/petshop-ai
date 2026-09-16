@@ -79,6 +79,7 @@ import {
   AgentConversationDetailSchema,
   AgentSettingsSchema,
   AgentStatsSchema,
+  type AgentTone,
   PaginatedAgentConversationsSchema,
   PaginatedMessagesSchema,
   ResolvedTemplateSchema,
@@ -2156,6 +2157,9 @@ export function createApiClient(options: ApiClientOptions) {
       opensAt?: string
       closesAt?: string
       monthlyCapCents?: number
+      /** `null` apaga o nome da persona; ausente o deixa como está. */
+      personaName?: string | null
+      tone?: AgentTone
     }) =>
       request({
         method: 'PATCH',

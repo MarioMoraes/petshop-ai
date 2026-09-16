@@ -305,21 +305,106 @@ export const AGENT_HISTORY_TURNS = 12
 export const AGENT_MAX_CONVERSATION_MILLICENTS = 50_000
 
 /**
+ * O registro em que o agente conversa (MOD-AI-07).
+ *
+ * **O tom nasceu do catálogo de mensagens do MOD-CRM** — seco, sem emoji, sem tentar
+ * soar íntimo —, e a razão escrita lá continua certa **onde ela nasceu**: uma mensagem
+ * disparada em massa que finge intimidade é justamente o que denuncia o robô. Numa
+ * conversa em que o cliente escreveu primeiro e está esperando resposta, a mesma regra
+ * produz o outro defeito: um atendimento que responde como um terminal.
+ *
+ * Daí serem três e não dois. `SOBRIO` é o comportamento anterior, preservado como
+ * escolha em vez de apagado.
+ */
+export const AGENT_TONES = ['SOBRIO', 'CORDIAL', 'CALOROSO'] as const
+export const AgentToneSchema = z.enum(AGENT_TONES)
+export type AgentTone = z.infer<typeof AgentToneSchema>
+
+/** O que a tela mostra em cada opção do seletor de tom. */
+export const AGENT_TONE_LABELS: Record<AgentTone, { label: string; hint: string }> = {
+  SOBRIO: {
+    label: 'Sóbrio',
+    hint: 'Direto ao ponto, sem emoji. Responde o que foi perguntado e para por aí.',
+  },
+  CORDIAL: {
+    label: 'Cordial',
+    hint: 'Trata pelo nome, reconhece o que o cliente disse e usa um emoji de vez em quando.',
+  },
+  CALOROSO: {
+    label: 'Caloroso',
+    hint: 'Como a recepção que conhece o cliente de balcão. Mais solto, ainda sem enrolar.',
+  },
+}
+
+/**
+ * O tamanho do nome da persona.
+ *
+ * Vinte e quatro caracteres é um primeiro nome, e o aperto é de propósito: um campo
+ * largo convidaria a escrever a frase de apresentação inteira aqui, que é como a persona
+ * acabaria comendo o aviso de automação.
+ */
+export const AGENT_PERSONA_NAME_MAX = 24
+
+/**
  * **O tutor precisa saber que fala com um robô** (§9 do PRD).
  *
- * Vai na primeira resposta de toda conversa e **não é configurável pelo tenant**: é
- * requisito de transparência, não texto de marketing. Um petshop que pudesse editá-lo
- * acabaria apagando-o.
+ * Vai na primeira resposta de toda conversa. O petshop escolhe **o nome** que aparece
+ * nela, e nada além disso: a frase "atendimento automático do <petshop>" é requisito de
+ * transparência, não texto de marketing, e continua fora da mão do tenant. A persona
+ * entra **dentro** do aviso, nunca no lugar dele — um campo que substituísse a frase
+ * seria a forma de apagá-la sem parecer que se apagou.
  */
-export const AGENT_DISCLOSURE =
-  'Oi! Sou o atendimento automático do {{petshop}}. ' +
-  'Posso consultar horários, agendamentos e a situação da sua conta — ' +
-  'e chamo alguém da equipe quando você precisar.'
+export function agentDisclosure(input: { tenantName: string; personaName?: string | null }): string {
+  const nome = input.personaName?.trim()
+  const quem = nome
+    ? `Sou ${nome}, do atendimento automático do ${input.tenantName}`
+    : `Sou o atendimento automático do ${input.tenantName}`
 
-/** A resposta que sai fora do horário do agente (AC-03 de MOD-AI-07). */
-export const AGENT_OUT_OF_HOURS =
-  'Oi! Recebemos sua mensagem. Nosso atendimento responde das {{abre}} às {{fecha}} — ' +
-  'assim que abrirmos, alguém te responde por aqui.'
+  return (
+    `Oi! ${quem}. ` +
+    'Posso ver horários, agendamentos e como está a sua conta — ' +
+    'e chamo alguém da equipe na hora em que você precisar.'
+  )
+}
+
+/**
+ * A resposta que sai fora do horário do agente (AC-03 de MOD-AI-07).
+ *
+ * Diz o horário e **não promete quem responde nem quando** — é a mesma disciplina do
+ * handoff: prazo prometido por robô é prazo que a recepção não assinou.
+ */
+export function agentOutOfHours(opensAt: string, closesAt: string): string {
+  return (
+    'Oi! Sua mensagem chegou aqui. ' +
+    `Nosso atendimento responde das ${opensAt} às ${closesAt} — ` +
+    'assim que abrirmos, alguém te responde por aqui.'
+  )
+}
+
+/**
+ * As frases com que o agente sai de cena (MOD-AI-05 e 08).
+ *
+ * As quatro eram **a mesma frase**, e é nelas que o cliente mais sente o robô: são o
+ * momento em que a conversa dá errado. Nenhuma passa pelo modelo — saem prontas daqui —,
+ * então escrevê-las melhor não custa um token.
+ *
+ * O que nenhuma faz é prometer prazo, e a razão é a mesma do prompt: quem vai responder
+ * é uma pessoa que não foi consultada sobre o prazo que o robô prometeu.
+ */
+export const AGENT_HANDOFF_SAY = {
+  /** Vinte turnos: a conversa não está andando, e insistir é fazer o cliente repetir-se. */
+  TOO_LONG:
+    'Nossa conversa já foi longe e não quero te deixar repetindo as coisas. ' +
+    'Vou passar para alguém da equipe continuar com você.',
+  /** Teto de gasto. O cliente não vê diferença nenhuma, e é esse o ponto (AC-03 de MOD-AI-08). */
+  BUDGET: 'Prefiro que alguém da equipe continue com você a partir daqui. Já estou passando.',
+  /** Impasse: três turnos sem uma consulta que desse certo. */
+  UNRESOLVED:
+    'Não quero te deixar dando voltas. Vou chamar alguém da equipe para resolver isso com você.',
+  /** O provedor fora do ar, que chega ao cliente como recado e nunca como erro (RN-09). */
+  ERROR:
+    'Tive um problema para consultar isso agora. Já estou chamando alguém da equipe para te ajudar.',
+} as const
 
 /**
  * A saída estruturada de cada turno, ao lado da resposta em texto (§5 do PRD).
@@ -388,6 +473,9 @@ export const AgentSettingsSchema = z.object({
   opensAt: z.string().regex(/^\d{2}:\d{2}$/),
   closesAt: z.string().regex(/^\d{2}:\d{2}$/),
   monthlyCapCents: z.number().int().min(0),
+  /** O nome com que o agente se apresenta. Nulo é "o atendimento automático do X". */
+  personaName: z.string().nullable(),
+  tone: AgentToneSchema,
   /** Quanto já se gastou no mês corrente, em centavos — leitura, nunca escrita. */
   spentCents: z.number().int(),
   /** `false` quando o motor de mensagens está desligado: o agente não teria como falar. */
@@ -414,6 +502,22 @@ export const UpdateAgentSettingsSchema = z
       .regex(/^\d{2}:\d{2}$/)
       .optional(),
     monthlyCapCents: z.coerce.number().int().min(0).max(10_000_00).optional(),
+    /**
+     * **`null` apaga o nome; ausente não mexe nele.**
+     *
+     * A distinção é o que permite voltar atrás: sem ela, quem apagasse o campo na tela
+     * mandaria `''`, e o agente passaria a se apresentar como "Sou , do atendimento
+     * automático". O `transform` fecha esse caminho — string em branco vira `null`
+     * antes de chegar ao banco, que tem o CHECK como última linha.
+     */
+    personaName: z
+      .string()
+      .trim()
+      .max(AGENT_PERSONA_NAME_MAX)
+      .nullable()
+      .optional()
+      .transform((value) => (value === undefined ? undefined : value === '' ? null : value)),
+    tone: AgentToneSchema.optional(),
   })
   .refine(
     (input) =>

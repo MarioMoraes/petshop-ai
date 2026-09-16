@@ -125,8 +125,13 @@ describe('MOD-AI-03 — o agente responde lendo', () => {
 
     await answer(tenant.tenantId, id)
 
-    // A tool recebeu o escopo da conversa — e não um tutor vindo dos argumentos.
-    expect(portal.calls).toEqual([{ method: 'appointments', tutorId }])
+    // A tool recebeu o escopo da conversa — e não um tutor vindo dos argumentos. O
+    // `pets` na frente é o briefing, que passou a ir no contexto de toda mensagem para
+    // poupar do modelo a ida que só serviria para descobrir o id do pet.
+    expect(portal.calls).toEqual([
+      { method: 'pets', tutorId },
+      { method: 'appointments', tutorId },
+    ])
 
     const [, resposta] = await turnos(id)
     expect(resposta?.role).toBe('AGENT')
@@ -328,6 +333,190 @@ describe('MOD-AI-05 — quando passa para gente', () => {
 
     expect(modelo.calls).toHaveLength(0)
     expect(motor.sent).toHaveLength(0)
+  })
+})
+
+describe('MOD-AI-07 — como o agente fala', () => {
+  /**
+   * A regra de cache que a humanização mais tentou quebrar.
+   *
+   * Persona e tom **podem** ir ao prompt de sistema: são estáveis por tenant, como o nome
+   * da loja. O nome do cliente não pode, e é justamente o que parece mais natural de
+   * escrever ali — ele muda a cada conversa, e no prefixo faria cada tutor pagar o prompt
+   * inteiro de novo, em silêncio (§10).
+   */
+  it('a persona e o tom vão no prompt; o nome do cliente vai na mensagem', async () => {
+    await ownerPrisma.tutor.update({ where: { id: tutorId }, data: { fullName: 'Marina Prado' } })
+    await enableAgent(tenant, { personaName: 'Lia', tone: 'CALOROSO' })
+    installFakePortal()
+    const modelo = installFakeModel({ reply: 'Oi!' })
+
+    const id = await givenInbound('oi')
+    await answer(tenant.tenantId, id)
+
+    const system = modelo.calls[0]?.system ?? ''
+    expect(system).toContain('Lia')
+    expect(system).toContain('COMO VOCÊ FALA')
+    // O tom escolhido, e não o de outro tenant.
+    expect(system).toContain('conhece o cliente de balcão')
+
+    expect(system).not.toContain('Marina')
+    expect(JSON.stringify(modelo.calls[0]?.messages.at(-1))).toContain('Marina')
+  })
+
+  /** O nome social é o nome pelo qual a pessoa quer ser chamada — e a saudação é onde dói. */
+  it('o nome social ganha do nome completo na saudação', async () => {
+    await ownerPrisma.tutor.update({
+      where: { id: tutorId },
+      data: { fullName: 'Marina Prado', socialName: 'Mari' },
+    })
+    installFakePortal()
+    const modelo = installFakeModel({ reply: 'Oi!' })
+
+    const id = await givenInbound('oi')
+    await answer(tenant.tenantId, id)
+
+    const mensagem = JSON.stringify(modelo.calls[0]?.messages.at(-1))
+    expect(mensagem).toContain('Mari')
+    expect(mensagem).not.toContain('Marina')
+  })
+
+  /**
+   * §9 do PRD: o petshop escolhe o **nome**, e não o aviso. Uma persona que substituísse
+   * a frase seria a forma de apagá-la sem parecer que se apagou.
+   */
+  it('a persona entra dentro do aviso de automação, nunca no lugar dele', async () => {
+    await enableAgent(tenant, { personaName: 'Lia' })
+    installFakePortal()
+    installFakeModel({ reply: 'Claro!' })
+
+    const id = await givenInbound('oi')
+    await answer(tenant.tenantId, id)
+
+    expect(motor.sent[0]?.text).toContain('Lia')
+    expect(motor.sent[0]?.text).toContain('atendimento automático')
+  })
+
+  /** O tom de antes da humanização continua disponível, e continua sendo o que era. */
+  it('o tom sóbrio segue proibindo emoji', async () => {
+    await enableAgent(tenant, { tone: 'SOBRIO' })
+    installFakePortal()
+    const modelo = installFakeModel({ reply: 'Oi!' })
+
+    const id = await givenInbound('oi')
+    await answer(tenant.tenantId, id)
+
+    const system = modelo.calls[0]?.system ?? ''
+    expect(system).toContain('Sem emoji')
+    expect(system).not.toContain('Emoji é ocasional')
+  })
+})
+
+describe('MOD-AI — o briefing que poupa idas ao modelo', () => {
+  const PET = '33333333-3333-4333-8333-333333333333'
+  const SERVICO = '44444444-4444-4444-8444-444444444444'
+
+  function umPet(overrides: Record<string, unknown> = {}) {
+    return {
+      id: PET,
+      name: 'Thor',
+      species: 'Cachorro',
+      breed: 'Vira-lata',
+      ageLabel: '3 anos',
+      photoUrl: null,
+      inMemoriam: false,
+      lastAttendanceAt: null,
+      nextAppointment: null,
+      ...overrides,
+    }
+  }
+
+  /**
+   * **A razão de existir do briefing é latência, e ela foi medida.**
+   *
+   * `listarMeusPets` → `listarServicos` → `consultarDisponibilidade` eram três idas ao
+   * modelo em série antes de o agente ter o que responder — quatro chamadas no turno de
+   * agendamento. Com os dois primeiros elos prontos no contexto, são duas.
+   */
+  it('os pets e os serviços chegam na mensagem, com os ids de verdade', async () => {
+    installFakePortal({
+      async pets() {
+        return [umPet()] as never
+      },
+      async services() {
+        return {
+          petName: 'Thor',
+          services: [
+            {
+              id: SERVICO,
+              name: 'Banho',
+              description: null,
+              category: 'BATH',
+              priceCents: 8000,
+              durationMin: 60,
+            },
+          ],
+        }
+      },
+    })
+    const modelo = installFakeModel({ reply: 'Oi!' })
+
+    const id = await givenInbound('quero marcar um banho')
+    await answer(tenant.tenantId, id)
+
+    // O conteúdo cru, e não o `JSON.stringify` da mensagem: re-serializar escapa as
+    // aspas do briefing e faz a asserção comparar contra `\"servicos\"`.
+    const mensagem = String(modelo.calls[0]?.messages.at(-1)?.content ?? '')
+    expect(mensagem).toContain(PET)
+    expect(mensagem).toContain(SERVICO)
+    expect(mensagem).toContain('Banho')
+    // O preço vai formatado, como a tool o entregaria — uma segunda forma de dizer a
+    // mesma coisa seria uma segunda chance de o modelo entender diferente. O
+    // `formatBRL` separa com espaço **não separável** (U+00A0), e normalizar aqui é o
+    // que impede o teste de falhar por um caractere invisível.
+    expect(mensagem.replace(/ /g, ' ')).toContain('R$ 80,00')
+
+    // E o prefixo em cache continua intocado: isto varia por cliente.
+    expect(modelo.calls[0]?.system).not.toContain('Thor')
+  })
+
+  /**
+   * Nulo é "não consegui saber", e lista vazia seria "não há serviço nenhum". Com a
+   * segunda o agente diria ao cliente que não dá para marcar nada.
+   */
+  it('serviço que o domínio recusa vira nulo, nunca lista vazia', async () => {
+    installFakePortal({
+      async pets() {
+        return [umPet()] as never
+      },
+      async services() {
+        throw new Error('agendamento online desligado')
+      },
+    })
+    const modelo = installFakeModel({ reply: 'Oi!' })
+
+    const id = await givenInbound('oi')
+    await answer(tenant.tenantId, id)
+
+    const mensagem = String(modelo.calls[0]?.messages.at(-1)?.content ?? '')
+    expect(mensagem).toContain('Thor')
+    expect(mensagem).toContain('"servicos":null')
+  })
+
+  /** O briefing é atalho, não requisito: falhar nele não pode custar a resposta. */
+  it('a falha do briefing não derruba o turno', async () => {
+    installFakePortal({
+      async pets() {
+        throw new Error('banco fora do ar')
+      },
+    })
+    installFakeModel({ reply: 'Oi! Como posso ajudar?' })
+
+    const id = await givenInbound('oi')
+    await answer(tenant.tenantId, id)
+
+    expect(motor.sent[0]?.text).toContain('Como posso ajudar?')
+    expect((await conversa(id)).status).toBe('ACTIVE')
   })
 })
 

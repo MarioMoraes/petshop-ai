@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import type { AgentTone } from '@petshop/shared-types'
 import { asRole, callApi, getApp, ownerPrisma, type Caller } from '../harness.js'
 
 /**
@@ -583,7 +584,13 @@ export function captureScheduledTurns(): { ids: string[] } {
 /** Liga o agente com a janela aberta o dia inteiro, salvo pedido em contrário. */
 export async function enableAgent(
   fixture: TenantFixture,
-  overrides: { opensAt?: string; closesAt?: string; monthlyCapCents?: number } = {},
+  overrides: {
+    opensAt?: string
+    closesAt?: string
+    monthlyCapCents?: number
+    personaName?: string
+    tone?: AgentTone
+  } = {},
 ): Promise<void> {
   await withTenant(fixture.tenantId, async (tx) => {
     await tx.agentSettings.upsert({
@@ -597,6 +604,8 @@ export async function enableAgent(
         ...(overrides.monthlyCapCents === undefined
           ? {}
           : { monthlyCapCents: overrides.monthlyCapCents }),
+        ...(overrides.personaName === undefined ? {} : { personaName: overrides.personaName }),
+        ...(overrides.tone === undefined ? {} : { tone: overrides.tone }),
       },
     })
   })

@@ -1,8 +1,14 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { formatBRL, type AgentSettings } from '@petshop/shared-types'
-import { Alert, Button, Card, Field, SectionHead } from '@/components/ui'
+import {
+  AGENT_PERSONA_NAME_MAX,
+  AGENT_TONES,
+  AGENT_TONE_LABELS,
+  formatBRL,
+  type AgentSettings,
+} from '@petshop/shared-types'
+import { Alert, Button, Card, Field, SectionHead, Segmented } from '@/components/ui'
 import { AlertTriangleIcon, BellIcon } from '@/components/icons'
 import { salvarConfiguracaoAction } from './actions'
 
@@ -74,6 +80,7 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
   const [opensAt, setOpensAt] = useState(settings.opensAt)
   const [closesAt, setClosesAt] = useState(settings.closesAt)
   const [teto, setTeto] = useState(String(Math.round(settings.monthlyCapCents / 100)))
+  const [persona, setPersona] = useState(settings.personaName ?? '')
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, startSave] = useTransition()
   /** Separado de `salvando` para o anel girar só no botão que foi clicado. */
@@ -168,10 +175,73 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
 
       <p className="hint mt-4">
         A primeira resposta de cada conversa avisa ao cliente que ele fala com um atendimento
-        automático.
+        automático. Esse aviso não se desliga.
       </p>
 
       <ReguaDoMes gastoCents={atual.spentCents} tetoCents={atual.monthlyCapCents} />
+
+      {/*
+       * Como ele fala.
+       *
+       * Fica **antes** da janela e do teto de propósito: quem abre este cartão depois de
+       * ligar o agente quer saber como ele soa para o cliente, e não quanto ele custou.
+       * Os dois controles gravam sozinhos — o nome ao sair do campo, o tom ao ser
+       * escolhido —, que é o mesmo idioma do resto do cartão e evita um terceiro botão.
+       */}
+      <div className="mt-6 border-t border-line pt-4">
+        <p className="section-eyebrow">Como ele fala</p>
+
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <Field label="Nome do agente (opcional)" htmlFor="agent-persona">
+            <input
+              id="agent-persona"
+              className="field"
+              maxLength={AGENT_PERSONA_NAME_MAX}
+              placeholder="Lia"
+              value={persona}
+              disabled={salvando}
+              onChange={(event) => setPersona(event.target.value)}
+              onBlur={() => {
+                const limpo = persona.trim()
+                // `null` apaga, e é o que faz o campo em branco voltar ao padrão em vez
+                // de gravar um nome vazio.
+                if (limpo !== (atual.personaName ?? '')) {
+                  salvar({ personaName: limpo === '' ? null : limpo })
+                }
+              }}
+            />
+          </Field>
+
+          {/*
+            O `Segmented` fica fora de um `Field`: ele é um grupo de botões, não um campo,
+            e um `<label htmlFor>` apontando para nada quebra o leitor de tela. O rótulo
+            visível é `.label`, e quem anuncia o grupo é o `ariaLabel`.
+          */}
+          <div>
+            <p className="label">Tom da conversa</p>
+            <div className="mt-2">
+              <Segmented
+                ariaLabel="Tom da conversa"
+                disabled={salvando}
+                value={atual.tone}
+                options={AGENT_TONES.map((tone) => ({
+                  value: tone,
+                  label: AGENT_TONE_LABELS[tone].label,
+                }))}
+                onChange={(tone) => salvar({ tone })}
+              />
+            </div>
+          </div>
+        </div>
+
+        <p className="hint mt-3">{AGENT_TONE_LABELS[atual.tone].hint}</p>
+
+        <p className="hint mt-2">
+          Com nome, ele se apresenta como “Sou a Lia, do atendimento automático do{' '}
+          {'<nome da loja>'}”. Sem nome, como “Sou o atendimento automático do{' '}
+          {'<nome da loja>'}”.
+        </p>
+      </div>
 
       <div className="mt-6 border-t border-line pt-4">
         <p className="section-eyebrow">Janela e teto</p>

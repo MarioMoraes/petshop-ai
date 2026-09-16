@@ -86,8 +86,9 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     name: 'listarMeusPets',
     description:
       'Lista os pets do cliente com quem você está falando: nome, espécie, raça, idade ' +
-      'e o próximo agendamento de cada um. Use para descobrir o id de um pet antes de ' +
-      'consultar horários ou serviços.',
+      'e o próximo agendamento de cada um. **Os pets e os ids deles já vêm no contexto ' +
+      'da mensagem** — só chame isto se eles não estiverem lá, se o contexto disser que ' +
+      'há mais pets, ou se precisar da raça, da idade ou do próximo agendamento.',
     strict: true,
     input_schema: { type: 'object', properties: {}, required: [], additionalProperties: false },
   },
@@ -111,7 +112,9 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     name: 'listarServicos',
     description:
       'Os serviços que podem ser marcados para um pet, com preço e duração já ' +
-      'calculados para o porte e a pelagem dele.',
+      'calculados para o porte e a pelagem dele. **Já vêm no contexto da mensagem, por ' +
+      'pet** — só chame isto quando "servicos" daquele pet vier nulo lá, ou quando o pet ' +
+      'não estiver no contexto.',
     strict: true,
     input_schema: {
       type: 'object',

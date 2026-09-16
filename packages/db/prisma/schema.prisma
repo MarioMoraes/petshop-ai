@@ -3790,6 +3790,18 @@ enum AgentConversationStatus {
   CLOSED
 }
 
+/// O registro em que o agente fala com o cliente (MOD-AI-07).
+///
+/// `SOBRIO` é o comportamento anterior à humanização, preservado como escolha: há
+/// petshop cujo público não quer conversa. `CORDIAL` é o padrão — trata pelo nome e
+/// admite um emoji ocasional. `CALOROSO` é a recepção que escreve como quem conhece o
+/// cliente de balcão.
+enum AgentTone {
+  SOBRIO
+  CORDIAL
+  CALOROSO
+}
+
 enum AgentHandoffReason {
   REQUESTED
   SENTIMENT
@@ -3919,6 +3931,16 @@ model AgentSettings {
 
   /// Teto de gasto do mês com o provedor, em centavos (AC-02 de MOD-AI-08).
   monthlyCapCents Int @default(50000) @map("monthly_cap_cents")
+
+  /// Como o agente se apresenta e conversa (MOD-AI-07).
+  ///
+  /// `persona_name` é o **primeiro nome** que ele usa ao se apresentar, e nulo é o
+  /// padrão: sem nome ele diz "sou o atendimento automático do <petshop>". O nome entra
+  /// no aviso de automação, **nunca no lugar dele** — o §9 do PRD exige que o cliente
+  /// saiba que fala com um robô, e uma persona que substituísse o aviso seria
+  /// exatamente a forma de apagá-lo sem parecer que se apagou.
+  personaName String?   @map("persona_name") @db.VarChar(24)
+  tone        AgentTone @default(CORDIAL)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

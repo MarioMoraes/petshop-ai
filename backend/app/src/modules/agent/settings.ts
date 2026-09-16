@@ -2,6 +2,7 @@ import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
   DEFAULT_TIMEZONE,
   type AgentSettings,
+  type AgentTone,
   type UpdateAgentSettingsInput,
 } from '@petshop/shared-types'
 import { recordAudit } from '../../shared/audit.js'
@@ -36,6 +37,16 @@ export interface ResolvedAgentSettings {
   timezone: string
   /** O nome do estabelecimento, que vai no aviso de automação e no prompt. */
   tenantName: string
+  /**
+   * O nome com que o agente se apresenta, ou `null` para "o atendimento automático".
+   *
+   * **Entra no prompt de sistema, e pode**: é estável por tenant, como o nome da loja e
+   * a janela. O que não pode entrar ali é o nome do **cliente**, que muda a cada conversa
+   * — ver `contextLine` em `prompt.ts`.
+   */
+  personaName: string | null
+  /** O registro da conversa (MOD-AI-07). Decide o bloco COMO VOCÊ FALA do prompt. */
+  tone: AgentTone
   /** Sem motor de mensagens não há como responder — ver `canEnable`. */
   messagingEnabled: boolean
 }
@@ -45,7 +56,17 @@ const DEFAULTS = {
   opensAt: '08:00',
   closesAt: '19:00',
   monthlyCapCents: 50_000,
-} as const
+  personaName: null,
+  /**
+   * `CORDIAL` e não `SOBRIO`, **inclusive para quem já tinha linha**.
+   *
+   * O default do banco é o mesmo, e é a mudança que a migration existe para fazer: o tom
+   * seco era o comportamento de todo mundo, e quem o quiser de volta escolhe `SOBRIO` na
+   * tela. Deixar o padrão no que existia manteria a humanização desligada para todos os
+   * tenants que nunca abrirem a configuração — que são justamente os que mais precisam.
+   */
+  tone: 'CORDIAL',
+} as const satisfies { tone: AgentTone; [key: string]: unknown }
 
 export async function readSettings(
   tx: TenantTransaction,
@@ -64,6 +85,8 @@ export async function readSettings(
     monthlyCapCents: row?.monthlyCapCents ?? DEFAULTS.monthlyCapCents,
     timezone: tenant?.settings?.timezone ?? DEFAULT_TIMEZONE,
     tenantName: tenant?.name ?? '',
+    personaName: row?.personaName ?? DEFAULTS.personaName,
+    tone: row?.tone ?? DEFAULTS.tone,
     messagingEnabled: messaging.enabled,
   }
 }
@@ -95,6 +118,8 @@ export async function getSettings(tenantId: string): Promise<AgentSettings> {
     opensAt: resolved.opensAt,
     closesAt: resolved.closesAt,
     monthlyCapCents: resolved.monthlyCapCents,
+    personaName: resolved.personaName,
+    tone: resolved.tone,
     spentCents,
     /**
      * **Sem motor de mensagens, ligar o agente não faria nada.**
@@ -128,6 +153,8 @@ export async function updateSettings(
           opensAt: input.opensAt ?? before.opensAt,
           closesAt: input.closesAt ?? before.closesAt,
           monthlyCapCents: input.monthlyCapCents ?? before.monthlyCapCents,
+          personaName: input.personaName === undefined ? before.personaName : input.personaName,
+          tone: input.tone ?? before.tone,
         },
         update: {
           ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
@@ -136,6 +163,13 @@ export async function updateSettings(
           ...(input.monthlyCapCents === undefined
             ? {}
             : { monthlyCapCents: input.monthlyCapCents }),
+          /**
+           * `null` apaga, ausente não mexe — e é por isso que o teste é contra
+           * `undefined` e não uma queda para o valor anterior. O `??` que serve para os
+           * outros campos tornaria o nome impossível de remover.
+           */
+          ...(input.personaName === undefined ? {} : { personaName: input.personaName }),
+          ...(input.tone === undefined ? {} : { tone: input.tone }),
         },
       })
 

@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto'
 import type Anthropic from '@anthropic-ai/sdk'
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
 import {
-  AGENT_DISCLOSURE,
+  AGENT_HANDOFF_SAY,
   AGENT_HISTORY_TURNS,
   AGENT_MAX_CONVERSATION_MILLICENTS,
   AGENT_MAX_TURNS,
-  AGENT_OUT_OF_HOURS,
   AgentTurnOutputSchema,
+  agentDisclosure,
+  agentOutOfHours,
   type AgentHandoffReason,
   type AgentSentiment,
 } from '@petshop/shared-types'
@@ -17,7 +18,15 @@ import { logger, recordMetric } from '../../shared/logger.js'
 import { openCipher, decryptOrPlaceholder } from './crypto.js'
 import { getAgentMessagingPort } from './messaging-port.js'
 import { costOf, getModelPort, type ModelUsage } from './model-port.js'
-import { contextLine, proposalLine, systemPrompt } from './prompt.js'
+import {
+  briefingLine,
+  contextLine,
+  proposalLine,
+  systemPrompt,
+  type BriefedPet,
+  type ClientBriefing,
+} from './prompt.js'
+import { getAgentPortalPort } from './portal-port.js'
 import {
   persistToolCalls,
   readLiveProposal,
@@ -129,7 +138,7 @@ export async function answer(
     // RN-09: o provedor fora do ar não chega ao tutor como erro — chega como "vou chamar
     // alguém". O que o cliente vê é uma frase; o que o log guarda é a causa.
     await handoff(tenantId, conversationId, 'ERROR', {
-      say: 'Tive um problema para consultar isso agora. Já estou chamando alguém da equipe.',
+      say: AGENT_HANDOFF_SAY.ERROR,
     })
   } finally {
     await release(tenantId, conversationId)
@@ -173,17 +182,14 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
     // atendimento automático" de "a mensagem chegou às 23h". Quem abre a fila de manhã
     // resolve as duas de formas diferentes.
     await handoff(tenantId, conversationId, 'OUT_OF_HOURS', {
-      say: AGENT_OUT_OF_HOURS.replaceAll('{{abre}}', settings.opensAt).replaceAll(
-        '{{fecha}}',
-        settings.closesAt,
-      ),
+      say: agentOutOfHours(settings.opensAt, settings.closesAt),
     })
     return
   }
 
   if (conversation.turnCount > AGENT_MAX_TURNS) {
     await handoff(tenantId, conversationId, 'TOO_LONG', {
-      say: 'Vou chamar alguém da equipe para continuar com você.',
+      say: AGENT_HANDOFF_SAY.TOO_LONG,
     })
     return
   }
@@ -192,7 +198,7 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
     // AC-03 de MOD-AI-08: o teto degrada para gente, nunca para silêncio. O tutor não vê
     // diferença nenhuma — e é esse o ponto.
     await handoff(tenantId, conversationId, 'BUDGET', {
-      say: 'Vou chamar alguém da equipe para continuar com você.',
+      say: AGENT_HANDOFF_SAY.BUDGET,
     })
     return
   }
@@ -204,14 +210,21 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
       'teto mensal do agente atingido',
     )
     await handoff(tenantId, conversationId, 'BUDGET', {
-      say: 'Vou chamar alguém da equipe para continuar com você.',
+      say: AGENT_HANDOFF_SAY.BUDGET,
     })
     return
   }
 
   // ─── O turno ──────────────────────────────────────────────────────────────
 
-  const history = await loadHistory(tenantId, conversationId)
+  /**
+   * O histórico e o briefing saem juntos: são duas leituras de banco independentes, e
+   * encadeá-las somaria latência ao turno que este briefing existe para encurtar.
+   */
+  const [history, briefing] = await Promise.all([
+    loadHistory(tenantId, conversationId, tutorId),
+    clientBriefing(tenantId, tutorId),
+  ])
   if (history.messages.length === 0) return
 
   const now = new Date()
@@ -222,9 +235,11 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
   // modelo o código que o "sim" do cliente confirma.
   const last = messages[messages.length - 1]
   if (last && last.role === 'user' && typeof last.content === 'string') {
-    const contexto = history.liveProposal
-      ? `${contextLine(settings, now)}\n${proposalLine(history.liveProposal, settings)}`
-      : contextLine(settings, now)
+    const partes = [contextLine(settings, now, history.clientFirstName)]
+    const resumo = briefingLine(briefing)
+    if (resumo) partes.push(resumo)
+    if (history.liveProposal) partes.push(proposalLine(history.liveProposal, settings))
+    const contexto = partes.join('\n')
     messages[messages.length - 1] = {
       role: 'user',
       content: `${contexto}\n${last.content}`,
@@ -331,15 +346,13 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
       records,
     })
     await handoff(tenantId, conversationId, 'UNRESOLVED', {
-      say: 'Vou chamar alguém da equipe para continuar com você.',
+      say: AGENT_HANDOFF_SAY.UNRESOLVED,
     })
     return
   }
 
   const disclosed = history.hasAgentTurn
-  const reply = disclosed
-    ? output.reply
-    : `${AGENT_DISCLOSURE.replaceAll('{{petshop}}', settings.tenantName)}\n\n${output.reply}`
+  const reply = disclosed ? output.reply : `${agentDisclosure(settings)}\n\n${output.reply}`
 
   await persistTurn(tenantId, conversationId, {
     reply: output.reply,
@@ -436,6 +449,89 @@ interface History {
   hasAgentTurn: boolean
   /** A proposta que espera o "sim" do cliente, quando há uma de pé. */
   liveProposal: LiveProposal | null
+  /**
+   * O primeiro nome de quem escreveu, para o agente poder chamá-lo por ele.
+   *
+   * **Era o que faltava para o atendimento soar humano.** As onze funções da
+   * `portal-port.ts` devolvem pet, profissional e estabelecimento, e nenhuma devolve o
+   * tutor: o agente sabia o nome do cachorro e não o de quem estava do outro lado.
+   *
+   * Sai daqui e não de uma tool porque não é decisão do modelo pedir — e porque a
+   * consulta já está aberta para ler o histórico.
+   */
+  clientFirstName: string | null
+}
+
+/**
+ * Quantos pets entram no briefing.
+ *
+ * Quatro porque o custo do briefing é **uma consulta de serviços por pet**, e a lista de
+ * serviços é a parte cara. Quem tem mais que isso cai no caminho antigo, que continua
+ * inteiro: a tool.
+ */
+const MAX_BRIEFED_PETS = 4
+
+/**
+ * O que o cliente tem, buscado antes de o modelo pedir (a medição está em `prompt.ts`).
+ *
+ * **Nunca lança e nunca deixa o turno mais lento que o caminho antigo.** O briefing é
+ * atalho, não requisito: se qualquer coisa falhar, ele volta `null` e o agente descobre
+ * pelas tools como sempre fez. Uma falha aqui derrubando a resposta trocaria uma espera
+ * por um silêncio.
+ *
+ * A primeira falha de serviços **para a busca das demais**: agendamento online desligado
+ * faz `listBookableServices` recusar para todo pet, e insistir seria repetir a mesma
+ * consulta perdida uma vez por pet, em toda mensagem que chega.
+ */
+async function clientBriefing(tenantId: string, tutorId: string): Promise<ClientBriefing | null> {
+  const port = getAgentPortalPort()
+
+  try {
+    const pets = await port.pets(tenantId, tutorId)
+    if (pets.length === 0) return null
+
+    const briefed: BriefedPet[] = []
+    let servicosIndisponiveis = false
+
+    for (const pet of pets.slice(0, MAX_BRIEFED_PETS)) {
+      let servicos: BriefedPet['servicos'] = null
+
+      // Pet falecido não se agenda, e a consulta recusaria — não vale a ida ao banco.
+      if (!pet.inMemoriam && !servicosIndisponiveis) {
+        try {
+          const resposta = await port.services(tenantId, tutorId, pet.id)
+          servicos = resposta.services.map((servico) => ({
+            id: servico.id,
+            nome: servico.name,
+            priceCents: servico.priceCents,
+            duracaoMin: servico.durationMin,
+          }))
+        } catch {
+          servicosIndisponiveis = true
+        }
+      }
+
+      briefed.push({ id: pet.id, nome: pet.name, emMemoria: pet.inMemoriam, servicos })
+    }
+
+    return { pets: briefed, truncado: pets.length > MAX_BRIEFED_PETS }
+  } catch (error) {
+    logger.warn({ err: error, tenantId }, 'briefing do cliente falhou; o agente usa as tools')
+    return null
+  }
+}
+
+/**
+ * O primeiro nome, que é como uma pessoa chama a outra no WhatsApp.
+ *
+ * `socialName` na frente de `fullName` pela mesma razão que a fila da recepção usa essa
+ * ordem: o nome social é o nome pelo qual a pessoa quer ser chamada, e é justamente numa
+ * saudação que chamá-la pelo outro dói.
+ */
+function firstNameOf(tutor: { fullName: string; socialName: string | null } | null): string | null {
+  const nome = (tutor?.socialName ?? tutor?.fullName ?? '').trim()
+  if (!nome) return null
+  return nome.split(/\s+/)[0] ?? null
 }
 
 /**
@@ -445,10 +541,20 @@ interface History {
  * AC-03, e mandar a conversa inteira faria o prefixo crescer sem que o começo dela
  * ajudasse a responder a pergunta de agora.
  */
-async function loadHistory(tenantId: string, conversationId: string): Promise<History> {
+async function loadHistory(
+  tenantId: string,
+  conversationId: string,
+  tutorId: string,
+): Promise<History> {
   return withTenant(tenantId, async (tx) => {
     const cipher = await openCipher(tx, tenantId)
     const liveProposal = await readLiveProposal(tx, conversationId)
+    // `full_name` está em claro na ficha — ler o nome aqui não abre chave nenhuma, que é
+    // a mesma conta que a fila da recepção faz em `queries.ts`.
+    const tutor = await tx.tutor.findUnique({
+      where: { id: tutorId },
+      select: { fullName: true, socialName: true },
+    })
     const rows = await tx.agentTurn.findMany({
       where: { conversationId },
       orderBy: { createdAt: 'desc' },
@@ -469,7 +575,12 @@ async function loadHistory(tenantId: string, conversationId: string): Promise<Hi
       })
     }
 
-    return { messages, hasAgentTurn: rows.some((row) => row.role === 'AGENT'), liveProposal }
+    return {
+      messages,
+      hasAgentTurn: rows.some((row) => row.role === 'AGENT'),
+      liveProposal,
+      clientFirstName: firstNameOf(tutor),
+    }
   })
 }
 
