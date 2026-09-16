@@ -6,7 +6,6 @@ import {
   type TaxiRideResponse,
 } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { ExpandIcon } from '@/components/icons'
 import { ButtonLink } from '@/components/links'
 import { rotuloDoDia } from '@/lib/agenda-dia'
 import { serverApi } from '@/lib/api'
@@ -119,7 +118,6 @@ export default async function DiaPage({ searchParams }: PageProps) {
                 className="btn btn-primary"
                 title="Abrir o Mural do dia numa aba própria"
               >
-                <ExpandIcon />
                 Mural
               </a>
               <ButtonLink href={`/agenda/novo?date=${date}`}>Marcar horário</ButtonLink>
