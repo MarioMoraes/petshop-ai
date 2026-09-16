@@ -1,0 +1,69 @@
+# A landing page de venda em lp.officestecnologia.com.br.
+#
+#   docker compose -f infra/docker-compose.landing.yml --env-file .env.production up -d
+#
+# Stack separada da aplicação, com nome de projeto próprio: subir, derrubar ou
+# atualizar a landing não toca em nenhum container do petshop, e o `up` da
+# aplicação não a vê como órfã.
+#
+# Sem imagem própria: o nginx serve `frontend/landing-page` direto do checkout, então
+# publicar uma mudança é `git pull` — o volume é o próprio diretório. Nada de build
+# nem de registry para quatro arquivos estáticos.
+#
+# **Borda diferente da aplicação, e de propósito.** O `lp.` não é subdomínio de
+# `petshop.officestecnologia.com.br`, então não casa o `PETSHOP_HOST_REGEXP` e não
+# passa pelo Caddy. É um router HTTP comum do Traefik do EasyPanel, que emite o
+# certificado por HTTP-01 — o que basta para um host só, sem curinga.
+
+name: petshop-landing
+
+services:
+  # Nome que sai do container não pode ser nome de serviço genérico nesta VPS: a
+  # rede `easypanel` é compartilhada com a imobiliária, e um `frontend` ou `site`
+  # daria alias colidindo com o dela (ver docs/deploy-easypanel.md).
+  petshop-landing:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ../frontend/landing-page:/usr/share/nginx/html:ro
+      - ./landing-page/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/healthz || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Quatro arquivos estáticos: o nginx alpine fica bem abaixo disto. O teto existe
+    # porque a máquina tem 3.8 GB para dois produtos.
+    mem_limit: 48m
+    networks:
+      - traefik
+    labels: &landing-labels
+      traefik.enable: 'true'
+      traefik.docker.network: ${TRAEFIK_NETWORK:-easypanel}
+      traefik.swarm.network: ${TRAEFIK_NETWORK:-easypanel}
+
+      traefik.http.routers.petshop-landing.rule: Host(`lp.officestecnologia.com.br`)
+      traefik.http.routers.petshop-landing.entrypoints: ${TRAEFIK_ENTRYPOINT:-https}
+      traefik.http.routers.petshop-landing.tls: 'true'
+      traefik.http.routers.petshop-landing.tls.certresolver: ${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      # Acima de 2: o EasyPanel mantém um `https-error-page` com `HostRegexp(.+)` e
+      # prioridade 1, que ganharia de uma regra sem prioridade declarada.
+      traefik.http.routers.petshop-landing.priority: '100'
+      traefik.http.services.petshop-landing.loadbalancer.server.port: '80'
+
+      # Quem digita o endereço sem `https://`.
+      traefik.http.routers.petshop-landing-http.rule: Host(`lp.officestecnologia.com.br`)
+      traefik.http.routers.petshop-landing-http.entrypoints: ${TRAEFIK_HTTP_ENTRYPOINT:-http}
+      traefik.http.routers.petshop-landing-http.middlewares: petshop-landing-https
+      traefik.http.routers.petshop-landing-http.priority: '100'
+      traefik.http.middlewares.petshop-landing-https.redirectscheme.scheme: https
+      traefik.http.middlewares.petshop-landing-https.redirectscheme.permanent: 'true'
+    # O provider Docker e o Swarm leem as labels de lugares diferentes.
+    deploy:
+      labels: *landing-labels
+
+networks:
+  traefik:
+    name: ${TRAEFIK_NETWORK:-easypanel}
+    external: true

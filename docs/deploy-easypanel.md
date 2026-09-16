@@ -178,6 +178,22 @@ existe porque passthrough é de TLS: em texto claro não há SNI para casar, e q
 digita o endereço sem `https://` — o caso real de quem lê o slug num cartão —
 precisa do desvio para o 443.
 
+## A landing page de venda
+
+`lp.officestecnologia.com.br` é uma stack à parte (`infra/docker-compose.landing.yml`,
+projeto `petshop-landing`): um nginx servindo `frontend/landing-page` direto do
+checkout. Não passa pelo Caddy — o host não casa o `PETSHOP_HOST_REGEXP` — e usa um
+router HTTP comum do Traefik, com certificado por HTTP-01.
+
+```sh
+cd /opt/petshop && git pull
+docker compose -f infra/docker-compose.landing.yml --env-file .env.production up -d
+```
+
+Mudou só texto ou estilo da landing? `git pull` basta: o diretório é montado como
+volume. O `up -d` só é preciso na primeira vez ou quando o compose ou o
+`nginx.conf` mudarem (aí com `--force-recreate`).
+
 ## Diagnóstico
 
 ```sh
