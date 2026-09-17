@@ -236,6 +236,12 @@ opcional RESEND_WEBHOOK_SECRET "a rota /internal/v1/email/webhook recusa tudo co
 titulo "Assinatura (Asaas)"
 opcional ASAAS_API_KEY "a tela de assinatura abre e não cobra: assinar responde 503 e nenhum estabelecimento sai do teste pagando"
 opcional ASAAS_WEBHOOK_TOKEN "a rota /internal/v1/asaas/webhook recusa tudo com 401: pagamento feito não ativa a conta"
+# Toda chave do Asaas começa com `$aact_`. Sem o `$`, o cifrão foi lido como referência
+# a variável — a chave chega vazia ou cortada ao container, e a tela de assinatura diz
+# "cobrança não configurada". Escreva ASAAS_API_KEY="\$aact_...".
+if [ -n "${ASAAS_API_KEY:-}" ] && [[ "${ASAAS_API_KEY}" != '$aact_'* ]]; then
+  erro "ASAAS_API_KEY não começa com \$aact_ — o cifrão foi interpretado. Escreva ASAAS_API_KEY=\"\\\$aact_...\" no $ENV_FILE"
+fi
 # Chave de produção contra o sandbox (ou o contrário) não dá erro no deploy: dá erro na
 # cara de quem está tentando pagar.
 if [ -n "${ASAAS_API_KEY:-}" ] && [[ "${ASAAS_API_URL:-https://api-sandbox.asaas.com/v3}" == *sandbox* ]]; then
