@@ -38,8 +38,28 @@ interface CachedPermissions {
  * RN-04 — tenant suspenso bloqueia operação, mas leitura dos próprios dados e
  * exportação LGPD continuam liberadas.
  */
-const BLOCKED_STATUSES = new Set(['SUSPENDED', 'TERMINATED'])
+const BLOCKED_STATUSES = new Set(['SUSPENDED', 'TERMINATED', 'TRIAL_EXPIRED'])
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+/**
+ * A escrita que o bloqueio **não** pode barrar: assinar.
+ *
+ * Um estabelecimento em só leitura por teste vencido ou por falta de pagamento só sai
+ * desse estado pagando — e pagar começa por um `POST`. Sem esta exceção a tela de
+ * assinatura receberia o mesmo 423 que ela existe para resolver.
+ */
+const BILLING_PREFIX = '/v1/subscription'
+
+function isBillingPath(path: string | undefined): boolean {
+  return path === BILLING_PREFIX || (path?.startsWith(`${BILLING_PREFIX}/`) ?? false)
+}
+
+const BLOCKED_DETAIL: Record<string, string> = {
+  SUSPENDED: 'Estabelecimento suspenso. Regularize a assinatura para voltar a operar.',
+  TRIAL_EXPIRED:
+    'O período de teste terminou. Assine um plano para voltar a registrar — os dados continuam aqui.',
+  TERMINATED: 'Estabelecimento encerrado.',
+}
 
 /**
  * RN-01 de MOD-SEC — o único papel a que a exigência de MFA se aplica.
@@ -69,6 +89,8 @@ export interface ResolveSessionResult {
 /** De onde a requisição veio — prova de origem para o evento de segurança. */
 export interface RequestOrigin {
   method: string
+  /** O caminho sem query — decide a exceção de `BILLING_PREFIX`. */
+  path?: string
   ipAddress?: string | null
   userAgent?: string | null
 }
@@ -101,12 +123,17 @@ export async function resolveSession(
     return { context, tenantStatus: null, mfa: notApplicable(claims) }
   }
 
-  if (BLOCKED_STATUSES.has(tenant.status) && !READ_METHODS.has(method)) {
+  if (
+    BLOCKED_STATUSES.has(tenant.status) &&
+    !READ_METHODS.has(method) &&
+    // Encerrado não assina de volta: é outra conversa, fora do produto.
+    !(tenant.status !== 'TERMINATED' && isBillingPath(origin.path))
+  ) {
     throw new AppError(
       'ERR_IDENT_008',
-      tenant.status === 'SUSPENDED'
-        ? 'Estabelecimento suspenso. Regularize a assinatura para voltar a operar.'
-        : 'Estabelecimento encerrado.',
+      BLOCKED_DETAIL[tenant.status] ?? 'Estabelecimento suspenso.',
+      undefined,
+      { tenantStatus: tenant.status },
     )
   }
 

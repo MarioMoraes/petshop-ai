@@ -319,7 +319,7 @@ export async function acceptInvitation(params: AcceptParams) {
   const invitation = await resolveInvitationByTokenHash(hashToken(params.token))
   if (!invitation) throw notFound('Convite não encontrado')
 
-  if (invitation.tenantStatus === 'SUSPENDED' || invitation.tenantStatus === 'TERMINATED') {
+  if (['SUSPENDED', 'TERMINATED', 'TRIAL_EXPIRED'].includes(invitation.tenantStatus)) {
     throw tenantBlocked('Este estabelecimento não está ativo. Fale com quem administra o petshop.')
   }
 

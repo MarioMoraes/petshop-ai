@@ -157,11 +157,12 @@ domínio que não é seu. `conferir-ambiente.sh` exercita a regra contra o ápic
 
 ## Rotas publicadas
 
-Só duas chegam ao backend, e as duas só no domínio da aplicação:
+Só três chegam ao backend, e as três só no domínio da aplicação:
 
 ```
 petshop.officestecnologia.com.br/internal/v1/clerk/webhook
 petshop.officestecnologia.com.br/internal/v1/email/webhook
+petshop.officestecnologia.com.br/internal/v1/asaas/webhook
 ```
 
 Todo o resto vai para o Next. **`/v1` não tem rota na borda**: o cliente HTTP do
@@ -177,6 +178,27 @@ No Traefik sobrou um router TCP e um HTTP, os dois no serviço `caddy`. O segund
 existe porque passthrough é de TLS: em texto claro não há SNI para casar, e quem
 digita o endereço sem `https://` — o caso real de quem lê o slug num cartão —
 precisa do desvio para o 443.
+
+## A cobrança (Asaas)
+
+A assinatura dos estabelecimentos é cobrada pelo Asaas, com cartão (pelo Checkout dele)
+e PIX (assinatura pela API). Quatro variáveis no `.env.production`:
+
+| Variável | O que faz |
+|---|---|
+| `ASAAS_API_KEY` | Sem ela, a tela de assinatura abre e não cobra (503) |
+| `ASAAS_API_URL` | **Sandbox por padrão.** Produção é `https://api.asaas.com/v3`, trocada junto com a chave |
+| `ASAAS_WEBHOOK_TOKEN` | O token cadastrado no painel do Asaas; sem ele o webhook recusa tudo |
+| `BILLING_GRACE_DAYS` | Dias de atraso antes de o estabelecimento ficar só em leitura (7) |
+
+No painel do Asaas, em *Integrações → Webhooks*, cadastre
+`https://petshop.officestecnologia.com.br/internal/v1/asaas/webhook` com o mesmo token
+de `ASAAS_WEBHOOK_TOKEN` e os eventos de **cobranças**, **assinaturas** e **checkout**.
+
+**Antes da chave de produção, passe um pagamento inteiro no sandbox** — PIX e cartão,
+do clique ao estabelecimento ativo. O payload do `CHECKOUT_PAID` não está documentado, e
+é dele que o cliente do cartão chega ao estabelecimento (`modules/subscription/webhook.ts`).
+Se o cartão pago não ativar a conta, é por aí que se começa.
 
 ## A landing page de venda
 

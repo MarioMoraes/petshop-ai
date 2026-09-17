@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
-import { PLATFORM_PLANS, PLATFORM_TENANT_STATUSES } from '@petshop/shared-types'
+import { PLAN_CATALOG, PLATFORM_PLANS, PLATFORM_TENANT_STATUSES } from '@petshop/shared-types'
 import { Button } from '@/components/ui'
 
 /**
@@ -23,16 +23,11 @@ const STATUS_ROTULO: Record<string, string> = {
   PROVISIONING: 'Provisionando',
   PROVISIONING_FAILED: 'Provisionamento falhou',
   TRIAL: 'Em teste',
+  TRIAL_EXPIRED: 'Teste vencido',
   ACTIVE: 'Ativo',
   PAST_DUE: 'Em atraso',
   SUSPENDED: 'Suspenso',
   TERMINATED: 'Encerrado',
-}
-
-const PLANO_ROTULO: Record<string, string> = {
-  STARTER: 'Starter',
-  PRO: 'Pro',
-  ENTERPRISE: 'Enterprise',
 }
 
 export function Filtros({ status, plan, q }: { status: string; plan: string; q: string }) {
@@ -83,7 +78,7 @@ export function Filtros({ status, plan, q }: { status: string; plan: string; q: 
           <option value="">Todos</option>
           {PLATFORM_PLANS.map((valor) => (
             <option key={valor} value={valor}>
-              {PLANO_ROTULO[valor] ?? valor}
+              {PLAN_CATALOG[valor].name}
             </option>
           ))}
         </select>

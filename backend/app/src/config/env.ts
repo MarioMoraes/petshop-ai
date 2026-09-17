@@ -129,6 +129,29 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    */
   RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
 
+  // ---- Camada comercial (fatia 4): a assinatura, cobrada pelo Asaas ----
+
+  /**
+   * A chave da API do Asaas (`access_token`). Opcional como as outras de provedor: sem
+   * ela a tela de assinatura abre, mostra o plano e diz que a cobrança não está
+   * configurada — o `POST` responde 503, e nada finge ter cobrado.
+   */
+  ASAAS_API_KEY: z.string().min(1).optional(),
+  /**
+   * **O sandbox é o padrão**, e produção é escolha explícita. Uma instalação nova que
+   * esquecesse esta variável cobraria de verdade com uma chave de teste — que o Asaas
+   * recusaria, mas o erro apareceria para o cliente e não no deploy.
+   */
+  ASAAS_API_URL: z.string().url().default('https://api-sandbox.asaas.com/v3'),
+  /**
+   * O token que o Asaas manda em `asaas-access-token` a cada webhook, cadastrado no
+   * painel dele. Sem ele a rota recusa tudo com 401, pela mesma razão do Resend: um
+   * webhook aberto ativaria a assinatura de quem quisesse.
+   */
+  ASAAS_WEBHOOK_TOKEN: z.string().min(1).optional(),
+  /** Dias de mensalidade em atraso antes de o estabelecimento ficar só em leitura. */
+  BILLING_GRACE_DAYS: z.coerce.number().int().min(0).default(7),
+
   // ---- MOD-IDENT (fatia 7 da consolidação) ----
 
   /** Duração do trial (questão 3 do PRD §11; assumido 14 dias). */

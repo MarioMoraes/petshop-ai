@@ -31,6 +31,7 @@ import { isReservedSlug } from '@petshop/shared-types'
  * quando alguém cria uma tela nova sem passar por aqui.
  */
 export const ADMIN_ROUTE_PREFIXES = [
+  '/assinatura',
   '/agenda',
   '/cobranca',
   '/configuracoes',

@@ -7,6 +7,7 @@ import {
 } from '@petshop/shared-types'
 import type { ServiceAuthContext } from '@petshop/service-auth'
 import { logger } from '../shared/logger.js'
+import { tenantHasFeature } from '../shared/plan.js'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../shared/redis.js'
 import type { SessionClaims } from './clerk-token.js'
 
@@ -46,6 +47,19 @@ export interface PortalTenant {
  * errado não tem sessão a apresentar.
  */
 export async function resolvePortalTenant(slug: string): Promise<PortalTenant> {
+  const tenant = await resolveVisiblePortalTenant(slug)
+  /**
+   * Plano sem Portal responde como estabelecimento que não existe, e fora do cache do
+   * slug: o tutor não tem nada a ver com o plano do petshop, e a descida de plano não
+   * pode esperar a hora que o slug fica guardado.
+   */
+  if (!(await tenantHasFeature(tenant.id, 'PORTAL'))) {
+    throw new AppError('ERR_PORTAL_001', 'Estabelecimento não encontrado')
+  }
+  return tenant
+}
+
+async function resolveVisiblePortalTenant(slug: string): Promise<PortalTenant> {
   const normalized = slug.trim().toLowerCase()
   if (normalized === '') throw new AppError('ERR_PORTAL_001', 'Estabelecimento não encontrado')
 

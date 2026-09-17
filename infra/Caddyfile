@@ -94,9 +94,13 @@
 	# instalação, não de um petshop. O que os protege é inteiramente a assinatura Svix,
 	# conferida sobre o corpo cru — e sem o segredo correspondente
 	# (`RESEND_WEBHOOK_SECRET`, `CLERK_WEBHOOK_SECRET`) a rota recusa tudo.
+	#
+	# A terceira é a do Asaas (camada comercial, fatia 4), que não assina o corpo: ela se
+	# autentica pelo token do header `asaas-access-token`, e sem `ASAAS_WEBHOOK_TOKEN`
+	# recusa tudo do mesmo jeito.
 	@webhooks {
 		host {$APP_DOMAIN}
-		path /internal/v1/email/webhook /internal/v1/clerk/webhook
+		path /internal/v1/email/webhook /internal/v1/clerk/webhook /internal/v1/asaas/webhook
 	}
 	handle @webhooks {
 		reverse_proxy {$BACKEND_UPSTREAM:api-gateway:3000}

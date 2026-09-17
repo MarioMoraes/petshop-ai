@@ -4,6 +4,7 @@ import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
 import { CrmSettingsForm } from './settings-form'
+import { planoDe } from '@/components/plano-indisponivel'
 
 /**
  * Configuração do relacionamento (MOD-CRM-03 e 04).
@@ -99,6 +100,7 @@ export default async function CrmConfigPage() {
         suppressions={suppressions}
         whatsapp={whatsapp}
         canConnectChannel={canConnectChannel}
+        plan={planoDe(me)}
       />
     </div>
   )

@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { slugify, type SlugAvailability, type TenantResponse } from '@petshop/shared-types'
+import {
+  slugify,
+  type Plan,
+  type SlugAvailability,
+  type TenantResponse,
+} from '@petshop/shared-types'
 import { Button, Card, Field } from '@/components/ui'
 import { checkSlugAction, createTenantAction, saveStep1Action } from '../actions'
 import type { StepProps } from '../wizard'
@@ -21,7 +26,8 @@ export function StepIdentity({
   onSubmit,
   tenant,
   hostSuffix,
-}: StepProps & { tenant: TenantResponse | null; hostSuffix: string }) {
+  initialPlan,
+}: StepProps & { tenant: TenantResponse | null; hostSuffix: string; initialPlan: Plan | null }) {
   const isNew = tenant === null
 
   const [name, setName] = useState(tenant?.name ?? '')
@@ -63,6 +69,7 @@ export function StepIdentity({
         createTenantAction({
           name: name.trim(),
           slug: effectiveSlug,
+          ...(initialPlan ? { plan: initialPlan } : {}),
           ...(legalName.trim() ? { legalName: legalName.trim() } : {}),
           ...(cnpj.replace(/\D/g, '') ? { cnpj: cnpj.replace(/\D/g, '') } : {}),
         }),

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { PlanFeature } from './plans.js'
 
 /**
  * PRD relacionamento_crm_08 §5 — contratos do messaging-service e do
@@ -486,6 +487,25 @@ export const TAXI_AUTOMATION_KEYS = [
   'taxi_failed',
 ] as const
 export type AutomationKey = (typeof AUTOMATION_KEYS)[number]
+
+/**
+ * As automações que são campanha, e não aviso de operação: aniversário, convite de volta
+ * e régua de cobrança. Estão no Pro (`CAMPAIGNS` em `plans.ts`); os lembretes e avisos da
+ * agenda são de todo plano.
+ */
+export const CAMPAIGN_AUTOMATION_KEYS = [
+  'birthday_pet',
+  'birthday_tutor',
+  'inactive_campaign',
+  'dunning',
+] as const satisfies readonly AutomationKey[]
+
+/** O recurso de plano de que a automação depende, ou `null` quando é de todo plano. */
+export function automationPlanFeature(key: AutomationKey): PlanFeature | null {
+  if ((CAMPAIGN_AUTOMATION_KEYS as readonly string[]).includes(key)) return 'CAMPAIGNS'
+  if ((TAXI_AUTOMATION_KEYS as readonly string[]).includes(key)) return 'TAXI'
+  return null
+}
 
 export const UpdateAutomationSchema = z.object({
   enabled: z.boolean().optional(),

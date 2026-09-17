@@ -381,7 +381,7 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
   }
 
   it('resolve a sessão pelo host e chega à ficha vinculada', async () => {
-    const tenant = await seedTenant('petshop-portal')
+    const tenant = await seedTenant('petshop-portal', 'ACTIVE', 'PRO')
     await comIdentidadeVisual(tenant.tenantId)
     const { userId, clerkUserId } = await seedMember(tenant.tenantId, 'RECEPTIONIST')
     const { tutorId } = await seedPortalTutor(tenant.tenantId, userId)
@@ -407,7 +407,7 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
    * uma consequência de estarem separados; agora é uma decisão que este teste guarda.
    */
   it('a sessão do Portal não alcança o Admin, e o crachá não alcança o Portal', async () => {
-    const tenant = await seedTenant('petshop-banhista')
+    const tenant = await seedTenant('petshop-banhista', 'ACTIVE', 'PRO')
     const { userId, clerkUserId } = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
     await seedPortalTutor(tenant.tenantId, userId)
 
@@ -424,7 +424,7 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
   })
 
   it('a sessão sem ficha vinculada não alcança as rotas do tutor', async () => {
-    const tenant = await seedTenant('petshop-sem-ficha')
+    const tenant = await seedTenant('petshop-sem-ficha', 'ACTIVE', 'PRO')
     const { clerkUserId } = await seedMember(tenant.tenantId, 'RECEPTIONIST')
 
     /**
@@ -442,7 +442,7 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
   })
 
   it('sem o header de host não há de que petshop falar', async () => {
-    const tenant = await seedTenant('petshop-sem-host')
+    const tenant = await seedTenant('petshop-sem-host', 'ACTIVE', 'PRO')
     const { clerkUserId } = await seedMember(tenant.tenantId, 'RECEPTIONIST')
 
     const response = await call({ url: '/portal/v1/me', token: givenToken({ clerkUserId }) })
@@ -452,7 +452,7 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
   })
 
   it('subdomínio de tenant suspenso responde como inexistente', async () => {
-    const tenant = await seedTenant('petshop-suspenso', 'SUSPENDED')
+    const tenant = await seedTenant('petshop-suspenso', 'SUSPENDED', 'PRO')
     const { userId, clerkUserId } = await seedMember(tenant.tenantId, 'RECEPTIONIST')
     await seedPortalTutor(tenant.tenantId, userId)
 
@@ -474,8 +474,8 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
    * cliente algum daquele estabelecimento.
    */
   it('o slug forjado de outro petshop não empresta ficha nenhuma', async () => {
-    const meu = await seedTenant('petshop-meu')
-    const alheio = await seedTenant('petshop-alheio')
+    const meu = await seedTenant('petshop-meu', 'ACTIVE', 'PRO')
+    const alheio = await seedTenant('petshop-alheio', 'ACTIVE', 'PRO')
     const { userId, clerkUserId } = await seedMember(meu.tenantId, 'RECEPTIONIST')
     await seedPortalTutor(meu.tenantId, userId)
 
@@ -496,7 +496,7 @@ describe('MOD-PORTAL — a superfície do tutor', () => {
    * o oposto do que acontece sob `/public/`.
    */
   it('a identidade visual do petshop responde sem token', async () => {
-    const tenant = await seedTenant('petshop-vitrine')
+    const tenant = await seedTenant('petshop-vitrine', 'ACTIVE', 'PRO')
     await comIdentidadeVisual(tenant.tenantId)
     const app = await getApp()
 

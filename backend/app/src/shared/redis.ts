@@ -19,6 +19,7 @@ export const CACHE_KEYS = {
   permissions: (tenantId: string, userId: string) => `perm:${tenantId}:${userId}`,
   tenantByOrg: (clerkOrgId: string) => `tenant:org:${clerkOrgId}`,
   tenantStatus: (tenantId: string) => `tenant:status:${tenantId}`,
+  tenantPlan: (tenantId: string) => `tenant:plan:${tenantId}`,
   userByClerkId: (clerkUserId: string) => `user:clerk:${clerkUserId}`,
 
   // ---- MOD-IDENT ----
@@ -223,6 +224,9 @@ export const CACHE_TTL_SECONDS = {
   permissions: 300,
   tenantByOrg: 3600,
   tenantStatus: 60,
+  // Curto como o do status, e pela mesma razão: quem sobe de plano não espera uma hora
+  // para ver o recurso, e quem desce não o usa por uma hora a mais.
+  tenantPlan: 60,
   userByClerkId: 300,
 
   tenantSettings: 600,

@@ -3,11 +3,13 @@ import {
   AUTOMATION_KEYS,
   AutomationConfigSchema,
   TAXI_AUTOMATION_KEYS,
+  automationPlanFeature,
   type AutomationKey,
   type MessageChannelPref,
   type UpdateAutomationInput,
 } from '@petshop/shared-types'
 import { recordAudit } from '../../shared/audit.js'
+import { assertFeature } from '../../shared/plan.js'
 import { invalidAutomation, notFound } from './errors.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 
@@ -233,6 +235,11 @@ export async function updateAutomation(
     throw notFound(`Não existe uma automação chamada "${key}"`)
   }
   const automationKey = key as AutomationKey
+
+  // A rota é a mesma para o lembrete, que é de todo plano, e para a régua de cobrança,
+  // que é do Pro — então quem separa é a chave, e não a tabela de `plan-gates.ts`.
+  const feature = automationPlanFeature(automationKey)
+  if (feature) await assertFeature(actor.tenantId, feature)
 
   return withTenant(
     actor.tenantId,

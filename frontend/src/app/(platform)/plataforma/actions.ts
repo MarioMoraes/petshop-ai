@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { ApiError } from '@petshop/api-client'
 import {
+  ChangeTenantPlanSchema,
   GrantPlatformAdminSchema,
   RequestSupportAccessSchema,
   type PlatformAdminResponse,
@@ -29,8 +30,7 @@ import { serverApi } from '@/lib/api'
  */
 
 export type ActionResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; message: string; fieldErrors: Record<string, string> }
+  { ok: true; data: T } | { ok: false; message: string; fieldErrors: Record<string, string> }
 
 function toFailure(error: unknown): ActionResult<never> {
   if (error instanceof ApiError) {
@@ -83,6 +83,31 @@ export async function pedirAcessoAction(
     const grant = await serverApi().requestSupportAccess(tenantId, parsed.data.reason)
     revalidatePath('/plataforma/estabelecimentos')
     return { ok: true, data: grant }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Muda o plano de um estabelecimento (fatia 2 da camada comercial).
+ *
+ * A quarta escrita, e a primeira sobre o estabelecimento — mas sobre a **conta** dele, e
+ * não sobre o que há dentro: plano é dado comercial, como o estado. O motivo tem o mesmo
+ * mínimo do pedido de acesso, porque também é lido pelo administrador do petshop, na
+ * trilha de auditoria dele.
+ */
+export async function mudarPlanoAction(
+  tenantId: string,
+  plan: string,
+  reason: string,
+): Promise<ActionResult<{ tenantId: string; plan: string }>> {
+  const parsed = ChangeTenantPlanSchema.safeParse({ plan, reason })
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const result = await serverApi().changeTenantPlan(tenantId, parsed.data)
+    revalidatePath('/plataforma/estabelecimentos')
+    return { ok: true, data: result }
   } catch (error) {
     return toFailure(error)
   }

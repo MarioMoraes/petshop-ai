@@ -58,12 +58,15 @@ export function NavLink<T extends string>({
   icon,
   tone,
   active,
+  tag,
 }: {
   href: Parameters<typeof Link<T>>[0]['href']
   label: string
   icon: ReactNode
   tone: IconTone
   active: boolean
+  /** O plano que libera o item, quando o do estabelecimento não libera ("Pro"). */
+  tag?: string | undefined
 }) {
   return (
     <Link
@@ -73,6 +76,7 @@ export function NavLink<T extends string>({
     >
       <LinkSpinner className={`icon-tint ${tone}`}>{icon}</LinkSpinner>
       {label}
+      {tag && <span className="ml-auto text-xs font-medium text-subtle">{tag}</span>}
     </Link>
   )
 }

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { ButtonLink } from '@/components/links'
 import { PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { tenantHostSuffix } from '@/lib/domain'
@@ -94,6 +95,11 @@ export default async function ConfiguracoesPage({
         eyebrow="Estabelecimento"
         title="Configurações"
         subtitle="Dados, horário de funcionamento, políticas de agendamento, identidade visual, catálogo de raças, privacidade e trilha de auditoria."
+        actions={
+          me.permissions.includes('tenant:configure') ? (
+            <ButtonLink href="/assinatura">Assinatura</ButtonLink>
+          ) : undefined
+        }
       />
 
       <div className="mt-10">

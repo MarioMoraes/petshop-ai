@@ -1,11 +1,17 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
-import { AgentConversationStatusSchema, type AgentConversationStatus } from '@petshop/shared-types'
+import {
+  AgentConversationStatusSchema,
+  PLAN_CATALOG,
+  minimumPlanFor,
+  type AgentConversationStatus,
+} from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
 import { AgentCard } from './agent-card'
 import { AtendimentosBoard } from './atendimentos-board'
+import { PlanoIndisponivel, temRecurso } from '@/components/plano-indisponivel'
 
 /**
  * A fila de atendimento do WhatsApp (MOD-AI-06).
@@ -27,6 +33,11 @@ interface PageProps {
 }
 
 export default async function AtendimentosPage({ searchParams }: PageProps) {
+  // O plano antes de qualquer chamada: a página renderiza em paralelo com o layout, e
+  // pedir a API primeiro traria o 402 para dentro da tela (ver `plano-indisponivel.tsx`).
+  const sessao = await carregarMe()
+  if (!temRecurso(sessao, 'AI_AGENT')) return <PlanoIndisponivel me={sessao} feature="AI_AGENT" />
+
   const params = await searchParams
   const status = asStatus(params.status) ?? 'HANDOFF'
 
@@ -78,6 +89,11 @@ export default async function AtendimentosPage({ searchParams }: PageProps) {
             <AgentCard
               settings={config}
               podeConfigurar={me.permissions.includes('crm:configure')}
+              personaNoPlano={
+                temRecurso(me, 'AI_PERSONA')
+                  ? null
+                  : PLAN_CATALOG[minimumPlanFor('AI_PERSONA')].name
+              }
             />
           )}
           <AtendimentosBoard page={conversas} status={status} podeAtender={podeAtender} />

@@ -509,18 +509,6 @@ export const ACCEPTED_PHOTO_MIMES = [
 ] as const
 export type AcceptedPhotoMime = (typeof ACCEPTED_PHOTO_MIMES)[number]
 
-/**
- * AC-03, com os números assumidos na questão 1 do §11. `null` é ilimitado.
- *
- * A cota conta fotos, não bytes: é o número que o comercial sabe explicar e o que a
- * tela consegue mostrar como "412 de 500".
- */
-export const PHOTO_QUOTA_BY_PLAN: Record<string, number | null> = {
-  STARTER: 500,
-  PRO: 5_000,
-  ENTERPRISE: null,
-}
-
 /** RN-13: nenhuma imagem de pet é publicamente enumerável. */
 export const PHOTO_URL_TTL_SECONDS = 900
 

@@ -16,6 +16,7 @@ import {
 } from '@petshop/shared-types'
 import { recordAudit } from '../../shared/audit.js'
 import { logger } from '../../shared/logger.js'
+import { tenantHasFeature } from '../../shared/plan.js'
 import {
   campaignBusy,
   emptySegment,
@@ -392,6 +393,10 @@ export async function runScheduledCampaigns(now: Date = new Date()): Promise<num
   let fired = 0
   for (const row of due) {
     try {
+      // Fica `SCHEDULED`, e não `CANCELLED`: se o plano voltar, a campanha dispara na
+      // varredura seguinte. Descer de plano não apaga o que o petshop preparou.
+      if (!(await tenantHasFeature(row.tenant_id, 'CAMPAIGNS'))) continue
+
       const candidates = await withTenant(row.tenant_id, async (tx) => {
         const campaign = await tx.campaign.findUnique({ where: { id: row.id } })
         if (!campaign) return null

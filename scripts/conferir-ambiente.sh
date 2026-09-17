@@ -232,6 +232,16 @@ opcional RESEND_API_KEY "todo e-mail vira log: a mensagem consta como enviada co
 opcional MAIL_FROM "o Resend recusa o envio sem remetente de domínio verificado"
 opcional RESEND_WEBHOOK_SECRET "a rota /internal/v1/email/webhook recusa tudo com 401 e bounce não volta"
 
+# ── Assinatura ────────────────────────────────────────────────────────────────
+titulo "Assinatura (Asaas)"
+opcional ASAAS_API_KEY "a tela de assinatura abre e não cobra: assinar responde 503 e nenhum estabelecimento sai do teste pagando"
+opcional ASAAS_WEBHOOK_TOKEN "a rota /internal/v1/asaas/webhook recusa tudo com 401: pagamento feito não ativa a conta"
+# Chave de produção contra o sandbox (ou o contrário) não dá erro no deploy: dá erro na
+# cara de quem está tentando pagar.
+if [ -n "${ASAAS_API_KEY:-}" ] && [[ "${ASAAS_API_URL:-https://api-sandbox.asaas.com/v3}" == *sandbox* ]]; then
+  aviso "ASAAS_API_URL aponta para o SANDBOX → nenhuma cobrança é real. Em produção: https://api.asaas.com/v3"
+fi
+
 # ── WhatsApp ──────────────────────────────────────────────────────────────────
 titulo "Canal WhatsApp (Evolution)"
 obrigatoria EVOLUTION_API_KEY "o container da Evolution não sobe sem ela (é \${EVOLUTION_API_KEY:?} no compose)"

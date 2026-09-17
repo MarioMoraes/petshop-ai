@@ -8,8 +8,9 @@ import {
   zonedDayRange,
 } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { FunilDeEscritas, MotivosDeHandoff, NumerosDoPeriodo, SeletorDePeriodo } from './painel'
+import { PlanoIndisponivel, temRecurso } from '@/components/plano-indisponivel'
 
 /**
  * O painel de qualidade do atendimento automático (MOD-AI-09).
@@ -36,6 +37,12 @@ interface PageProps {
 }
 
 export default async function QualidadePage({ searchParams }: PageProps) {
+  // O plano antes de qualquer chamada: a página renderiza em paralelo com o layout, e
+  // pedir a API primeiro traria o 402 para dentro da tela (ver `plano-indisponivel.tsx`).
+  const sessao = await carregarMe()
+  if (!temRecurso(sessao, 'AI_QUALITY'))
+    return <PlanoIndisponivel me={sessao} feature="AI_QUALITY" />
+
   const params = await searchParams
 
   const settings = await serverApi()

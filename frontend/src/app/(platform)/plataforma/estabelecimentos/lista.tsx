@@ -1,11 +1,19 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import type { PlatformTenant, PlatformTenantStatus } from '@petshop/shared-types'
-import { Alert, Badge, Button, FormError } from '@/components/ui'
+import {
+  PLAN_CATALOG,
+  PLAN_FEATURE_LABELS,
+  PLAN_ORDER,
+  planFeatures,
+  type Plan,
+  type PlatformTenant,
+  type PlatformTenantStatus,
+} from '@petshop/shared-types'
+import { Alert, Badge, Button, FormError, Segmented } from '@/components/ui'
 import { Modal } from '@/components/modal'
-import { AlertTriangleIcon, ShieldCheckIcon, StoreIcon } from '@/components/icons'
-import { pedirAcessoAction } from '../actions'
+import { AlertTriangleIcon, ShieldCheckIcon, SparkleIcon, StoreIcon } from '@/components/icons'
+import { mudarPlanoAction, pedirAcessoAction } from '../actions'
 import { bytes, dia, desde, numero } from '../formato'
 
 /**
@@ -29,20 +37,16 @@ const STATUS: Record<
   PROVISIONING: { rotulo: 'provisionando', tom: 'neutral' },
   PROVISIONING_FAILED: { rotulo: 'provisionamento falhou', tom: 'danger' },
   TRIAL: { rotulo: 'em teste', tom: 'accent' },
+  TRIAL_EXPIRED: { rotulo: 'teste vencido', tom: 'danger' },
   ACTIVE: { rotulo: 'ativo', tom: 'success' },
   PAST_DUE: { rotulo: 'em atraso', tom: 'danger' },
   SUSPENDED: { rotulo: 'suspenso', tom: 'danger' },
   TERMINATED: { rotulo: 'encerrado', tom: 'neutral' },
 }
 
-const PLANO: Record<PlatformTenant['plan'], string> = {
-  STARTER: 'Starter',
-  PRO: 'Pro',
-  ENTERPRISE: 'Enterprise',
-}
-
 export function Estabelecimentos({ itens }: { itens: PlatformTenant[] }) {
   const [pedindo, setPedindo] = useState<PlatformTenant | null>(null)
+  const [mudandoPlano, setMudandoPlano] = useState<PlatformTenant | null>(null)
   /** Para quem já se pediu nesta sessão de tela: o botão não deve convidar duas vezes. */
   const [pedidos, setPedidos] = useState<string[]>([])
 
@@ -60,7 +64,7 @@ export function Estabelecimentos({ itens }: { itens: PlatformTenant[] }) {
                     </span>
                     <p className="text-base font-semibold">{tenant.name}</p>
                     <Badge tone={STATUS[tenant.status].tom}>{STATUS[tenant.status].rotulo}</Badge>
-                    <Badge>{PLANO[tenant.plan]}</Badge>
+                    <Badge>{PLAN_CATALOG[tenant.plan].name}</Badge>
                   </div>
                   <p className="hint mt-2">
                     {tenant.slug} · criado em {dia(tenant.createdAt)} ·{' '}
@@ -82,7 +86,10 @@ export function Estabelecimentos({ itens }: { itens: PlatformTenant[] }) {
                   </p>
                 </div>
 
-                <div className="shrink-0">
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setMudandoPlano(tenant)}>
+                    Mudar plano
+                  </Button>
                   <Button type="button" variant="ghost" onClick={() => setPedindo(tenant)}>
                     {pedidos.includes(tenant.id) ? 'Pedir de novo' : 'Pedir acesso'}
                   </Button>
@@ -114,6 +121,12 @@ export function Estabelecimentos({ itens }: { itens: PlatformTenant[] }) {
         tenant={pedindo}
         onClose={() => setPedindo(null)}
         onPedido={(id) => setPedidos((atual) => (atual.includes(id) ? atual : [...atual, id]))}
+      />
+
+      <MudarPlano
+        key={mudandoPlano?.id ?? 'fechado'}
+        tenant={mudandoPlano}
+        onClose={() => setMudandoPlano(null)}
       />
     </>
   )
@@ -247,6 +260,123 @@ function PedirAcesso({
           </div>
         </form>
       )}
+    </Modal>
+  )
+}
+
+/**
+ * A troca de plano (fatia 2 da camada comercial).
+ *
+ * `<Modal>` pela regra 8 do padrão, como o pedido de acesso. Os três planos cabem num
+ * `<Segmented>` — escolha exclusiva de três —, e a lista abaixo dele é a parte que
+ * importa: **o que o estabelecimento ganha ou perde**. Descer do Pro tira o Portal do ar
+ * para os clientes do petshop, e quem clica precisa ler isso antes de confirmar.
+ *
+ * Remontado a cada abertura (`key` no chamador), para que o plano marcado comece no atual.
+ */
+function MudarPlano({ tenant, onClose }: { tenant: PlatformTenant | null; onClose: () => void }) {
+  const [plano, setPlano] = useState<Plan>(tenant?.plan ?? 'STARTER')
+  const [motivo, setMotivo] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [pendente, startTransition] = useTransition()
+
+  const atual = tenant?.plan ?? 'STARTER'
+  const ganha = planFeatures(plano).filter((feature) => !planFeatures(atual).includes(feature))
+  const perde = planFeatures(atual).filter((feature) => !planFeatures(plano).includes(feature))
+
+  function enviar(event: React.FormEvent) {
+    event.preventDefault()
+    if (!tenant) return
+    setErro(null)
+
+    startTransition(async () => {
+      const resultado = await mudarPlanoAction(tenant.id, plano, motivo)
+      if (!resultado.ok) {
+        setErro(resultado.message)
+        return
+      }
+      onClose()
+    })
+  }
+
+  return (
+    <Modal
+      open={tenant !== null}
+      onClose={onClose}
+      icon={<SparkleIcon />}
+      tone="icon-brand"
+      eyebrow="Plano"
+      title="Mudar plano"
+      subtitle={tenant ? `${tenant.name} · hoje no ${PLAN_CATALOG[atual].name}` : undefined}
+      busy={pendente}
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={pendente}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form="mudar-plano"
+            busy={pendente}
+            busyLabel="Salvando…"
+            disabled={plano === atual}
+          >
+            Mudar para o {PLAN_CATALOG[plano].name}
+          </Button>
+        </>
+      }
+    >
+      <form id="mudar-plano" onSubmit={enviar} className="flex flex-col gap-4">
+        <FormError message={erro} />
+
+        <div>
+          <p className="label">Plano</p>
+          <div className="mt-2">
+            <Segmented
+              ariaLabel="Plano"
+              disabled={pendente}
+              value={plano}
+              options={PLAN_ORDER.map((key) => ({ value: key, label: PLAN_CATALOG[key].name }))}
+              onChange={setPlano}
+            />
+          </div>
+        </div>
+
+        {perde.length > 0 && (
+          <Alert
+            tone="danger"
+            role="status"
+            icon={<AlertTriangleIcon />}
+            title="O estabelecimento deixa de ter"
+          >
+            {perde.map((feature) => PLAN_FEATURE_LABELS[feature]).join(' · ')}. Os dados ficam
+            guardados e voltam com o plano; o site e o Portal saem do ar para os clientes.
+          </Alert>
+        )}
+        {ganha.length > 0 && (
+          <p className="hint">
+            Passa a ter: {ganha.map((feature) => PLAN_FEATURE_LABELS[feature]).join(' · ')}.
+          </p>
+        )}
+
+        <div>
+          <label className="label" htmlFor="motivo-plano">
+            Motivo
+          </label>
+          <textarea
+            id="motivo-plano"
+            className="field"
+            rows={3}
+            maxLength={300}
+            value={motivo}
+            onChange={(event) => setMotivo(event.target.value)}
+            placeholder="Contratou o Pro por telefone em 17/09, pagamento por boleto"
+          />
+          <p className="hint mt-1.5">
+            Fica na trilha de auditoria do estabelecimento, que o administrador dele lê.
+          </p>
+        </div>
+      </form>
     </Modal>
   )
 }

@@ -309,8 +309,31 @@ export type AgentErrorCode = keyof typeof AGENT_ERRORS
  * cá não muda o que o cliente recebe; muda que agora ele nasce de `AppError` como
  * todos os outros, e o error handler tem um caminho só.
  */
+/** Camada comercial, fatia 4 — a assinatura do estabelecimento. */
+export const SUBSCRIPTION_ERRORS = {
+  ERR_SUB_001: { status: 422, title: 'Dados de entrada inválidos' },
+  ERR_SUB_002: { status: 403, title: 'Permissão insuficiente' },
+  /** Assinar o que já está assinado, trocar plano sem assinatura, Enterprise pela tela. */
+  ERR_SUB_003: { status: 409, title: 'Operação incompatível com a assinatura atual' },
+  /** Sem `ASAAS_API_KEY`: a instalação não cobra, e diz isso em vez de fingir. */
+  ERR_SUB_004: { status: 503, title: 'Cobrança não configurada' },
+  /** O Asaas recusou ou não respondeu. O detalhe dele fica no log, não na tela. */
+  ERR_SUB_005: { status: 502, title: 'O provedor de pagamento não respondeu' },
+} as const
+
+export type SubscriptionErrorCode = keyof typeof SUBSCRIPTION_ERRORS
+
 export const PLATFORM_ERRORS = {
   ERR_RATE_LIMITED: { status: 429, title: 'Muitas requisições' },
+  /**
+   * O recurso existe, a pessoa tem permissão, e o plano do estabelecimento não o inclui.
+   *
+   * 402, como o `ERR_IDENT_007` do teto de usuários: não é falta de permissão (403), que
+   * mandaria a equipe pedir acesso ao administrador, e sim de plano, que se resolve
+   * trocando de plano. O corpo traz `feature`, `currentPlan` e `requiredPlan` — é com eles
+   * que a tela diz "disponível no Pro" em vez de um erro.
+   */
+  ERR_PLAN_001: { status: 402, title: 'Recurso fora do plano' },
 } as const
 
 export type PlatformErrorCode = keyof typeof PLATFORM_ERRORS
@@ -329,6 +352,7 @@ export const ERROR_CATALOG = {
   ...SECURITY_ERRORS,
   ...ADMIN_ERRORS,
   ...AGENT_ERRORS,
+  ...SUBSCRIPTION_ERRORS,
   ...PLATFORM_ERRORS,
 } as const
 

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
 import { ApiError } from '@petshop/api-client'
-import type { TenantResponse, TenantSettings } from '@petshop/shared-types'
+import { parsePlanParam, type TenantResponse, type TenantSettings } from '@petshop/shared-types'
 import { EnsureActiveOrganization } from '@/components/ensure-active-organization'
 import { Logo, Shell } from '@/components/ui'
 import { serverApi } from '@/lib/api'
@@ -19,7 +19,14 @@ import { Wizard } from './wizard'
 
 export const dynamic = 'force-dynamic'
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  // O plano escolhido na landing. Só vale para o estabelecimento que ainda vai nascer:
+  // depois dele, o plano gravado é o que a etapa 2 mostra.
+  const initialPlan = parsePlanParam((await searchParams).plan)
   const api = serverApi()
   const me = await api.me()
 
@@ -79,7 +86,12 @@ export default async function OnboardingPage() {
   return (
     <OnboardingLayout>
       {tenant === null && <EnsureActiveOrganization knownSlugs={knownSlugs} />}
-      <Wizard tenant={tenant} settings={settings} hostSuffix={tenantHostSuffix()} />
+      <Wizard
+        tenant={tenant}
+        settings={settings}
+        hostSuffix={tenantHostSuffix()}
+        initialPlan={initialPlan}
+      />
     </OnboardingLayout>
   )
 }

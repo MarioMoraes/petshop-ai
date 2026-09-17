@@ -57,6 +57,14 @@ export async function handleServiceChanged(payload: unknown): Promise<void> {
 
 const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'tenant.configuracao.atualizada': handleTenantSettingsChanged,
+  // O plano decide se a página existe: descer do Pro a tira do ar, subir a devolve.
+  'tenant.plano.alterado': handleTenantSettingsChanged,
+  // O estado da conta também decide se a página existe (RN-06): teste vencido ou
+  // suspensão a tiram do ar, e o pagamento a devolve. Sem estes três, o Next serviria o
+  // HTML de antes pelo TTL de revalidação.
+  'tenant.suspenso': handleTenantSettingsChanged,
+  'tenant.ativado': handleTenantSettingsChanged,
+  'tenant.reativado': handleTenantSettingsChanged,
   'agenda.servico.alterado': handleServiceChanged,
 }
 

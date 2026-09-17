@@ -2,6 +2,7 @@ import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { TaxiSettingsForm } from './settings-form'
+import { PlanoIndisponivel, temRecurso } from '@/components/plano-indisponivel'
 
 /**
  * Configuração do Taxi Dog (§4 e MOD-TAXI-06).
@@ -15,6 +16,11 @@ import { TaxiSettingsForm } from './settings-form'
 export const dynamic = 'force-dynamic'
 
 export default async function TaxiConfigPage() {
+  // O plano antes de qualquer chamada: a página renderiza em paralelo com o layout, e
+  // pedir a API primeiro traria o 402 para dentro da tela (ver `plano-indisponivel.tsx`).
+  const sessao = await carregarMe()
+  if (!temRecurso(sessao, 'TAXI')) return <PlanoIndisponivel me={sessao} feature="TAXI" />
+
   const [me, settings, zones, vehicles, services] = await Promise.all([
     carregarMe(),
     serverApi()

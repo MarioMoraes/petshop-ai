@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PLAN_SEAT_LIMITS, type Plan } from '@petshop/shared-types'
+import { PLAN_CATALOG, PLAN_ORDER, formatBRL, type Plan } from '@petshop/shared-types'
 import { Badge, Button, Card } from '@/components/ui'
 import { saveStep2Action } from '../actions'
 import type { StepProps } from '../wizard'
@@ -12,28 +12,11 @@ import type { StepProps } from '../wizard'
  * Escolher plano no trial não cobra nada: define o teto de usuários (RN-11) e o que
  * fica disponível. A troca continua possível a qualquer momento, e dizer isso aqui
  * tira o peso da decisão.
+ *
+ * Nome, preço, teto e destaques saem de `PLAN_CATALOG` — os mesmos da landing page, que
+ * é de onde a pessoa chegou com o plano já escolhido. Duas divisões diferentes entre a
+ * página que vende e a tela que contrata eram a promessa quebrada no primeiro minuto.
  */
-
-const PLANS: Array<{ key: Plan; name: string; pitch: string; highlights: string[] }> = [
-  {
-    key: 'STARTER',
-    name: 'Starter',
-    pitch: 'Para quem está começando a organizar a operação.',
-    highlights: ['Agenda e prontuário', 'Portal do tutor', 'Site do estabelecimento'],
-  },
-  {
-    key: 'PRO',
-    name: 'Pro',
-    pitch: 'Para equipes que já vivem dentro do sistema.',
-    highlights: ['Tudo do Starter', 'Taxi Dog e campanhas', 'Relatórios da operação'],
-  },
-  {
-    key: 'ENTERPRISE',
-    name: 'Enterprise',
-    pitch: 'Para redes com várias unidades.',
-    highlights: ['Tudo do Pro', 'Usuários ilimitados', 'Suporte dedicado'],
-  },
-]
 
 export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }) {
   const [selected, setSelected] = useState<Plan>(plan)
@@ -46,8 +29,9 @@ export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }
       </p>
 
       <div className="mt-8 space-y-3" role="radiogroup" aria-label="Planos disponíveis">
-        {PLANS.map((option) => {
-          const limit = PLAN_SEAT_LIMITS[option.key]
+        {PLAN_ORDER.map((key) => {
+          const option = PLAN_CATALOG[key]
+          const limit = option.seats
           const isSelected = selected === option.key
 
           return (
@@ -67,9 +51,16 @@ export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }
                   {limit === null ? 'Usuários ilimitados' : `Até ${limit} usuários`}
                 </Badge>
               </div>
-              <p className="hint mt-1">{option.pitch}</p>
-              <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-                {option.highlights.map((highlight) => (
+              <p className="hint mt-1">
+                {option.priceCents === null
+                  ? 'Sob consulta'
+                  : `${formatBRL(option.priceCents)}/mês depois do teste`}
+                {' · '}
+                {option.pitch}
+              </p>
+              <p className="mt-3 text-sm font-medium">{option.includesLead}</p>
+              <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+                {option.includes.map((highlight) => (
                   <li key={highlight}>· {highlight}</li>
                 ))}
               </ul>

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { InvalidPhoneError, isValidCEP, normalizePhoneBR, onlyDigits } from './br-documents.js'
 import { ASSIGNABLE_ROLE_KEYS, ROLE_KEYS } from './permissions.js'
+import { PlanSchema } from './plans.js'
 
 /** PRD identidade_tenancy_01 §5 — contratos de entrada e saída do identity-service. */
 
@@ -41,6 +42,7 @@ export function isReservedSlug(slug: string): boolean {
 export const TenantStatusSchema = z.enum([
   'PROVISIONING',
   'TRIAL',
+  'TRIAL_EXPIRED',
   'ACTIVE',
   'PAST_DUE',
   'SUSPENDED',
@@ -48,16 +50,6 @@ export const TenantStatusSchema = z.enum([
   'PROVISIONING_FAILED',
 ])
 export type TenantStatus = z.infer<typeof TenantStatusSchema>
-
-export const PlanSchema = z.enum(['STARTER', 'PRO', 'ENTERPRISE'])
-export type Plan = z.infer<typeof PlanSchema>
-
-/** RN-11 — limite de usuários por plano, verificado no convite e no aceite. */
-export const PLAN_SEAT_LIMITS: Record<Plan, number | null> = {
-  STARTER: 5,
-  PRO: 15,
-  ENTERPRISE: null,
-}
 
 export const RoleKeySchema = z.enum(ROLE_KEYS)
 

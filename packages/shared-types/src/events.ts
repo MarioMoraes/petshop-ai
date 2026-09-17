@@ -3,7 +3,8 @@
  * (PRD identidade_tenancy_01 §8; convenção `dominio.acao` do SPEC §11).
  */
 
-import type { Plan, TenantStatus } from './identity.js'
+import type { TenantStatus } from './identity.js'
+import type { Plan } from './plans.js'
 import type { RoleKey } from './permissions.js'
 import type { TermKind } from './terms.js'
 import type { ConsentChannel, ConsentPurpose } from './tutor.js'
@@ -22,6 +23,7 @@ export const IDENTITY_ROUTING_KEYS = {
   tenantReativado: 'tenant.reativado',
   tenantEncerrado: 'tenant.encerrado',
   tenantConfiguracaoAtualizada: 'tenant.configuracao.atualizada',
+  tenantPlanoAlterado: 'tenant.plano.alterado',
   membershipCriado: 'membership.criado',
   membershipPapelAlterado: 'membership.papel_alterado',
   membershipSuspenso: 'membership.suspenso',
@@ -74,6 +76,13 @@ export interface TenantStatusAlteradoEvent extends BaseEvent {
 export interface TenantConfiguracaoAtualizadaEvent extends BaseEvent {
   tenantId: string
   changedKeys: string[]
+}
+
+/** A troca de plano pelo console da plataforma. Quem escuta é o site, que sai do ar ou volta. */
+export interface TenantPlanoAlteradoEvent extends BaseEvent {
+  tenantId: string
+  from: Plan
+  to: Plan
 }
 
 export interface MembershipCriadoEvent extends BaseEvent {
@@ -150,6 +159,7 @@ export interface IdentityEventMap {
   'tenant.reativado': TenantStatusAlteradoEvent
   'tenant.encerrado': TenantStatusAlteradoEvent
   'tenant.configuracao.atualizada': TenantConfiguracaoAtualizadaEvent
+  'tenant.plano.alterado': TenantPlanoAlteradoEvent
   'membership.criado': MembershipCriadoEvent
   'membership.papel_alterado': MembershipPapelAlteradoEvent
   'membership.suspenso': MembershipStatusAlteradoEvent

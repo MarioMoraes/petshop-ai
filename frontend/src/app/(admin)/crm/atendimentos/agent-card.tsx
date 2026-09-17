@@ -31,6 +31,12 @@ import { salvarConfiguracaoAction } from './actions'
  */
 
 interface Props {
+  /**
+   * O plano que libera nome e tom próprios, quando o do estabelecimento não libera.
+   * `null` é "está no plano". Sem ele os dois controles ficam travados no padrão — é o
+   * que o backend já responde, porque a configuração efetiva ignora a persona gravada.
+   */
+  personaNoPlano: string | null
   settings: AgentSettings
   /** `crm:configure`. Sem ela o cartão vira uma linha de estado, sem controles. */
   podeConfigurar: boolean
@@ -75,7 +81,7 @@ function ReguaDoMes({ gastoCents, tetoCents }: { gastoCents: number; tetoCents: 
   )
 }
 
-export function AgentCard({ settings, podeConfigurar }: Props) {
+export function AgentCard({ settings, podeConfigurar, personaNoPlano }: Props) {
   const [atual, setAtual] = useState(settings)
   const [opensAt, setOpensAt] = useState(settings.opensAt)
   const [closesAt, setClosesAt] = useState(settings.closesAt)
@@ -190,6 +196,12 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
        */}
       <div className="mt-6 border-t border-line pt-4">
         <p className="section-eyebrow">Como ele fala</p>
+        {personaNoPlano && (
+          <p className="hint mt-1">
+            Nome e tom próprios estão no plano {personaNoPlano}. Até lá, o agente fala no tom padrão
+            e se apresenta sem nome.
+          </p>
+        )}
 
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <Field label="Nome do agente (opcional)" htmlFor="agent-persona">
@@ -199,7 +211,7 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
               maxLength={AGENT_PERSONA_NAME_MAX}
               placeholder="Lia"
               value={persona}
-              disabled={salvando}
+              disabled={salvando || personaNoPlano !== null}
               onChange={(event) => setPersona(event.target.value)}
               onBlur={() => {
                 const limpo = persona.trim()
@@ -222,7 +234,7 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
             <div className="mt-2">
               <Segmented
                 ariaLabel="Tom da conversa"
-                disabled={salvando}
+                disabled={salvando || personaNoPlano !== null}
                 value={atual.tone}
                 options={AGENT_TONES.map((tone) => ({
                   value: tone,
@@ -238,8 +250,7 @@ export function AgentCard({ settings, podeConfigurar }: Props) {
 
         <p className="hint mt-2">
           Com nome, ele se apresenta como “Sou a Lia, do atendimento automático do{' '}
-          {'<nome da loja>'}”. Sem nome, como “Sou o atendimento automático do{' '}
-          {'<nome da loja>'}”.
+          {'<nome da loja>'}”. Sem nome, como “Sou o atendimento automático do {'<nome da loja>'}”.
         </p>
       </div>
 

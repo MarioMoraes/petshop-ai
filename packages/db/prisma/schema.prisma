@@ -22,6 +22,8 @@ datasource db {
 enum TenantStatus {
   PROVISIONING
   TRIAL
+  /// O teste venceu sem assinatura (camada comercial, fatia 3). Só leitura, como SUSPENDED.
+  TRIAL_EXPIRED
   ACTIVE
   PAST_DUE
   SUSPENDED
@@ -141,6 +143,7 @@ model Tenant {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   settings          TenantSettings?
+  subscription      TenantSubscription?
   billingSettings   BillingSettings?
   taxiSettings      TaxiSettings?
   messagingSettings MessagingSettings?
@@ -4031,4 +4034,45 @@ model AgentToolCall {
   @@index([conversationId, createdAt], map: "idx_agent_tool_calls_conv")
   @@index([tenantId, createdAt], map: "idx_agent_tool_calls_periodo")
   @@map("agent_tool_calls")
+}
+
+/// Camada comercial, fatia 4 — a assinatura do estabelecimento (Asaas).
+///
+/// Uma linha por estabelecimento: a situação de agora, e não o histórico, que é do Asaas.
+/// `plan` é o **contratado**; só vira `tenants.plan` com o pagamento confirmado.
+/// Índices únicos parciais e RLS em `20260921130000_assinatura`.
+model TenantSubscription {
+  tenantId String @id @map("tenant_id") @db.Uuid
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  provider String             @default("asaas") @db.VarChar(20)
+  plan     Plan
+  method   BillingMethod
+  status   SubscriptionStatus @default(PENDING)
+
+  providerCustomerId     String? @map("provider_customer_id") @db.VarChar(64)
+  providerSubscriptionId String? @map("provider_subscription_id") @db.VarChar(64)
+  providerCheckoutId     String? @map("provider_checkout_id") @db.VarChar(64)
+
+  /// O link para pagar o que está em aberto: fatura do PIX ou checkout do cartão.
+  paymentUrl   String?   @map("payment_url")
+  overdueSince DateTime? @map("overdue_since") @db.Timestamptz(6)
+  lastPaidAt   DateTime? @map("last_paid_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("tenant_subscriptions")
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum BillingMethod {
+  CREDIT_CARD
+  PIX
 }

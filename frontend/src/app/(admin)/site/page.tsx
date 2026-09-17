@@ -3,6 +3,7 @@ import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
 import { SiteForm } from './site-form'
+import { PlanoIndisponivel, temRecurso } from '@/components/plano-indisponivel'
 
 /**
  * A tela do site (MOD-SITE-01 e 03).
@@ -19,6 +20,11 @@ import { SiteForm } from './site-form'
 export const dynamic = 'force-dynamic'
 
 export default async function SitePage() {
+  // O plano antes de qualquer chamada: a página renderiza em paralelo com o layout, e
+  // pedir a API primeiro traria o 402 para dentro da tela (ver `plano-indisponivel.tsx`).
+  const sessao = await carregarMe()
+  if (!temRecurso(sessao, 'SITE')) return <PlanoIndisponivel me={sessao} feature="SITE" />
+
   const me = await carregarMe()
 
   if (!me.permissions.includes('site:manage')) {

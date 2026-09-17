@@ -22,6 +22,7 @@ import { securityJobs } from './security-jobs.js'
 import { messagingJobs } from './messaging-jobs.js'
 import { platformJobs } from './platform-jobs.js'
 import { siteJobs } from './site-jobs.js'
+import { subscriptionJobs } from './subscription-jobs.js'
 import { tutorJobs } from './tutor-jobs.js'
 import { taxiJobs } from './taxi-jobs.js'
 
@@ -56,6 +57,7 @@ export const { startJobs, stopJobs, runJobNow, describeJobs } = createJobSchedul
     ...schedulingJobs,
     ...ledgerJobs,
     ...platformJobs,
+    ...subscriptionJobs,
   ],
 })
 

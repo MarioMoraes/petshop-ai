@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PLANS } from './plans.js'
 
 /**
  * MOD-ADMIN — contratos da administração da plataforma
@@ -105,6 +106,7 @@ export const PLATFORM_TENANT_STATUSES = [
   'PROVISIONING',
   'PROVISIONING_FAILED',
   'TRIAL',
+  'TRIAL_EXPIRED',
   'ACTIVE',
   'PAST_DUE',
   'SUSPENDED',
@@ -112,7 +114,7 @@ export const PLATFORM_TENANT_STATUSES = [
 ] as const
 export type PlatformTenantStatus = (typeof PLATFORM_TENANT_STATUSES)[number]
 
-export const PLATFORM_PLANS = ['STARTER', 'PRO', 'ENTERPRISE'] as const
+export const PLATFORM_PLANS = PLANS
 
 /**
  * A mensagem traz os valores aceitos (AC-03 de MOD-ADMIN-03).
@@ -189,6 +191,21 @@ export const PlatformTenantSchema = z.object({
   usage: TenantUsageSchema,
 })
 export type PlatformTenant = z.output<typeof PlatformTenantSchema>
+
+/**
+ * A troca de plano pelo console (fatia 2 da camada comercial).
+ *
+ * Enquanto não há cobrança, é a equipe da plataforma quem move o estabelecimento de
+ * plano — e o motivo é obrigatório pela mesma razão que o do pedido de acesso: a trilha
+ * que o estabelecimento lê precisa dizer por que o plano dele mudou.
+ */
+export const ChangeTenantPlanSchema = z.strictObject({
+  plan: z.enum(PLATFORM_PLANS, {
+    error: () => `Plano inválido. Aceitos: ${PLATFORM_PLANS.join(', ')}`,
+  }),
+  reason: z.string().trim().min(10).max(300),
+})
+export type ChangeTenantPlanInput = z.output<typeof ChangeTenantPlanSchema>
 
 export const PlatformTenantPageSchema = z.object({
   data: z.array(PlatformTenantSchema),

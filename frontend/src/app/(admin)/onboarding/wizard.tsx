@@ -34,9 +34,11 @@ export interface WizardProps {
   settings: TenantSettings | null
   /** `.meupetshop.com.br` — resolvido no servidor; ver `lib/domain.ts`. */
   hostSuffix: string
+  /** O `?plan=` da landing, já validado. Entra na criação do estabelecimento. */
+  initialPlan: Plan | null
 }
 
-export function Wizard({ tenant, settings, hostSuffix }: WizardProps) {
+export function Wizard({ tenant, settings, hostSuffix, initialPlan }: WizardProps) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -91,8 +93,17 @@ export function Wizard({ tenant, settings, hostSuffix }: WizardProps) {
       </div>
 
       <div className="mt-6">
-        {step === 1 && <StepIdentity {...shared} tenant={currentTenant} hostSuffix={hostSuffix} />}
-        {step === 2 && <StepPlan {...shared} plan={(currentTenant?.plan ?? 'STARTER') as Plan} />}
+        {step === 1 && (
+          <StepIdentity
+            {...shared}
+            tenant={currentTenant}
+            hostSuffix={hostSuffix}
+            initialPlan={initialPlan}
+          />
+        )}
+        {step === 2 && (
+          <StepPlan {...shared} plan={currentTenant?.plan ?? initialPlan ?? 'STARTER'} />
+        )}
         {step === 3 && (
           <StepBusinessHours
             {...shared}

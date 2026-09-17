@@ -1,7 +1,13 @@
 import Link from 'next/link'
 import type { CSSProperties, ReactNode } from 'react'
 import { UserButton } from '@clerk/nextjs'
-import type { MeResponse, PermissionKey } from '@petshop/shared-types'
+import {
+  PLAN_CATALOG,
+  minimumPlanFor,
+  type MeResponse,
+  type PermissionKey,
+  type PlanFeature,
+} from '@petshop/shared-types'
 import { serverApi } from '@/lib/api'
 import { montarPendencias } from '@/lib/pendencias'
 import { marcarAgendamentosVistos } from '@/lib/pendencias-actions'
@@ -9,6 +15,7 @@ import { carregarPendencias } from '@/lib/pendencias.server'
 import { Atmosphere } from './atmosphere'
 import { NotificationsBell } from './notifications-bell'
 import {
+  AlertTriangleIcon,
   BellIcon,
   GlobeIcon,
   CalendarIcon,
@@ -24,7 +31,8 @@ import {
   WaveIcon,
   type IconTone,
 } from './icons'
-import { NavLink, NavPill } from './links'
+import { ButtonLink, NavLink, NavPill } from './links'
+import { temRecurso } from './plano-indisponivel'
 import { RouteProgress } from './route-progress'
 import { TenantSwitcher } from './tenant-switcher'
 import { Alert, Badge, Logo } from './ui'
@@ -86,6 +94,12 @@ interface NavItem {
    * matriz do RBAC.
    */
   requires?: PermissionKey
+  /**
+   * O recurso de plano de que a área depende. O item **continua no menu** quando o plano
+   * não o inclui, com o nome do plano ao lado: some quem não tem permissão, porque não há
+   * o que fazer; fica quem não tem o plano, porque há — e a tela explica o quê.
+   */
+  feature?: PlanFeature
 }
 
 const NAV: NavItem[] = [
@@ -128,6 +142,7 @@ const NAV: NavItem[] = [
     icon: <VanIcon />,
     tone: 'icon-time',
     requires: 'taxi:operate',
+    feature: 'TAXI',
   },
   {
     // Pacotes e políticas. O extrato de um tutor mora na ficha dele, que é onde o
@@ -185,6 +200,7 @@ const NAV: NavItem[] = [
     icon: <GlobeIcon />,
     tone: 'icon-metric',
     requires: 'site:read_leads',
+    feature: 'SITE',
   },
   {
     key: 'configuracoes',
@@ -211,7 +227,15 @@ export interface AppShellProps {
 export async function AppShell({ active, me, atmosphere = false, children }: AppShellProps) {
   // O menu não oferece o que a página recusaria: um link que sempre devolve o usuário
   // ao início é pior do que link nenhum.
-  const items = NAV.filter((item) => !item.requires || me.permissions.includes(item.requires))
+  const items = NAV.filter((item) => !item.requires || me.permissions.includes(item.requires)).map(
+    (item) => ({
+      ...item,
+      tag:
+        item.feature && !temRecurso(me, item.feature)
+          ? PLAN_CATALOG[minimumPlanFor(item.feature)].name
+          : undefined,
+    }),
+  )
 
   /*
    * As duas leituras da moldura, juntas.
@@ -277,11 +301,17 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
               currentSlug={me.currentTenant?.slug ?? null}
             />
             {trialDaysLeft !== null && (
-              <Badge tone="accent">
-                {trialDaysLeft === 0
-                  ? 'Último dia de teste'
-                  : `${trialDaysLeft} ${trialDaysLeft === 1 ? 'dia' : 'dias'} de teste`}
-              </Badge>
+              // O selo leva a assinar para quem pode; para os outros é só a contagem.
+              <Link
+                href={me.permissions.includes('tenant:configure') ? '/assinatura' : '/dashboard'}
+                className="shrink-0"
+              >
+                <Badge tone="accent">
+                  {trialDaysLeft === 0
+                    ? 'Último dia de teste'
+                    : `${trialDaysLeft} ${trialDaysLeft === 1 ? 'dia' : 'dias'} de teste`}
+                </Badge>
+              </Link>
             )}
           </div>
 
@@ -353,6 +383,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
           className={`relative flex-1 px-4 pb-16 pt-8 sm:px-8 ${atmosphere ? 'overflow-hidden' : ''}`}
         >
           {atmosphere && <Atmosphere />}
+          <ContaAviso me={me} />
           <MfaAviso mfa={me.mfa} />
           {/* `z-10`: elemento posicionado pinta sobre bloco não posicionado — sem isso
               os blooms cobririam o texto. */}
@@ -405,6 +436,63 @@ function MfaAviso({ mfa }: { mfa: MeResponse['mfa'] }) {
             {mfa.graceEndsAt ? ` a partir de ${prazo(mfa.graceEndsAt)}` : ''}. Ative pelo menu da
             sua conta, no canto superior direito.
           </>
+        )}
+      </Alert>
+    </div>
+  )
+}
+
+/**
+ * O estado da conta, quando ele muda o que a pessoa consegue fazer (camada comercial).
+ *
+ * **Em toda tela**, pela mesma razão do aviso de MFA: quem descobre que nada salva no meio
+ * de um cadastro precisa saber o porquê ali, e não numa tela que talvez nunca abra. O
+ * botão leva à assinatura; quem não é administrador lê a frase e não vê o botão, porque
+ * a tela de assinatura recusaria.
+ */
+function ContaAviso({ me }: { me: MeResponse }) {
+  const status = me.currentTenant?.status
+  const podeAssinar = me.permissions.includes('tenant:configure')
+
+  const aviso =
+    status === 'TRIAL_EXPIRED'
+      ? {
+          tone: 'danger' as const,
+          title: 'O período de teste terminou',
+          body: 'Tudo o que foi registrado continua aqui para consulta, mas nada novo é salvo até assinar um plano. O site e o Portal estão fora do ar para os clientes.',
+        }
+      : status === 'SUSPENDED'
+        ? {
+            tone: 'danger' as const,
+            title: 'Assinatura suspensa por falta de pagamento',
+            body: 'A consulta continua liberada, mas nada novo é salvo até a mensalidade em aberto ser paga. O site e o Portal estão fora do ar para os clientes.',
+          }
+        : status === 'PAST_DUE'
+          ? {
+              tone: 'accent' as const,
+              title: 'Mensalidade em atraso',
+              body: 'O sistema continua funcionando normalmente por alguns dias. Depois disso, fica só para consulta até o pagamento.',
+            }
+          : null
+  if (!aviso) return null
+
+  return (
+    <div className="relative z-10 mb-6">
+      <Alert
+        tone={aviso.tone}
+        icon={<AlertTriangleIcon />}
+        title={aviso.title}
+        role={aviso.tone === 'danger' ? 'alert' : 'status'}
+      >
+        {aviso.body}
+        {podeAssinar ? (
+          <span className="mt-3 block">
+            <ButtonLink href="/assinatura">
+              {status === 'TRIAL_EXPIRED' ? 'Assinar agora' : 'Regularizar pagamento'}
+            </ButtonLink>
+          </span>
+        ) : (
+          ' Fale com o administrador do estabelecimento.'
         )}
       </Alert>
     </div>
@@ -502,7 +590,7 @@ function Sidebar({
   tenantName,
 }: {
   active: NavKey
-  items: NavItem[]
+  items: Array<NavItem & { tag?: string | undefined }>
   /** Nome do estabelecimento aberto; `null` enquanto não há tenant resolvido. */
   tenantName: string | null
 }) {
@@ -523,6 +611,7 @@ function Sidebar({
             icon={item.icon}
             tone={item.tone}
             active={item.key === active}
+            tag={item.tag}
           />
         ))}
       </nav>

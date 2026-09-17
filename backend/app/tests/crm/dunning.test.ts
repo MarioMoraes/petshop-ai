@@ -7,6 +7,7 @@ import {
   givenTenant,
   givenTutorWithPet,
   installFakeMessagingPort,
+  ownerPrisma,
   resetDatabase,
   type FakeMessaging,
   type TenantFixture,
@@ -92,6 +93,25 @@ describe('escalada (AC-01 e AC-02)', () => {
     const summary = await runDunning(at9am())
 
     expect(summary.enqueued).toBe(0)
+  })
+})
+
+describe('o plano', () => {
+  /**
+   * O job não passa pela tabela de prefixos das rotas: roda sem requisição. A régua ligada
+   * de quem desceu do Pro continua ligada no banco — voltar ao plano a religa sem
+   * reconfigurar —, e quem cala o envio é o plano, na varredura.
+   */
+  it('não cobra ninguém no Starter, mesmo com a régua ligada', async () => {
+    await enableAutomation(fixture, 'dunning', { sendHour: 9 })
+    const tutor = await givenTutorWithPet(fixture)
+    await givenOpenDebt(fixture, tutor.tutorId, { amountCents: 8000, daysAgo: 3 })
+    await ownerPrisma.tenant.update({ where: { id: fixture.tenantId }, data: { plan: 'STARTER' } })
+
+    const summary = await runDunning(at9am())
+
+    expect(summary.enqueued).toBe(0)
+    expect(messaging.requests).toHaveLength(0)
   })
 })
 

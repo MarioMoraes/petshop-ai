@@ -31,6 +31,10 @@ import {
 import { registerSchedulingModule } from '../modules/scheduling/routes-module.js'
 import { registerSecurityRoutes } from '../modules/security/routes.js'
 import { registerPhotoRoutes } from '../modules/photos/routes.js'
+import {
+  registerAsaasWebhookRoutes,
+  registerSubscriptionRoutes,
+} from '../modules/subscription/routes.js'
 import { registerTaxiRoutes } from '../modules/taxi/routes.js'
 import { registerTermRoutes } from '../modules/terms/routes.js'
 import { registerTutorRoutes } from '../modules/tutors/routes.js'
@@ -65,6 +69,7 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerLedgerModule(app)
   await registerPortalModule(app)
   await registerPlatformModule(app)
+  await registerSubscriptionModule(app)
 }
 
 /**
@@ -383,5 +388,21 @@ async function registerMedicalRecordModule(app: FastifyInstance): Promise<void> 
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerMedicalRecordRoutes(scope)
+  })
+}
+
+/**
+ * A assinatura do estabelecimento — camada comercial, fatia 4.
+ *
+ * Duas superfícies, como o MOD-NOTIF: o webhook do Asaas fica **fora** do escopo
+ * autenticado (quem o autentica é o token do provedor, e ele mora sob `/internal/`), e as
+ * três rotas do administrador ficam dentro.
+ */
+async function registerSubscriptionModule(app: FastifyInstance): Promise<void> {
+  await app.register(registerAsaasWebhookRoutes)
+
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerSubscriptionRoutes(scope)
   })
 }

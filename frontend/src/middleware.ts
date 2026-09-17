@@ -58,6 +58,15 @@ const withClerk = clerkMiddleware(async (auth, request) => {
   }
 
   if (userId && isPublicRoute(request)) {
+    // Quem já tem conta e volta da landing por "Começar com o Pro" leva o plano ao
+    // wizard. O valor segue cru: quem o valida é a página do onboarding, e importar o
+    // catálogo aqui poria o Zod no bundle do middleware.
+    const plan = request.nextUrl.searchParams.get('plan')
+    if (plan && request.nextUrl.pathname.startsWith('/sign-up')) {
+      return NextResponse.redirect(
+        new URL(`/onboarding?plan=${encodeURIComponent(plan)}`, request.url),
+      )
+    }
     return NextResponse.redirect(new URL('/', request.url))
   }
 

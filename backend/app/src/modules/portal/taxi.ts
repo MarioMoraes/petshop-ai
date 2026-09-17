@@ -12,6 +12,7 @@ import {
 } from '@petshop/shared-types'
 import { invalid } from './errors.js'
 import { logger } from '../../shared/logger.js'
+import { tenantHasFeature } from '../../shared/plan.js'
 import { openCipher } from './crypto.js'
 import { getTaxiPort, type TaxiCaller, type TaxiLegRequest } from './taxi-port.js'
 
@@ -140,7 +141,10 @@ export async function readTaxiOffer(
     windowMinutes: settings.windowMinutes,
   })
 
-  if (!settings.enabled) {
+  // O plano sem Taxi Dog lê como o módulo desligado: para o tutor as duas coisas são a
+  // mesma — este petshop não busca em casa —, e a oferta cobre também o `POST` do
+  // agendamento, que passa por aqui antes de pedir a corrida.
+  if (!settings.enabled || !(await tenantHasFeature(caller.tenantId, 'TAXI'))) {
     return vazia('DISABLED', 'Este estabelecimento não faz leva-e-traz.')
   }
   if (!settings.configured) {

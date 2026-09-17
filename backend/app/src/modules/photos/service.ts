@@ -6,6 +6,7 @@ import {
   PHOTO_URL_TTL_SECONDS,
   PHOTO_VARIANTS,
   type PetAlbum,
+  type Plan,
   type PetPhoto as PetPhotoDto,
   type PhotoQuota,
   type PhotoUrls,
@@ -363,9 +364,9 @@ export async function deletePhoto(actor: ActorContext, petId: string, photoId: s
 
 // ─── Regras compartilhadas ───────────────────────────────────────────────────
 
-function quotaOf(plan: string | undefined): number | null {
+function quotaOf(plan: Plan | undefined): number | null {
   if (!plan) return null
-  return PHOTO_QUOTA_BY_PLAN[plan] ?? null
+  return PHOTO_QUOTA_BY_PLAN[plan]
 }
 
 /** AC-03: 402 com o CTA de upgrade, não um 403 genérico. */

@@ -1,5 +1,6 @@
 import { hashEmail } from '@petshop/db'
 import {
+  ChangeTenantPlanSchema,
   GrantPlatformAdminSchema,
   PlatformAlertQuerySchema,
   PlatformAuditQuerySchema,
@@ -14,6 +15,7 @@ import { listPlatformAuditLogs } from './audit.js'
 import { notFound } from './errors.js'
 import { requestSupportAccess } from './grants.js'
 import { platformHealth } from './health.js'
+import { changeTenantPlan } from './plans.js'
 import {
   grantPlatformAdmin,
   listPlatformAdmins,
@@ -99,6 +101,16 @@ export async function registerPlatformRoutes(app: FastifyInstance): Promise<void
   })
 
   /** As contagens de um estabelecimento (MOD-ADMIN-07). */
+  /**
+   * A troca de plano (fatia 2 da camada comercial). Sem grant: plano é dado comercial da
+   * conta, como o status, e não dado de negócio do estabelecimento.
+   */
+  app.patch('/platform/v1/tenants/:tenantId/plan', async (request) => {
+    const { tenantId } = parseInput(TenantParamSchema, request.params)
+    const input = parseInput(ChangeTenantPlanSchema, request.body)
+    return changeTenantPlan(actorOf(request), tenantId, input)
+  })
+
   app.get('/platform/v1/tenants/:tenantId/usage', async (request) => {
     const { tenantId } = parseInput(TenantParamSchema, request.params)
     return tenantUsage(tenantId)

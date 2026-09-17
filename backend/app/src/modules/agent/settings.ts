@@ -1,11 +1,14 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
   DEFAULT_TIMEZONE,
+  PlanSchema,
+  planIncludes,
   type AgentSettings,
   type AgentTone,
   type UpdateAgentSettingsInput,
 } from '@petshop/shared-types'
 import { recordAudit } from '../../shared/audit.js'
+import { assertFeature } from '../../shared/plan.js'
 import {
   CACHE_KEYS,
   CACHE_TTL_SECONDS,
@@ -74,19 +77,31 @@ export async function readSettings(
 ): Promise<ResolvedAgentSettings> {
   const [row, tenant, messaging] = await Promise.all([
     tx.agentSettings.findUnique({ where: { tenantId } }),
-    tx.tenant.findFirst({ select: { name: true, settings: { select: { timezone: true } } } }),
+    tx.tenant.findFirst({
+      select: { name: true, plan: true, settings: { select: { timezone: true } } },
+    }),
     loadMessagingSettings(tx, tenantId),
   ])
 
+  /**
+   * **O que vale é o efetivo, e não o gravado.** Quem desce do Pro mantém a linha como
+   * estava — voltar ao plano religa o agente com a mesma persona, sem reconfigurar nada —,
+   * mas enquanto isso o agente responde como desligado e fala com a voz padrão. É aqui, e
+   * não no runner, para que a tela, o prompt e o caminho de entrada leiam a mesma coisa.
+   */
+  const plan = PlanSchema.catch('STARTER').parse(tenant?.plan)
+  const agent = planIncludes(plan, 'AI_AGENT')
+  const persona = planIncludes(plan, 'AI_PERSONA')
+
   return {
-    enabled: row?.enabled ?? DEFAULTS.enabled,
+    enabled: agent && (row?.enabled ?? DEFAULTS.enabled),
     opensAt: row?.opensAt ?? DEFAULTS.opensAt,
     closesAt: row?.closesAt ?? DEFAULTS.closesAt,
     monthlyCapCents: row?.monthlyCapCents ?? DEFAULTS.monthlyCapCents,
     timezone: tenant?.settings?.timezone ?? DEFAULT_TIMEZONE,
     tenantName: tenant?.name ?? '',
-    personaName: row?.personaName ?? DEFAULTS.personaName,
-    tone: row?.tone ?? DEFAULTS.tone,
+    personaName: persona ? (row?.personaName ?? DEFAULTS.personaName) : DEFAULTS.personaName,
+    tone: persona ? (row?.tone ?? DEFAULTS.tone) : DEFAULTS.tone,
     messagingEnabled: messaging.enabled,
   }
 }
@@ -136,6 +151,12 @@ export async function updateSettings(
   actor: ActorContext,
   input: UpdateAgentSettingsInput,
 ): Promise<AgentSettings> {
+  // A rota inteira já exige o agente (`plan-gates.ts`); a persona e o tom são o degrau
+  // seguinte, e moram no mesmo PATCH.
+  if (input.personaName !== undefined || input.tone !== undefined) {
+    await assertFeature(actor.tenantId, 'AI_PERSONA')
+  }
+
   await withTenant(
     actor.tenantId,
     async (tx) => {

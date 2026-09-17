@@ -619,7 +619,7 @@
           </div>
 
           <div class="plans">
-            <article class="plan reveal">
+            <article class="plan reveal" data-plan="STARTER">
               <div class="plan-name">Starter <span class="seats"><svg class="icon" style="width: 14px; height: 14px"><use href="#i-users" /></svg>Até 5 usuários</span></div>
               <p class="plan-pitch">Para organizar a operação e sair do caderno e da planilha.</p>
               <div class="price"><span class="cur">R$</span><span class="val">149</span><span class="per">/mês</span></div>
@@ -637,7 +637,7 @@
               </ul>
             </article>
 
-            <article class="plan plan-featured reveal on-dark" style="--d: 0.08s">
+            <article class="plan plan-featured reveal on-dark" style="--d: 0.08s" data-plan="PRO">
               <div class="plan-name">Pro <span class="popular"><svg class="icon" style="width: 13px; height: 13px"><use href="#i-spark" /></svg>Recomendado</span></div>
               <p class="plan-pitch">Para equipes que querem o cliente perto: WhatsApp com IA, portal e site.</p>
               <div class="price"><span class="cur">R$</span><span class="val">299</span><span class="per">/mês</span></div>
@@ -656,7 +656,7 @@
               </ul>
             </article>
 
-            <article class="plan reveal" style="--d: 0.16s">
+            <article class="plan reveal" style="--d: 0.16s" data-plan="ENTERPRISE">
               <div class="plan-name">Enterprise <span class="seats"><svg class="icon" style="width: 14px; height: 14px"><use href="#i-users" /></svg>Usuários ilimitados</span></div>
               <p class="plan-pitch">Para redes e operações grandes, com o agente de IA sob medida.</p>
               <div class="price"><span class="serif">Sob consulta</span></div>
@@ -689,7 +689,7 @@
                 </thead>
                 <tbody>
                   <tr class="group"><td colspan="4">Operação</td></tr>
-                  <tr><td>Usuários da equipe</td><td class="txt">5</td><td class="txt col-pro">15</td><td class="txt">Ilimitados</td></tr>
+                  <tr data-seats><td>Usuários da equipe</td><td class="txt">5</td><td class="txt col-pro">15</td><td class="txt">Ilimitados</td></tr>
                   <tr><td>Agenda do dia, Mural e recorrência</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
                   <tr><td>Tutores, pets, fotos e etiquetas</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
                   <tr><td>Prontuário, atendimentos e receituário</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
@@ -697,14 +697,14 @@
                   <tr><td>Relatórios e documentos em PDF</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
                   <tr class="group"><td colspan="4">Relacionamento</td></tr>
                   <tr><td>Lembretes por e-mail</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
-                  <tr><td>WhatsApp com mensagens automáticas</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
-                  <tr><td>Campanhas, aniversário e régua de cobrança</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
-                  <tr><td>Portal do Tutor e agendamento online</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
-                  <tr><td>Site do estabelecimento com domínio próprio</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
-                  <tr><td>Taxi Dog</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr data-feature="WHATSAPP"><td>WhatsApp com mensagens automáticas</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr data-feature="CAMPAIGNS"><td>Campanhas, aniversário e régua de cobrança</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr data-feature="PORTAL"><td>Portal do Tutor e agendamento online</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr data-feature="SITE"><td>Site do estabelecimento com domínio próprio</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr data-feature="TAXI"><td>Taxi Dog</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
                   <tr class="group"><td colspan="4">Inteligência artificial</td></tr>
-                  <tr><td>Agente de IA no WhatsApp</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
-                  <tr><td>Persona própria e painel de qualidade do agente</td><td class="no">—</td><td class="no col-pro">—</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr data-feature="AI_AGENT"><td>Agente de IA no WhatsApp</td><td class="no">—</td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
+                  <tr data-feature="AI_PERSONA AI_QUALITY"><td>Persona própria e painel de qualidade do agente</td><td class="no">—</td><td class="no col-pro">—</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
                   <tr class="group"><td colspan="4">Segurança e suporte</td></tr>
                   <tr><td>Duas etapas, auditoria e LGPD</td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes col-pro"><svg class="icon"><use href="#i-check" /></svg></td><td class="yes"><svg class="icon"><use href="#i-check" /></svg></td></tr>
                   <tr><td>Suporte</td><td class="txt">E-mail</td><td class="txt col-pro">E-mail e WhatsApp</td><td class="txt">Prioritário</td></tr>

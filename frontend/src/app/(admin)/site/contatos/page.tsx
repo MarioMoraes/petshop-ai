@@ -4,6 +4,7 @@ import { SiteLeadStatusSchema, type SiteLeadStatus } from '@petshop/shared-types
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { LeadQueue } from './lead-queue'
+import { PlanoIndisponivel, temRecurso } from '@/components/plano-indisponivel'
 
 /**
  * A fila de contatos do site (MOD-SITE-09).
@@ -28,6 +29,11 @@ function statusOf(value: unknown): SiteLeadStatus | undefined {
 }
 
 export default async function SiteLeadsPage({ searchParams }: PageProps) {
+  // O plano antes de qualquer chamada: a página renderiza em paralelo com o layout, e
+  // pedir a API primeiro traria o 402 para dentro da tela (ver `plano-indisponivel.tsx`).
+  const sessao = await carregarMe()
+  if (!temRecurso(sessao, 'SITE')) return <PlanoIndisponivel me={sessao} feature="SITE" />
+
   const params = await searchParams
   const status = statusOf(params.status)
 

@@ -1,11 +1,12 @@
 import type { JobDefinition } from '@petshop/job-scheduler'
 import { runExpireInvitationsOnce } from '../modules/identity/invitations/expire.js'
+import { runExpireTrialsOnce } from '../modules/identity/tenants/expire-trials.js'
 import { runProvisioningRetryOnce } from '../modules/identity/tenants/provisioning-retry.js'
 
 /**
  * A grade da identidade.
  *
- * Dois jobs, em cadências que dizem para quem cada um trabalha.
+ * Três jobs, em cadências que dizem para quem cada um trabalha.
  *
  * O retry de provisionamento existe porque o provisionamento fala com o Clerk: uma
  * indisponibilidade de dois minutos lá deixa um tenant preso em `PROVISIONING` aqui, e
@@ -34,5 +35,14 @@ export const identityJobs: JobDefinition[] = [
     schedule: '20 4 * * *',
     timeoutMs: 60_000,
     run: () => runExpireInvitationsOnce(),
+  },
+  {
+    // De hora em hora, e não de madrugada como os convites: aqui a varredura **é** o
+    // vencimento, e um teste que termina às 10h não pode seguir gravando até as 4h do dia
+    // seguinte. Nome novo — não existia quando isto era serviço.
+    name: 'identity.expire-trials',
+    schedule: '40 * * * *',
+    timeoutMs: 120_000,
+    run: (now) => runExpireTrialsOnce(now).then(() => undefined),
   },
 ]

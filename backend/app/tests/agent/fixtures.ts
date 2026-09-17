@@ -54,7 +54,9 @@ export async function givenTenant(name = 'Petshop Teste'): Promise<TenantFixture
       name,
       clerkOrgId,
       status: 'ACTIVE',
-      plan: 'PRO',
+      // Enterprise porque o módulo inteiro é exercitado aqui, persona e painel de
+      // qualidade incluídos. O bloqueio por plano tem teste próprio, em `platform/plans`.
+      plan: 'ENTERPRISE',
       provisioningKey: `prov-${suffix}`,
       onboardingStep: 5,
       onboardingCompletedAt: new Date(),

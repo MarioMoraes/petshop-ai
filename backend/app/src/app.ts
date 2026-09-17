@@ -9,6 +9,7 @@ import { InvalidTokenError, verifySessionToken, type SessionClaims } from './aut
 import { resolvePortalSession, resolvePortalTenant } from './auth/portal-session.js'
 import { resolveSession } from './auth/session.js'
 import { listFromEnv, loadEnv } from './config/env.js'
+import { registerPlanGates } from './gateway/plan-gates.js'
 import { registerModules } from './gateway/routes.js'
 import { isPlatformPath } from './modules/platform/routes.js'
 import { resolvePlatformAdmin } from './modules/platform/service.js'
@@ -198,6 +199,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   })
 
+  registerPlanGates(app)
   await registerModules(app)
 
   return app
@@ -304,6 +306,7 @@ async function resolveAdminRequest(request: FastifyRequest, path: string) {
 
   const { context, mfa } = await resolveSession(claims, {
     method: request.method,
+    path,
     ipAddress: request.ip,
     userAgent: request.headers['user-agent'] ?? null,
   })

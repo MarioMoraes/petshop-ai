@@ -198,6 +198,28 @@ prova deixa de ser prova. `audit_logs` continua append-only com **uma** exceçã
 no schema: `DELETE` para `app_maintenance`, que é o expurgo de 24 meses; `UPDATE` segue
 barrado para todos.
 
+**O plano decide o que responde, e a divisão mora num lugar só:** `PLAN_CATALOG` em
+`packages/shared-types/src/plans.ts`, conferido contra a landing por
+`frontend/src/lib/landing-plans.test.ts`. Rota da equipe sob recurso pago é bloqueada por
+**prefixo**, na tabela `PLAN_GATES` de `src/gateway/plan-gates.ts` (402, `ERR_PLAN_001`) —
+rota nova debaixo de um prefixo da tabela nasce bloqueada, e prefixo novo entra lá. O que
+não passa por requisição pergunta a `shared/plan.ts` por conta própria: o site e o Portal
+respondem 404 pela resolução do slug, os jobs de campanha pulam o tenant, o canal WhatsApp
+fica indisponível e o agente lê a configuração **efetiva**. Descer de plano nunca apaga
+dado. No frontend, a página checa `temRecurso` **antes** de chamar a API, e não o layout,
+porque os dois renderizam em paralelo. Starter e Pro mudam pela assinatura
+(`/v1/subscription`); o Enterprise, a cortesia e a correção, pelo console da plataforma
+(`PATCH /platform/v1/tenants/:id/plan`). Os dois gravam por `applyTenantPlan`.
+
+**O estado da conta muda por um caminho só:** `shared/tenant-status.ts`, com a transição
+condicional ao estado de origem no `WHERE` — é o que torna idempotentes o job do fim do
+teste (`TRIAL` → `TRIAL_EXPIRED`), o webhook do Asaas (pagamento → `ACTIVE`, atraso →
+`PAST_DUE`) e o job da carência (→ `SUSPENDED`). `TRIAL_EXPIRED` e `SUSPENDED` são só
+leitura na sessão, **menos** `/v1/subscription` (`BILLING_PREFIX` em `auth/session.ts`):
+pagar começa por um `POST`. A assinatura mora em `modules/subscription`; o cartão passa pelo
+Checkout do Asaas para o número nunca chegar a este servidor, e escolher o plano não o põe
+em vigor — só o pagamento confirmado.
+
 **Um terceiro prefixo anônimo entrou com o MOD-NOTIF:** `/internal/`, onde moram os
 webhooks dos provedores (Evolution no pareamento do WhatsApp, Resend no retorno de
 entrega). O nome diz de onde a chamada nasce, não que ela seja privada — a rota do

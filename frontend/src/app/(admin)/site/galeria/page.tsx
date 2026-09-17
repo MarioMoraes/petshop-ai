@@ -3,6 +3,7 @@ import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { GalleryManager } from './gallery-manager'
+import { PlanoIndisponivel, temRecurso } from '@/components/plano-indisponivel'
 
 /**
  * A galeria do site (MOD-SITE-04).
@@ -15,6 +16,11 @@ import { GalleryManager } from './gallery-manager'
 export const dynamic = 'force-dynamic'
 
 export default async function SiteGalleryPage() {
+  // O plano antes de qualquer chamada: a página renderiza em paralelo com o layout, e
+  // pedir a API primeiro traria o 402 para dentro da tela (ver `plano-indisponivel.tsx`).
+  const sessao = await carregarMe()
+  if (!temRecurso(sessao, 'SITE')) return <PlanoIndisponivel me={sessao} feature="SITE" />
+
   const me = await carregarMe()
 
   if (!me.permissions.includes('site:manage')) {

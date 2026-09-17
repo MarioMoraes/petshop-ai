@@ -1,5 +1,6 @@
 import { resolveTenantBySlug, type TenantIdentity } from '@petshop/db'
 import { isSiteVisibleStatus } from '@petshop/shared-types'
+import { tenantHasFeature } from '../../shared/plan.js'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../../shared/redis.js'
 import { notFound } from './errors.js'
 
@@ -16,6 +17,11 @@ import { notFound } from './errors.js'
  * servem está em `SITE_VISIBLE_TENANT_STATUSES`, com a divergência do PRD explicada:
  * `TRIAL` não pode cair, senão o site nasce fora do ar para todo cliente novo.
  *
+ * **Plano sem site é tratado do mesmo jeito**, e a checagem fica fora do cache do host:
+ * o plano tem cache próprio de um minuto, e quem desce do Pro não mantém a página no ar
+ * pela hora que o host fica guardado. O visitante recebe 404 e não "recurso fora do
+ * plano" — o plano do petshop não é assunto dele.
+ *
  * O cache negativo tem TTL curto de propósito: o tenant que acaba de nascer não pode
  * ficar uma hora invisível porque um bot pediu o subdomínio dele antes.
  */
@@ -27,6 +33,12 @@ export interface ResolvedTenant {
 }
 
 export async function resolveTenant(slug: string): Promise<ResolvedTenant> {
+  const tenant = await resolveVisibleTenant(slug)
+  if (!(await tenantHasFeature(tenant.id, 'SITE'))) throw notFound()
+  return tenant
+}
+
+async function resolveVisibleTenant(slug: string): Promise<ResolvedTenant> {
   const normalized = slug.trim().toLowerCase()
   if (normalized === '') throw notFound()
 

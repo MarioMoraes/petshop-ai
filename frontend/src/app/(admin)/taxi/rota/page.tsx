@@ -1,7 +1,8 @@
 import { ApiError } from '@petshop/api-client'
 import { EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { DriverRoute } from './driver-route'
+import { PlanoIndisponivel, temRecurso } from '@/components/plano-indisponivel'
 
 /**
  * A rota do motorista (AC-02 de MOD-TAXI-07).
@@ -15,6 +16,11 @@ import { DriverRoute } from './driver-route'
 export const dynamic = 'force-dynamic'
 
 export default async function RotaPage() {
+  // O plano antes de qualquer chamada: a página renderiza em paralelo com o layout, e
+  // pedir a API primeiro traria o 402 para dentro da tela (ver `plano-indisponivel.tsx`).
+  const sessao = await carregarMe()
+  if (!temRecurso(sessao, 'TAXI')) return <PlanoIndisponivel me={sessao} feature="TAXI" />
+
   const route = await serverApi()
     .getMyTaxiRoute()
     .catch((error: unknown) => {

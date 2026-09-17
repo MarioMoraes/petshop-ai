@@ -1,6 +1,12 @@
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
-import { DEFAULT_TIMEZONE, todayIn, type AutomationKey } from '@petshop/shared-types'
+import {
+  DEFAULT_TIMEZONE,
+  automationPlanFeature,
+  todayIn,
+  type AutomationKey,
+} from '@petshop/shared-types'
 import { logger } from '../../shared/logger.js'
+import { tenantHasFeature } from '../../shared/plan.js'
 import { resolveAutomation, type ResolvedAutomation } from './automations.js'
 
 /**
@@ -71,8 +77,14 @@ export async function forEachDueTenant(
     SELECT tenant_id FROM automations WHERE key = ${key} AND enabled = true
   `
 
+  const feature = automationPlanFeature(key)
+
   for (const { tenant_id: tenantId } of rows) {
     try {
+      // A automação ligada continua ligada quando o plano desce: o interruptor é do
+      // petshop, e voltar ao Pro a religa sem ninguém reconfigurar. Quem cala é o plano.
+      if (feature && !(await tenantHasFeature(tenantId, feature))) continue
+
       const context = await withTenant(tenantId, async (tx) => {
         const settings = await tx.tenantSettings.findFirst({ select: { timezone: true } })
         return {

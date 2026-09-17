@@ -30,6 +30,7 @@ import {
 export const RLS_MODELS: ReadonlySet<string> = new Set([
   'Tenant',
   'TenantSettings',
+  'TenantSubscription',
   'Membership',
   'Invitation',
   'TenantRoleOverride',

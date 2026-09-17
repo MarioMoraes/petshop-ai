@@ -1,4 +1,10 @@
 import {
+  CheckoutResponseSchema,
+  SubscriptionViewSchema,
+  type ChangeSubscriptionPlanInput,
+  type StartCheckoutInput,
+  PlanSchema,
+  type ChangeTenantPlanInput,
   type AgentConversationStatus,
   AddressResponseSchema,
   BreedSchema,
@@ -1290,6 +1296,20 @@ export function createApiClient(options: ApiClientOptions) {
         schema: SupportGrantResponseSchema,
       }),
 
+    /**
+     * Mudar o plano de um estabelecimento (fatia 2 da camada comercial).
+     *
+     * Enquanto não há cobrança, é a única forma de subir ou descer de plano. O motivo vai
+     * para a trilha que o estabelecimento lê.
+     */
+    changeTenantPlan: (tenantId: string, input: ChangeTenantPlanInput) =>
+      request({
+        method: 'PATCH',
+        path: `/platform/v1/tenants/${tenantId}/plan`,
+        body: input,
+        schema: z.object({ tenantId: z.uuid(), plan: PlanSchema }),
+      }),
+
     // ─── Termos versionados e aceites (MOD-DOC-06, 07 e 08) ────────────────
 
     /** Todas as versões publicadas, com a contagem de aceites de cada uma. */
@@ -1993,6 +2013,28 @@ export function createApiClient(options: ApiClientOptions) {
         path: `/v1/packages/purchases/${id}`,
         body: input,
         schema: PackagePurchaseSchema,
+      }),
+
+    // ─── Assinatura do estabelecimento (camada comercial, fatia 4) ───────────
+
+    getSubscription: () =>
+      request({ method: 'GET', path: '/v1/subscription', schema: SubscriptionViewSchema }),
+
+    /** Começa o pagamento e devolve o link — a fatura do PIX ou o checkout do cartão. */
+    startSubscriptionCheckout: (input: StartCheckoutInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/subscription/checkout',
+        body: input,
+        schema: CheckoutResponseSchema,
+      }),
+
+    changeSubscriptionPlan: (input: ChangeSubscriptionPlanInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/subscription/plan',
+        body: input,
+        schema: SubscriptionViewSchema,
       }),
 
     getBillingSettings: () =>

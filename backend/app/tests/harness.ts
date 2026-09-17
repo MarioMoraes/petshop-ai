@@ -142,6 +142,12 @@ export interface SeededTenant {
 export async function seedTenant(
   slug: string,
   status: 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | 'TERMINATED' = 'ACTIVE',
+  /**
+   * `STARTER` por padrão: o núcleo exercita a porta, e a porta é a mesma em todo plano.
+   * Cenário que chega a recurso pago (o Portal, no `gateway.test.ts`) pede o plano que o
+   * libera — senão ele testaria o bloqueio por plano, e não o que diz testar.
+   */
+  plan: 'STARTER' | 'PRO' | 'ENTERPRISE' = 'STARTER',
 ): Promise<SeededTenant> {
   const tenantId = randomUUID()
   const clerkOrgId = `org_${randomBytes(8).toString('hex')}`
@@ -151,7 +157,7 @@ export async function seedTenant(
       slug,
       name: `Petshop ${slug}`,
       status,
-      plan: 'STARTER',
+      plan,
       provisioningKey: randomUUID(),
       clerkOrgId,
     },

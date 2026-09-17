@@ -1,3 +1,4 @@
+import { tenantHasFeature } from '../../../shared/plan.js'
 import { getEvolutionPort } from './evolution.js'
 import type { ChannelPort } from './registry.js'
 
@@ -16,6 +17,11 @@ import type { ChannelPort } from './registry.js'
 function createEvolutionChannel(): ChannelPort {
   return {
     async isAvailable(tenantId) {
+      // Número pareado de quem desceu do Pro continua pareado — voltar ao plano não pede
+      // QR code de novo. O que o plano decide é se o canal é oferecido: indisponível, o
+      // `AUTO` cai para o e-mail, como já cai quando o número desconecta.
+      if (!(await tenantHasFeature(tenantId, 'WHATSAPP'))) return false
+
       // Importado aqui, e não no topo, porque `whatsapp.ts` importa este módulo pelo
       // caminho de envio — o ciclo estático quebraria a subida do serviço.
       const { isWhatsappConnected } = await import('../whatsapp.js')
@@ -24,7 +30,11 @@ function createEvolutionChannel(): ChannelPort {
 
     async send(request) {
       const { whatsappCredentials } = await import('../whatsapp.js')
-      const credentials = await whatsappCredentials(request.tenantId)
+      // O que já estava na fila quando o plano desceu volta para ela, como na queda do
+      // número: nada se perde, e tudo escoa se o plano voltar.
+      const credentials = (await tenantHasFeature(request.tenantId, 'WHATSAPP'))
+        ? await whatsappCredentials(request.tenantId)
+        : null
 
       if (!credentials) {
         // Não é falha da mensagem: é o canal que saiu do ar entre o enfileiramento e o

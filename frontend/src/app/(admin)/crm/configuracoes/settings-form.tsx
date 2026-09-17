@@ -7,16 +7,22 @@ import {
   MESSAGE_CHANNEL_PREF_LABELS,
   MessageChannelPrefSchema,
   MessageChannelSchema,
+  PLAN_CATALOG,
   SUPPRESSION_REASON_LABELS,
+  automationPlanFeature,
+  minimumPlanFor,
+  planIncludes,
+  type AutomationKey,
   type AutomationResponse,
   type MessageChannel,
   type MessageChannelPref,
   type MessagingSettingsResponse,
+  type Plan,
   type SuppressionResponse,
   type WhatsappConnection,
 } from '@petshop/shared-types'
-import { Badge, Button, Card, Field, FormError, SectionHead } from '@/components/ui'
-import { BellIcon, CalendarIcon, ShieldCheckIcon } from '@/components/icons'
+import { Alert, Badge, Button, Card, Field, FormError, SectionHead } from '@/components/ui'
+import { BellIcon, CalendarIcon, ShieldCheckIcon, SparkleIcon } from '@/components/icons'
 import {
   createSuppressionAction,
   deleteSuppressionAction,
@@ -38,6 +44,8 @@ interface Props {
   suppressions: SuppressionResponse[]
   whatsapp: WhatsappConnection | null
   canConnectChannel: boolean
+  /** O plano do estabelecimento: o WhatsApp e as campanhas automáticas são do Pro. */
+  plan: Plan
 }
 
 export function CrmSettingsForm({
@@ -46,6 +54,7 @@ export function CrmSettingsForm({
   suppressions,
   whatsapp,
   canConnectChannel,
+  plan,
 }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
@@ -57,9 +66,20 @@ export function CrmSettingsForm({
 
       {/* Antes da chave geral: ela decide **se** manda, o cartão decide **por onde** —
           e um motor ligado sem canal de WhatsApp entrega tudo por e-mail sem avisar. */}
-      {whatsapp && <WhatsappCard initial={whatsapp} canConnect={canConnectChannel} />}
+      {planIncludes(plan, 'WHATSAPP') ? (
+        whatsapp && <WhatsappCard initial={whatsapp} canConnect={canConnectChannel} />
+      ) : (
+        <Alert
+          tone="accent"
+          role="status"
+          icon={<SparkleIcon />}
+          title={`WhatsApp está no plano ${PLAN_CATALOG[minimumPlanFor('WHATSAPP')].name}`}
+        >
+          No plano {PLAN_CATALOG[plan].name}, as mensagens automáticas saem por e-mail.
+        </Alert>
+      )}
       <MasterSwitch settings={settings} onError={setError} onSaved={setSaved} />
-      <Automations automations={automations} onError={setError} onSaved={setSaved} />
+      <Automations automations={automations} plan={plan} onError={setError} onSaved={setSaved} />
       <EngineSettings settings={settings} onError={setError} onSaved={setSaved} />
       <Suppressions suppressions={suppressions} onError={setError} onSaved={setSaved} />
     </div>
@@ -131,11 +151,19 @@ function MasterSwitch({
 }
 
 /** O que o sistema manda sozinho, e a partir de qual evento. */
+/** O plano que falta para a automação, ou `null` quando o do estabelecimento a inclui. */
+function planoQueFalta(key: string, plan: Plan): string | null {
+  const feature = automationPlanFeature(key as AutomationKey)
+  if (!feature || planIncludes(plan, feature)) return null
+  return PLAN_CATALOG[minimumPlanFor(feature)].name
+}
+
 function Automations({
   automations,
+  plan,
   onError,
   onSaved,
-}: BlockProps & { automations: AutomationResponse[] }) {
+}: BlockProps & { automations: AutomationResponse[]; plan: Plan }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -177,203 +205,225 @@ function Automations({
       />
 
       <div className="space-y-3">
-        {automations.map((automation) => (
-          <div key={automation.key} className="rounded-xl border border-line px-4 py-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">
-                  {automation.label}
-                  {!automation.isDefault && (
-                    <span className="ml-2 align-middle">
-                      <Badge tone="accent">Ajustada</Badge>
-                    </span>
-                  )}
-                </p>
-                <p className="hint mt-0.5">{automation.description}</p>
-              </div>
-              <label className="flex shrink-0 items-center gap-2 text-sm">
-                <input
-                  className="check"
-                  type="checkbox"
-                  checked={automation.enabled}
-                  disabled={pending}
-                  onChange={(event) =>
-                    save(automation.key, { enabled: event.target.checked }, automation.label)
-                  }
-                />
-                Ligada
-              </label>
-            </div>
-
-            {automation.enabled && (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field label="Canal" htmlFor={`canal-${automation.key}`}>
-                  <select
-                    id={`canal-${automation.key}`}
-                    className="field"
-                    value={automation.channel}
-                    disabled={pending}
+        {automations.map((automation) => {
+          // Descer de plano não desliga a automação: o interruptor mostra o gravado, travado,
+          // e o backend é quem cala o envio. Voltar ao plano a religa como estava.
+          const falta = planoQueFalta(automation.key, plan)
+          return (
+            <div key={automation.key} className="rounded-xl border border-line px-4 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">
+                    {automation.label}
+                    {falta && (
+                      <span className="ml-2 align-middle">
+                        <Badge>Plano {falta}</Badge>
+                      </span>
+                    )}
+                    {!automation.isDefault && (
+                      <span className="ml-2 align-middle">
+                        <Badge tone="accent">Ajustada</Badge>
+                      </span>
+                    )}
+                  </p>
+                  <p className="hint mt-0.5">{automation.description}</p>
+                </div>
+                <label className="flex shrink-0 items-center gap-2 text-sm">
+                  <input
+                    className="check"
+                    type="checkbox"
+                    checked={automation.enabled}
+                    disabled={pending || falta !== null}
                     onChange={(event) =>
-                      save(
-                        automation.key,
-                        { channel: event.target.value as MessageChannelPref },
-                        automation.label,
-                      )
+                      save(automation.key, { enabled: event.target.checked }, automation.label)
                     }
-                  >
-                    {MessageChannelPrefSchema.options.map((option) => (
-                      <option key={option} value={option}>
-                        {MESSAGE_CHANNEL_PREF_LABELS[option]}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                  />
+                  Ligada
+                </label>
+              </div>
 
-                {/*
-                 * Só o lembrete tem antecedência — a `config` é validada por união
-                 * discriminada no serviço, e mandar `leadHours` numa automação que não
-                 * o conhece é 422. Renderizar o campo para todas seria oferecer um
-                 * ajuste que o servidor recusa.
-                 */}
-                {'sendHour' in automation.config && (
-                  <Field
-                    label="Hora do envio"
-                    htmlFor={`hora-${automation.key}`}
-                    hint="No fuso do estabelecimento"
-                  >
-                    <input
-                      id={`hora-${automation.key}`}
-                      type="number"
+              {automation.enabled && !falta && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Field label="Canal" htmlFor={`canal-${automation.key}`}>
+                    <select
+                      id={`canal-${automation.key}`}
                       className="field"
-                      min={0}
-                      max={23}
-                      defaultValue={Number(automation.config.sendHour ?? 9)}
-                      disabled={pending}
-                      onBlur={(event) => {
-                        const value = Number(event.target.value)
-                        if (value === Number(automation.config.sendHour)) return
-                        save(automation.key, { config: { sendHour: value } }, automation.label)
-                      }}
-                    />
-                  </Field>
-                )}
-
-                {'inactiveDays' in automation.config && (
-                  <Field
-                    label="Considerar inativo depois de"
-                    htmlFor={`inativo-${automation.key}`}
-                    hint="Dias sem atendimento"
-                  >
-                    <input
-                      id={`inativo-${automation.key}`}
-                      type="number"
-                      className="field"
-                      min={30}
-                      max={730}
-                      defaultValue={Number(automation.config.inactiveDays ?? 90)}
-                      disabled={pending}
-                      onBlur={(event) => {
-                        const value = Number(event.target.value)
-                        if (value === Number(automation.config.inactiveDays)) return
-                        save(automation.key, { config: { inactiveDays: value } }, automation.label)
-                      }}
-                    />
-                  </Field>
-                )}
-
-                {'cooldownDays' in automation.config && (
-                  <Field
-                    label="Não repetir antes de"
-                    htmlFor={`carencia-${automation.key}`}
-                    hint="Dias entre um convite e o seguinte para a mesma pessoa"
-                  >
-                    <input
-                      id={`carencia-${automation.key}`}
-                      type="number"
-                      className="field"
-                      min={7}
-                      max={365}
-                      defaultValue={Number(automation.config.cooldownDays ?? 60)}
-                      disabled={pending}
-                      onBlur={(event) => {
-                        const value = Number(event.target.value)
-                        if (value === Number(automation.config.cooldownDays)) return
-                        save(automation.key, { config: { cooldownDays: value } }, automation.label)
-                      }}
-                    />
-                  </Field>
-                )}
-
-                {'minDebtCents' in automation.config && (
-                  <Field
-                    label="Não cobrar abaixo de"
-                    htmlFor={`piso-${automation.key}`}
-                    hint="Em reais. Cobrar troco custa mais que o troco"
-                  >
-                    <input
-                      id={`piso-${automation.key}`}
-                      type="number"
-                      className="field"
-                      min={0}
-                      step={1}
-                      defaultValue={Math.round(
-                        Number(automation.config.minDebtCents ?? 2000) / 100,
-                      )}
-                      disabled={pending}
-                      onBlur={(event) => {
-                        const cents = Math.round(Number(event.target.value) * 100)
-                        if (cents === Number(automation.config.minDebtCents)) return
-                        save(automation.key, { config: { minDebtCents: cents } }, automation.label)
-                      }}
-                    />
-                  </Field>
-                )}
-
-                {'includeEstimated' in automation.config && (
-                  <label className="flex items-center gap-2 self-end pb-2 text-sm">
-                    <input
-                      className="check"
-                      type="checkbox"
-                      defaultChecked={automation.config.includeEstimated === true}
+                      value={automation.channel}
                       disabled={pending}
                       onChange={(event) =>
                         save(
                           automation.key,
-                          { config: { includeEstimated: event.target.checked } },
+                          { channel: event.target.value as MessageChannelPref },
                           automation.label,
                         )
                       }
-                    />
-                    Incluir data de nascimento estimada
-                  </label>
-                )}
-
-                {'leadHours' in automation.config && (
-                  <Field
-                    label="Antecedência"
-                    htmlFor={`lead-${automation.key}`}
-                    hint="Horas antes do horário marcado"
-                  >
-                    <input
-                      id={`lead-${automation.key}`}
-                      type="number"
-                      className="field"
-                      min={1}
-                      max={168}
-                      defaultValue={Number(automation.config.leadHours ?? 24)}
-                      disabled={pending}
-                      onBlur={(event) => {
-                        const value = Number(event.target.value)
-                        if (value === Number(automation.config.leadHours)) return
-                        save(automation.key, { config: { leadHours: value } }, automation.label)
-                      }}
-                    />
+                    >
+                      {MessageChannelPrefSchema.options.map((option) => (
+                        <option key={option} value={option}>
+                          {MESSAGE_CHANNEL_PREF_LABELS[option]}
+                        </option>
+                      ))}
+                    </select>
                   </Field>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
+
+                  {/*
+                   * Só o lembrete tem antecedência — a `config` é validada por união
+                   * discriminada no serviço, e mandar `leadHours` numa automação que não
+                   * o conhece é 422. Renderizar o campo para todas seria oferecer um
+                   * ajuste que o servidor recusa.
+                   */}
+                  {'sendHour' in automation.config && (
+                    <Field
+                      label="Hora do envio"
+                      htmlFor={`hora-${automation.key}`}
+                      hint="No fuso do estabelecimento"
+                    >
+                      <input
+                        id={`hora-${automation.key}`}
+                        type="number"
+                        className="field"
+                        min={0}
+                        max={23}
+                        defaultValue={Number(automation.config.sendHour ?? 9)}
+                        disabled={pending}
+                        onBlur={(event) => {
+                          const value = Number(event.target.value)
+                          if (value === Number(automation.config.sendHour)) return
+                          save(automation.key, { config: { sendHour: value } }, automation.label)
+                        }}
+                      />
+                    </Field>
+                  )}
+
+                  {'inactiveDays' in automation.config && (
+                    <Field
+                      label="Considerar inativo depois de"
+                      htmlFor={`inativo-${automation.key}`}
+                      hint="Dias sem atendimento"
+                    >
+                      <input
+                        id={`inativo-${automation.key}`}
+                        type="number"
+                        className="field"
+                        min={30}
+                        max={730}
+                        defaultValue={Number(automation.config.inactiveDays ?? 90)}
+                        disabled={pending}
+                        onBlur={(event) => {
+                          const value = Number(event.target.value)
+                          if (value === Number(automation.config.inactiveDays)) return
+                          save(
+                            automation.key,
+                            { config: { inactiveDays: value } },
+                            automation.label,
+                          )
+                        }}
+                      />
+                    </Field>
+                  )}
+
+                  {'cooldownDays' in automation.config && (
+                    <Field
+                      label="Não repetir antes de"
+                      htmlFor={`carencia-${automation.key}`}
+                      hint="Dias entre um convite e o seguinte para a mesma pessoa"
+                    >
+                      <input
+                        id={`carencia-${automation.key}`}
+                        type="number"
+                        className="field"
+                        min={7}
+                        max={365}
+                        defaultValue={Number(automation.config.cooldownDays ?? 60)}
+                        disabled={pending}
+                        onBlur={(event) => {
+                          const value = Number(event.target.value)
+                          if (value === Number(automation.config.cooldownDays)) return
+                          save(
+                            automation.key,
+                            { config: { cooldownDays: value } },
+                            automation.label,
+                          )
+                        }}
+                      />
+                    </Field>
+                  )}
+
+                  {'minDebtCents' in automation.config && (
+                    <Field
+                      label="Não cobrar abaixo de"
+                      htmlFor={`piso-${automation.key}`}
+                      hint="Em reais. Cobrar troco custa mais que o troco"
+                    >
+                      <input
+                        id={`piso-${automation.key}`}
+                        type="number"
+                        className="field"
+                        min={0}
+                        step={1}
+                        defaultValue={Math.round(
+                          Number(automation.config.minDebtCents ?? 2000) / 100,
+                        )}
+                        disabled={pending}
+                        onBlur={(event) => {
+                          const cents = Math.round(Number(event.target.value) * 100)
+                          if (cents === Number(automation.config.minDebtCents)) return
+                          save(
+                            automation.key,
+                            { config: { minDebtCents: cents } },
+                            automation.label,
+                          )
+                        }}
+                      />
+                    </Field>
+                  )}
+
+                  {'includeEstimated' in automation.config && (
+                    <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                      <input
+                        className="check"
+                        type="checkbox"
+                        defaultChecked={automation.config.includeEstimated === true}
+                        disabled={pending}
+                        onChange={(event) =>
+                          save(
+                            automation.key,
+                            { config: { includeEstimated: event.target.checked } },
+                            automation.label,
+                          )
+                        }
+                      />
+                      Incluir data de nascimento estimada
+                    </label>
+                  )}
+
+                  {'leadHours' in automation.config && (
+                    <Field
+                      label="Antecedência"
+                      htmlFor={`lead-${automation.key}`}
+                      hint="Horas antes do horário marcado"
+                    >
+                      <input
+                        id={`lead-${automation.key}`}
+                        type="number"
+                        className="field"
+                        min={1}
+                        max={168}
+                        defaultValue={Number(automation.config.leadHours ?? 24)}
+                        disabled={pending}
+                        onBlur={(event) => {
+                          const value = Number(event.target.value)
+                          if (value === Number(automation.config.leadHours)) return
+                          save(automation.key, { config: { leadHours: value } }, automation.label)
+                        }}
+                      />
+                    </Field>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </Card>
   )

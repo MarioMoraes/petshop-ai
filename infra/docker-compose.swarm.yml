@@ -344,6 +344,10 @@ services:
       # Sem o segredo a rota do Resend recusa **tudo** com 401 — é deliberado: um
       # webhook aberto é uma porta para suprimir o endereço de qualquer concorrente.
       RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+      ASAAS_API_KEY: ${ASAAS_API_KEY:-}
+      ASAAS_API_URL: ${ASAAS_API_URL:-https://api-sandbox.asaas.com/v3}
+      ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
+      BILLING_GRACE_DAYS: ${BILLING_GRACE_DAYS:-7}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}
       # MOD-TUTOR: a consulta de CEP e a régua de inatividade, que vieram com o módulo.
