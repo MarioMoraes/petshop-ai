@@ -3,7 +3,8 @@ import { UserButton } from '@clerk/nextjs'
 import { ApiError } from '@petshop/api-client'
 import { parsePlanParam, type TenantResponse, type TenantSettings } from '@petshop/shared-types'
 import { EnsureActiveOrganization } from '@/components/ensure-active-organization'
-import { Logo, Shell } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
+import { Card, Logo, Shell } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { ProvisioningNotice } from './provisioning-notice'
 import { tenantHostSuffix } from '@/lib/domain'
@@ -69,6 +70,33 @@ export default async function OnboardingPage({
       return (
         <OnboardingLayout>
           <ProvisioningNotice status={tenant.status} />
+        </OnboardingLayout>
+      )
+    }
+
+    /**
+     * O teste venceu no meio do wizard.
+     *
+     * Nada mais grava (a sessão responde 423), então deixar o wizard aberto seria oferecer
+     * campos que não salvam. A saída é assinar, e o cartão leva para lá.
+     */
+    if (tenant.status === 'TRIAL_EXPIRED' || tenant.status === 'SUSPENDED') {
+      return (
+        <OnboardingLayout>
+          <Card className="max-w-lg text-center">
+            <h1 className="text-2xl font-semibold">
+              {tenant.status === 'TRIAL_EXPIRED'
+                ? 'Seu período de teste terminou'
+                : 'Sua assinatura está suspensa'}
+            </h1>
+            <p className="hint mt-3">
+              A configuração do estabelecimento continua salva do jeito que você deixou. Assine um
+              plano para voltar de onde parou.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <ButtonLink href="/assinatura">Ver planos</ButtonLink>
+            </div>
+          </Card>
         </OnboardingLayout>
       )
     }
