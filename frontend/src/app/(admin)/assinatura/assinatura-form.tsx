@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ANNUAL_DISCOUNT_PERCENT,
   BILLING_CYCLES,
   BILLING_CYCLE_LABELS,
   BILLING_METHOD_LABELS,
@@ -11,6 +10,7 @@ import {
   PLAN_CATALOG,
   PLAN_ORDER,
   SELF_SERVICE_PLANS,
+  annualDiscountPercentOf,
   formatBRL,
   type BillingCycle,
   type BillingMethod,
@@ -132,12 +132,19 @@ export function AssinaturaForm({ view, retorno }: Props) {
  * **O preço vem do servidor (`view.prices`), e não do catálogo do pacote**: a equipe da
  * PetShop AI o muda pelo console, e o número compilado no bundle seria o de antes do
  * último reajuste. O do catálogo virou padrão de instalação nova, não preço.
+ *
+ * **`ambosCiclos` é a diferença entre escolher e já ter escolhido.** Ao assinar, a linha
+ * de cada plano mostra a mensalidade **e** a anuidade, porque o ciclo está sendo decidido
+ * nesta mesma tela e comparar os dois é a decisão. Na troca de plano não: o ciclo foi
+ * escolhido na assinatura e não muda depois, então o preço do outro ciclo ali seria um
+ * valor que ninguém pode contratar.
  */
 function OpcoesDePlano({
   nome,
   valor,
   cycle,
   precos,
+  ambosCiclos = false,
   onChange,
   disabled,
 }: {
@@ -145,6 +152,7 @@ function OpcoesDePlano({
   valor: SelfServicePlan
   cycle: BillingCycle
   precos: PlanPriceRow[]
+  ambosCiclos?: boolean
   onChange: (plano: SelfServicePlan) => void
   disabled: boolean
 }) {
@@ -153,12 +161,12 @@ function OpcoesDePlano({
       {SELF_SERVICE_PLANS.map((key) => {
         const plano = PLAN_CATALOG[key]
         const tabela = precos.find((linha) => linha.plan === key)
-        const preco =
-          cycle === 'YEARLY' ? (tabela?.yearlyCents ?? null) : (tabela?.monthlyCents ?? null)
-        const economia =
-          tabela?.monthlyCents != null && tabela.yearlyCents != null
-            ? tabela.monthlyCents * 12 - tabela.yearlyCents
-            : null
+        const mensal = tabela?.monthlyCents ?? null
+        const anual = tabela?.yearlyCents ?? null
+        const preco = cycle === 'YEARLY' ? anual : mensal
+        const economia = mensal !== null && anual !== null ? mensal * 12 - anual : null
+        const desconto =
+          mensal !== null && anual !== null ? annualDiscountPercentOf(mensal, anual) : null
         return (
           <label key={key} className="option">
             <input
@@ -171,12 +179,19 @@ function OpcoesDePlano({
             />
             <span className="min-w-0">
               <span className="option-text block">
-                {plano.name} · {preco === null ? 'sob consulta' : porCiclo(preco, cycle)}
+                {plano.name} ·{' '}
+                {ambosCiclos && mensal !== null && anual !== null
+                  ? `${porCiclo(mensal, 'MONTHLY')} ou ${porCiclo(anual, 'YEARLY')}`
+                  : preco === null
+                    ? 'sob consulta'
+                    : porCiclo(preco, cycle)}
               </span>
               <span className="hint mt-0.5 block">
                 {plano.pitch}
-                {cycle === 'YEARLY' && economia !== null
-                  ? ` Economia de ${formatBRL(economia)} no ano.`
+                {/* A economia acompanha o anual: ao assinar ela explica o par de valores
+                    da linha de cima; na troca, só aparece para quem já paga por ano. */}
+                {economia !== null && (ambosCiclos || cycle === 'YEARLY')
+                  ? ` No anual${desconto !== null ? `, ${desconto}% de desconto —` : ''} economia de ${formatBRL(economia)} no ano.`
                   : ''}
               </span>
             </span>
@@ -205,6 +220,12 @@ function Assinar({ view }: { view: SubscriptionView }) {
   const [erro, setErro] = useState<string | null>(null)
   const [erros, setErros] = useState<Record<string, string>>({})
   const [pendente, startTransition] = useTransition()
+
+  const tabela = view.prices.find((linha) => linha.plan === plano)
+  const desconto =
+    tabela?.monthlyCents != null && tabela.yearlyCents != null
+      ? annualDiscountPercentOf(tabela.monthlyCents, tabela.yearlyCents)
+      : null
 
   function enviar(event: React.FormEvent) {
     event.preventDefault()
@@ -255,10 +276,13 @@ function Assinar({ view }: { view: SubscriptionView }) {
               onChange={setCiclo}
             />
           </div>
+          {/* O desconto é o do plano marcado, e não a constante do catálogo: o console
+              deixa a anuidade editável, e um número fixo aqui desmentiria o par de valores
+              da linha do plano. */}
           <p className="hint mt-2">
             {ciclo === 'YEARLY'
-              ? `O ano inteiro pago de uma vez, com ${ANNUAL_DISCOUNT_PERCENT}% de desconto.`
-              : `Cobrança todo mês. No anual, ${ANNUAL_DISCOUNT_PERCENT}% de desconto.`}
+              ? `O ano inteiro pago de uma vez${desconto !== null ? `, com ${desconto}% de desconto` : ', com desconto'}.`
+              : `Cobrança todo mês. No anual${desconto !== null ? `, ${desconto}% de desconto` : ', o ano inteiro sai com desconto'}.`}
           </p>
         </div>
 
@@ -267,6 +291,7 @@ function Assinar({ view }: { view: SubscriptionView }) {
           valor={plano}
           cycle={ciclo}
           precos={view.prices}
+          ambosCiclos
           onChange={setPlano}
           disabled={pendente}
         />

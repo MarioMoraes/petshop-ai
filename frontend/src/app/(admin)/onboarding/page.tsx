@@ -6,6 +6,7 @@ import { EnsureActiveOrganization } from '@/components/ensure-active-organizatio
 import { ButtonLink } from '@/components/links'
 import { Card, Logo, Shell } from '@/components/ui'
 import { serverApi } from '@/lib/api'
+import { fetchPlanPrices } from '@/lib/plan-prices'
 import { ProvisioningNotice } from './provisioning-notice'
 import { tenantHostSuffix } from '@/lib/domain'
 import { Wizard } from './wizard'
@@ -30,6 +31,9 @@ export default async function OnboardingPage({
   const initialPlan = parsePlanParam((await searchParams).plan)
   const api = serverApi()
   const me = await api.me()
+  // O preço vigente da tabela, para a etapa 2 mostrar o que o checkout vai cobrar — e
+  // não o número que estava no código no dia do deploy.
+  const prices = await fetchPlanPrices()
 
   // Já concluiu: não faz sentido reabrir o wizard.
   if (me.currentTenant?.onboardingCompletedAt) {
@@ -119,6 +123,7 @@ export default async function OnboardingPage({
         settings={settings}
         hostSuffix={tenantHostSuffix()}
         initialPlan={initialPlan}
+        prices={prices}
       />
     </OnboardingLayout>
   )

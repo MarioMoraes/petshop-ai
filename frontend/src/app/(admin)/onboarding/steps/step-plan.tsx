@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import {
-  ANNUAL_DISCOUNT_PERCENT,
   PLAN_CATALOG,
   PLAN_ORDER,
+  annualDiscountPercentOf,
   formatBRL,
   type Plan,
+  type PlanPriceRow,
 } from '@petshop/shared-types'
 import { Badge, Button, Card } from '@/components/ui'
 import { saveStep2Action } from '../actions'
@@ -19,12 +20,23 @@ import type { StepProps } from '../wizard'
  * fica disponível. A troca continua possível a qualquer momento, e dizer isso aqui
  * tira o peso da decisão.
  *
- * Nome, preço, teto e destaques saem de `PLAN_CATALOG` — os mesmos da landing page, que
- * é de onde a pessoa chegou com o plano já escolhido. Duas divisões diferentes entre a
- * página que vende e a tela que contrata eram a promessa quebrada no primeiro minuto.
+ * Nome, teto e destaques saem de `PLAN_CATALOG` — os mesmos da landing page, que é de
+ * onde a pessoa chegou com o plano já escolhido. Duas divisões diferentes entre a página
+ * que vende e a tela que contrata eram a promessa quebrada no primeiro minuto.
+ *
+ * **O preço, não.** Ele vem da tabela vigente (`lib/plan-prices.ts`), porque a equipe o
+ * muda pelo console e o do catálogo é só o padrão de instalação nova. Os **dois ciclos**
+ * aparecem juntos: aqui ainda não se escolhe periodicidade — o teste não cobra nada —, e
+ * quem decide pelo valor precisa ver os dois números antes de escolher o plano, não
+ * depois.
  */
 
-export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }) {
+export function StepPlan({
+  pending,
+  onSubmit,
+  plan,
+  prices,
+}: StepProps & { plan: Plan; prices: PlanPriceRow[] }) {
   const [selected, setSelected] = useState<Plan>(plan)
 
   return (
@@ -39,6 +51,11 @@ export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }
           const option = PLAN_CATALOG[key]
           const limit = option.seats
           const isSelected = selected === option.key
+          const tabela = prices.find((linha) => linha.plan === key)
+          const mensal = tabela?.monthlyCents ?? option.priceCents
+          const anual = tabela?.yearlyCents ?? option.priceYearlyCents
+          const desconto =
+            mensal !== null && anual !== null ? annualDiscountPercentOf(mensal, anual) : null
 
           return (
             <button
@@ -57,19 +74,30 @@ export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }
                   {limit === null ? 'Usuários ilimitados' : `Até ${limit} usuários`}
                 </Badge>
               </div>
-              <p className="hint mt-1">
-                {option.priceCents === null
-                  ? 'Sob consulta'
-                  : `${formatBRL(option.priceCents)}/mês depois do teste`}
-                {' · '}
-                {option.pitch}
+              <p className="hint mt-1">{option.pitch}</p>
+              {/* Os dois ciclos, lado a lado. O ciclo em si é escolhido na hora de pagar,
+                  não aqui: o teste não cobra nada. */}
+              <p className="mt-2 text-sm font-medium">
+                {mensal === null ? (
+                  'Sob consulta'
+                ) : (
+                  <>
+                    {formatBRL(mensal)}
+                    <span className="text-muted">/mês</span>
+                    {anual !== null && (
+                      <>
+                        <span className="text-muted"> ou </span>
+                        {formatBRL(anual)}
+                        <span className="text-muted">/ano</span>
+                      </>
+                    )}
+                  </>
+                )}
               </p>
-              {/* O ciclo é escolhido na hora de pagar, não aqui: o teste não cobra nada.
-                  A linha existe para quem decide pelo preço já saber que há o anual. */}
-              {option.priceYearlyCents !== null && (
+              {mensal !== null && anual !== null && (
                 <p className="hint mt-0.5">
-                  Ou {formatBRL(option.priceYearlyCents)}/ano, com {ANNUAL_DISCOUNT_PERCENT}% de
-                  desconto.
+                  Depois do teste. No anual{desconto !== null ? `, ${desconto}% de desconto —` : ''}{' '}
+                  você economiza {formatBRL(mensal * 12 - anual)} no ano.
                 </p>
               )}
               <p className="mt-3 text-sm font-medium">{option.includesLead}</p>

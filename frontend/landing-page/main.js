@@ -48,7 +48,21 @@
     return (cents / 100).toLocaleString('pt-BR')
   }
 
+  /*
+   * O desconto do anual sai dos dois preços, e não de um número fixo.
+   *
+   * O console deixa a anuidade editável de propósito — "dois meses grátis" é 16,7% e não
+   * 20% —, então "economize 20%" no HTML pode passar a desmentir os valores impressos ao
+   * lado dele. Zero ou negativo não anuncia desconto nenhum.
+   */
+  function desconto(item) {
+    if (!item.monthlyCents || !item.yearlyCents) return 0
+    return Math.round((1 - item.yearlyCents / (item.monthlyCents * 12)) * 100)
+  }
+
   function aplicarPrecos(itens) {
+    var descontos = []
+
     itens.forEach(function (item) {
       var card = document.querySelector('[data-plan="' + item.plan + '"]')
       if (!card) return
@@ -58,10 +72,33 @@
         if (val) val.textContent = reais(item.monthlyCents)
       }
       if (item.yearlyCents) {
-        var ano = card.querySelector('[data-price-year] strong')
-        if (ano) ano.textContent = 'R$ ' + reais(item.yearlyCents) + '/ano'
+        var linha = card.querySelector('[data-price-year]')
+        var ano = linha && linha.querySelector('strong')
+        if (ano) {
+          ano.textContent = 'R$ ' + reais(item.yearlyCents) + '/ano'
+          var percent = desconto(item)
+          if (percent > 0) descontos.push(percent)
+          // O rabicho do parágrafo: ` — economize 20%`, o nó de texto depois do <strong>.
+          var cauda = linha.lastChild
+          if (cauda && cauda.nodeType === 3) {
+            cauda.nodeValue = percent > 0 ? ' — economize ' + percent + '%' : ''
+          }
+        }
       }
     })
+
+    // As duas frases de apoio falam de um desconto só. Com planos em percentuais
+    // diferentes não há número honesto a pôr ali, então fica a reserva do HTML.
+    var iguais =
+      descontos.length > 0 &&
+      descontos.every(function (p) {
+        return p === descontos[0]
+      })
+    if (iguais) {
+      document.querySelectorAll('[data-annual-discount]').forEach(function (alvo) {
+        alvo.textContent = descontos[0] + '%'
+      })
+    }
   }
 
   if (window.fetch) {

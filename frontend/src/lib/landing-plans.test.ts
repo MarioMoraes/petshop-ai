@@ -94,6 +94,16 @@ describe('landing page × catálogo de planos', () => {
     }
   })
 
+  it('as frases de apoio anunciam o desconto pela marca que o script atualiza', () => {
+    // O `data-annual-discount` é o que `main.js` reescreve com o desconto que os preços
+    // vigentes dizem. O texto do arquivo é a reserva, e tem de ser o do catálogo.
+    const marcas = [...html.matchAll(/<span data-annual-discount>([\s\S]*?)<\/span>/g)].map(
+      ([, valor]) => text(valor!),
+    )
+    expect(marcas.length).toBeGreaterThan(0)
+    for (const marca of marcas) expect(marca).toBe(`${ANNUAL_DISCOUNT_PERCENT}%`)
+  })
+
   it('a linha de usuários da tabela bate com o teto de cada plano', () => {
     const row = html.match(/<tr data-seats>([\s\S]*?)<\/tr>/)![1]!
     const seats = PLAN_ORDER.map((plan) => PLAN_CATALOG[plan].seats)

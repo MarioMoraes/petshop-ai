@@ -10,6 +10,7 @@ import {
   type Branding,
   type BusinessHours,
   type Plan,
+  type PlanPriceRow,
   type TenantResponse,
   type TenantSettings,
 } from '@petshop/shared-types'
@@ -36,9 +37,11 @@ export interface WizardProps {
   hostSuffix: string
   /** O `?plan=` da landing, já validado. Entra na criação do estabelecimento. */
   initialPlan: Plan | null
+  /** A tabela de preços vigente, lida no servidor (`lib/plan-prices.ts`). */
+  prices: PlanPriceRow[]
 }
 
-export function Wizard({ tenant, settings, hostSuffix, initialPlan }: WizardProps) {
+export function Wizard({ tenant, settings, hostSuffix, initialPlan, prices }: WizardProps) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -102,7 +105,11 @@ export function Wizard({ tenant, settings, hostSuffix, initialPlan }: WizardProp
           />
         )}
         {step === 2 && (
-          <StepPlan {...shared} plan={currentTenant?.plan ?? initialPlan ?? 'STARTER'} />
+          <StepPlan
+            {...shared}
+            plan={currentTenant?.plan ?? initialPlan ?? 'STARTER'}
+            prices={prices}
+          />
         )}
         {step === 3 && (
           <StepBusinessHours

@@ -202,6 +202,23 @@ export function annualSavingsCents(plan: Plan): number | null {
 }
 
 /**
+ * O desconto que um par de preços representa, em pontos percentuais inteiros.
+ *
+ * `ANNUAL_DISCOUNT_PERCENT` é o desconto **proposto** — o que o console preenche sozinho
+ * e o que o HTML da landing traz de reserva. O par que está valendo pode ser outro: o
+ * console deixa a anuidade editável de propósito, porque "dois meses grátis" é 16,7% e
+ * não 20%. Toda tela que anuncia o desconto calcula daqui, e assim nunca anuncia um
+ * número que os preços ao lado desmentem.
+ *
+ * `null` quando não há desconto a anunciar (anual igual ou maior que doze mensalidades).
+ */
+export function annualDiscountPercentOf(monthlyCents: number, yearlyCents: number): number | null {
+  if (monthlyCents <= 0 || yearlyCents <= 0) return null
+  const percent = Math.round((1 - yearlyCents / (monthlyCents * 12)) * 100)
+  return percent > 0 ? percent : null
+}
+
+/**
  * O preço **efetivo** de um plano, que pode não ser o do catálogo.
  *
  * Desde 2026-09-18 a equipe da PetShop AI muda preço pelo console, e o que ela grava vive
@@ -218,6 +235,21 @@ export const PlanPriceRowSchema = z.object({
   yearlyCents: z.number().int().nullable(),
 })
 export type PlanPriceRow = z.output<typeof PlanPriceRowSchema>
+
+/**
+ * O preço **padrão** de cada plano, na forma que atravessa a rede.
+ *
+ * É a reserva de quem precisa mostrar preço sem alcançar a tabela: a landing tem a dela
+ * no próprio HTML, e as telas que rodam no servidor do Next usam esta — a resposta de
+ * `/public/v1/plans` fora do ar deixa a tela com o padrão do código, nunca sem número.
+ */
+export function catalogPlanPriceRows(): PlanPriceRow[] {
+  return PLAN_ORDER.map((plan) => ({
+    plan,
+    monthlyCents: PLAN_CATALOG[plan].priceCents,
+    yearlyCents: PLAN_CATALOG[plan].priceYearlyCents,
+  }))
+}
 
 /** O que a landing lê: só plano e preço, sem nada da administração. */
 export const PublicPlanPricesSchema = z.object({ items: z.array(PlanPriceRowSchema) })
