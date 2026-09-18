@@ -3,7 +3,6 @@ import {
   DEFAULT_TIMEZONE,
   PLAN_CATALOG,
   PLAN_ORDER,
-  planPriceCents,
   todayIn,
   type BillingCycle,
   type ChangeSubscriptionPlanInput,
@@ -17,6 +16,7 @@ import { loadEnv } from '../../config/env.js'
 import { recordAudit } from '../../shared/audit.js'
 import { logger } from '../../shared/logger.js'
 import { applyTenantPlan } from '../../shared/plan.js'
+import { effectivePlanPrice, planPriceRows } from '../../shared/plan-prices.js'
 import { getBillingProviderPort } from './asaas-port.js'
 import { invalidState, notConfigured } from './errors.js'
 
@@ -54,13 +54,16 @@ export async function getSubscription(tenantId: string): Promise<SubscriptionVie
     trialEndsAt: tenant.trialEndsAt?.toISOString() ?? null,
     configured: getBillingProviderPort().configured(),
     graceDays: loadEnv().BILLING_GRACE_DAYS,
+    prices: await planPriceRows(),
     subscription: row
       ? {
           plan: row.plan as Plan,
           method: row.method,
           cycle: row.cycle as BillingCycle,
           status: row.status,
+          priceCents: row.priceCents,
           scheduledPlan: (row.scheduledPlan as Plan | null) ?? null,
+          scheduledPriceCents: row.scheduledPriceCents,
           currentPeriodEndsAt: row.currentPeriodEndsAt?.toISOString() ?? null,
           paymentUrl: row.paymentUrl,
           overdueSince: row.overdueSince?.toISOString() ?? null,
@@ -107,7 +110,9 @@ export async function startCheckout(
   }
 
   const definition = PLAN_CATALOG[input.plan]
-  const valueCents = planPriceCents(input.plan, input.cycle)
+  // O preço **de hoje**, que a equipe da PetShop AI pode ter mudado pelo console. O do
+  // catálogo é só o padrão de quem nunca mexeu.
+  const valueCents = await effectivePlanPrice(input.plan, input.cycle)
   if (valueCents === null) {
     throw invalidState('O Enterprise é sob consulta: fale com a equipe PetShop AI')
   }
@@ -194,9 +199,12 @@ export async function startCheckout(
       method: input.method,
       cycle: input.cycle,
       status: 'PENDING' as const,
+      // O preço contratado, congelado aqui. Reajuste de tabela não o alcança.
+      priceCents: valueCents,
       // Recomeçar zera o que a assinatura anterior deixou: uma descida agendada e um
       // período pago são da assinatura que foi desfeita, não desta.
       scheduledPlan: null,
+      scheduledPriceCents: null,
       currentPeriodEndsAt: null,
       providerCustomerId: ids.customerId,
       providerSubscriptionId: ids.subscriptionId,
@@ -319,10 +327,13 @@ export async function changePlan(
     )
   }
 
-  const valor = planPriceCents(input.plan, cycle)
+  // O plano novo custa o preço **de hoje**; o atual custa o que foi contratado. Os dois
+  // aparecem abaixo, e trocá-los é o jeito de reajustar alguém sem querer.
+  const valor = await effectivePlanPrice(input.plan, cycle)
   if (valor === null) {
     throw invalidState('O Enterprise é sob consulta: fale com a equipe PetShop AI')
   }
+  const contratado = row.priceCents
 
   const provider = getBillingProviderPort()
   if (!provider.configured()) throw notConfigured()
@@ -336,7 +347,12 @@ export async function changePlan(
     await provider.updateSubscriptionValue(row.providerSubscriptionId, valor, {
       updatePendingPayments: true,
     })
-    await gravarTroca(actor.tenantId, { plan: input.plan }, 'subscription.plan_changed', auditoria)
+    await gravarTroca(
+      actor.tenantId,
+      { plan: input.plan, priceCents: valor },
+      'subscription.plan_changed',
+      auditoria,
+    )
     await applyTenantPlan(actor.tenantId, input.plan, {
       reason: 'SUBSCRIPTION_PLAN_CHANGE',
       ...auditoria,
@@ -349,12 +365,17 @@ export async function changePlan(
   const direcao = PLAN_ORDER.indexOf(input.plan) - PLAN_ORDER.indexOf(emVigor)
 
   if (direcao === 0) {
-    await provider.updateSubscriptionValue(row.providerSubscriptionId, valor, {
+    /**
+     * Desfazer a descida devolve a assinatura ao que ela era — e o que ela era é o preço
+     * **contratado**, não o de tabela. Usar `valor` aqui reajustaria em silêncio quem
+     * apenas mudou de ideia, que é o oposto do que o grandfathering promete.
+     */
+    await provider.updateSubscriptionValue(row.providerSubscriptionId, contratado ?? valor, {
       updatePendingPayments: false,
     })
     await gravarTroca(
       actor.tenantId,
-      { scheduledPlan: null },
+      { scheduledPlan: null, scheduledPriceCents: null },
       'subscription.plan_schedule_canceled',
       auditoria,
     )
@@ -367,7 +388,7 @@ export async function changePlan(
     })
     await gravarTroca(
       actor.tenantId,
-      { scheduledPlan: input.plan },
+      { scheduledPlan: input.plan, scheduledPriceCents: valor },
       'subscription.plan_scheduled',
       auditoria,
     )
@@ -381,7 +402,10 @@ export async function changePlan(
   }
 
   const meses = mesesRestantes(row.currentPeriodEndsAt, new Date())
-  const anualAtual = planPriceCents(emVigor, 'YEARLY') ?? 0
+  // A diferença sai do que o cliente **pagou**, e não do que o plano dele custa hoje: se a
+  // tabela subiu desde que ele assinou, cobrar sobre o preço novo seria reajustá-lo por
+  // dentro de uma subida de plano.
+  const anualAtual = contratado ?? (await effectivePlanPrice(emVigor, 'YEARLY')) ?? 0
   const diferenca = Math.round(((valor - anualAtual) / 12) * meses)
   const hoje = todayIn(tenant.settings?.timezone ?? DEFAULT_TIMEZONE)
 
@@ -401,7 +425,9 @@ export async function changePlan(
     actor.tenantId,
     {
       plan: input.plan,
+      priceCents: valor,
       scheduledPlan: null,
+      scheduledPriceCents: null,
       // A diferença é o que está em aberto agora; o link da renovação anterior já venceu.
       ...(cobranca.paymentUrl ? { paymentUrl: cobranca.paymentUrl } : {}),
     },
@@ -419,7 +445,13 @@ export async function changePlan(
 /** A escrita da linha mais a trilha, que toda troca faz igual. */
 async function gravarTroca(
   tenantId: string,
-  data: { plan?: Plan; scheduledPlan?: Plan | null; paymentUrl?: string },
+  data: {
+    plan?: Plan
+    priceCents?: number
+    scheduledPlan?: Plan | null
+    scheduledPriceCents?: number | null
+    paymentUrl?: string
+  },
   action: string,
   auditoria: {
     actorUserId: string | null
@@ -431,7 +463,7 @@ async function gravarTroca(
   await withTenant(tenantId, async (tx) => {
     const before = await tx.tenantSubscription.findUnique({
       where: { tenantId },
-      select: { plan: true, scheduledPlan: true },
+      select: { plan: true, priceCents: true, scheduledPlan: true },
     })
     const after = await tx.tenantSubscription.update({ where: { tenantId }, data })
     await recordAudit(tx, {
@@ -443,6 +475,7 @@ async function gravarTroca(
       before: before ?? undefined,
       after: {
         plan: after.plan,
+        priceCents: after.priceCents,
         scheduledPlan: after.scheduledPlan,
         cycle: after.cycle,
         ...(auditoria.extra ?? {}),

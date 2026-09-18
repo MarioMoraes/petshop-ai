@@ -20,6 +20,14 @@ export const CACHE_KEYS = {
   tenantByOrg: (clerkOrgId: string) => `tenant:org:${clerkOrgId}`,
   tenantStatus: (tenantId: string) => `tenant:status:${tenantId}`,
   tenantPlan: (tenantId: string) => `tenant:plan:${tenantId}`,
+  /**
+   * O preço vigente dos planos — **uma chave só na instalação**, sem tenant.
+   *
+   * O preço não é de estabelecimento nenhum: é a tabela que o console da plataforma
+   * mantém. A escrita a apaga (`invalidatePlanPrices`), então o TTL é rede de segurança
+   * contra uma réplica que perdeu o `DEL`, e não o mecanismo de atualização.
+   */
+  planPrices: 'plan:prices',
   userByClerkId: (clerkUserId: string) => `user:clerk:${clerkUserId}`,
 
   // ---- MOD-IDENT ----
@@ -216,7 +224,6 @@ export const CACHE_KEYS = {
   professionals: (tenantId: string) => `agenda:professionals:${tenantId}`,
   schedule: (tenantId: string, professionalId: string) =>
     `agenda:schedule:${tenantId}:${professionalId}`,
-
 } as const
 
 export const CACHE_TTL_SECONDS = {
@@ -227,6 +234,9 @@ export const CACHE_TTL_SECONDS = {
   // Curto como o do status, e pela mesma razão: quem sobe de plano não espera uma hora
   // para ver o recurso, e quem desce não o usa por uma hora a mais.
   tenantPlan: 60,
+  // Minutos, e não uma hora: mudar preço é raro, mas quando acontece quem fez a mudança
+  // abre a landing em seguida para conferir. A escrita já derruba a chave.
+  planPrices: 300,
   userByClerkId: 300,
 
   tenantSettings: 600,

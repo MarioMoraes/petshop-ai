@@ -11,12 +11,11 @@ import {
   PLAN_CATALOG,
   PLAN_ORDER,
   SELF_SERVICE_PLANS,
-  annualSavingsCents,
   formatBRL,
-  planPriceCents,
   type BillingCycle,
   type BillingMethod,
   type Plan,
+  type PlanPriceRow,
   type SubscriptionView,
 } from '@petshop/shared-types'
 import { Alert, Button, Card, Field, FormError, SectionHead, Segmented } from '@/components/ui'
@@ -127,16 +126,25 @@ export function AssinaturaForm({ view, retorno }: Props) {
   )
 }
 
+/**
+ * A lista de planos para escolher.
+ *
+ * **O preço vem do servidor (`view.prices`), e não do catálogo do pacote**: a equipe da
+ * PetShop AI o muda pelo console, e o número compilado no bundle seria o de antes do
+ * último reajuste. O do catálogo virou padrão de instalação nova, não preço.
+ */
 function OpcoesDePlano({
   nome,
   valor,
   cycle,
+  precos,
   onChange,
   disabled,
 }: {
   nome: string
   valor: SelfServicePlan
   cycle: BillingCycle
+  precos: PlanPriceRow[]
   onChange: (plano: SelfServicePlan) => void
   disabled: boolean
 }) {
@@ -144,8 +152,13 @@ function OpcoesDePlano({
     <div className="space-y-2" role="radiogroup" aria-label="Plano">
       {SELF_SERVICE_PLANS.map((key) => {
         const plano = PLAN_CATALOG[key]
-        const preco = planPriceCents(key, cycle)
-        const economia = annualSavingsCents(key)
+        const tabela = precos.find((linha) => linha.plan === key)
+        const preco =
+          cycle === 'YEARLY' ? (tabela?.yearlyCents ?? null) : (tabela?.monthlyCents ?? null)
+        const economia =
+          tabela?.monthlyCents != null && tabela.yearlyCents != null
+            ? tabela.monthlyCents * 12 - tabela.yearlyCents
+            : null
         return (
           <label key={key} className="option">
             <input
@@ -253,6 +266,7 @@ function Assinar({ view }: { view: SubscriptionView }) {
           nome="plano-assinar"
           valor={plano}
           cycle={ciclo}
+          precos={view.prices}
           onChange={setPlano}
           disabled={pendente}
         />
@@ -405,6 +419,7 @@ function TrocarPlano({ view }: { view: SubscriptionView }) {
           nome="plano-trocar"
           valor={plano}
           cycle={sub.cycle}
+          precos={view.prices}
           onChange={setPlano}
           disabled={pendente}
         />

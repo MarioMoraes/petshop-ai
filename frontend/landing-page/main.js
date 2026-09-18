@@ -31,6 +31,52 @@
     link.setAttribute('href', appUrl + link.getAttribute('data-app-path'))
   })
 
+  /*
+   * O preço, lido do produto.
+   *
+   * Desde 2026-09-18 a equipe muda preço pelo console da plataforma, e esta página é HTML
+   * estático noutro domínio: sem isto ela anunciaria para sempre o preço do dia em que foi
+   * publicada. Quem responde é o Next (`/api/planos`), e não o gateway — a borda não
+   * publica a API (ver `infra/Caddyfile`).
+   *
+   * **O número do HTML é a reserva, e não um enfeite.** Falha de rede, API fora do ar ou
+   * navegador sem `fetch` deixam a página exatamente como está — que é o preço padrão do
+   * catálogo, conferido contra este arquivo por `frontend/src/lib/landing-plans.test.ts`.
+   * Nada aqui esconde ou esvazia o que já está na tela.
+   */
+  function reais(cents) {
+    return (cents / 100).toLocaleString('pt-BR')
+  }
+
+  function aplicarPrecos(itens) {
+    itens.forEach(function (item) {
+      var card = document.querySelector('[data-plan="' + item.plan + '"]')
+      if (!card) return
+
+      if (item.monthlyCents) {
+        var val = card.querySelector('.price .val')
+        if (val) val.textContent = reais(item.monthlyCents)
+      }
+      if (item.yearlyCents) {
+        var ano = card.querySelector('[data-price-year] strong')
+        if (ano) ano.textContent = 'R$ ' + reais(item.yearlyCents) + '/ano'
+      }
+    })
+  }
+
+  if (window.fetch) {
+    fetch(appUrl + '/api/planos', { headers: { accept: 'application/json' } })
+      .then(function (response) {
+        return response.ok ? response.json() : null
+      })
+      .then(function (body) {
+        if (body && Array.isArray(body.items)) aplicarPrecos(body.items)
+      })
+      .catch(function () {
+        /* A reserva do HTML já está na tela. */
+      })
+  }
+
   var year = document.querySelector('[data-year]')
   if (year) year.textContent = String(new Date().getFullYear())
 

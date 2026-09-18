@@ -202,6 +202,41 @@ export function annualSavingsCents(plan: Plan): number | null {
 }
 
 /**
+ * O preço **efetivo** de um plano, que pode não ser o do catálogo.
+ *
+ * Desde 2026-09-18 a equipe da PetShop AI muda preço pelo console, e o que ela grava vive
+ * em `plan_prices`. O catálogo acima deixou de ser a última palavra e passou a ser o
+ * **padrão**: o valor de partida de uma instalação nova e a reserva da landing, que é
+ * HTML estático e precisa de um número no arquivo mesmo quando a API não responde.
+ *
+ * Quem resolve o efetivo é o backend (`shared/plan-prices.ts`); estes tipos são só a forma
+ * que ele atravessa a rede.
+ */
+export const PlanPriceRowSchema = z.object({
+  plan: PlanSchema,
+  monthlyCents: z.number().int().nullable(),
+  yearlyCents: z.number().int().nullable(),
+})
+export type PlanPriceRow = z.output<typeof PlanPriceRowSchema>
+
+/** O que a landing lê: só plano e preço, sem nada da administração. */
+export const PublicPlanPricesSchema = z.object({ items: z.array(PlanPriceRowSchema) })
+export type PublicPlanPrices = z.output<typeof PublicPlanPricesSchema>
+
+/** O que o console lê: o efetivo, o padrão do código e quem mexeu por último. */
+export const PlanPriceAdminRowSchema = PlanPriceRowSchema.extend({
+  name: z.string(),
+  /** O do catálogo. Igual ao efetivo quando ninguém mexeu. */
+  defaultMonthlyCents: z.number().int().nullable(),
+  defaultYearlyCents: z.number().int().nullable(),
+  updatedAt: z.iso.datetime().nullable(),
+})
+export type PlanPriceAdminRow = z.output<typeof PlanPriceAdminRowSchema>
+
+export const PlanPricesResponseSchema = z.object({ items: z.array(PlanPriceAdminRowSchema) })
+export type PlanPricesResponse = z.output<typeof PlanPricesResponseSchema>
+
+/**
  * O `?plan=` que a landing manda para o cadastro (`/sign-up?plan=pro`). Em minúsculas
  * porque é URL; qualquer valor fora do catálogo vale como ausente, e o wizard segue com
  * o padrão.

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_MONEY_CENTS } from './money.js'
 import { PLANS } from './plans.js'
 
 /**
@@ -206,6 +207,23 @@ export const ChangeTenantPlanSchema = z.strictObject({
   reason: z.string().trim().min(10).max(300),
 })
 export type ChangeTenantPlanInput = z.output<typeof ChangeTenantPlanSchema>
+
+/**
+ * O preço de um plano, mudado pelo console (camada comercial).
+ *
+ * **Vale para as assinaturas novas, e só para elas.** Quem já assina continua pagando o
+ * que contratou — o valor está gravado na assinatura, aqui e no Asaas, e nada nesta rota
+ * o reescreve. Reajustar a base é outra coisa, e teria de avisar cada cliente antes.
+ *
+ * O `reason` é o mesmo rigor da troca de plano: é o texto que explica, meses depois, por
+ * que a tabela mudou naquele dia.
+ */
+export const UpdatePlanPriceSchema = z.strictObject({
+  monthlyCents: z.number().int().min(100).max(MAX_MONEY_CENTS),
+  yearlyCents: z.number().int().min(100).max(MAX_MONEY_CENTS),
+  reason: z.string().trim().min(10).max(300),
+})
+export type UpdatePlanPriceInput = z.output<typeof UpdatePlanPriceSchema>
 
 export const PlatformTenantPageSchema = z.object({
   data: z.array(PlatformTenantSchema),

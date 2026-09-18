@@ -279,6 +279,8 @@ model User {
   platformAdmin PlatformAdmin[]
   /// MOD-ADMIN-02: os acessos de suporte que esta pessoa pediu.
   supportGrants SupportAccessGrant[]
+  /// Os preços de plano que esta pessoa mexeu por último.
+  planPrices    PlanPrice[]
 
   @@map("users")
 }
@@ -4051,8 +4053,13 @@ model TenantSubscription {
   cycle    BillingCycle       @default(MONTHLY)
   status   SubscriptionStatus @default(PENDING)
 
+  /// O preço **contratado**, congelado. É o grandfathering: mexer em `plan_prices` não o toca.
+  priceCents Int? @map("price_cents")
+
   /// A descida de plano que espera a renovação (só no anual). `plan` segue em vigor até lá.
   scheduledPlan Plan? @map("scheduled_plan")
+  /// O preço que a descida agendada vai custar, fixado quando ela foi agendada.
+  scheduledPriceCents Int? @map("scheduled_price_cents")
   /// O fim do período pago. É por ele que a subida proporcional sabe quantos meses faltam.
   currentPeriodEndsAt DateTime? @map("current_period_ends_at") @db.Timestamptz(6)
 
@@ -4086,4 +4093,20 @@ enum BillingMethod {
 enum BillingCycle {
   MONTHLY
   YEARLY
+}
+
+/// O preço vigente de um plano — o de quem assina a partir de agora.
+///
+/// Sem `tenant_id` e sem RLS, como `platform_admins`: o preço é da instalação. Linha
+/// ausente significa "usa o padrão do catálogo", que é diferente de alguém ter escolhido
+/// exatamente o padrão — por isso a tabela nasce vazia.
+model PlanPrice {
+  plan             Plan     @id
+  priceCents       Int      @map("price_cents")
+  priceYearlyCents Int      @map("price_yearly_cents")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy        String?  @map("updated_by") @db.Uuid
+  updatedByUser    User?    @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@map("plan_prices")
 }

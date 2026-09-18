@@ -200,7 +200,15 @@ barrado para todos.
 
 **O plano decide o que responde, e a divisão mora num lugar só:** `PLAN_CATALOG` em
 `packages/shared-types/src/plans.ts`, conferido contra a landing por
-`frontend/src/lib/landing-plans.test.ts`. Rota da equipe sob recurso pago é bloqueada por
+`frontend/src/lib/landing-plans.test.ts`. **O preço saiu de lá**: desde 2026-09-18 ele vive
+em `plan_prices`, mantido pelo console (`/plataforma/planos`), e o catálogo virou o
+**padrão** — o valor de uma instalação nova e a reserva do HTML da landing. Todo caminho de
+cobrança pergunta a `shared/plan-prices.ts` (`effectivePlanPrice`), nunca ao catálogo; a
+landing lê `/api/planos` **no Next**, e não no backend, porque a borda não publica o
+gateway (decisão 1 do `infra/Caddyfile`). **Mexer no preço não reajusta quem já assina:** o
+valor fica congelado em `tenant_subscriptions.price_cents` — e em
+`scheduled_price_cents` quando a descida anual já foi agendada —, e é dele que saem a tela
+do estabelecimento, a diferença de uma subida de plano e o desfazer de um agendamento. Rota da equipe sob recurso pago é bloqueada por
 **prefixo**, na tabela `PLAN_GATES` de `src/gateway/plan-gates.ts` (402, `ERR_PLAN_001`) —
 rota nova debaixo de um prefixo da tabela nasce bloqueada, e prefixo novo entra lá. O que
 não passa por requisição pergunta a `shared/plan.ts` por conta própria: o site e o Portal

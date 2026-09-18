@@ -9,6 +9,7 @@ import {
   ShieldCheckIcon,
   StoreIcon,
   TrendingUpIcon,
+  WalletIcon,
   type IconTone,
 } from '@/components/icons'
 import { ButtonLink, NavLink, NavPill } from '@/components/links'
@@ -34,7 +35,7 @@ import { ContaPessoal } from './conta-pessoal'
  * que serve as nove rotas, e não há papéis dentro da equipe da plataforma.
  */
 
-type NavKey = 'saude' | 'estabelecimentos' | 'metricas' | 'alertas' | 'trilha' | 'equipe'
+type NavKey = 'saude' | 'estabelecimentos' | 'planos' | 'metricas' | 'alertas' | 'trilha' | 'equipe'
 
 interface NavItem {
   key: NavKey
@@ -42,6 +43,7 @@ interface NavItem {
   href:
     | '/plataforma'
     | '/plataforma/estabelecimentos'
+    | '/plataforma/planos'
     | '/plataforma/metricas'
     | '/plataforma/alertas'
     | '/plataforma/trilha'
@@ -67,6 +69,15 @@ const NAV: NavItem[] = [
     label: 'Estabelecimentos',
     icon: <StoreIcon />,
     tone: 'icon-brand',
+  },
+  {
+    // Logo abaixo dos estabelecimentos: as duas telas comerciais ficam juntas, e é da
+    // lista de quem paga que se costuma passar para quanto se cobra.
+    key: 'planos',
+    href: '/plataforma/planos',
+    label: 'Planos',
+    icon: <WalletIcon />,
+    tone: 'icon-money',
   },
   {
     key: 'metricas',

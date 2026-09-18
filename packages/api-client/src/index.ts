@@ -5,6 +5,8 @@ import {
   type StartCheckoutInput,
   PlanSchema,
   type ChangeTenantPlanInput,
+  type Plan,
+  type UpdatePlanPriceInput,
   type AgentConversationStatus,
   AddressResponseSchema,
   BreedSchema,
@@ -264,6 +266,8 @@ import {
   SupportGrantsResponseSchema,
   PlatformAdminResponseSchema,
   PlatformAdminsResponseSchema,
+  PlanPriceAdminRowSchema,
+  PlanPricesResponseSchema,
   PlatformAlertsResponseSchema,
   PlatformAuditPageSchema,
   PlatformHealthSchema,
@@ -1228,6 +1232,35 @@ export function createApiClient(options: ApiClientOptions) {
 
     revokePlatformAdmin: (id: string) =>
       request<void>({ method: 'DELETE', path: `/platform/v1/admins/${id}` }),
+
+    /**
+     * A tabela de preços (camada comercial).
+     *
+     * O que se grava aqui vale para quem assina a partir de agora. Quem já assina tem o
+     * valor congelado na própria assinatura — ver `subscription.priceCents`.
+     */
+    listPlanPrices: () =>
+      request({
+        method: 'GET',
+        path: '/platform/v1/plans',
+        schema: PlanPricesResponseSchema,
+      }),
+
+    updatePlanPrice: (plan: Plan, input: UpdatePlanPriceInput) =>
+      request({
+        method: 'PUT',
+        path: `/platform/v1/plans/${plan}`,
+        body: input,
+        schema: PlanPriceAdminRowSchema,
+      }),
+
+    /** Voltar ao padrão do código, que é apagar a linha. */
+    resetPlanPrice: (plan: Plan) =>
+      request({
+        method: 'DELETE',
+        path: `/platform/v1/plans/${plan}`,
+        schema: PlanPriceAdminRowSchema,
+      }),
 
     listPlatformTenants: (query: Partial<TenantListQuery> = {}) =>
       request({

@@ -1,11 +1,8 @@
 import multipart from '@fastify/multipart'
-import {
-  MAX_PHOTOS_PER_UPLOAD,
-  MAX_PHOTO_BYTES,
-  SITE_PHOTO_MAX_BYTES,
-} from '@petshop/shared-types'
+import { MAX_PHOTOS_PER_UPLOAD, MAX_PHOTO_BYTES, SITE_PHOTO_MAX_BYTES } from '@petshop/shared-types'
 import type { FastifyInstance } from 'fastify'
 import { registerPublicSiteRoutes, registerSiteRoutes } from '../modules/site/routes.js'
+import { registerPublicPlanRoutes } from '../modules/subscription/public-routes.js'
 import { registerAgentRoutes } from '../modules/agent/routes.js'
 import { setAgentInboundPort } from '../modules/messaging/ports/agent.js'
 import { handleInbound } from '../modules/agent/conversations.js'
@@ -24,10 +21,7 @@ import { registerPetRoutes } from '../modules/pets/routes.js'
 import { setJobGridPort } from '../modules/platform/job-grid-port.js'
 import { registerPlatformRoutes } from '../modules/platform/routes.js'
 import { registerSupportAccessRoutes } from '../modules/platform/tenant-routes.js'
-import {
-  registerPortalRoutes,
-  registerPublicPortalRoutes,
-} from '../modules/portal/routes.js'
+import { registerPortalRoutes, registerPublicPortalRoutes } from '../modules/portal/routes.js'
 import { registerSchedulingModule } from '../modules/scheduling/routes-module.js'
 import { registerSecurityRoutes } from '../modules/security/routes.js'
 import { registerPhotoRoutes } from '../modules/photos/routes.js'
@@ -80,6 +74,8 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
  */
 async function registerSiteModule(app: FastifyInstance): Promise<void> {
   await app.register(registerPublicSiteRoutes)
+  // O preço dos planos, que a landing lê pelo Next. Anônimo pela mesma razão do site.
+  await app.register(registerPublicPlanRoutes)
 
   await app.register(async (admin) => {
     /**

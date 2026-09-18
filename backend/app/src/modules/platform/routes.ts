@@ -4,9 +4,11 @@ import {
   GrantPlatformAdminSchema,
   PlatformAlertQuerySchema,
   PlatformAuditQuerySchema,
+  PlanSchema,
   PlatformMetricsQuerySchema,
   RequestSupportAccessSchema,
   TenantListQuerySchema,
+  UpdatePlanPriceSchema,
 } from '@petshop/shared-types'
 import { z } from 'zod'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
@@ -16,17 +18,15 @@ import { notFound } from './errors.js'
 import { requestSupportAccess } from './grants.js'
 import { platformHealth } from './health.js'
 import { changeTenantPlan } from './plans.js'
-import {
-  grantPlatformAdmin,
-  listPlatformAdmins,
-  revokePlatformAdmin,
-} from './service.js'
+import { listPlanPrices, resetPlanPrice, updatePlanPrice } from './prices.js'
+import { grantPlatformAdmin, listPlatformAdmins, revokePlatformAdmin } from './service.js'
 import { queryMetrics } from './metrics.js'
 import { listTenants, tenantUsage } from './tenants.js'
 import { parseInput } from './validate.js'
 
 const IdParamSchema = z.object({ id: z.uuid() })
 const TenantParamSchema = z.object({ tenantId: z.uuid() })
+const PlanParamSchema = z.object({ plan: PlanSchema })
 
 /**
  * As rotas da plataforma (PRD observabilidade_admin_14 §5).
@@ -109,6 +109,27 @@ export async function registerPlatformRoutes(app: FastifyInstance): Promise<void
     const { tenantId } = parseInput(TenantParamSchema, request.params)
     const input = parseInput(ChangeTenantPlanSchema, request.body)
     return changeTenantPlan(actorOf(request), tenantId, input)
+  })
+
+  /**
+   * A tabela de preços (camada comercial).
+   *
+   * **Sem grant**, como a troca de plano: preço é da instalação, não dado de negócio de
+   * estabelecimento nenhum. O que se grava aqui vale para quem assina a partir de agora —
+   * quem já assina tem o valor congelado na própria assinatura.
+   */
+  app.get('/platform/v1/plans', async () => listPlanPrices())
+
+  app.put('/platform/v1/plans/:plan', async (request) => {
+    const { plan } = parseInput(PlanParamSchema, request.params)
+    const input = parseInput(UpdatePlanPriceSchema, request.body)
+    return updatePlanPrice(actorOf(request), plan, input)
+  })
+
+  /** Voltar ao padrão do código, que é apagar a linha — e não gravar o padrão. */
+  app.delete('/platform/v1/plans/:plan', async (request) => {
+    const { plan } = parseInput(PlanParamSchema, request.params)
+    return resetPlanPrice(actorOf(request), plan)
   })
 
   app.get('/platform/v1/tenants/:tenantId/usage', async (request) => {

@@ -30,7 +30,27 @@ import { exigeEstabelecimento, routeFor, SITE_PREFIX } from '@/lib/host'
  * que pagar o custo do handshake nem carregar cookie de sessão nenhum.
  */
 
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)', '/api/health'])
+/**
+ * `/api/planos` é anônima de propósito: é a tabela de preços que a landing page lê de
+ * outro domínio, e exigir sessão nela mandaria um `fetch` de página de vendas para o
+ * login.
+ */
+const isPublicRoute = createRouteMatcher([
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/api/health',
+  '/api/planos',
+])
+
+/**
+ * As **telas** de entrada, que são as únicas de onde quem já tem sessão é tirado.
+ *
+ * Separado de `isPublicRoute` porque as duas listas respondem a perguntas diferentes:
+ * aquela diz "pode entrar sem sessão", esta diz "não faz sentido estar aqui **com**
+ * sessão". Juntá-las mandaria um `fetch` de `/api/planos` feito por alguém logado para a
+ * raiz do Admin — um 307 no lugar de um JSON, que a landing não tem como entender.
+ */
+const isAuthPage = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)'])
 
 /**
  * Lido em tempo de execução, não `NEXT_PUBLIC_`: o prefixo público seria inlinado no
@@ -57,7 +77,7 @@ const withClerk = clerkMiddleware(async (auth, request) => {
     return (await auth()).redirectToSignIn({ returnBackUrl: request.url })
   }
 
-  if (userId && isPublicRoute(request)) {
+  if (userId && isAuthPage(request)) {
     // Quem já tem conta e volta da landing por "Começar com o Pro" leva o plano ao
     // wizard. O valor segue cru: quem o valida é a página do onboarding, e importar o
     // catálogo aqui poria o Zod no bundle do middleware.

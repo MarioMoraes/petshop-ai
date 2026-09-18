@@ -266,8 +266,8 @@ async function ativar(
 ): Promise<void> {
   // A descida de plano agendada entra em vigor na renovação — é a cobrança do período
   // novo que a autoriza, e não a data.
-  const plano =
-    pagamento.renova && row.scheduledPlan ? (row.scheduledPlan as Plan) : (row.plan as Plan)
+  const aplicaAgendada = pagamento.renova && row.scheduledPlan !== null
+  const plano = aplicaAgendada ? (row.scheduledPlan as Plan) : (row.plan as Plan)
 
   await atualizar(
     row.tenantId,
@@ -280,6 +280,15 @@ async function ativar(
         ? {
             plan: plano,
             scheduledPlan: null,
+            scheduledPriceCents: null,
+            /**
+             * O preço contratado só muda quando a descida agendada entra em vigor, e o
+             * valor é o que foi fixado no dia do agendamento — que é o que o Asaas acabou
+             * de cobrar. Numa renovação comum ele fica como está: é o grandfathering.
+             */
+            ...(aplicaAgendada && row.scheduledPriceCents !== null
+              ? { priceCents: row.scheduledPriceCents }
+              : {}),
             currentPeriodEndsAt: fimDoPeriodo(row.cycle as BillingCycle, pagamento.dueDate),
           }
         : {}),

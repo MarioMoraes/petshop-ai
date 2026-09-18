@@ -21,6 +21,12 @@ import { describe, expect, it } from 'vitest'
  * Este teste lê o HTML e compara com `PLAN_CATALOG`: preço, teto de usuários, destaques
  * de cada cartão e as marcas da tabela comparativa.
  *
+ * **Desde 2026-09-18 o preço do HTML é a reserva, e não a verdade.** A equipe muda preço
+ * pelo console da plataforma, e a página busca o valor vigente em `/api/planos` ao
+ * carregar. O número no arquivo é o que o visitante vê quando essa busca falha — e é por
+ * isso que ele continua tendo de bater com o padrão do catálogo: uma reserva errada é uma
+ * promessa quebrada justamente no momento em que o produto já está com problema.
+ *
  * Os cartões são achados por `data-plan` e as linhas da tabela por `data-feature`. Se ele
  * falhar, a pergunta é qual dos dois lados está certo — e o outro muda na mesma mudança.
  */

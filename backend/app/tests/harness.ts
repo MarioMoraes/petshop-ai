@@ -21,9 +21,8 @@ config({ path: resolve(repoRoot, '.env'), quiet: true })
 // Banco de testes próprio deste pacote: o turbo roda as suítes em paralelo.
 process.env.TEST_DATABASE_NAME = 'petshop_test_gateway'
 
-const { useTestDatabase, createOwnerClient, truncateBusinessTables } = await import(
-  '@petshop/db/testing'
-)
+const { useTestDatabase, createOwnerClient, truncateBusinessTables } =
+  await import('@petshop/db/testing')
 type OwnerClient = import('@petshop/db').PrismaClient
 useTestDatabase()
 
@@ -89,6 +88,13 @@ export async function closeHarness(): Promise<void> {
 
 export async function resetDatabase(): Promise<void> {
   await truncateBusinessTables(ownerPrisma)
+  /**
+   * `plan_prices` escapa do truncate por não ter `tenant_id` — é tabela de instalação,
+   * como `platform_admins`. Deixá-la suja faria um teste que mexe em preço mudar o valor
+   * cobrado em todas as suítes seguintes, e o sintoma seria um checkout com o número
+   * errado longe de onde a causa está.
+   */
+  await ownerPrisma.planPrice.deleteMany({})
   clearTenantKeyCache()
 }
 

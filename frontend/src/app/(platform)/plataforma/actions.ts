@@ -5,7 +5,10 @@ import { ApiError } from '@petshop/api-client'
 import {
   ChangeTenantPlanSchema,
   GrantPlatformAdminSchema,
+  PlanSchema,
   RequestSupportAccessSchema,
+  UpdatePlanPriceSchema,
+  type PlanPriceAdminRow,
   type PlatformAdminResponse,
   type SupportGrantResponse,
 } from '@petshop/shared-types'
@@ -13,7 +16,7 @@ import { z } from 'zod'
 import { serverApi } from '@/lib/api'
 
 /**
- * As três escritas do console (MOD-ADMIN-01 e 02).
+ * As escritas do console (MOD-ADMIN-01 e 02, mais a camada comercial).
  *
  * O console é quase todo leitura, e isso não é acaso: a plataforma **observa** os
  * estabelecimentos e não opera dentro deles. As três exceções são sobre a própria equipe
@@ -107,6 +110,51 @@ export async function mudarPlanoAction(
   try {
     const result = await serverApi().changeTenantPlan(tenantId, parsed.data)
     revalidatePath('/plataforma/estabelecimentos')
+    return { ok: true, data: result }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Muda o preço de tabela de um plano (camada comercial).
+ *
+ * **Vale para quem assinar a partir de agora, e para mais ninguém.** As assinaturas vivas
+ * têm o preço congelado — no banco e no Asaas —, e nada nesta ação as toca. Não é um
+ * esquecimento: reajustar quem já paga é uma operação com aviso prévio, e ela não cabe
+ * atrás de um botão de Salvar.
+ *
+ * A landing também muda, sem deploy: ela lê `/api/planos`, que lê esta mesma tabela.
+ */
+export async function mudarPrecoAction(
+  plan: string,
+  input: { monthlyCents: number; yearlyCents: number; reason: string },
+): Promise<ActionResult<PlanPriceAdminRow>> {
+  const plano = PlanSchema.safeParse(plan)
+  if (!plano.success) return fromZod(plano.error)
+
+  const parsed = UpdatePlanPriceSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const result = await serverApi().updatePlanPrice(plano.data, parsed.data)
+    revalidatePath('/plataforma/planos')
+    return { ok: true, data: result }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/** Volta ao preço padrão do código, que é apagar a linha — e não gravar o padrão. */
+export async function voltarPrecoPadraoAction(
+  plan: string,
+): Promise<ActionResult<PlanPriceAdminRow>> {
+  const plano = PlanSchema.safeParse(plan)
+  if (!plano.success) return fromZod(plano.error)
+
+  try {
+    const result = await serverApi().resetPlanPrice(plano.data)
+    revalidatePath('/plataforma/planos')
     return { ok: true, data: result }
   } catch (error) {
     return toFailure(error)

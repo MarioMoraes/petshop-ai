@@ -646,6 +646,111 @@ describe('a contratação anual', () => {
   })
 })
 
+describe('o grandfathering', () => {
+  /** Sobe a tabela depois que o estabelecimento já assinou. */
+  async function reajustar(plan: 'STARTER' | 'PRO', mensal: number, anual: number) {
+    await ownerPrisma.planPrice.upsert({
+      where: { plan },
+      create: { plan, priceCents: mensal, priceYearlyCents: anual },
+      update: { priceCents: mensal, priceYearlyCents: anual },
+    })
+  }
+
+  async function anualPago(plan = 'STARTER') {
+    await assinar({ plan, method: 'PIX', cycle: 'YEARLY', cpfCnpj: CPF })
+    const row = await linha()
+    await webhook({
+      event: 'PAYMENT_CONFIRMED',
+      payment: {
+        customer: row!.providerCustomerId,
+        subscription: row!.providerSubscriptionId,
+        dueDate: '2026-09-18',
+      },
+    })
+    return row!
+  }
+
+  it('o preço contratado fica na linha e não muda com a tabela', async () => {
+    await assinar({ plan: 'PRO', method: 'PIX', cpfCnpj: CPF })
+    expect((await linha())?.priceCents).toBe(29_900)
+
+    await reajustar('PRO', 39_900, 383_000)
+
+    expect((await linha())?.priceCents).toBe(29_900)
+  })
+
+  it('subir de plano cobra a diferença sobre o que foi pago, e não sobre a tabela nova', async () => {
+    await anualPago('STARTER')
+    await ownerPrisma.tenantSubscription.update({
+      where: { tenantId: tenant.tenantId },
+      data: { currentPeriodEndsAt: new Date(Date.now() + 182 * DIA) },
+    })
+
+    // O Starter subiu depois que este cliente assinou. A diferença tem de sair do que ele
+    // pagou (143.000), senão ele seria reajustado por dentro de uma subida de plano.
+    await reajustar('STARTER', 19_900, 191_000)
+
+    await callApi({
+      ...admin,
+      method: 'POST',
+      url: '/v1/subscription/plan',
+      payload: { plan: 'PRO' },
+    })
+
+    // (287.000 − 143.000) ÷ 12 × 6 = 72.000 — e não (287.000 − 191.000) ÷ 12 × 6.
+    expect(chamadas.charges).toEqual([expect.objectContaining({ valueCents: 72_000 })])
+    expect((await linha())?.priceCents).toBe(287_000)
+  })
+
+  it('desfazer a descida agendada devolve o preço contratado, não o de tabela', async () => {
+    await anualPago('PRO')
+    await callApi({
+      ...admin,
+      method: 'POST',
+      url: '/v1/subscription/plan',
+      payload: { plan: 'STARTER' },
+    })
+
+    await reajustar('PRO', 39_900, 383_000)
+
+    await callApi({
+      ...admin,
+      method: 'POST',
+      url: '/v1/subscription/plan',
+      payload: { plan: 'PRO' },
+    })
+
+    // Quem só mudou de ideia não pode sair reajustado.
+    expect(chamadas.updates.at(-1)).toMatchObject({ valueCents: 287_000 })
+    expect((await linha())?.priceCents).toBe(287_000)
+  })
+
+  it('a descida agendada entra em vigor pelo preço do dia em que foi agendada', async () => {
+    const row = await anualPago('PRO')
+    await callApi({
+      ...admin,
+      method: 'POST',
+      url: '/v1/subscription/plan',
+      payload: { plan: 'STARTER' },
+    })
+    expect((await linha())?.scheduledPriceCents).toBe(143_000)
+
+    // A tabela do Starter sobe entre o agendamento e a renovação.
+    await reajustar('STARTER', 19_900, 191_000)
+
+    await webhook({
+      event: 'PAYMENT_CONFIRMED',
+      payment: {
+        customer: row.providerCustomerId,
+        subscription: row.providerSubscriptionId,
+        dueDate: '2027-09-18',
+      },
+    })
+
+    expect(await linha()).toMatchObject({ plan: 'STARTER', priceCents: 143_000 })
+  })
+})
+
 describe('a leitura', () => {
   it('mostra plano, estado e a assinatura em curso', async () => {
     await assinar({ plan: 'PRO', method: 'PIX', cpfCnpj: CPF })

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { isValidCNPJ, isValidCPF, onlyDigits } from './br-documents.js'
 import { TenantStatusSchema } from './identity.js'
-import { BillingCycleSchema, PlanSchema } from './plans.js'
+import { BillingCycleSchema, PlanPriceRowSchema, PlanSchema } from './plans.js'
 
 /**
  * Camada comercial, fatia 4 — a assinatura do estabelecimento (Asaas).
@@ -65,6 +65,14 @@ export const SubscriptionViewSchema = z.object({
   trialEndsAt: z.iso.datetime().nullable(),
   /** `false` sem `ASAAS_API_KEY`: a tela mostra o plano e não oferece pagar. */
   configured: z.boolean(),
+  /**
+   * A tabela de preços **de hoje** — o que custa assinar ou trocar de plano agora.
+   *
+   * Vem do servidor, e não do catálogo do pacote, porque a equipe da PetShop AI muda preço
+   * pelo console. Não se confunde com `subscription.priceCents`, que é o que **este**
+   * estabelecimento contratou e continua pagando.
+   */
+  prices: z.array(PlanPriceRowSchema),
   graceDays: z.number().int(),
   subscription: z
     .object({
@@ -74,10 +82,19 @@ export const SubscriptionViewSchema = z.object({
       cycle: BillingCycleSchema,
       status: SubscriptionStatusSchema,
       /**
+       * O preço **contratado**, que não muda quando a tabela muda.
+       *
+       * É o grandfathering visível: quem assinou o Pro por R$ 299 continua lendo R$ 299 na
+       * tela depois de um reajuste, porque é o que o Asaas continua cobrando dele.
+       */
+      priceCents: z.number().int().nullable(),
+      /**
        * A descida de plano que espera a renovação (só no anual). Enquanto ela existe,
        * `plan` é o que está em vigor e este é o que entra quando o ano virar.
        */
       scheduledPlan: PlanSchema.nullable(),
+      /** O que a descida agendada vai custar, fixado no dia em que foi agendada. */
+      scheduledPriceCents: z.number().int().nullable(),
       /** O fim do período pago — a data em que a renovação cobra. */
       currentPeriodEndsAt: z.iso.datetime().nullable(),
       paymentUrl: z.string().nullable(),
