@@ -334,20 +334,31 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
              * todos. Um item entre Agenda e Financeiro sugeriria que é mais uma área
              * daqui.
              *
-             * `ghost` porque não é a ação da tela — é uma saída. E ele não tenta trocar o
-             * contexto do Clerk aqui: a sessão da plataforma é a que **não** tem
-             * Organization, e quem oferece a troca é o cartão do outro lado, que sabe
-             * distinguir "estabelecimento aberto" de "conta fora da equipe".
+             * **Só o ícone, do tamanho do sino.** Com a palavra "Plataforma" ele lia como
+             * a ação da faixa, ao lado de um nome e um avatar que não têm rótulo nenhum —
+             * e quem o vê é sempre a mesma meia dúzia de pessoas, que não precisa ler o
+             * destino duas vezes. O nome fica no `aria-label` e no `title`, porque tirar
+             * a palavra da tela não é tirá-la de quem usa leitor de tela.
+             *
+             * As classes são as do gatilho do sino (`notifications-bell.tsx`), e não um
+             * `<ButtonLink>`: os dois são o mesmo tipo de alvo — ícone redondo de 36px que
+             * acende no hover —, e um botão com moldura ao lado do sino desequilibraria o
+             * canto. Mexer no tamanho de um pede mexer no outro.
+             *
+             * Ele não tenta trocar o contexto do Clerk aqui: a sessão da plataforma é a
+             * que **não** tem Organization, e quem oferece a troca é o cartão do outro
+             * lado, que sabe distinguir "estabelecimento aberto" de "conta fora da
+             * equipe".
              */}
             {me.platformAdmin && (
-              <ButtonLink
+              <Link
                 href="/plataforma"
-                variant="ghost"
-                icon={<ShieldCheckIcon />}
-                className="hidden shrink-0 sm:inline-flex"
+                aria-label="Console da plataforma"
+                title="Console da plataforma"
+                className="hidden h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition hover:bg-black/5 hover:text-ink sm:grid"
               >
-                Plataforma
-              </ButtonLink>
+                <ShieldCheckIcon />
+              </Link>
             )}
             {/*
              * O sino antes do nome, e não depois do avatar: o avatar é o fim da linha
