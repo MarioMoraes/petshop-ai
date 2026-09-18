@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ANNUAL_DISCOUNT_PERCENT,
+  BILLING_CYCLES,
   PLAN_CATALOG,
   PLAN_FEATURES,
   PLAN_ORDER,
+  annualSavingsCents,
   minimumPlanFor,
   parsePlanParam,
   planFeatures,
   planIncludes,
+  planPriceCents,
+  yearlyPriceOf,
 } from './plans.js'
 
 describe('catálogo de planos', () => {
@@ -42,6 +47,39 @@ describe('catálogo de planos', () => {
     expect(minimumPlanFor('PORTAL')).toBe('PRO')
     expect(minimumPlanFor('AI_PERSONA')).toBe('ENTERPRISE')
     expect(planIncludes('ENTERPRISE', 'TAXI')).toBe(true)
+  })
+
+  it('o preço anual de cada plano é o desconto anunciado sobre doze mensalidades', () => {
+    for (const plan of PLAN_ORDER) {
+      const { priceCents, priceYearlyCents } = PLAN_CATALOG[plan]
+      if (priceCents === null) {
+        // Sob consulta é sob consulta nos dois ciclos: um preço anual aqui seria uma
+        // tabela que a landing não mostra.
+        expect(priceYearlyCents, plan).toBeNull()
+        continue
+      }
+      expect(priceYearlyCents, plan).toBe(yearlyPriceOf(priceCents))
+      expect(annualSavingsCents(plan), plan).toBe(priceCents * 12 - priceYearlyCents!)
+    }
+  })
+
+  it('o anual sai mais barato que doze mensalidades, e o desconto é o anunciado', () => {
+    expect(yearlyPriceOf(14_900)).toBe(143_000)
+    expect(yearlyPriceOf(29_900)).toBe(287_000)
+    // O arredondamento para real inteiro nunca cobra mais do que o desconto promete.
+    for (const plan of PLAN_ORDER) {
+      const mensal = PLAN_CATALOG[plan].priceCents
+      if (mensal === null) continue
+      const desconto = (annualSavingsCents(plan)! * 100) / (mensal * 12)
+      expect(desconto, plan).toBeGreaterThanOrEqual(ANNUAL_DISCOUNT_PERCENT)
+      expect(desconto, plan).toBeLessThan(ANNUAL_DISCOUNT_PERCENT + 1)
+    }
+  })
+
+  it('o preço de uma cobrança sai do par plano × ciclo', () => {
+    expect(planPriceCents('STARTER', 'MONTHLY')).toBe(14_900)
+    expect(planPriceCents('STARTER', 'YEARLY')).toBe(143_000)
+    expect(BILLING_CYCLES.map((cycle) => planPriceCents('ENTERPRISE', cycle))).toEqual([null, null])
   })
 
   it('lê o ?plan= da landing sem confiar nele', () => {

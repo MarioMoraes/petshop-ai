@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  ANNUAL_DISCOUNT_PERCENT,
   PLAN_CATALOG,
   PLAN_FEATURES,
   PLAN_ORDER,
@@ -67,6 +68,23 @@ describe('landing page × catálogo de planos', () => {
       )
       const items = [...body.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(([, li]) => text(li!))
       expect(items, plan).toEqual(definition.includes)
+    }
+  })
+
+  it('cada cartão oferece o anual pelo preço e pelo desconto do catálogo', () => {
+    for (const { plan, body } of cards()) {
+      const { priceYearlyCents } = PLAN_CATALOG[plan]
+      const linha = body.match(/<p class="price-year"[^>]*>([\s\S]*?)<\/p>/)
+
+      if (priceYearlyCents === null) {
+        // Sob consulta não anuncia anual: não há preço de tabela para descontar.
+        expect(linha, plan).toBeNull()
+        continue
+      }
+      const reais = (priceYearlyCents / 100).toLocaleString('pt-BR')
+      expect(text(linha![1]!), plan).toBe(
+        `ou R$ ${reais}/ano — economize ${ANNUAL_DISCOUNT_PERCENT}%`,
+      )
     }
   })
 

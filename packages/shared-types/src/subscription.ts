@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { isValidCNPJ, isValidCPF, onlyDigits } from './br-documents.js'
 import { TenantStatusSchema } from './identity.js'
-import { PlanSchema } from './plans.js'
+import { BillingCycleSchema, PlanSchema } from './plans.js'
 
 /**
  * Camada comercial, fatia 4 — a assinatura do estabelecimento (Asaas).
@@ -40,9 +40,15 @@ const DocumentoSchema = z
     message: 'Informe um CPF ou CNPJ válido',
   })
 
+/**
+ * O ciclo entra aqui, e não na troca de plano: ele é escolhido ao **começar** a
+ * assinatura. O default mensal mantém de pé quem chama sem dizer nada — e é o ciclo que
+ * o produto tinha antes de 2026-09-18.
+ */
 export const StartCheckoutSchema = z.strictObject({
   plan: SelfServicePlanSchema,
   method: BillingMethodSchema,
+  cycle: BillingCycleSchema.default('MONTHLY'),
   cpfCnpj: DocumentoSchema,
 })
 export type StartCheckoutInput = z.output<typeof StartCheckoutSchema>
@@ -65,7 +71,15 @@ export const SubscriptionViewSchema = z.object({
       /** O plano **contratado**, que pode ainda não estar em vigor (`PENDING`). */
       plan: PlanSchema,
       method: BillingMethodSchema,
+      cycle: BillingCycleSchema,
       status: SubscriptionStatusSchema,
+      /**
+       * A descida de plano que espera a renovação (só no anual). Enquanto ela existe,
+       * `plan` é o que está em vigor e este é o que entra quando o ano virar.
+       */
+      scheduledPlan: PlanSchema.nullable(),
+      /** O fim do período pago — a data em que a renovação cobra. */
+      currentPeriodEndsAt: z.iso.datetime().nullable(),
       paymentUrl: z.string().nullable(),
       overdueSince: z.iso.datetime().nullable(),
       lastPaidAt: z.iso.datetime().nullable(),

@@ -4048,7 +4048,13 @@ model TenantSubscription {
   provider String             @default("asaas") @db.VarChar(20)
   plan     Plan
   method   BillingMethod
+  cycle    BillingCycle       @default(MONTHLY)
   status   SubscriptionStatus @default(PENDING)
+
+  /// A descida de plano que espera a renovação (só no anual). `plan` segue em vigor até lá.
+  scheduledPlan Plan? @map("scheduled_plan")
+  /// O fim do período pago. É por ele que a subida proporcional sabe quantos meses faltam.
+  currentPeriodEndsAt DateTime? @map("current_period_ends_at") @db.Timestamptz(6)
 
   providerCustomerId     String? @map("provider_customer_id") @db.VarChar(64)
   providerSubscriptionId String? @map("provider_subscription_id") @db.VarChar(64)
@@ -4075,4 +4081,9 @@ enum SubscriptionStatus {
 enum BillingMethod {
   CREDIT_CARD
   PIX
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
 }

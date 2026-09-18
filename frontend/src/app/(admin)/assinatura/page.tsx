@@ -3,6 +3,7 @@ import {
   BILLING_METHOD_LABELS,
   PLAN_CATALOG,
   formatBRL,
+  planPriceCents,
   type SubscriptionView,
 } from '@petshop/shared-types'
 import { EmptyState, PageHeader } from '@/components/ui'
@@ -70,12 +71,18 @@ export default async function AssinaturaPage({ searchParams }: PageProps) {
   )
 }
 
-/** A frase do topo: o estado da conta, dito como a pessoa o entende. */
+/**
+ * A frase do topo: o estado da conta, dito como a pessoa o entende.
+ *
+ * O preço sai do par plano × ciclo — quem assinou o ano não quer ler uma mensalidade que
+ * não paga.
+ */
 function situacao(view: SubscriptionView): string {
   const plano = PLAN_CATALOG[view.plan].name
   const sub = view.subscription
-  const preco = PLAN_CATALOG[view.plan].priceCents
-  const mensal = preco === null ? '' : ` · ${formatBRL(preco)}/mês`
+  const preco = sub ? planPriceCents(view.plan, sub.cycle) : PLAN_CATALOG[view.plan].priceCents
+  const valor =
+    preco === null ? '' : ` · ${formatBRL(preco)}${sub?.cycle === 'YEARLY' ? '/ano' : '/mês'}`
 
   switch (view.tenantStatus) {
     case 'TRIAL':
@@ -85,12 +92,12 @@ function situacao(view: SubscriptionView): string {
     case 'TRIAL_EXPIRED':
       return 'O período de teste terminou'
     case 'PAST_DUE':
-      return `Plano ${plano} · mensalidade em atraso`
+      return `Plano ${plano} · cobrança em atraso`
     case 'SUSPENDED':
       return `Plano ${plano} · suspenso por falta de pagamento`
     case 'ACTIVE':
       return sub
-        ? `Plano ${plano}${mensal} · ${BILLING_METHOD_LABELS[sub.method]}`
+        ? `Plano ${plano}${valor} · ${BILLING_METHOD_LABELS[sub.method]}`
         : `Plano ${plano}`
     default:
       return `Plano ${plano}`

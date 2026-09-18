@@ -18,6 +18,41 @@ export const PlanSchema = z.enum(PLANS)
 export type Plan = z.infer<typeof PlanSchema>
 
 /**
+ * Mensal ou anual — o ciclo de cobrança (decisão do produto de 2026-09-18).
+ *
+ * O anual **não é outro plano**: teto de usuários, cota de fotos e recursos são os do
+ * plano escolhido, e o que muda é só o preço e a periodicidade da cobrança. Por isso ele
+ * mora aqui, ao lado do preço, e não numa segunda tabela de produtos.
+ *
+ * O ciclo é escolhido ao **começar** a assinatura e não muda depois: trocar de ciclo é
+ * trocar de assinatura no Asaas, com o dinheiro de um ano mudando de lugar, e não uma
+ * edição da que está correndo.
+ */
+export const BILLING_CYCLES = ['MONTHLY', 'YEARLY'] as const
+export const BillingCycleSchema = z.enum(BILLING_CYCLES)
+export type BillingCycle = z.infer<typeof BillingCycleSchema>
+
+export const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
+  MONTHLY: 'Mensal',
+  YEARLY: 'Anual',
+}
+
+/** O desconto do anual, em pontos percentuais — o número que a landing anuncia. */
+export const ANNUAL_DISCOUNT_PERCENT = 20
+
+/**
+ * O preço anual que corresponde a uma mensalidade: doze meses menos o desconto,
+ * **arredondado para real inteiro para baixo**.
+ *
+ * Existe porque `149 × 12 × 0,8` dá R$ 1.430,40, e preço de tabela com quarenta centavos
+ * não se anuncia. O catálogo guarda o número escolhido e `plans.test.ts` o confere contra
+ * esta função: um preço mensal novo sem o anual correspondente derruba o teste.
+ */
+export function yearlyPriceOf(monthlyCents: number): number {
+  return Math.floor((monthlyCents * 12 * (100 - ANNUAL_DISCOUNT_PERCENT)) / 10_000) * 100
+}
+
+/**
  * O que um plano libera além do anterior. A operação (agenda, tutores, pets, prontuário,
  * financeiro, PDFs, e-mail) não tem chave: está em todos os planos e não se bloqueia.
  */
@@ -52,6 +87,11 @@ export interface PlanDefinition {
   pitch: string
   /** Mensalidade por estabelecimento. `null` é "sob consulta". */
   priceCents: number | null
+  /**
+   * O ano inteiro pago de uma vez, já com o desconto — e **não** doze mensalidades.
+   * `null` acompanha `priceCents`: quem é sob consulta é sob consulta nos dois ciclos.
+   */
+  priceYearlyCents: number | null
   /** RN-11 de MOD-IDENT: teto de usuários, verificado no convite e no aceite. `null` é ilimitado. */
   seats: number | null
   /** AC-03 de MOD-PET-06: a cota conta fotos, não bytes. `null` é ilimitado. */
@@ -70,6 +110,7 @@ export const PLAN_CATALOG: Record<Plan, PlanDefinition> = {
     name: 'Starter',
     pitch: 'Para organizar a operação e sair do caderno e da planilha.',
     priceCents: 14_900,
+    priceYearlyCents: 143_000,
     seats: 5,
     photoQuota: 500,
     adds: [],
@@ -88,6 +129,7 @@ export const PLAN_CATALOG: Record<Plan, PlanDefinition> = {
     name: 'Pro',
     pitch: 'Para equipes que querem o cliente perto: WhatsApp com IA, portal e site.',
     priceCents: 29_900,
+    priceYearlyCents: 287_000,
     seats: 15,
     photoQuota: 5_000,
     adds: ['WHATSAPP', 'CAMPAIGNS', 'PORTAL', 'SITE', 'TAXI', 'AI_AGENT'],
@@ -107,6 +149,7 @@ export const PLAN_CATALOG: Record<Plan, PlanDefinition> = {
     name: 'Enterprise',
     pitch: 'Para redes e operações grandes, com o agente de IA sob medida.',
     priceCents: null,
+    priceYearlyCents: null,
     seats: null,
     photoQuota: null,
     adds: ['AI_PERSONA', 'AI_QUALITY'],
@@ -138,6 +181,24 @@ export function planIncludes(plan: Plan, feature: PlanFeature): boolean {
 /** Todos os recursos liberados no plano, somando os dos planos anteriores. */
 export function planFeatures(plan: Plan): PlanFeature[] {
   return PLAN_FEATURES.filter((feature) => planIncludes(plan, feature))
+}
+
+/**
+ * O valor de **uma cobrança** no ciclo escolhido: a mensalidade ou o ano inteiro.
+ *
+ * É por aqui que preço e ciclo andam juntos — quem multiplica por doze à mão em algum
+ * outro lugar está reinventando o desconto.
+ */
+export function planPriceCents(plan: Plan, cycle: BillingCycle): number | null {
+  const definition = PLAN_CATALOG[plan]
+  return cycle === 'YEARLY' ? definition.priceYearlyCents : definition.priceCents
+}
+
+/** Quanto o anual economiza num ano, para a tela e a landing dizerem o número. */
+export function annualSavingsCents(plan: Plan): number | null {
+  const { priceCents, priceYearlyCents } = PLAN_CATALOG[plan]
+  if (priceCents === null || priceYearlyCents === null) return null
+  return priceCents * 12 - priceYearlyCents
 }
 
 /**

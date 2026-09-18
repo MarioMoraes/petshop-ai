@@ -1,3 +1,4 @@
+import type { BillingCycle } from '@petshop/shared-types'
 import { loadEnv } from '../../config/env.js'
 import { logger } from '../../shared/logger.js'
 import { providerFailed } from './errors.js'
@@ -19,6 +20,10 @@ import { providerFailed } from './errors.js'
  *   O preço disso é que o cliente e a assinatura nascem **lá** — e o webhook é que os
  *   devolve (ver `webhook.ts`).
  *
+ * **O ciclo é o do Asaas (`MONTHLY`/`YEARLY`) porque é o mesmo vocabulário**, e não porque
+ * um herda do outro: `BillingCycle` é nosso, e a tradução mora nas duas linhas que o
+ * escrevem no corpo. O provedor cobra sozinho na periodicidade que a assinatura disser.
+ *
  * Validado contra a documentação em 2026-09-17, e **não** contra o sandbox: o payload do
  * `CHECKOUT_PAID` não está documentado. Conferir no sandbox antes de produção.
  */
@@ -26,6 +31,7 @@ import { providerFailed } from './errors.js'
 export interface PixSubscriptionRequest {
   customerId: string
   valueCents: number
+  cycle: BillingCycle
   nextDueDate: string
   description: string
   externalReference: string
@@ -33,6 +39,7 @@ export interface PixSubscriptionRequest {
 
 export interface CardCheckoutRequest {
   valueCents: number
+  cycle: BillingCycle
   itemName: string
   description: string
   nextDueDate: string
@@ -40,6 +47,21 @@ export interface CardCheckoutRequest {
   customer: { name: string; cpfCnpj: string; email?: string | undefined }
   successUrl: string
   cancelUrl: string
+}
+
+/**
+ * A cobrança avulsa da diferença de plano, no ciclo anual.
+ *
+ * **Sempre PIX**, mesmo para quem assina no cartão: o cartão está guardado no Asaas, e
+ * não aqui — cobrá-lo avulso exigiria o token que o Checkout não nos devolve. `UNDEFINED`
+ * resolveria, mas abriria o boleto, que o produto não vende.
+ */
+export interface OneOffChargeRequest {
+  customerId: string
+  valueCents: number
+  dueDate: string
+  description: string
+  externalReference: string
 }
 
 export interface BillingProviderPort {
@@ -54,10 +76,25 @@ export interface BillingProviderPort {
     input: PixSubscriptionRequest,
   ): Promise<{ subscriptionId: string; paymentUrl: string | null }>
   createCardCheckout(input: CardCheckoutRequest): Promise<{ checkoutId: string; url: string }>
-  /** Troca de plano: vale para as próximas cobranças e para a que está em aberto. */
-  updateSubscriptionValue(subscriptionId: string, valueCents: number): Promise<void>
+  createCharge(
+    input: OneOffChargeRequest,
+  ): Promise<{ paymentId: string; paymentUrl: string | null }>
+  /**
+   * Troca de plano: o valor novo vale para as próximas cobranças.
+   *
+   * `updatePendingPayments` diz se a cobrança **já emitida** também muda. No mensal, muda
+   * (a diferença de um mês é uma mensalidade); no anual, não — o ano corrente já foi pago
+   * pelo que valia, e a diferença é cobrada à parte.
+   */
+  updateSubscriptionValue(
+    subscriptionId: string,
+    valueCents: number,
+    options: { updatePendingPayments: boolean },
+  ): Promise<void>
   cancelSubscription(subscriptionId: string): Promise<void>
 }
+
+const ASAAS_CYCLE: Record<BillingCycle, string> = { MONTHLY: 'MONTHLY', YEARLY: 'YEARLY' }
 
 /**
  * A imagem do item do checkout. O Asaas a exige (`imageBase64` é obrigatório em `items`);
@@ -124,7 +161,7 @@ function createAsaasPort(): BillingProviderPort {
       const subscription = await call<{ id: string }>('POST', '/subscriptions', {
         customer: input.customerId,
         billingType: 'PIX',
-        cycle: 'MONTHLY',
+        cycle: ASAAS_CYCLE[input.cycle],
         value: reais(input.valueCents),
         nextDueDate: input.nextDueDate,
         description: input.description,
@@ -163,15 +200,27 @@ function createAsaasPort(): BillingProviderPort {
           cpfCnpj: input.customer.cpfCnpj,
           ...(input.customer.email ? { email: input.customer.email } : {}),
         },
-        subscription: { cycle: 'MONTHLY', nextDueDate: input.nextDueDate },
+        subscription: { cycle: ASAAS_CYCLE[input.cycle], nextDueDate: input.nextDueDate },
       })
       return { checkoutId: checkout.id, url: checkout.link }
     },
 
-    async updateSubscriptionValue(subscriptionId, valueCents) {
+    async createCharge(input) {
+      const payment = await call<{ id: string; invoiceUrl?: string }>('POST', '/payments', {
+        customer: input.customerId,
+        billingType: 'PIX',
+        value: reais(input.valueCents),
+        dueDate: input.dueDate,
+        description: input.description.slice(0, 500),
+        externalReference: input.externalReference,
+      })
+      return { paymentId: payment.id, paymentUrl: payment.invoiceUrl ?? null }
+    },
+
+    async updateSubscriptionValue(subscriptionId, valueCents, options) {
       await call('PUT', `/subscriptions/${subscriptionId}`, {
         value: reais(valueCents),
-        updatePendingPayments: true,
+        updatePendingPayments: options.updatePendingPayments,
       })
     },
 

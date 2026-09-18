@@ -14,9 +14,14 @@ import { transitionTenantStatus } from '../../shared/tenant-status.js'
  * Duas varreduras:
  *
  * - **atraso sem pagamento** além da carência → `SUSPENDED`;
- * - **assinatura cancelada** cujo último mês pago já passou → `SUSPENDED`. Sem esta, quem
+ * - **assinatura cancelada** cujo período pago já acabou → `SUSPENDED`. Sem esta, quem
  *   cancelasse no Asaas continuaria `ACTIVE` para sempre, porque nenhuma cobrança nova
  *   nasceria para vencer.
+ *
+ * **Quanto dura o período pago é a assinatura que diz**, e não uma constante: quem pagou
+ * um ano tem um ano. `current_period_ends_at` é escrito a cada pagamento confirmado; o
+ * palpite de 31 dias sobre `last_paid_at` sobrou para as linhas anteriores à contratação
+ * anual, que nunca o tiveram preenchido.
  */
 
 const MES_PAGO_MS = 31 * 24 * 60 * 60 * 1000
@@ -35,8 +40,14 @@ export async function runSuspendOverdueOnce(now: Date = new Date()): Promise<num
     prisma.tenantSubscription.findMany({
       where: {
         status: 'CANCELED',
-        lastPaidAt: { lte: new Date(now.getTime() - MES_PAGO_MS) },
         tenant: { status: { in: ['ACTIVE', 'PAST_DUE'] } },
+        OR: [
+          { currentPeriodEndsAt: { lte: now } },
+          {
+            currentPeriodEndsAt: null,
+            lastPaidAt: { lte: new Date(now.getTime() - MES_PAGO_MS) },
+          },
+        ],
       },
       select: { tenantId: true },
       take: 200,

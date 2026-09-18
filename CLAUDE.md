@@ -211,6 +211,18 @@ porque os dois renderizam em paralelo. Starter e Pro mudam pela assinatura
 (`/v1/subscription`); o Enterprise, a cortesia e a correção, pelo console da plataforma
 (`PATCH /platform/v1/tenants/:id/plan`). Os dois gravam por `applyTenantPlan`.
 
+**O ciclo é escolhido ao assinar e não muda depois** — mensal, ou anual com
+`ANNUAL_DISCOUNT_PERCENT` de desconto. Preço é sempre o par plano×ciclo (`planPriceCents`);
+quem multiplicar por doze à mão está reinventando o desconto. **O anual quebra a simetria
+da troca de plano**, porque o ano já foi pago: subir vale na hora e cobra a diferença dos
+meses que faltam numa cobrança avulsa, marcada no `externalReference` para o webhook saber
+que ela **não compra tempo**; descer fica em `scheduled_plan` e só entra em vigor quando a
+renovação é paga. `current_period_ends_at` é escrito a cada pagamento que renova, sempre
+**absoluto** (vencimento + ciclo, nunca o fim anterior + ciclo) — é o que torna inofensivo
+o par `PAYMENT_CONFIRMED` + `PAYMENT_RECEIVED` que o Asaas manda para a mesma cobrança, e
+é ele, e não mais um palpite de 31 dias sobre `last_paid_at`, que diz até quando uma
+assinatura cancelada continua respondendo.
+
 **O estado da conta muda por um caminho só:** `shared/tenant-status.ts`, com a transição
 condicional ao estado de origem no `WHERE` — é o que torna idempotentes o job do fim do
 teste (`TRIAL` → `TRIAL_EXPIRED`), o webhook do Asaas (pagamento → `ACTIVE`, atraso →

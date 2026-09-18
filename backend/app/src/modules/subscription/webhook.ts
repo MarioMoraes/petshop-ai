@@ -1,11 +1,12 @@
 import { timingSafeEqual } from 'node:crypto'
 import { Prisma, getMaintenancePrisma, getPrisma, withTenant } from '@petshop/db'
-import type { Plan, TenantStatus } from '@petshop/shared-types'
+import type { BillingCycle, Plan, TenantStatus } from '@petshop/shared-types'
 import { loadEnv } from '../../config/env.js'
 import { recordAudit } from '../../shared/audit.js'
 import { logger } from '../../shared/logger.js'
 import { applyTenantPlan } from '../../shared/plan.js'
 import { transitionTenantStatus } from '../../shared/tenant-status.js'
+import { UPGRADE_REF } from './service.js'
 
 /**
  * O que o Asaas conta sobre a assinatura (camada comercial, fatia 4).
@@ -20,6 +21,12 @@ import { transitionTenantStatus } from '../../shared/tenant-status.js'
  * checkout, e o evento do checkout (`checkout.customer`) é o que o devolve. Como segunda
  * chave, a assinatura (`payment.subscription`) e a referência externa, que é o id do
  * estabelecimento.
+ *
+ * **Nem todo pagamento renova o período.** A diferença cobrada ao subir de plano no meio
+ * de um ano é uma cobrança avulsa, marcada no `externalReference`; ela quita uma dívida e
+ * não compra tempo. As que renovam gravam um `current_period_ends_at` **absoluto** —
+ * vencimento mais um ciclo, nunca o fim anterior mais um ciclo —, e é isso que faz o par
+ * `PAYMENT_CONFIRMED` + `PAYMENT_RECEIVED` do mesmo pagamento não valer dois períodos.
  */
 
 const PROVIDER = 'asaas'
@@ -117,6 +124,10 @@ async function aplicar(event: string, payload: AsaasWebhookPayload): Promise<Asa
     return 'PROCESSED'
   }
 
+  // Quem cancela deixa de responder quando o **período pago** acaba — no anual, isso é
+  // até onze meses depois. Quem o conta é `runSuspendOverdueOnce`, por
+  // `current_period_ends_at`.
+
   const payment = payload.payment
   if (!payment) return 'IGNORED'
   const row = await localizar({
@@ -142,7 +153,13 @@ async function aplicar(event: string, payload: AsaasWebhookPayload): Promise<Asa
   switch (event) {
     case 'PAYMENT_CONFIRMED':
     case 'PAYMENT_RECEIVED':
-      await ativar(row, { customerId: payment.customer, subscriptionId: payment.subscription })
+      await ativar(
+        row,
+        { customerId: payment.customer, subscriptionId: payment.subscription },
+        // A diferença de plano quita a subida; quem compra tempo é a cobrança da
+        // assinatura.
+        { renova: !ehDiferencaDePlano(payment.externalReference), dueDate: payment.dueDate },
+      )
       return 'PROCESSED'
 
     case 'PAYMENT_CREATED':
@@ -188,7 +205,7 @@ async function aplicarCheckout(event: string, checkout: AsaasCheckout): Promise<
   }
 
   if (event === 'CHECKOUT_PAID') {
-    await ativar(row, { customerId: checkout.customer })
+    await ativar(row, { customerId: checkout.customer }, { renova: true })
     return 'PROCESSED'
   }
   if (event === 'CHECKOUT_CANCELED' || event === 'CHECKOUT_EXPIRED') {
@@ -212,8 +229,9 @@ async function localizar(chaves: {
   if (chaves.customerId) ou.push({ providerCustomerId: chaves.customerId })
   if (chaves.subscriptionId) ou.push({ providerSubscriptionId: chaves.subscriptionId })
   if (chaves.checkoutId) ou.push({ providerCheckoutId: chaves.checkoutId })
-  if (chaves.tenantId && /^[0-9a-f-]{36}$/i.test(chaves.tenantId))
-    ou.push({ tenantId: chaves.tenantId })
+  // A referência da cobrança avulsa é `<tenantId>:<marca>`; o id é o que vem antes.
+  const tenantId = chaves.tenantId?.split(':')[0]
+  if (tenantId && /^[0-9a-f-]{36}$/i.test(tenantId)) ou.push({ tenantId })
   if (ou.length === 0) return null
 
   // Cross-tenant por natureza: o evento não diz de quem é antes de ser resolvido.
@@ -222,10 +240,35 @@ async function localizar(chaves: {
   })
 }
 
+function ehDiferencaDePlano(externalReference: string | undefined): boolean {
+  return externalReference?.endsWith(`:${UPGRADE_REF}`) ?? false
+}
+
+/**
+ * O fim do período que este pagamento comprou.
+ *
+ * **Absoluto**, contado do vencimento da cobrança — e não somado ao fim anterior. É o que
+ * torna inofensivo processar o mesmo pagamento duas vezes: o Asaas manda
+ * `PAYMENT_CONFIRMED` e `PAYMENT_RECEIVED` para a mesma cobrança, com ids de evento
+ * diferentes, e os dois passam pela idempotência de `webhook_events`.
+ */
+function fimDoPeriodo(cycle: BillingCycle, dueDate: string | undefined): Date {
+  const base = dueDate ? new Date(`${dueDate}T12:00:00Z`) : new Date()
+  const fim = new Date(base)
+  fim.setUTCMonth(fim.getUTCMonth() + (cycle === 'YEARLY' ? 12 : 1))
+  return fim
+}
+
 async function ativar(
   row: Linha,
   ids: { customerId?: string | undefined; subscriptionId?: string | undefined },
+  pagamento: { renova: boolean; dueDate?: string | undefined },
 ): Promise<void> {
+  // A descida de plano agendada entra em vigor na renovação — é a cobrança do período
+  // novo que a autoriza, e não a data.
+  const plano =
+    pagamento.renova && row.scheduledPlan ? (row.scheduledPlan as Plan) : (row.plan as Plan)
+
   await atualizar(
     row.tenantId,
     {
@@ -233,6 +276,13 @@ async function ativar(
       overdueSince: null,
       lastPaidAt: new Date(),
       paymentUrl: null,
+      ...(pagamento.renova
+        ? {
+            plan: plano,
+            scheduledPlan: null,
+            currentPeriodEndsAt: fimDoPeriodo(row.cycle as BillingCycle, pagamento.dueDate),
+          }
+        : {}),
       ...(ids.customerId && !row.providerCustomerId ? { providerCustomerId: ids.customerId } : {}),
       ...(ids.subscriptionId && !row.providerSubscriptionId
         ? { providerSubscriptionId: ids.subscriptionId }
@@ -242,7 +292,7 @@ async function ativar(
   )
 
   // O plano contratado entra em vigor com o dinheiro, e não com o clique.
-  await applyTenantPlan(row.tenantId, row.plan as Plan, { reason: 'PAYMENT_CONFIRMED' })
+  await applyTenantPlan(row.tenantId, plano, { reason: 'PAYMENT_CONFIRMED' })
   await transitionTenantStatus(row.tenantId, {
     from: REATIVA,
     to: 'ACTIVE',

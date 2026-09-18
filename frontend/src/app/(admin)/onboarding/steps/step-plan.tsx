@@ -1,7 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { PLAN_CATALOG, PLAN_ORDER, formatBRL, type Plan } from '@petshop/shared-types'
+import {
+  ANNUAL_DISCOUNT_PERCENT,
+  PLAN_CATALOG,
+  PLAN_ORDER,
+  formatBRL,
+  type Plan,
+} from '@petshop/shared-types'
 import { Badge, Button, Card } from '@/components/ui'
 import { saveStep2Action } from '../actions'
 import type { StepProps } from '../wizard'
@@ -58,6 +64,14 @@ export function StepPlan({ pending, onSubmit, plan }: StepProps & { plan: Plan }
                 {' · '}
                 {option.pitch}
               </p>
+              {/* O ciclo é escolhido na hora de pagar, não aqui: o teste não cobra nada.
+                  A linha existe para quem decide pelo preço já saber que há o anual. */}
+              {option.priceYearlyCents !== null && (
+                <p className="hint mt-0.5">
+                  Ou {formatBRL(option.priceYearlyCents)}/ano, com {ANNUAL_DISCOUNT_PERCENT}% de
+                  desconto.
+                </p>
+              )}
               <p className="mt-3 text-sm font-medium">{option.includesLead}</p>
               <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
                 {option.includes.map((highlight) => (

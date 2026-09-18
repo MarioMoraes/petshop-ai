@@ -1926,6 +1926,19 @@ ul {
   color: var(--subtle);
 }
 
+/* A alternativa anual, logo abaixo do preço de tabela. Ela não disputa com o número
+   grande: o que ganha peso é só o valor do ano, e o desconto vem como frase. */
+.price-year {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--subtle);
+}
+
+.price-year strong {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
 .plan .btn {
   margin-top: 26px;
   width: 100%;
@@ -1978,8 +1991,13 @@ ul {
 .plan-featured .plan-pitch,
 .plan-featured .price .per,
 .plan-featured .price-note,
+.plan-featured .price-year,
 .plan-featured .plan-inc {
   color: rgb(255 255 255 / 0.62);
+}
+
+.plan-featured .price-year strong {
+  color: #fff;
 }
 
 .plan-featured .plan-divider {
