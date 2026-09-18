@@ -323,6 +323,27 @@ export const SUBSCRIPTION_ERRORS = {
 
 export type SubscriptionErrorCode = keyof typeof SUBSCRIPTION_ERRORS
 
+/**
+ * MOD-IMPORT — a carga da base do sistema anterior.
+ *
+ * Catálogo curto de propósito. **O erro de uma linha não é um erro da requisição**: a
+ * planilha com quarenta CPFs tortos responde 200, com as quarenta linhas marcadas
+ * `ERRO` no relatório e a razão de cada uma. Levantar na primeira linha faria o
+ * operador descobrir um problema por envio, e ele tem quatrocentas linhas.
+ *
+ * O que está aqui é o que impede a carga **inteira** de acontecer: arquivo ilegível,
+ * teto de linhas, lote inexistente, desfazer impossível.
+ */
+export const IMPORT_ERRORS = {
+  ERR_IMPORT_001: { status: 404, title: 'Lote de importação não encontrado' },
+  ERR_IMPORT_002: { status: 422, title: 'Arquivo inválido' },
+  ERR_IMPORT_003: { status: 403, title: 'Permissão insuficiente' },
+  /** Desfazer o que já foi desfeito, ou o que já ganhou histórico depois da carga. */
+  ERR_IMPORT_004: { status: 409, title: 'Lote não pode ser desfeito' },
+} as const
+
+export type ImportErrorCode = keyof typeof IMPORT_ERRORS
+
 export const PLATFORM_ERRORS = {
   ERR_RATE_LIMITED: { status: 429, title: 'Muitas requisições' },
   /**
@@ -353,6 +374,7 @@ export const ERROR_CATALOG = {
   ...ADMIN_ERRORS,
   ...AGENT_ERRORS,
   ...SUBSCRIPTION_ERRORS,
+  ...IMPORT_ERRORS,
   ...PLATFORM_ERRORS,
 } as const
 

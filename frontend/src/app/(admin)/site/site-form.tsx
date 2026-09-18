@@ -133,7 +133,7 @@ function Publication({ preview, onError, onSaved }: BlockProps) {
           </ul>
           <p className="mt-2">
             Endereço e telefone ficam em{' '}
-            <Link href="/configuracoes" className="underline">
+            <Link href="/configuracoes/estabelecimento" className="underline">
               Configurações
             </Link>
             ; os serviços, em{' '}

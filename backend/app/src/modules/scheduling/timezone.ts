@@ -1,4 +1,4 @@
-import type { TenantTransaction } from '@petshop/db'
+import { withTenant, type TenantTransaction } from '@petshop/db'
 import { DEFAULT_TIMEZONE } from '@petshop/shared-types'
 
 /**
@@ -21,4 +21,17 @@ export { DEFAULT_TIMEZONE, addDays, weekdayOf, zonedDate, zonedMidnight } from '
 export async function loadTimezone(tx: TenantTransaction): Promise<string> {
   const settings = await tx.tenantSettings.findFirst({ select: { timezone: true } })
   return settings?.timezone ?? DEFAULT_TIMEZONE
+}
+
+/**
+ * O fuso do tenant, abrindo a transação por conta própria.
+ *
+ * Existe para quem está fora de uma: a carga do MOD-IMPORT converte a hora de parede da
+ * planilha ("05/10/2026 14:30") em instante UTC uma vez por arquivo, antes de percorrer
+ * as linhas. Sem isto, ou o módulo de fora abriria transação sobre a tabela de
+ * configuração de outro — que é justamente o que a porta existe para impedir —, ou
+ * pagaria uma leitura por linha para responder a mesma pergunta.
+ */
+export async function tenantTimezone(tenantId: string): Promise<string> {
+  return withTenant(tenantId, (tx) => loadTimezone(tx))
 }

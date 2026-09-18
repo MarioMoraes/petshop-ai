@@ -650,3 +650,32 @@ export function CheckIcon() {
     </svg>
   )
 }
+
+/**
+ * Subir um arquivo. Tom: `icon-brand`.
+ *
+ * A seta aponta para dentro da bandeja — é a direção que a importação tem do ponto de
+ * vista de quem opera: o arquivo entra no sistema. O irmão `DownloadIcon`, logo abaixo,
+ * é a mesma bandeja com a seta invertida, e os dois só se distinguem por isso de
+ * propósito: na tela de importação eles aparecem lado a lado.
+ */
+export function UploadIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="m17 8-5-5-5 5" />
+      <path d="M12 3v12" />
+    </svg>
+  )
+}
+
+/** Baixar o modelo CSV. Sem tom: acompanha a cor do botão que o rotula. */
+export function DownloadIcon() {
+  return (
+    <svg {...BASE} width={16} height={16}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M12 15V3" />
+    </svg>
+  )
+}

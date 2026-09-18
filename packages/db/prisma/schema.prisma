@@ -4110,3 +4110,100 @@ model PlanPrice {
 
   @@map("plan_prices")
 }
+
+// ─── MOD-IMPORT — a carga da base do sistema anterior ────────────────────────
+//
+// Duas tabelas, e é o que separa a importação de um `COPY` de madrugada: elas guardam
+// o que ENTROU, linha por linha, e é essa lista que permite desfazer.
+//
+// **Nenhum dado de domínio é escrito por elas.** O módulo compõe os serviços de
+// MOD-TUTOR, MOD-PET e MOD-AGENDA por porta declarada, então o tutor importado nasce
+// com a mesma validação, a mesma cifragem, o mesmo evento e a mesma trilha do tutor
+// cadastrado à mão. Um `INSERT` direto seria mais rápido de escrever e criaria uma
+// segunda verdade por tabela — a que envelhece quando a regra muda de um lado só.
+
+enum ImportEntity {
+  TUTOR
+  PET
+  PROFISSIONAL
+  AGENDA
+}
+
+enum ImportBatchStatus {
+  APLICADO
+  DESFEITO
+}
+
+enum ImportOutcome {
+  CRIADO
+  ATUALIZADO
+  IGNORADO
+  ERRO
+}
+
+model ImportBatch {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  entity   ImportEntity
+  fileName String       @map("file_name") @db.VarChar(200)
+
+  /// SHA-256 do conteúdo. É o que permite avisar "este arquivo já foi aplicado em tal
+  /// dia" a quem sobe duas vezes — e é a prova de que o aplicado é o que foi conferido,
+  /// já que o arquivo não fica guardado entre os dois passos.
+  fileHash String @map("file_hash") @db.VarChar(64)
+
+  /// O mapeamento coluna → campo que o humano confirmou. Guardado porque é a única
+  /// forma de reler o relatório de um lote antigo e entender de onde cada valor veio;
+  /// sem ele, "Nome" não diz se era o do pet ou o do tutor.
+  mapping Json @default("{}")
+
+  rowCount     Int @default(0) @map("row_count")
+  createdCount Int @default(0) @map("created_count")
+  updatedCount Int @default(0) @map("updated_count")
+  ignoredCount Int @default(0) @map("ignored_count")
+  failedCount  Int @default(0) @map("failed_count")
+
+  status ImportBatchStatus @default(APLICADO)
+
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  undoneAt  DateTime? @map("undone_at") @db.Timestamptz(6)
+
+  rows ImportRow[]
+
+  @@index([tenantId, createdAt(sort: Desc)], map: "idx_import_batches_tenant")
+  @@map("import_batches")
+}
+
+/// Uma linha por linha do arquivo. É trilha **e** lista de desfazer ao mesmo tempo: o
+/// `undo` apaga só o que tem `outcome = CRIADO`, nunca o que foi atualizado — quem
+/// reimportou por cima de um cadastro que já existia não quer que desfazer o apague.
+///
+/// Append-only na prática (nada aqui é editado depois), mas sem o privilégio de
+/// imutabilidade de `audit_logs`: isto é registro operacional, e o lote precisa poder
+/// ser marcado como desfeito.
+model ImportRow {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  batchId  String @map("batch_id") @db.Uuid
+
+  /// Repetida do lote de propósito: o desfazer percorre por (lote, resultado) e a
+  /// consulta não precisa do JOIN só para saber o que apagar.
+  entity ImportEntity
+  lineNo Int          @map("line_no")
+
+  /// A chave natural daquela linha — é o que o relatório mostra para o operador achá-la
+  /// na planilha dele.
+  ref      String?       @db.VarChar(200)
+  outcome  ImportOutcome
+  entityId String?       @map("entity_id") @db.Uuid
+  message  String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, outcome], map: "idx_import_rows_batch")
+  @@map("import_rows")
+}

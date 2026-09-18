@@ -239,7 +239,7 @@ export function montarPendencias(contagem: ContagemPendencias): Pendencia[] {
         'pedidos de exclusão de dados',
       ),
       detalhe: 'aguardando resposta da equipe',
-      href: '/configuracoes?aba=privacidade',
+      href: '/configuracoes/estabelecimento?aba=privacidade',
     })
   }
 

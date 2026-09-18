@@ -153,6 +153,16 @@ export const PERMISSIONS = {
    */
   'site:read_leads': 'Ver e tratar os contatos recebidos pelo site',
   'audit:read': 'Ler a trilha de auditoria',
+  /**
+   * MOD-IMPORT: trazer a base do sistema anterior.
+   *
+   * Permissão própria, e não a soma de `tutor:create` + `pet:create` +
+   * `schedule:manage_catalog` + `schedule:write_all`. Uma tacada cria tutores, pets,
+   * profissionais e agenda de uma vez, e o desfazer apaga o que ela criou — é decisão
+   * de virada de sistema, do mesmo peso que configurar o estabelecimento. Somar as
+   * quatro daria a migração inteira a quem só precisa cadastrar um cliente no balcão.
+   */
+  'import:run': 'Importar a base de outro sistema',
 } as const
 
 export type PermissionKey = keyof typeof PERMISSIONS
@@ -261,6 +271,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'site:manage',
     'site:read_leads',
     'audit:read',
+    'import:run',
   ],
 
   RECEPTIONIST: [

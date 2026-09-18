@@ -153,6 +153,11 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   // de quem esqueceu o `withTenant`. `rls-models-sync.test.ts` é quem apanhou.
   'AgentToolCall',
   'AgentSettings',
+  // MOD-IMPORT: o lote e as linhas da carga. O relatório é a planilha do cliente
+  // remontada linha a linha — nome, CPF e telefone da carteira inteira —, e é por isso
+  // que as duas entram aqui e não só na política do banco.
+  'ImportBatch',
+  'ImportRow',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
   // tenants por definição, e exigir contexto dele seria negar o que ele é.

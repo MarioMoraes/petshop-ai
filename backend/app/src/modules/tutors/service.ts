@@ -4,6 +4,7 @@ import {
   maskPhone,
   termKindForChannel,
   type AnonymizeTutorInput,
+  type ConsentSource,
   type CreateTutorInput,
   type ListTutorsQuery,
   type PaginatedTutors,
@@ -165,9 +166,22 @@ export async function revealTutorData(
 
 // ─── Criação ─────────────────────────────────────────────────────────────────
 
+/**
+ * De onde veio o consentimento que a criação registra.
+ *
+ * O padrão é `STAFF_FORM`, que é o gesto do titular numa tela nossa. A carga do
+ * MOD-IMPORT passa `IMPORT`, e a diferença não é burocrática: o aceite que veio da base
+ * antiga é prova de **segunda mão**, como o `PROVIDER` do retorno de spam, e quem ler a
+ * trilha meses depois precisa saber disso sem ter de adivinhar pela data.
+ */
+export interface CreateTutorOptions {
+  consentSource?: ConsentSource
+}
+
 export async function createTutor(
   actor: ActorContext,
   input: CreateTutorInput,
+  options: CreateTutorOptions = {},
 ): Promise<TutorDetail> {
   // Fora da transação: a resolução da versão vigente é leitura cacheada e não precisa
   // segurar a transação que cria o tutor.
@@ -230,7 +244,7 @@ export async function createTutor(
       await recordConsentsIn(tx, {
         tenantId: actor.tenantId,
         tutorId: created.id,
-        transitions: consentTransitionsFrom(input, termVersions),
+        transitions: consentTransitionsFrom(input, termVersions, options.consentSource ?? 'STAFF_FORM'),
         ipAddress: actor.ipAddress ?? null,
         userAgent: actor.userAgent ?? null,
       })
@@ -781,7 +795,11 @@ export function completenessOf(input: {
  * exigiria o endereço completo do estabelecimento e derrubaria o cadastro de quem ainda
  * não o preencheu. O papel sai depois, pela aba de consentimento (MOD-DOC-08).
  */
-function consentTransitionsFrom(input: CreateTutorInput, versions: TermVersionMap) {
+function consentTransitionsFrom(
+  input: CreateTutorInput,
+  versions: TermVersionMap,
+  source: ConsentSource,
+) {
   return [
     { channel: 'TERMS' as const, granted: true, purpose: 'BOTH' as const },
     { channel: 'WHATSAPP' as const, granted: input.consents.whatsapp, purpose: 'MARKETING' as const },
@@ -789,7 +807,7 @@ function consentTransitionsFrom(input: CreateTutorInput, versions: TermVersionMa
     { channel: 'IMAGE_USE' as const, granted: input.consents.imageUse, purpose: 'MARKETING' as const },
   ].map((transition) => ({
     ...transition,
-    source: 'STAFF_FORM' as const,
+    source,
     version: versions[termKindForChannel(transition.channel)],
   }))
 }

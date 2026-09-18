@@ -43,6 +43,15 @@ const QUEUE = 'crm-automation-service.events'
 const AgendamentoSchema = z.object({
   tenantId: z.uuid(),
   appointmentId: z.uuid(),
+  /**
+   * Quem publicou pediu silêncio. Ausente é `true` — o comportamento de sempre.
+   *
+   * Mesmo desenho do `notify` das corridas, logo abaixo, e pela mesma razão: quem
+   * publica sabe o que o consumidor não tem como saber. O caso concreto é a carga do
+   * MOD-IMPORT — trezentos horários que o cliente marcou semana passada, num sistema
+   * que ele não conhece, não rendem trezentas confirmações.
+   */
+  notify: z.boolean().optional(),
 })
 
 const AtendimentoConcluidoSchema = z.object({
@@ -72,6 +81,7 @@ const TaxiCorridaSchema = z.object({
 /** Confirmação do horário recém-marcado. */
 export async function handleAgendamentoCriado(payload: unknown): Promise<void> {
   const event = AgendamentoSchema.parse(payload)
+  if (event.notify === false) return
   await notifyAppointment(event.tenantId, event.appointmentId, 'appointment_confirmed')
 }
 
@@ -86,6 +96,9 @@ export async function handleAgendamentoCriado(payload: unknown): Promise<void> {
 export async function handleAgendamentoCancelado(payload: unknown): Promise<void> {
   const event = AgendamentoSchema.parse(payload)
   await cancelPending(event.tenantId, event.appointmentId)
+  // O lembrete pendente morre acima **mesmo em silêncio**: o horário deixou de existir,
+  // e o "seu banho é amanhã" sairia de qualquer forma na manhã seguinte.
+  if (event.notify === false) return
   await notifyAppointment(event.tenantId, event.appointmentId, 'appointment_cancelled')
 }
 

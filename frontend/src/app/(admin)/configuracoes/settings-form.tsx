@@ -162,8 +162,9 @@ export interface SettingsFormProps {
   /**
    * A aba que abre, quando a URL a nomeia.
    *
-   * O sino da topbar aponta para `/configuracoes?aba=privacidade`, e sem isto o clique
-   * cairia na aba "Dados" — o contador prometeria um destino e entregaria outro.
+   * O sino da topbar aponta para `/configuracoes/estabelecimento?aba=privacidade`, e sem
+   * isto o clique cairia na aba "Dados" — o contador prometeria um destino e entregaria
+   * outro.
    */
   abaInicial?: string
 }

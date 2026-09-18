@@ -9,6 +9,18 @@ import {
   type UpdatePlanPriceInput,
   type AgentConversationStatus,
   AddressResponseSchema,
+  ImportBatchListSchema,
+  ImportBatchSchema,
+  ImportEntityInfoSchema,
+  ImportReportSchema,
+  ImportUndoResultSchema,
+  type ImportBatch,
+  type ImportEntity,
+  type ImportEntityInfo,
+  type ImportReport,
+  type ImportReportRow,
+  type ImportRequestInput,
+  type ImportUndoResult,
   BreedSchema,
   CepLookupSchema,
   CheckDuplicatesResultSchema,
@@ -2579,6 +2591,65 @@ export function createApiClient(options: ApiClientOptions) {
         body: { tutorId },
         schema: SiteLeadSchema,
       }),
+
+    // ─── MOD-IMPORT — a carga da base do sistema anterior ──────────────────
+
+    /**
+     * O catálogo de campos de cada passo, com o modelo CSV pronto.
+     *
+     * Vem do servidor e não de uma cópia no frontend: é o **mesmo** catálogo que valida
+     * a carga, então o modelo que o operador baixa nunca diverge do que o sistema
+     * aceita.
+     */
+    listImportEntities: () =>
+      request({
+        method: 'GET',
+        path: '/v1/import/entities',
+        schema: z.object({ items: z.array(ImportEntityInfoSchema) }),
+      }),
+
+    /** Confere o arquivo e devolve o relatório linha a linha. Não grava nada. */
+    analyzeImport: (input: ImportRequestInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/import/analyze',
+        body: input,
+        schema: ImportReportSchema,
+      }),
+
+    /**
+     * Grava. O `mapping` é obrigatório aqui — o servidor recusa sem ele, porque aplicar
+     * quatrocentas linhas por um palpite do farejador é o que o passo de conferência
+     * existe para evitar.
+     */
+    applyImport: (input: ImportRequestInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/import/apply',
+        body: input,
+        schema: ImportReportSchema,
+      }),
+
+    listImportBatches: () =>
+      request({
+        method: 'GET',
+        path: '/v1/import/batches',
+        schema: ImportBatchListSchema,
+      }),
+
+    getImportBatch: (id: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/import/batches/${id}`,
+        schema: ImportBatchSchema,
+      }),
+
+    undoImportBatch: (id: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/import/batches/${id}/undo`,
+        schema: ImportUndoResultSchema,
+      }),
   }
 }
 
@@ -2622,6 +2693,13 @@ async function readProblem(response: Response): Promise<ProblemDetails | null> {
 }
 
 export type {
+  ImportBatch,
+  ImportEntity,
+  ImportEntityInfo,
+  ImportReport,
+  ImportReportRow,
+  ImportRequestInput,
+  ImportUndoResult,
   AddressResponse,
   Allergy,
   Breed,

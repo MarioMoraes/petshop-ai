@@ -43,6 +43,16 @@ export interface CreateBookingInput {
   acknowledgedAlerts?: boolean
   /** AC-02: libera o gate de inadimplência; exige `schedule:override_credit`. */
   override?: { reason: string } | undefined
+  /**
+   * Se o tutor deve receber a confirmação. Ausente é `true`.
+   *
+   * O único chamador que pede silêncio é a carga do MOD-IMPORT: trazer a agenda do
+   * sistema antigo cria trezentos agendamentos de uma vez, e o tutor receberia
+   * trezentos "horário confirmado" de horários que ele marcou semana passada. A
+   * bandeira atravessa no evento; o agendamento gravado é idêntico a qualquer outro, e
+   * o lembrete da véspera continua valendo — ele é varredura de banco, não evento.
+   */
+  notify?: boolean
 }
 
 /** O que o chamador pode fazer, vindo da matriz de permissão e não do papel. */
@@ -447,6 +457,7 @@ export async function createBooking(
     endsAt: created.endsAt.toISOString(),
     totalCents: created.totalCents,
     source: input.source ?? 'STAFF',
+    ...(input.notify === false ? { notify: false } : {}),
   })
 
   return created

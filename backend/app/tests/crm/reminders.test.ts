@@ -155,6 +155,68 @@ describe('reação a eventos (§8)', () => {
     expect(messaging.requests[0]!.templateKey).toBe('appointment_confirmed')
   })
 
+  it('não manda a confirmação quando quem publicou pediu silêncio (MOD-IMPORT)', async () => {
+    /**
+     * A carga da base anterior cria a agenda inteira de uma vez. Sem esta bandeira, o
+     * cliente receberia trezentos "horário confirmado" de horários que ele marcou semana
+     * passada, por um sistema que ainda não conhece.
+     */
+    const appointment = await givenAppointment(fixture, { hoursFromNow: 48 })
+
+    await handleAgendamentoCriado({
+      tenantId: fixture.tenantId,
+      appointmentId: appointment.appointmentId,
+      notify: false,
+    })
+
+    expect(messaging.requests).toHaveLength(0)
+  })
+
+  it('o cancelamento em silêncio ainda mata o lembrete pendente', async () => {
+    /**
+     * A ordem dentro do consumidor é deliberada: o lembrete morre **antes** da decisão
+     * de avisar. Desfazer uma carga cancela horários que ninguém anunciou — e se o
+     * lembrete sobrevivesse, o cliente receberia "seu banho é amanhã" de um horário que
+     * não existe mais, que é a pior das duas mensagens.
+     */
+    const appointment = await givenAppointment(fixture, { hoursFromNow: 24.5 })
+
+    const messageId = await withTenant(fixture.tenantId, async (tx) => {
+      const tutor = await tx.tutor.findFirstOrThrow({ select: { id: true } })
+      const created = await tx.message.create({
+        data: {
+          tenantId: fixture.tenantId,
+          tutorId: tutor.id,
+          channel: 'EMAIL',
+          category: 'TRANSACTIONAL',
+          templateKey: 'appointment_reminder',
+          toEncrypted: 'x',
+          toHash: 'h'.repeat(64),
+          bodyEncrypted: 'x',
+          status: 'SCHEDULED',
+          dedupeKey: `reminder:${appointment.appointmentId}`,
+          originType: 'APPOINTMENT',
+          originId: appointment.appointmentId,
+          scheduledFor: new Date(Date.now() + 3_600_000),
+        },
+        select: { id: true },
+      })
+      return created.id
+    })
+
+    await handleAgendamentoCancelado({
+      tenantId: fixture.tenantId,
+      appointmentId: appointment.appointmentId,
+      notify: false,
+    })
+
+    const depois = await withTenant(fixture.tenantId, (tx) =>
+      tx.message.findFirstOrThrow({ where: { id: messageId }, select: { status: true } }),
+    )
+    expect(depois.status).toBe('CANCELLED')
+    expect(messaging.requests).toHaveLength(0)
+  })
+
   it('cancela o lembrete pendente quando o agendamento é cancelado (AC-06 de MOD-CRM-03)', async () => {
     const appointment = await givenAppointment(fixture, { hoursFromNow: 24.5 })
 

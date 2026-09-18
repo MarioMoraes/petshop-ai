@@ -1,125 +1,109 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ButtonLink } from '@/components/links'
+import { ChevronRightIcon, SettingsIcon, UploadIcon, WalletIcon } from '@/components/icons'
+import type { IconTone } from '@/components/icons'
 import { PageHeader } from '@/components/ui'
-import { carregarMe, serverApi } from '@/lib/api'
-import { tenantHostSuffix } from '@/lib/domain'
-import { SettingsForm } from './settings-form'
+import { carregarMe } from '@/lib/api'
+import type { PermissionKey } from '@petshop/shared-types'
+import type { ReactNode } from 'react'
 
 /**
- * Configurações do estabelecimento (MOD-IDENT-08, parcial).
+ * A porta das Configurações.
  *
- * As decisões que o wizard coletava uma vez, agora editáveis. Sem esta tela, mudar o
- * horário de sábado exigia refazer um onboarding que nem era reacessível depois de
- * concluído.
+ * Três destinos, e não três abas: o que o menu chamava de "Configurações" abria direto
+ * na ficha do estabelecimento, e Assinatura vivia num botão no canto do cabeçalho — um
+ * lugar que só se encontra depois de já estar na tela errada. A importação da base seria
+ * a décima aba de uma faixa que já quebrava em duas linhas com nove.
  *
- * O gate de permissão é duplo por construção: `tenant:read_settings` decide se a tela
- * abre, `tenant:configure` decide se ela salva. As duas checagens valem aqui pela
- * experiência — quem manda é o `requirePermission` do MOD-IDENT.
+ * Cada cartão é um assunto inteiro, com público e frequência próprios: a ficha do
+ * estabelecimento se visita de vez em quando, a assinatura uma vez por ciclo, e a
+ * importação uma vez na vida da conta. Amontoá-los numa faixa de abas faria o de uma vez
+ * na vida disputar espaço com o de todo mês.
+ *
+ * O recorte por permissão mora aqui, e não no menu: `tenant:read_settings` já abriu a
+ * seção; o que cada cartão exige é dele. Cartão que levaria a um 403 não aparece — link
+ * que devolve o usuário ao início é pior que link nenhum.
  */
 
 export const dynamic = 'force-dynamic'
 
-export default async function ConfiguracoesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ aba?: string }>
-}) {
+interface Destino {
+  href: '/configuracoes/estabelecimento' | '/assinatura' | '/configuracoes/importacao'
+  icon: ReactNode
+  tone: IconTone
+  eyebrow: string
+  title: string
+  description: string
+  requires: PermissionKey
+}
+
+const DESTINOS: Destino[] = [
+  {
+    href: '/configuracoes/estabelecimento',
+    icon: <SettingsIcon />,
+    tone: 'icon-system',
+    eyebrow: 'Estabelecimento',
+    title: 'Configurações',
+    description:
+      'Dados do petshop, horário de funcionamento, políticas de agendamento, identidade visual, catálogo de raças, privacidade e trilha de auditoria.',
+    requires: 'tenant:read_settings',
+  },
+  {
+    href: '/assinatura',
+    icon: <WalletIcon />,
+    tone: 'icon-money',
+    eyebrow: 'Plano',
+    title: 'Assinatura',
+    description: 'O plano contratado, o que ele inclui, a forma de pagamento e a próxima cobrança.',
+    requires: 'tenant:configure',
+  },
+  {
+    href: '/configuracoes/importacao',
+    icon: <UploadIcon />,
+    tone: 'icon-system',
+    eyebrow: 'Virada de sistema',
+    title: 'Importar dados',
+    description:
+      'Traga tutores, pets, profissionais e agendamentos do sistema anterior, a partir das planilhas que ele exporta.',
+    requires: 'import:run',
+  },
+]
+
+export default async function ConfiguracoesPage() {
   const me = await carregarMe()
 
-  // Sem sequer poder ler, a tela não existe para este perfil. Voltar ao início é mais
+  // Sem sequer poder ler, a seção não existe para este perfil. Voltar ao início é mais
   // honesto que um 403 numa rota que o menu nem deveria ter oferecido.
   if (!me.permissions.includes('tenant:read_settings')) redirect('/dashboard')
 
-  const canManageCatalog = me.permissions.includes('pet:manage_catalog')
-  /**
-   * MOD-PORTAL-09: a fila de exclusão usa o gate da anonimização, e não o de leitura do
-   * tutor. A aba é uma lista de decisões sobre apagar cadastro — mostrá-la a quem não pode
-   * tomá-las produziria trabalho visível e não resolvível. É o mesmo recorte do sino.
-   */
-  const canResolveDeletions = me.permissions.includes('tutor:delete')
-  /**
-   * MOD-SEC-06: a trilha usa `audit:read`, que na matriz do MOD-IDENT-04 só o
-   * administrador tem. É outro gate e outro leitor que o da fila de exclusão — quem
-   * atende o titular não é necessariamente quem audita a equipe.
-   */
-  const canReadAudit = me.permissions.includes('audit:read')
-
-  const [tenant, settings, species, deletion, terms, audit, security, support] = await Promise.all([
-    serverApi().getTenant(),
-    serverApi().getSettings(),
-    // A aba de raças só existe para quem pode mexer nela; sem a permissão, nem a
-    // lista de espécies precisa ser buscada.
-    canManageCatalog ? serverApi().listSpecies() : Promise.resolve([]),
-    canResolveDeletions
-      ? serverApi()
-          .listDeletionRequests({ limit: 50 })
-          // A fila é moldura de uma tela que existe para outra coisa: um tutor-service
-          // fora do ar não pode derrubar as Configurações inteiras junto com ela.
-          .catch(() => ({ items: [], total: 0, page: 1, limit: 50 }))
-      : Promise.resolve({ items: [], total: 0, page: 1, limit: 50 }),
-    // A aba de documentos abre para quem lê as configurações; publicar continua sendo
-    // `tenant:configure`. Como a fila de exclusão, um serviço fora do ar não pode
-    // derrubar a tela inteira junto com a aba.
-    serverApi()
-      .listTermVersions()
-      .catch(() => ({ versions: [] })),
-    // A trilha é moldura, como a fila de exclusão: uma consulta lenta ou fora do ar não
-    // pode derrubar as Configurações inteiras junto com a aba.
-    canReadAudit
-      ? serverApi()
-          .listAuditLogs({ limit: 50 })
-          .catch(() => ({ items: [], nextCursor: null }))
-      : Promise.resolve({ items: [], nextCursor: null }),
-    canReadAudit
-      ? serverApi()
-          .summarizeSecurityEvents()
-          .catch(() => ({ items: [] }))
-      : Promise.resolve({ items: [] }),
-    /**
-     * MOD-ADMIN-02: os pedidos de acesso da equipe PetShop AI.
-     *
-     * Sem gate próprio — a rota exige `tenant:read_settings`, a mesma permissão que abre
-     * esta tela. Como a fila de exclusão e a trilha, é moldura: uma falha de leitura não
-     * pode derrubar as Configurações inteiras junto com a aba.
-     */
-    serverApi()
-      .listSupportAccess()
-      .catch(() => ({ items: [] })),
-  ])
-
-  const { aba } = await searchParams
+  const destinos = DESTINOS.filter((destino) => me.permissions.includes(destino.requires))
 
   return (
     <>
       <PageHeader
         eyebrow="Estabelecimento"
         title="Configurações"
-        subtitle="Dados, horário de funcionamento, políticas de agendamento, identidade visual, catálogo de raças, privacidade e trilha de auditoria."
-        actions={
-          me.permissions.includes('tenant:configure') ? (
-            <ButtonLink href="/assinatura">Assinatura</ButtonLink>
-          ) : undefined
-        }
+        subtitle="O que é do petshop e não do dia a dia: como ele funciona, o plano que sustenta a conta e a base que veio de antes."
       />
 
-      <div className="mt-10">
-        <SettingsForm
-          tenant={tenant}
-          settings={settings}
-          species={species}
-          hostSuffix={tenantHostSuffix()}
-          canEdit={me.permissions.includes('tenant:configure')}
-          canManageCatalog={canManageCatalog}
-          deletionRequests={deletion.items}
-          canResolveDeletions={canResolveDeletions}
-          termVersions={terms.versions}
-          auditLogs={audit.items}
-          auditCursor={audit.nextCursor}
-          securitySummary={security.items}
-          canReadAudit={canReadAudit}
-          supportGrants={support.items}
-          abaInicial={aba}
-        />
+      <div className="mt-10 grid gap-4 sm:grid-cols-2">
+        {destinos.map((destino) => (
+          <Link
+            key={destino.href}
+            href={destino.href}
+            className="card group flex items-start gap-4 p-6 transition-shadow hover:shadow-lg sm:p-7"
+          >
+            <span className={`icon-chip ${destino.tone} shrink-0`}>{destino.icon}</span>
+            <span className="min-w-0 flex-1">
+              <span className="section-eyebrow block">{destino.eyebrow}</span>
+              <span className="section-title mt-0.5 block">{destino.title}</span>
+              <span className="hint mt-2 block">{destino.description}</span>
+            </span>
+            <span className="mt-1 shrink-0 text-subtle transition-transform group-hover:translate-x-0.5">
+              <ChevronRightIcon />
+            </span>
+          </Link>
+        ))}
       </div>
     </>
   )

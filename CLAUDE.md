@@ -25,6 +25,12 @@ antes de propor uma alternativa visual.
 
 A referência viva é `frontend/src/app/(admin)/tutores/tutor-form.tsx`.
 
+`/configuracoes` é uma **porta com três cartões** — o estabelecimento, a assinatura e a
+importação da base anterior —, e não mais a ficha do estabelecimento direto: ela mudou-se
+para `/configuracoes/estabelecimento` quando a faixa de abas chegou a nove e a décima
+teria quebrado em duas linhas. Quem aponta para uma aba (`?aba=privacidade`, do sino)
+aponta para a sub-rota.
+
 `src/app` tem **quatro** raízes: `(admin)`, com o `ClerkProvider` e as telas de equipe;
 `(site)`, que serve a página pública do petshop sem carregar identidade nenhuma;
 `(portal)`, a superfície do cliente final, com o `ClerkProvider` da **mesma** instância do
@@ -97,7 +103,8 @@ Os módulos: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
 (`modules/identity`), MOD-PRONT (`modules/records`, `modules/attendances`,
 `modules/prescriptions`), MOD-AGENDA (`modules/scheduling`,
 `modules/schedule-catalog`), MOD-LEDGER (`modules/ledger`), MOD-SEC
-(`modules/security`), MOD-PORTAL (`modules/portal`) e MOD-AI (`modules/agent`).
+(`modules/security`), MOD-PORTAL (`modules/portal`), MOD-AI (`modules/agent`) e
+MOD-IMPORT (`modules/import`).
 
 **O MOD-PORTAL é o único que lê de todos os outros e escreve por porta.** Ele agrega: as
 leituras são banco direto, porque ler é escolher um recorte; as escritas passam pelas
@@ -144,6 +151,30 @@ mensagens do mesmo tutor chegam juntas. E a mensagem de erro do domínio **não 
 repassada ao modelo**: os textos do Portal foram escritos para uma tela com sessão, e um
 deles diz o valor exato da dívida — neste canal a prova de identidade é o número de quem
 escreveu (RN-01). O motivo completo fica em `result_summary`, que é onde a recepção o lê.
+
+**O MOD-IMPORT é o único módulo que só escreve, e nunca é lido.** Ele traz a base do
+sistema anterior — tutores, pets, profissionais e agenda — a partir do CSV que o
+legado exporta, e não tem tabela de domínio nenhuma: compõe MOD-TUTOR, MOD-PET e
+MOD-AGENDA por três portas (`modules/import/*-port.ts`), então a linha importada nasce
+pelo mesmo serviço do formulário, com a mesma cifragem, o mesmo evento e a mesma
+trilha. **Analisar e aplicar são o mesmo código**, com um `commit` no fim: um ensaio
+que rodasse validação diferente da do gravar seria uma promessa falsa. **A idempotência
+é a chave natural** — CPF/CNPJ ou celular do tutor, tutor+nome do pet, nome do
+profissional, pet+profissional+horário —, e é a mesma que liga os arquivos entre si, o
+que dispensa uma terceira tabela de `external_ref`. **Uma transação por linha**, não por
+lote: falha na linha 300 deixa 299 criadas, e reenviar o arquivo corrigido converge
+porque as 299 viram `IGNORADO`.
+
+Três decisões do MOD-IMPORT valem por si. **Histórico não entra**: agendamento passado
+gravado como `CONFIRMED` seria varrido pelo `no-show-sweeper` na hora seguinte e viraria
+falta, com taxa e mensagem, sem atendimento nem lançamento por trás. **A carga entra
+calada**: `agendamento.criado` e `agendamento.cancelado` ganharam um `notify` opcional
+(o mesmo desenho do `notify` das corridas do MOD-TAXI), porque trezentas confirmações de
+horários marcados semana passada, por um sistema que o cliente ainda não conhece, são a
+pior estreia possível — o lembrete da véspera continua valendo, que é varredura de banco
+e não evento. E **o consentimento importado tem origem `IMPORT`**: o aceite de termo
+entra porque a relação já existia, com a origem dizendo que a prova é de segunda mão; o
+de marketing nasce **não**, e só uma coluna dizendo sim o liga.
 
 **O nome `modules/schedule-catalog` é o registro de uma colisão.** O MOD-AGENDA tinha
 `catalog` e `scheduling` enquanto era serviço, e aqui `modules/catalog` já é o catálogo

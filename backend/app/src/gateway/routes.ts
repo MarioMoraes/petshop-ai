@@ -9,6 +9,7 @@ import { handleInbound } from '../modules/agent/conversations.js'
 import { registerCatalogRoutes } from '../modules/catalog/routes.js'
 import { registerCrmRoutes } from '../modules/crm/routes.js'
 import { registerIdentityRoutes } from '../modules/identity/routes.js'
+import { registerImportRoutes } from '../modules/import/routes.js'
 import { registerClerkWebhookRoutes } from '../modules/identity/webhooks/routes.js'
 import { registerLedgerRoutes } from '../modules/ledger/routes.js'
 import { registerMedicalRecordRoutes } from '../modules/records/routes-module.js'
@@ -64,6 +65,7 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerScheduleModule(app)
   await registerLedgerModule(app)
   await registerPortalModule(app)
+  await registerImportModule(app)
   await registerPlatformModule(app)
   await registerSubscriptionModule(app)
 }
@@ -346,6 +348,24 @@ async function registerPortalModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerPortalRoutes(scope)
+  })
+}
+
+/**
+ * MOD-IMPORT — a carga da base do sistema anterior.
+ *
+ * Escopo autenticado próprio, sem superfície anônima. Registrado **depois** dos módulos
+ * de domínio, e a ordem é a da dependência: este módulo não define espaço de rota
+ * nenhum — ele só chama, pelas três portas, o MOD-TUTOR, o MOD-PET e o MOD-AGENDA, que
+ * precisam estar montados antes.
+ *
+ * `/v1/import` é prefixo próprio e não se pendura no espaço de ninguém, o que o deixa
+ * de fora das exceções que o roteador precisa desempatar.
+ */
+async function registerImportModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerImportRoutes(scope)
   })
 }
 

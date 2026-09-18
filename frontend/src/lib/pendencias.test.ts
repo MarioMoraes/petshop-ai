@@ -110,7 +110,7 @@ describe('montarPendencias', () => {
       '/agenda/dia?date=2026-09-11',
       // A aba já selecionada: sem o `?aba=`, o clique cairia em "Dados" e o contador
       // teria prometido um destino para entregar outro.
-      '/configuracoes?aba=privacidade',
+      '/configuracoes/estabelecimento?aba=privacidade',
       '/site/contatos?status=NEW',
       '/crm?status=DEAD',
       '/tutores?tag=INADIMPLENTE',

@@ -554,6 +554,22 @@ export interface AgendamentoCriadoEvent extends BaseEvent {
   endsAt: string
   totalCents: number
   source: 'STAFF' | 'PORTAL' | 'RECURRENCE' | 'AI_AGENT'
+  /**
+   * Se o tutor deve receber a confirmação. Ausente é `true` — quem publicou sem
+   * opinião quer o comportamento de sempre.
+   *
+   * Existe pela carga do MOD-IMPORT: trazer a agenda do sistema antigo criaria
+   * trezentos agendamentos de uma vez, e o consumidor mandaria trezentos "horário
+   * confirmado" de horários que o cliente marcou semana passada, por um sistema que
+   * ele não conhece. O evento continua saindo — quem consome para outra coisa
+   * continua enxergando a carga —, e o que a bandeira desliga é só o aviso.
+   *
+   * Mesmo desenho do `notify` das corridas do MOD-TAXI: quem publica sabe o que o
+   * consumidor não tem como saber. **O lembrete da véspera não passa por aqui** — ele
+   * é varredura de banco (`crm/reminders.ts`) e continua valendo para o que foi
+   * importado, que é exatamente o certo.
+   */
+  notify?: boolean
 }
 
 export interface AtendimentoIniciadoEvent extends BaseEvent {
@@ -598,6 +614,18 @@ export interface AgendamentoCanceladoEvent extends BaseEvent {
   late: boolean
   feeCents: number
   cancelledBy: string | null
+  /**
+   * Se o tutor deve ser avisado. Ausente é `true`, como em `agendamento.criado`.
+   *
+   * Desfazer um lote do MOD-IMPORT cancela em massa horários que **nunca foram
+   * anunciados** — a carga entrou calada. Avisar o cancelamento deles seria a primeira
+   * notícia que trezentos clientes receberiam do sistema novo, sobre algo que, para
+   * eles, nunca existiu.
+   *
+   * O que a bandeira **não** desliga é o cancelamento do lembrete pendente, que roda
+   * antes do aviso no mesmo consumidor e por ordem deliberada.
+   */
+  notify?: boolean
 }
 
 export interface AgendamentoNoShowEvent extends BaseEvent {

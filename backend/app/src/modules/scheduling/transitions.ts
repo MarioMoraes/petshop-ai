@@ -373,6 +373,15 @@ export interface CancelInput {
   waiveFee?: boolean
   /** RN-10 e RN-12: cancelamento por óbito ou bloqueio nunca gera taxa. */
   systemInitiated?: boolean
+  /**
+   * Se o tutor deve ser avisado. Ausente é `true`.
+   *
+   * Quem pede silêncio é o desfazer de um lote do MOD-IMPORT: ele cancela em massa
+   * horários que nunca foram anunciados, porque a carga entrou calada. O lembrete
+   * pendente morre de qualquer forma — quem o cancela é o mesmo consumidor, antes do
+   * aviso.
+   */
+  notify?: boolean
 }
 
 /**
@@ -451,6 +460,7 @@ export async function cancel(actor: ActorContext, appointmentId: string, input: 
     late: result.late,
     feeCents: result.feeCents,
     cancelledBy: actor.actorUserId ?? null,
+    ...(input.notify === false ? { notify: false } : {}),
   })
 
   return result

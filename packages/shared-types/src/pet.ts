@@ -218,7 +218,22 @@ const PetCoreSchema = z.object({
   notes: z.string().max(2000).optional(),
 })
 
-export const CreatePetSchema = PetCoreSchema.extend({
+/**
+ * O cadastro do pet **sem** a exigência de idade.
+ *
+ * Existe por causa da importação (MOD-IMPORT). A regra "informe nascimento ou idade"
+ * é da tela: quem tem o tutor na frente pergunta, e um cadastro digitado sem idade é
+ * um campo que alguém pulou. Numa planilha exportada de outro sistema a idade
+ * simplesmente pode não existir em coluna nenhuma — e recusar quatrocentos pets por
+ * isso obrigaria a inventar a idade de cada um, que é pior do que não saber.
+ *
+ * O banco já sabe dizer "não sei": `birth_date_precision = UNKNOWN`, que é o que
+ * `resolveBirthDate` devolve quando não há nem data nem idade. O que este schema faz
+ * é deixar de mentir sobre o que o domínio aceita.
+ *
+ * **Não use em formulário.** Quem valida tela é `CreatePetSchema`, logo abaixo.
+ */
+export const ImportPetSchema = PetCoreSchema.extend({
   tutors: z
     .array(PetTutorInputSchema)
     .min(1)
@@ -230,10 +245,15 @@ export const CreatePetSchema = PetCoreSchema.extend({
       (list) => new Set(list.map((tutor) => tutor.tutorId)).size === list.length,
       'O mesmo tutor foi informado mais de uma vez',
     ),
-}).refine((data) => Boolean(data.birthDate) || data.estimatedAgeMonths !== undefined, {
-  message: 'Informe a data de nascimento ou a idade estimada',
-  path: ['birthDate'],
 })
+
+export const CreatePetSchema = ImportPetSchema.refine(
+  (data) => Boolean(data.birthDate) || data.estimatedAgeMonths !== undefined,
+  {
+    message: 'Informe a data de nascimento ou a idade estimada',
+    path: ['birthDate'],
+  },
+)
 export type CreatePetInput = z.output<typeof CreatePetSchema>
 
 /**

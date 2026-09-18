@@ -63,7 +63,7 @@ function fromZod(error: z.ZodError): ActionResult<never> {
  * salvar e continuar vendo o valor antigo na navegação.
  */
 function revalidateAll(): void {
-  revalidatePath('/configuracoes')
+  revalidatePath('/configuracoes/estabelecimento')
   revalidatePath('/dashboard')
   revalidatePath('/tutores')
 }
@@ -200,7 +200,7 @@ export async function saveBrandingAction(input: unknown): Promise<ActionResult<T
  * criada aqui precisa aparecer lá sem recarregar a sessão.
  */
 function revalidateCatalog(): void {
-  revalidatePath('/configuracoes')
+  revalidatePath('/configuracoes/estabelecimento')
   revalidatePath('/pets')
 }
 
@@ -275,7 +275,7 @@ export async function publishTermVersionAction(
 
   try {
     const version = await serverApi().publishTermVersion(parsed.data)
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes/estabelecimento')
     return { ok: true, data: version }
   } catch (error) {
     return toFailure(error)
@@ -293,7 +293,7 @@ export async function resolveDeletionRequestAction(
     const pedido = await serverApi().resolveDeletionRequest(requestId, parsed.data)
     // O sino da topbar conta esta fila, e ele é resolvido no servidor a cada navegação:
     // sem revalidar, o número continuaria contando o pedido que acabou de ser respondido.
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes/estabelecimento')
     revalidatePath('/dashboard')
     return { ok: true, data: pedido }
   } catch (error) {
@@ -351,7 +351,7 @@ export async function approveSupportAccessAction(
 ): Promise<ActionResult<SupportGrantResponse>> {
   try {
     const grant = await serverApi().approveSupportAccess(grantId, hours)
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes/estabelecimento')
     return { ok: true, data: grant }
   } catch (error) {
     return toFailure(error)
@@ -361,7 +361,7 @@ export async function approveSupportAccessAction(
 export async function denySupportAccessAction(grantId: string): Promise<ActionResult<null>> {
   try {
     await serverApi().denySupportAccess(grantId)
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes/estabelecimento')
     return { ok: true, data: null }
   } catch (error) {
     return toFailure(error)
@@ -378,7 +378,7 @@ export async function denySupportAccessAction(grantId: string): Promise<ActionRe
 export async function revokeSupportAccessAction(grantId: string): Promise<ActionResult<null>> {
   try {
     await serverApi().revokeSupportAccess(grantId)
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes/estabelecimento')
     return { ok: true, data: null }
   } catch (error) {
     return toFailure(error)
