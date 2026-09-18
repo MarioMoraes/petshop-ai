@@ -326,6 +326,30 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
            */}
           <div className="flex min-w-0 items-center gap-3">
             {/*
+             * O atalho para o console da plataforma, só para quem é da equipe PetShop AI
+             * (`platformAdmin` vem de `/v1/me`).
+             *
+             * Fica na faixa, e não no menu lateral: o menu é a lista do que se faz
+             * **dentro** deste estabelecimento, e o console é o lugar de onde se olha
+             * todos. Um item entre Agenda e Financeiro sugeriria que é mais uma área
+             * daqui.
+             *
+             * `ghost` porque não é a ação da tela — é uma saída. E ele não tenta trocar o
+             * contexto do Clerk aqui: a sessão da plataforma é a que **não** tem
+             * Organization, e quem oferece a troca é o cartão do outro lado, que sabe
+             * distinguir "estabelecimento aberto" de "conta fora da equipe".
+             */}
+            {me.platformAdmin && (
+              <ButtonLink
+                href="/plataforma"
+                variant="ghost"
+                icon={<ShieldCheckIcon />}
+                className="hidden shrink-0 sm:inline-flex"
+              >
+                Plataforma
+              </ButtonLink>
+            )}
+            {/*
              * O sino antes do nome, e não depois do avatar: o avatar é o fim da linha
              * — dali sai o menu da conta, e nada deve aparecer à direita dele.
              */}

@@ -61,6 +61,11 @@ const PLATFORM_MODELS = new Set([
   // chega antes de se saber de que estabelecimento ele fala — e `user.updated` não fala
   // de nenhum. Guarda só o id da entrega, o tipo e o desfecho; nada de um tenant.
   'WebhookEvent',
+  // Camada comercial: o preço vigente de cada plano, mudado pelo console da plataforma.
+  // Sem `tenant_id` porque o preço é da instalação e não de um estabelecimento — o que
+  // um tenant contratou fica congelado em `tenant_subscriptions.price_cents`, que tem
+  // dono e RLS. Uma política aqui esconderia a tabela de quem a mantém.
+  'PlanPrice',
 ])
 
 function readSchema(): { modelToTable: Map<string, string>; modelsWithTenantId: Set<string> } {

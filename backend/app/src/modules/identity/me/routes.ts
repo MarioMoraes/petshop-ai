@@ -2,6 +2,7 @@ import { listUserMemberships } from '@petshop/db'
 import { ROLE_LABELS, type MeResponse, type RoleKey } from '@petshop/shared-types'
 import type { FastifyInstance } from 'fastify'
 import { requireTenantContext } from '../auth.js'
+import { getPlatform } from '../platform-port.js'
 import { getEffectivePermissions } from '../rbac/service.js'
 import { getPrimaryColor } from '../settings/service.js'
 import { getTenant } from '../tenants/service.js'
@@ -20,7 +21,15 @@ import { markPortalBookingsSeen, readPortalBookingsSeenAt } from './service.js'
 export async function registerMeRoutes(app: FastifyInstance): Promise<void> {
   app.get('/v1/me', async (request): Promise<MeResponse> => {
     const user = await ensureLocalUser(request.auth.clerkUserId)
-    const memberships = await listUserMemberships(user.id)
+    const [memberships, platformAdmin] = await Promise.all([
+      listUserMemberships(user.id),
+      /**
+       * O crachá da plataforma, para o atalho da moldura — e nada além dele. Em paralelo
+       * com os vínculos porque é leitura independente e esta rota tem p95 de 120ms; é
+       * quase sempre um acerto de cache, inclusive no "não", que é a resposta comum.
+       */
+      getPlatform().isPlatformAdmin(request.auth.clerkUserId),
+    ])
 
     const tenantId = request.auth.tenantId
     // As três consultas do tenant corrente são independentes entre si — em paralelo
@@ -71,6 +80,12 @@ export async function registerMeRoutes(app: FastifyInstance): Promise<void> {
        * atrasaria toda navegação para adiantar um contador.
        */
       portalBookingsSeenAt: portalBookingsSeenAt?.toISOString() ?? null,
+      /**
+       * O atalho para `/plataforma`, e só ele. Quem é da equipe e também administra um
+       * petshop continua precisando trocar de contexto no Clerk para entrar — o console
+       * recusa token com Organization, e é a própria tela de lá que oferece a troca.
+       */
+      platformAdmin,
     }
   })
 

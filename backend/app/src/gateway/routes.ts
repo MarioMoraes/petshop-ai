@@ -19,6 +19,8 @@ import {
 } from '../modules/messaging/routes.js'
 import { registerPetRoutes } from '../modules/pets/routes.js'
 import { setJobGridPort } from '../modules/platform/job-grid-port.js'
+import { setPlatformPort } from '../modules/identity/platform-port.js'
+import { resolvePlatformAdmin } from '../modules/platform/service.js'
 import { registerPlatformRoutes } from '../modules/platform/routes.js'
 import { registerSupportAccessRoutes } from '../modules/platform/tenant-routes.js'
 import { registerPortalRoutes, registerPublicPortalRoutes } from '../modules/portal/routes.js'
@@ -286,6 +288,19 @@ async function registerPlatformModule(app: FastifyInstance): Promise<void> {
    */
   const { describeJobs } = await import('../worker/index.js')
   setJobGridPort({ describe: describeJobs })
+
+  /**
+   * O atalho do Admin para o console (`platformAdmin` em `/v1/me`).
+   *
+   * Ligado aqui pela mesma razão que a grade de jobs: quem monta o processo é que diz a um
+   * módulo o que o outro sabe responder. A leitura é a **mesma** que a porta usa em
+   * `resolvePlatformRequest`, com o mesmo cache — e é por isso que ela cabe numa rota sob
+   * SLO de 120ms: para quem não é da equipe, a resposta mais comum, o negativo já está
+   * quente.
+   */
+  setPlatformPort({
+    isPlatformAdmin: async (clerkUserId) => (await resolvePlatformAdmin(clerkUserId)) !== null,
+  })
 
   await app.register(async (scope) => {
     registerModuleAuth(scope)

@@ -454,6 +454,20 @@ export const MeResponseSchema = z.object({
    * decide a janela é a contagem, no MOD-AGENDA.
    */
   portalBookingsSeenAt: z.iso.datetime().nullable(),
+  /**
+   * Esta pessoa tem linha viva em `platform_admins` (MOD-ADMIN-01).
+   *
+   * **Só isso, e não uma permissão.** O crachá da plataforma não se soma ao papel no
+   * estabelecimento — nada em `/v1` passa a responder diferente por causa deste campo. Ele
+   * existe para a moldura do Admin saber se mostra o atalho para `/plataforma`, e a porta
+   * continua sendo o gate de `/platform/v1`: token **sem** Organization mais a linha viva.
+   *
+   * Vem em `/v1/me` porque é a leitura que a moldura já espera. Uma rota própria seria uma
+   * chamada a mais por navegação para decidir um botão — e perguntar pela superfície da
+   * plataforma daqui não serviria: com Organization ativa ela responde 404 a quem é da
+   * equipe, que é justamente quem precisa do atalho.
+   */
+  platformAdmin: z.boolean(),
 })
 export type MeResponse = z.infer<typeof MeResponseSchema>
 

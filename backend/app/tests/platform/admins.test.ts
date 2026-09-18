@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import {
+  callApi,
   callPlatform,
   closeHarness,
   givenPlatformAdmin,
@@ -245,5 +246,76 @@ describe('MOD-ADMIN-01 — o que a superfície não empresta', () => {
     })
 
     expect(response.statusCode).toBe(404)
+  })
+})
+
+/**
+ * O atalho da moldura do Admin para o console (`platformAdmin` em `/v1/me`).
+ *
+ * **É a única coisa que o crachá de plataforma faz dentro de `/v1`**, e o teste existe
+ * para que continue sendo: o campo liga um botão, e nenhuma rota administrativa responde
+ * diferente por causa dele. Quem confere o acesso de verdade é a porta, e o AC-03 acima é
+ * quem prova isso.
+ */
+describe('o atalho do Admin para o console', () => {
+  /**
+   * O caso que importa é justamente o que a plataforma recusa: **token com Organization**.
+   *
+   * Quem é da equipe e também administra um petshop passa o dia no Admin, com a
+   * Organization ativa — e é exatamente aí que o botão precisa aparecer. Perguntar isso a
+   * `/platform/v1` não serviria: com Organization, aquela superfície responde 404 a quem é
+   * da equipe.
+   */
+  it('diz `platformAdmin` mesmo com Organization no token', async () => {
+    const tenant = await seedTenant('petshop-da-ana')
+    await ownerPrisma.membership.create({
+      data: { tenantId: tenant.tenantId, userId: admin.userId, roleKey: 'TENANT_ADMIN' },
+    })
+
+    const response = await callApi({
+      method: 'GET',
+      url: '/v1/me',
+      clerkUserId: admin.clerkUserId,
+      clerkOrgId: tenant.clerkOrgId,
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().platformAdmin).toBe(true)
+  })
+
+  it('e não diz para a equipe do estabelecimento', async () => {
+    const tenant = await seedTenant('petshop-sem-cracha')
+    const membro = await seedMember(tenant.tenantId, 'TENANT_ADMIN')
+
+    const response = await callApi({
+      method: 'GET',
+      url: '/v1/me',
+      clerkUserId: membro.clerkUserId,
+      clerkOrgId: tenant.clerkOrgId,
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().platformAdmin).toBe(false)
+  })
+
+  /** Revogar o papel apaga o botão: a leitura é a mesma que a porta faz. */
+  it('some quando o vínculo é revogado', async () => {
+    const tenant = await seedTenant('petshop-da-ana-depois')
+    await ownerPrisma.membership.create({
+      data: { tenantId: tenant.tenantId, userId: admin.userId, roleKey: 'TENANT_ADMIN' },
+    })
+    await ownerPrisma.platformAdmin.updateMany({
+      where: { userId: admin.userId },
+      data: { revokedAt: new Date(), revokedBy: admin.userId },
+    })
+
+    const response = await callApi({
+      method: 'GET',
+      url: '/v1/me',
+      clerkUserId: admin.clerkUserId,
+      clerkOrgId: tenant.clerkOrgId,
+    })
+
+    expect(response.json().platformAdmin).toBe(false)
   })
 })
