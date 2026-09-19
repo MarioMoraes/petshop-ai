@@ -47,13 +47,17 @@ x-update: &update
   parallelism: 1
 
 x-backend: &backend
-  # ATENÇÃO ao mexer nas mensagens dos `${VAR:?…}` abaixo: elas NÃO podem conter
-  # hífen. O interpolador do `docker stack deploy` (que é outro, mais antigo que o do
-  # `docker compose`) quebra a expressão no ÚLTIMO hífen dela e trata o que vem depois
-  # como valor padrão — silenciosamente, sem erro. Com "ex. …/petshop-migrator:0.1.0"
-  # na mensagem, a imagem virava `migrator:0.1.0` e o Swarm recusava a tarefa com
-  # "pull access denied". Medido em 19/09/2026, ao migrar de VPS. É por isso que
-  # nenhuma destas mensagens traz exemplo de nome de imagem.
+  # ATENÇÃO ao mexer nas mensagens de erro das imagens abaixo (o texto depois do
+  # `:?`): elas NÃO podem conter hífen. O interpolador do `docker stack deploy` — que
+  # é outro, mais antigo que o do `docker compose` — quebra a expressão no ÚLTIMO hífen
+  # dela e trata o que vem depois como valor padrão, silenciosamente. Com um exemplo
+  # de nome de imagem na mensagem, ela virava `migrator:0.1.0` e o Swarm recusava a
+  # tarefa com "pull access denied". Medido em 19/09/2026, ao migrar de VPS — e é por
+  # isso que nenhuma delas traz exemplo de nome de imagem.
+#
+# E pelo mesmo motivo o comentário não escreve a sintaxe de interpolação por
+# extenso: o `conferir-ambiente.sh` varre estes arquivos atrás dela e não pula
+# comentário — um exemplo aqui vira uma variável inexistente cobrada lá.
   image: ${BACKEND_IMAGE:?defina BACKEND_IMAGE no .env.production (a imagem publicada do backend)}
   networks: [interna]
   # 30s: o `shutdown()` de cada serviço fecha o Fastify, os jobs em curso, o
