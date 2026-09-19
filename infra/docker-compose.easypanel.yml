@@ -182,7 +182,14 @@ services:
   # não Swarm), então não há gate: `service_completed_successfully` segura os
   # outros. Se a migração falhar, nada sobe com o schema errado.
   migrator:
-    image: ${MIGRATOR_IMAGE:?defina MIGRATOR_IMAGE, ex. ghcr.io/mariomoraes/petshop-migrator:0.1.0}
+    # ATENÇÃO ao mexer nas mensagens dos `${VAR:?…}` abaixo: elas NÃO podem conter
+    # hífen. O interpolador do `docker stack deploy` (que é outro, mais antigo que o do
+    # `docker compose`) quebra a expressão no ÚLTIMO hífen dela e trata o que vem depois
+    # como valor padrão — silenciosamente, sem erro. Com "ex. …/petshop-migrator:0.1.0"
+    # na mensagem, a imagem virava `migrator:0.1.0` e o Swarm recusava a tarefa com
+    # "pull access denied". Medido em 19/09/2026, ao migrar de VPS. É por isso que
+    # nenhuma destas mensagens traz exemplo de nome de imagem.
+    image: ${MIGRATOR_IMAGE:?defina MIGRATOR_IMAGE no .env.production (a imagem publicada do migrator)}
     restart: 'no'
     depends_on:
       postgres: { condition: service_healthy }
@@ -205,7 +212,7 @@ services:
 
   # ─── Backend ────────────────────────────────────────────────────────────────
   backend:
-    image: ${BACKEND_IMAGE:?defina BACKEND_IMAGE, ex. ghcr.io/mariomoraes/petshop-backend:0.1.0}
+    image: ${BACKEND_IMAGE:?defina BACKEND_IMAGE no .env.production (a imagem publicada do backend)}
     restart: unless-stopped
     stop_grace_period: 30s
     depends_on:
@@ -269,7 +276,7 @@ services:
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:
-    image: ${FRONTEND_IMAGE:?defina FRONTEND_IMAGE, ex. ghcr.io/mariomoraes/petshop-frontend:0.1.0}
+    image: ${FRONTEND_IMAGE:?defina FRONTEND_IMAGE no .env.production (a imagem publicada do frontend)}
     restart: unless-stopped
     stop_grace_period: 20s
     depends_on:
@@ -331,7 +338,7 @@ services:
   # por DNS-01, o DNS-01 exige um módulo de provedor compilado no binário, e é
   # exatamente essa a imagem que `infra/Dockerfile.caddy` constrói.
   caddy:
-    image: ${CADDY_IMAGE:?defina CADDY_IMAGE, ex. ghcr.io/mariomoraes/petshop-caddy:0.1.0}
+    image: ${CADDY_IMAGE:?defina CADDY_IMAGE no .env.production (a imagem publicada da borda)}
     restart: unless-stopped
     depends_on:
       frontend: { condition: service_healthy }

@@ -47,7 +47,14 @@ x-update: &update
   parallelism: 1
 
 x-backend: &backend
-  image: ${BACKEND_IMAGE:?defina BACKEND_IMAGE, ex. ghcr.io/mariomoraes/petshop-backend:0.1.0}
+  # ATENÇÃO ao mexer nas mensagens dos `${VAR:?…}` abaixo: elas NÃO podem conter
+  # hífen. O interpolador do `docker stack deploy` (que é outro, mais antigo que o do
+  # `docker compose`) quebra a expressão no ÚLTIMO hífen dela e trata o que vem depois
+  # como valor padrão — silenciosamente, sem erro. Com "ex. …/petshop-migrator:0.1.0"
+  # na mensagem, a imagem virava `migrator:0.1.0` e o Swarm recusava a tarefa com
+  # "pull access denied". Medido em 19/09/2026, ao migrar de VPS. É por isso que
+  # nenhuma destas mensagens traz exemplo de nome de imagem.
+  image: ${BACKEND_IMAGE:?defina BACKEND_IMAGE no .env.production (a imagem publicada do backend)}
   networks: [interna]
   # 30s: o `shutdown()` de cada serviço fecha o Fastify, os jobs em curso, o
   # canal do RabbitMQ e o Prisma. O padrão do Swarm (10s) corta um job no meio.
@@ -267,7 +274,7 @@ services:
   # passos são idempotentes de propósito. Para forçar sem trocar de versão:
   #   docker service update --force petshop_migrator
   migrator:
-    image: ${MIGRATOR_IMAGE:?defina MIGRATOR_IMAGE, ex. ghcr.io/mariomoraes/petshop-migrator:0.1.0}
+    image: ${MIGRATOR_IMAGE:?defina MIGRATOR_IMAGE no .env.production (a imagem publicada do migrator)}
     networks: [interna]
     environment:
       NODE_ENV: production
@@ -375,7 +382,7 @@ services:
 
   # ─── Frontend ───────────────────────────────────────────────────────────────
   frontend:
-    image: ${FRONTEND_IMAGE:?defina FRONTEND_IMAGE, ex. ghcr.io/mariomoraes/petshop-frontend:0.1.0}
+    image: ${FRONTEND_IMAGE:?defina FRONTEND_IMAGE no .env.production (a imagem publicada do frontend)}
     networks: [interna]
     stop_grace_period: 20s
     environment:
@@ -422,7 +429,7 @@ services:
 
   # ─── Borda ──────────────────────────────────────────────────────────────────
   caddy:
-    image: ${CADDY_IMAGE:?defina CADDY_IMAGE, ex. ghcr.io/mariomoraes/petshop-caddy:0.1.0}
+    image: ${CADDY_IMAGE:?defina CADDY_IMAGE no .env.production (a imagem publicada da borda)}
     networks: [interna]
     ports:
       # `mode: host` e não a malha de roteamento (`ingress`), que é o padrão.

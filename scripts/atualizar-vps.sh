@@ -64,6 +64,28 @@ export FRONTEND_IMAGE="$PREFIXO-frontend:$VERSAO"
 export MIGRATOR_IMAGE="$PREFIXO-migrator:$VERSAO"
 export CADDY_IMAGE="$PREFIXO-caddy:$VERSAO"
 
+# ── O que o leitor do stack REALMENTE vai usar ────────────────────────────────
+# Parece paranoia e não é. Em 19/09/2026, migrando de VPS, o interpolador do
+# `docker stack deploy` — que é outro, mais antigo que o do `docker compose` —
+# quebrou `${BACKEND_IMAGE:?… ex. …/petshop-backend:0.1.0}` no último hífen da
+# MENSAGEM e usou "backend:0.1.0" como se fosse um valor padrão. Sem erro nenhum:
+# o deploy seguiu, e o sintoma chegou dois minutos depois como "pull access denied"
+# numa imagem que ninguém tinha pedido.
+#
+# A mensagem foi corrigida, mas a classe do problema é "o arquivo resolveu para
+# outra coisa e ninguém viu". Conferir custa uma chamada read-only.
+echo "→ conferindo o que o stack file resolve"
+RESOLVIDO=$(docker stack config -c infra/docker-compose.swarm.yml 2>/dev/null || true)
+for IMG in "$BACKEND_IMAGE" "$MIGRATOR_IMAGE" "$FRONTEND_IMAGE" "$CADDY_IMAGE"; do
+  if ! printf '%s' "$RESOLVIDO" | grep -q "image: $IMG"; then
+    echo "ERRO: o stack file não resolve para $IMG." >&2
+    echo "      O que ele resolveu:" >&2
+    printf '%s' "$RESOLVIDO" | grep 'image:' | sed 's/^/        /' >&2
+    exit 1
+  fi
+done
+echo "  ✓ as quatro imagens conferem"
+
 if ! docker info 2>/dev/null | grep -q 'Swarm: active'; then
   echo "ERRO: este nó não está em swarm. Rode antes: bash scripts/preparar-vps.sh" >&2
   exit 1
