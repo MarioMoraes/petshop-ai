@@ -43,6 +43,19 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 1
 fi
 
+# A `DATABASE_URL` sem a query string, porque `?schema=public` é parâmetro do
+# **Prisma** e o libpq — que é quem o `psql` usa — recusa a URL inteira ao ver um
+# parâmetro que não conhece:
+#
+#     psql: error: invalid URI query parameter: "schema"
+#
+# É o mesmo `PG_URL` que o CMD do migrator já derivava (`infra/Dockerfile`), e
+# nasceu do mesmo jeito: aqui o erro ia para /dev/null junto com o ruído esperado
+# da partida, e a recusa ficava idêntica a "o banco ainda não está pronto" — o
+# gate esperava calado até o healthcheck matar o container com 137, sem uma linha
+# de log dizendo por quê. Quem lê `unhealthy container` procura lentidão.
+PG_URL=${DATABASE_URL%%\?*}
+
 # Quantas migrações esta imagem traz. `-maxdepth 1 -mindepth 1 -type d` e não `ls`:
 # `migrations/` também guarda `migration_lock.toml` e um README.
 ESPERADAS=$(find "$MIGRACOES_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
@@ -53,23 +66,40 @@ fi
 
 echo "aguardar-migracao: esperando $ESPERADAS migrações no banco…"
 
+ERRO=$(mktemp)
+trap 'rm -f "$ERRO"' EXIT
+
+# Depois de quantas tentativas o erro deixa de ser ruído de partida e vira
+# notícia. As primeiras erram por motivo esperado — "role app_user does not
+# exist", "relation _prisma_migrations does not exist" —, e repetir isso a cada
+# 3s só enche o log; um erro que dura mais de meio minuto é outra coisa.
+PACIENCIA=10
+
 INICIO=$(date +%s)
+TENTATIVA=0
 while :; do
-  # `2>/dev/null` some com o ruído esperado dos primeiros segundos ("role app_user
-  # does not exist", "relation _prisma_migrations does not exist"). O `|| true`
-  # impede que o `set -e` mate o processo por causa deles.
-  APLICADAS=$(psql "$DATABASE_URL" -tAc \
+  # O `|| true` impede que o `set -e` mate o processo por causa de uma recusa
+  # esperada; o stderr vai para um arquivo em vez de /dev/null, para que o laço
+  # possa mostrá-lo quando a recusa deixar de ser esperada.
+  TENTATIVA=$((TENTATIVA + 1))
+  APLICADAS=$(psql "$PG_URL" -tAc \
     "select count(*) from _prisma_migrations where finished_at is not null and rolled_back_at is null" \
-    2>/dev/null || true)
+    2>"$ERRO" || true)
 
   if [ -n "$APLICADAS" ] && [ "$APLICADAS" -ge "$ESPERADAS" ] 2>/dev/null; then
     echo "aguardar-migracao: $APLICADAS/$ESPERADAS aplicadas — subindo"
     break
   fi
 
+  if [ "$TENTATIVA" -ge "$PACIENCIA" ] && [ $((TENTATIVA % PACIENCIA)) -eq 0 ]; then
+    MOTIVO=$(tail -n 1 "$ERRO" || true)
+    echo "aguardar-migracao: ${APLICADAS:-0}/$ESPERADAS — ${MOTIVO:-o banco não respondeu}" >&2
+  fi
+
   DECORRIDO=$(( $(date +%s) - INICIO ))
   if [ "$DECORRIDO" -ge "$TIMEOUT_S" ]; then
     echo "aguardar-migracao: ${TIMEOUT_S}s sem o schema esperado (${APLICADAS:-0}/$ESPERADAS)." >&2
+    tail -n 1 "$ERRO" >&2 || true
     echo "                   Veja: docker service logs ${STACK_NAME:-petshop}_migrator" >&2
     exit 1
   fi
