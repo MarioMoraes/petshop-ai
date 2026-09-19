@@ -89,6 +89,18 @@ export function adminUrlOf(): string {
   return local ? `${protocol}://${domain}/dashboard` : `${protocol}://app.${domain}/dashboard`
 }
 
+/**
+ * A tela da assinatura, para onde vão os avisos da conta.
+ *
+ * Endereço próprio e não `adminUrlOf()`, porque estes três e-mails saem quando a conta
+ * está em só leitura: o painel de trabalho recebe quem já não pode trabalhar, e a
+ * primeira coisa que a pessoa vê é a faixa de bloqueio em vez do botão que a resolve.
+ */
+export function subscriptionUrlOf(): string {
+  const { protocol, domain, local } = baseUrl()
+  return local ? `${protocol}://${domain}/assinatura` : `${protocol}://app.${domain}/assinatura`
+}
+
 /** `recibo-2026-000123.pdf` — o nome que o tutor vê no cliente de e-mail. */
 function filenameFor(kind: DocumentKind, number: string): string {
   const label = (DOCUMENT_KIND_LABELS[kind] ?? 'documento')

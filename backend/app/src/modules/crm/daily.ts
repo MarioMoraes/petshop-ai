@@ -7,6 +7,7 @@ import {
 } from '@petshop/shared-types'
 import { logger } from '../../shared/logger.js'
 import { tenantHasFeature } from '../../shared/plan.js'
+import { tenantOperational } from '../../shared/tenant-status.js'
 import { resolveAutomation, type ResolvedAutomation } from './automations.js'
 
 /**
@@ -84,6 +85,17 @@ export async function forEachDueTenant(
       // A automação ligada continua ligada quando o plano desce: o interruptor é do
       // petshop, e voltar ao Pro a religa sem ninguém reconfigurar. Quem cala é o plano.
       if (feature && !(await tenantHasFeature(tenantId, feature))) continue
+
+      /**
+       * A conta parada não convida ninguém a voltar.
+       *
+       * O despacho bloquearia de qualquer forma — é ele o fecho —, mas a varredura que
+       * insiste encheria a fila de linhas nascidas mortas e o painel de entregas do
+       * cliente com centenas de `TENANT_INACTIVE` por dia. Pular aqui é o que mantém o
+       * bloqueio do despacho no tamanho do que ele existe para apanhar: a mensagem que
+       * já estava na fila quando a conta parou.
+       */
+      if (!(await tenantOperational(tenantId))) continue
 
       const context = await withTenant(tenantId, async (tx) => {
         const settings = await tx.tenantSettings.findFirst({ select: { timezone: true } })

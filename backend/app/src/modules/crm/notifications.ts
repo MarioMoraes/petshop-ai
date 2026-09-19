@@ -1,5 +1,11 @@
-import { withTenant } from '@petshop/db'
-import { DOCUMENT_KIND_LABELS, ROLE_LABELS, type DocumentKind } from '@petshop/shared-types'
+import { getMaintenancePrisma, withTenant } from '@petshop/db'
+import {
+  DEFAULT_TIMEZONE,
+  DOCUMENT_KIND_LABELS,
+  ROLE_LABELS,
+  type DocumentKind,
+} from '@petshop/shared-types'
+import { loadEnv } from '../../config/env.js'
 import { z } from 'zod'
 import { logger } from '../../shared/logger.js'
 import { getMessagingPort } from './messaging-port.js'
@@ -213,6 +219,164 @@ export async function handleSuporteAcessoSolicitado(payload: unknown): Promise<v
       },
     })
   }
+}
+
+// ─── Os avisos da conta ──────────────────────────────────────────────────────
+//
+// Os três abaixo são os únicos desta casa em que **a PetShop AI é quem fala**, e o
+// estabelecimento é quem ouve. Todos os outros avisam o cliente do petshop em nome do
+// petshop; estes cobram o petshop em nome do produto.
+//
+// Duas consequências disso, e as duas são deliberadas:
+//
+// - **vão para todos os `TENANT_ADMIN` ativos**, pela mesma razão do pedido de acesso do
+//   suporte: quem administra pode estar de férias, e um aviso de cobrança que chega a uma
+//   caixa só é um aviso que pode não chegar;
+// - **saem mesmo com o motor de mensagens desligado**, porque são `USER`. O interruptor
+//   do CRM é a decisão do petshop sobre quando começar a falar com a base dele — não vale
+//   sobre a conta que ele mantém aqui.
+
+const TesteTerminandoSchema = z.object({
+  tenantId: z.uuid(),
+  daysLeft: z.number().int(),
+  trialEndsAt: z.string(),
+})
+
+const TenantStatusSchema = z.object({
+  tenantId: z.uuid(),
+  previousStatus: z.string().optional(),
+  newStatus: z.string(),
+  reason: z.string().optional(),
+})
+
+/**
+ * O teste está para acabar — e o cliente ainda tem tempo de assinar sem parar de
+ * trabalhar.
+ *
+ * **O `dedupeKey` é o dia do vencimento, e não o do envio.** A varredura publica de novo
+ * a cada passada enquanto o teste estiver na janela, e é a chave que faz disso um aviso
+ * só. Pôr a data de hoje nela mandaria três e-mails em três dias; pôr só o tenant
+ * calaria o segundo aviso de um teste **estendido** — que é operação real neste produto,
+ * e cujo vencimento novo merece o seu.
+ */
+export async function handleTenantTesteTerminando(payload: unknown): Promise<void> {
+  const event = TesteTerminandoSchema.parse(payload)
+  const timezone = await timezoneOf(event.tenantId)
+
+  const vencimento = event.trialEndsAt.slice(0, 10)
+  await paraCadaAdmin(
+    event.tenantId,
+    'trial_ending',
+    `trial-ending:${event.tenantId}:${vencimento}`,
+    {
+      'conta.dias_restantes': String(event.daysLeft),
+      'conta.vence_em': formatDay(new Date(event.trialEndsAt), timezone),
+    },
+  )
+}
+
+/**
+ * A mensalidade venceu. O aviso sai uma vez por atraso, e o que o identifica é a data em
+ * que ele começou — quem pagou, atrasou de novo três meses depois e recebeu o mesmo
+ * e-mail está recebendo um aviso novo, não uma repetição.
+ */
+export async function handleTenantEmAtraso(payload: unknown): Promise<void> {
+  const event = TenantStatusSchema.parse(payload)
+
+  const row = await getMaintenancePrisma().tenantSubscription.findUnique({
+    where: { tenantId: event.tenantId },
+    select: { overdueSince: true, paymentUrl: true },
+  })
+  const desde = row?.overdueSince ?? new Date()
+  const timezone = await timezoneOf(event.tenantId)
+  const carencia = new Date(desde.getTime() + loadEnv().BILLING_GRACE_DAYS * 24 * 60 * 60 * 1000)
+
+  await paraCadaAdmin(
+    event.tenantId,
+    'subscription_past_due',
+    `past-due:${event.tenantId}:${desde.toISOString().slice(0, 10)}`,
+    {
+      // Até quando ainda dá para trabalhar — é o número que decide se a pessoa paga hoje
+      // ou deixa para depois do fim de semana.
+      'conta.vence_em': formatDay(carencia, timezone),
+      ...(row?.paymentUrl ? { 'conta.link_pagamento': row.paymentUrl } : {}),
+    },
+  )
+}
+
+/**
+ * A conta foi suspensa.
+ *
+ * **Só por falta de pagamento.** O mesmo evento `tenant.suspenso` carrega o fim do teste
+ * e o cancelamento pedido pelo próprio cliente: o primeiro tem aviso próprio, na véspera,
+ * e mandar "sua conta foi suspensa" a quem acabou de clicar em cancelar é o produto
+ * fingindo que não foi ele quem obedeceu.
+ */
+export async function handleTenantSuspenso(payload: unknown): Promise<void> {
+  const event = TenantStatusSchema.parse(payload)
+  if (event.newStatus !== 'SUSPENDED' || event.reason !== 'OVERDUE_GRACE_ENDED') return
+
+  const row = await getMaintenancePrisma().tenantSubscription.findUnique({
+    where: { tenantId: event.tenantId },
+    select: { paymentUrl: true },
+  })
+
+  await paraCadaAdmin(
+    event.tenantId,
+    'tenant_suspended',
+    `tenant-suspended:${event.tenantId}:${new Date().toISOString().slice(0, 10)}`,
+    row?.paymentUrl ? { 'conta.link_pagamento': row.paymentUrl } : {},
+  )
+}
+
+/**
+ * O mesmo endereçamento dos três: todo administrador ativo, com o `dedupeKey` acrescido
+ * do destinatário — a chave é por mensagem, e sem isso só o primeiro admin receberia.
+ */
+async function paraCadaAdmin(
+  tenantId: string,
+  templateKey: string,
+  dedupeKey: string,
+  variables: Record<string, string>,
+): Promise<void> {
+  const admins = await withTenant(tenantId, (tx) =>
+    tx.membership.findMany({
+      where: { roleKey: 'TENANT_ADMIN', status: 'ACTIVE' },
+      select: { userId: true },
+    }),
+  )
+
+  if (admins.length === 0) {
+    logger.warn({ tenantId, templateKey }, 'aviso de conta sem administrador a avisar')
+    return
+  }
+
+  for (const admin of admins) {
+    await getMessagingPort().enqueue({
+      tenantId,
+      recipientKind: 'USER',
+      userId: admin.userId,
+      templateKey,
+      dedupeKey: `${dedupeKey}:${admin.userId}`,
+      variables,
+    })
+  }
+}
+
+async function timezoneOf(tenantId: string): Promise<string> {
+  const settings = await withTenant(tenantId, (tx) =>
+    tx.tenantSettings.findFirst({ select: { timezone: true } }),
+  )
+  return settings?.timezone ?? DEFAULT_TIMEZONE
+}
+
+/** `14 de setembro` — a data como o administrador a leria em voz alta. */
+function formatDay(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone,
+    day: 'numeric',
+    month: 'long',
+  }).format(instant)
 }
 
 function documentLabel(kind: DocumentKind): string {

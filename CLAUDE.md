@@ -271,6 +271,26 @@ pagar começa por um `POST`. A assinatura mora em `modules/subscription`; o cart
 Checkout do Asaas para o número nunca chegar a este servidor, e escolher o plano não o põe
 em vigor — só o pagamento confirmado.
 
+**Quem não opera é uma lista só:** `TENANT_BLOCKED_STATUSES` em
+`shared-types/identity.ts` (`TRIAL_EXPIRED`, `SUSPENDED`, `TERMINATED`), e `PAST_DUE`
+fica de fora de propósito — quem está em atraso trabalha durante a carência. Quatro
+lugares perguntam, e nenhum guarda cópia: a porta barra a escrita (`auth/session.ts`), o
+despacho bloqueia o que ia ao tutor com `TENANT_INACTIVE`, as varreduras diárias do
+MOD-CRM pulam o tenant (`crm/daily.ts`) e o agente responde como desligado, porque
+`readSettings` põe o estado no **efetivo** junto do plano. Fora da requisição, o estado
+vem de `tenantOperational` (`shared/tenant-status.ts`), que passa pelo mesmo `tenant:status`
+de um minuto que a sessão escreve.
+
+**A conta parada cala o cliente final, nunca o administrador.** O bloqueio do despacho é
+só para `TUTOR` — os três avisos da conta (`trial_ending`, `subscription_past_due`,
+`tenant_suspended`) são `USER` e `TRANSACTIONAL`, vão a **todo** `TENANT_ADMIN` ativo e
+saem mesmo com o motor do CRM desligado: o interruptor é a decisão do petshop sobre falar
+com a base dele, e não sobre a conta que ele mantém aqui. E bloquear no **despacho**, e
+não ao enfileirar, é o que impede a fila de virar estoque — quinze dias de lembretes
+soltos no minuto do pagamento chegam como mentira. O aviso da véspera não nasce de
+transição nenhuma: é o job `identity.trial-warnings`, uma vez por dia, e quem garante um
+aviso só é o `dedupeKey` da mensagem, não uma coluna de estado.
+
 **Um terceiro prefixo anônimo entrou com o MOD-NOTIF:** `/internal/`, onde moram os
 webhooks dos provedores (Evolution no pareamento do WhatsApp, Resend no retorno de
 entrega). O nome diz de onde a chamada nasce, não que ela seja privada — a rota do

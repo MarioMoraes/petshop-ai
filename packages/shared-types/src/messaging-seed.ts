@@ -110,6 +110,25 @@ const TEAM_VARIABLES = [
   'equipe.papel',
 ] as const
 
+/**
+ * As variáveis dos avisos da **conta** — os que a PetShop AI manda ao administrador
+ * sobre a assinatura dele, e não os que o petshop manda ao cliente dele.
+ *
+ * `equipe.papel` fica de fora: quem recebe cobrança é quem administra, e dizer o papel
+ * de volta a essa pessoa não acrescenta nada. Entram, no lugar, os dois números que a
+ * decisão exige — quanto tempo resta e onde se resolve.
+ */
+const ACCOUNT_VARIABLES = [
+  'usuario.nome',
+  'usuario.primeiro_nome',
+  'petshop.nome',
+  'petshop.link_admin',
+  'conta.link_assinatura',
+  'conta.link_pagamento',
+  'conta.dias_restantes',
+  'conta.vence_em',
+] as const
+
 const APPOINTMENT_VARIABLES = [
   ...BASE_VARIABLES,
   'pets.lista',
@@ -680,6 +699,111 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'toda consulta fica registrada na sua trilha de auditoria. Você pode revogar a ' +
         'qualquer momento.\n\n' +
         'Para decidir: {{petshop.link_admin}}',
+    },
+  },
+
+  // ─── Os avisos da conta ────────────────────────────────────────────────────
+  //
+  // Os três falam da assinatura do estabelecimento com a PetShop AI, e não do petshop
+  // com o cliente dele. São `USER`, porque o destinatário é quem administra a conta, e
+  // `TRANSACTIONAL`, porque aviso de cobrança não se desliga por interruptor de
+  // marketing — quem não quiser receber cancela a assinatura, que é outra coisa.
+  //
+  // Nenhum deles cita valor. O preço muda por plano, por ciclo e por grandfathering, e o
+  // número que vale é o da tela: escrevê-lo no e-mail é criar uma segunda fonte de
+  // verdade que envelhece sozinha.
+
+  {
+    key: 'trial_ending',
+    label: 'Teste terminando',
+    category: 'TRANSACTIONAL',
+    variables: ACCOUNT_VARIABLES,
+    audience: 'USER',
+    authored: 'SYSTEM',
+    subject: 'Seu teste do {{petshop.nome}} termina em {{conta.dias_restantes}} dias',
+    /**
+     * O texto diz o que **continua** e o que **para**, nessa ordem.
+     *
+     * Quem lê um aviso de fim de teste está decidindo se confia os dados do próprio
+     * negócio ao produto, e a primeira dúvida é sempre a mesma: "perco o que cadastrei?".
+     * Respondê-la antes de pedir o pagamento é o que separa um aviso de uma ameaça.
+     */
+    body: {
+      WHATSAPP:
+        '{{usuario.primeiro_nome}}, o teste do {{petshop.nome}} termina em ' +
+        '{{conta.dias_restantes}} dias ({{conta.vence_em}}).\n\n' +
+        'Seus dados continuam onde estão. Para seguir agendando e atendendo, escolha um ' +
+        'plano em {{conta.link_assinatura}}',
+      EMAIL:
+        'Olá, {{usuario.primeiro_nome}}!\n\n' +
+        'O período de teste do {{petshop.nome}} termina em {{conta.dias_restantes}} dias, ' +
+        'no dia {{conta.vence_em}}.\n\n' +
+        'Tudo o que você cadastrou continua lá — clientes, pets, histórico e agenda. O que ' +
+        'muda sem uma assinatura é que a conta passa a só leitura: dá para consultar, mas ' +
+        'não para marcar horário, registrar atendimento ou receber pagamento.\n\n' +
+        'Para escolher um plano: {{conta.link_assinatura}}\n\n' +
+        'Se preferir conversar antes de decidir, é só responder a este e-mail.',
+    },
+  },
+  {
+    key: 'subscription_past_due',
+    label: 'Mensalidade em atraso',
+    category: 'TRANSACTIONAL',
+    variables: ACCOUNT_VARIABLES,
+    audience: 'USER',
+    authored: 'SYSTEM',
+    subject: 'A mensalidade do {{petshop.nome}} venceu',
+    /**
+     * Manda o link da cobrança em aberto, e não a tela de assinar: quem já assinou não
+     * precisa escolher plano de novo, precisa pagar aquela cobrança. Mandar para a
+     * escolha é a forma mais comum de transformar um atraso de três dias num
+     * cancelamento.
+     */
+    body: {
+      WHATSAPP:
+        '{{usuario.primeiro_nome}}, a mensalidade do {{petshop.nome}} venceu e ainda não ' +
+        'consta como paga.\n\n' +
+        'O petshop continua funcionando normalmente até {{conta.vence_em}}.\n\n' +
+        'Pague em {{conta.link_pagamento}}',
+      EMAIL:
+        'Olá, {{usuario.primeiro_nome}}.\n\n' +
+        'A mensalidade do {{petshop.nome}} venceu e ainda não consta como paga. Pode ser ' +
+        'só o prazo de compensação — se você já pagou, ignore este e-mail.\n\n' +
+        'Até {{conta.vence_em}} nada muda: a equipe trabalha normalmente, o site e o portal ' +
+        'seguem no ar. Depois dessa data a conta passa a só leitura até o pagamento ser ' +
+        'confirmado, e nenhum dado é apagado em momento nenhum.\n\n' +
+        'Para pagar agora: {{conta.link_pagamento}}\n\n' +
+        'Se houver algo errado com a cobrança, responda a este e-mail.',
+    },
+  },
+  {
+    key: 'tenant_suspended',
+    label: 'Conta suspensa',
+    category: 'TRANSACTIONAL',
+    variables: ACCOUNT_VARIABLES,
+    audience: 'USER',
+    authored: 'SYSTEM',
+    subject: 'A conta do {{petshop.nome}} está suspensa',
+    /**
+     * O único dos três que precisa dizer o que o cliente **final** está vendo: o site e o
+     * portal saíram do ar, e o petshop descobrir isso por um cliente reclamando é pior do
+     * que ler aqui.
+     */
+    body: {
+      WHATSAPP:
+        '{{usuario.primeiro_nome}}, a conta do {{petshop.nome}} foi suspensa por falta de ' +
+        'pagamento.\n\n' +
+        'Os dados estão guardados. Regularize em {{conta.link_pagamento}}',
+      EMAIL:
+        'Olá, {{usuario.primeiro_nome}}.\n\n' +
+        'A conta do {{petshop.nome}} foi suspensa por falta de pagamento, depois do prazo ' +
+        'de tolerância.\n\n' +
+        'O que isso significa hoje: a equipe entra e consulta tudo o que já foi registrado, ' +
+        'mas não grava nada novo; o site e o portal do cliente saem do ar; e as mensagens ' +
+        'automáticas para os seus clientes deixam de sair.\n\n' +
+        'Nenhum dado foi apagado, e o pagamento confirmado devolve tudo ao normal em ' +
+        'minutos.\n\n' +
+        'Para regularizar: {{conta.link_pagamento}}',
     },
   },
 ]

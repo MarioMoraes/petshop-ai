@@ -13,6 +13,7 @@ import {
   givenTenant,
   givenTutor,
   installFakeEmailPort,
+  ownerPrisma,
   resetDatabase,
   resetPorts,
   type FakePort,
@@ -356,5 +357,76 @@ describe('trilha de entrega', () => {
         tx.messageEvent.update({ where: { id: event.id }, data: { event: 'READ' } }),
       ),
     ).rejects.toThrow(/append-only/)
+  })
+})
+
+// ─── A conta do estabelecimento parada ───────────────────────────────────────
+
+describe('a conta do estabelecimento parada', () => {
+  /**
+   * Enfileira **antes** de suspender, que é a única ordem possível: a porta recusa todo
+   * `POST` de um tenant em só leitura. O que este teste descreve é o parque que já estava
+   * na fila no instante em que a conta parou.
+   */
+  async function givenContaSuspensa(tutorId: string) {
+    const doTutor = await enqueue(tutorId)
+    const aoAdmin = await callAsStaff(fixture, {
+      method: 'POST',
+      url: '/v1/messages',
+      payload: {
+        recipientKind: 'USER',
+        userId: fixture.userId,
+        templateKey: 'tenant_suspended',
+        dedupeKey: `suspensao:${fixture.tenantId}`,
+        variables: {},
+      },
+    })
+    expect(aoAdmin.statusCode).toBe(202)
+
+    await ownerPrisma.tenant.update({
+      where: { id: fixture.tenantId },
+      data: { status: 'SUSPENDED' },
+    })
+
+    return { doTutor, aoAdmin: aoAdmin.json<{ id: string }>().id }
+  }
+
+  it('bloqueia o que ia ao tutor e deixa sair o aviso ao administrador', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture)
+    const { doTutor, aoAdmin } = await givenContaSuspensa(tutorId)
+
+    const summary = await dispatchTenant(fixture.tenantId, { jitter: false })
+
+    expect(summary.blocked).toBe(1)
+    expect(summary.sent).toBe(1)
+
+    const bloqueada = await readMessage(doTutor)
+    expect(bloqueada.status).toBe('BLOCKED')
+    expect(bloqueada.blockReason).toBe('TENANT_INACTIVE')
+
+    // O aviso da conta é `USER`: é ele que diz a esta pessoa por que o resto emudeceu.
+    expect((await readMessage(aoAdmin)).status).toBe('SENT')
+    expect(port.sent).toHaveLength(1)
+    expect(port.sent[0]!.to).toBe(fixture.userEmail)
+  })
+
+  it('não guarda a mensagem do tutor para soltar no dia do pagamento', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture)
+    const { doTutor } = await givenContaSuspensa(tutorId)
+
+    await dispatchTenant(fixture.tenantId, { jitter: false })
+
+    // Paga: a conta volta, e o lembrete de anteontem continua onde foi barrado. Uma fila
+    // que se esvaziasse aqui mandaria ao tutor a confirmação de um banho que já passou.
+    await ownerPrisma.tenant.update({
+      where: { id: fixture.tenantId },
+      data: { status: 'ACTIVE' },
+    })
+
+    const depois = await dispatchTenant(fixture.tenantId, { jitter: false })
+    expect(depois.picked).toBe(0)
+    expect((await readMessage(doTutor)).status).toBe('BLOCKED')
   })
 })

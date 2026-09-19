@@ -23,7 +23,13 @@ import { openCipher, type MessageCipher } from './crypto.js'
 import { dispatchTenant } from './dispatch.js'
 import { render } from './render.js'
 import { marketingCapReached } from './frequency.js'
-import { adminUrlOf, documentsUrlOf, portalUrlOf, siteUrlOf } from './attachments.js'
+import {
+  adminUrlOf,
+  documentsUrlOf,
+  portalUrlOf,
+  siteUrlOf,
+  subscriptionUrlOf,
+} from './attachments.js'
 import { resolveDelivery, resolveOverrideDelivery, resolveUserDelivery } from './recipient.js'
 import { resolveTemplate } from './templates.js'
 import { loadSettings } from './settings.js'
@@ -137,6 +143,21 @@ async function baseVariables(
       ...common,
       'usuario.nome': fullName,
       'usuario.primeiro_nome': fullName.split(/\s+/)[0] ?? '',
+      /**
+       * A tela da assinatura, resolvida aqui como os outros três endereços.
+       *
+       * Quem publica o aviso da conta é o módulo de identidade e o webhook do Asaas, e
+       * nenhum dos dois tem — nem deveria ter — a função que monta URL de superfície do
+       * produto. Só para a equipe: o cliente final não assina nada.
+       */
+      'conta.link_assinatura': subscriptionUrlOf(),
+      /**
+       * O padrão de "onde se paga" é a mesma tela, e quem tem a cobrança em aberto
+       * sobrescreve com o link dela. Sem este padrão, o aviso de atraso de quem assinou
+       * no cartão — onde não há boleto nem PIX para apontar — sairia com a frase de pé e
+       * o endereço faltando.
+       */
+      'conta.link_pagamento': subscriptionUrlOf(),
     }
   }
 

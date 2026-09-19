@@ -3,6 +3,7 @@ import {
   DEFAULT_TIMEZONE,
   PlanSchema,
   planIncludes,
+  tenantOperates,
   type AgentSettings,
   type AgentTone,
   type UpdateAgentSettingsInput,
@@ -78,7 +79,7 @@ export async function readSettings(
   const [row, tenant, messaging] = await Promise.all([
     tx.agentSettings.findUnique({ where: { tenantId } }),
     tx.tenant.findFirst({
-      select: { name: true, plan: true, settings: { select: { timezone: true } } },
+      select: { name: true, plan: true, status: true, settings: { select: { timezone: true } } },
     }),
     loadMessagingSettings(tx, tenantId),
   ])
@@ -93,8 +94,19 @@ export async function readSettings(
   const agent = planIncludes(plan, 'AI_AGENT')
   const persona = planIncludes(plan, 'AI_PERSONA')
 
+  /**
+   * O estado da conta desliga o agente pelo mesmo mecanismo do plano, e pelo mesmo
+   * motivo: a linha fica como está, e voltar a pagar religa sem ninguém reconfigurar.
+   *
+   * É o único caminho do produto em que uma resposta chega ao cliente final **sem passar
+   * pela fila** — o turno do modelo sai pelo `enqueueMessage`, mas quem decide se há turno
+   * é esta configuração. Sem ela aqui, o bloqueio do despacho calaria o lembrete e
+   * deixaria o robô de um petshop suspenso marcando horário que ninguém vai atender.
+   */
+  const operates = tenantOperates(tenant?.status)
+
   return {
-    enabled: agent && (row?.enabled ?? DEFAULTS.enabled),
+    enabled: agent && operates && (row?.enabled ?? DEFAULTS.enabled),
     opensAt: row?.opensAt ?? DEFAULTS.opensAt,
     closesAt: row?.closesAt ?? DEFAULTS.closesAt,
     monthlyCapCents: row?.monthlyCapCents ?? DEFAULTS.monthlyCapCents,

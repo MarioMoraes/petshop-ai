@@ -1,6 +1,7 @@
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
 import { whatsappWarmupCap } from '@petshop/shared-types'
 import { publishEvent } from '../../shared/events.js'
+import { tenantOperational } from '../../shared/tenant-status.js'
 import { logger, recordMetric } from '../../shared/logger.js'
 import { consumeDailySlot, consumeRateSlot } from '../../shared/redis.js'
 import { loadEnv } from '../../config/env.js'
@@ -97,6 +98,16 @@ export async function dispatchTenant(
   const settings = await withTenant(tenantId, (tx) => loadSettings(tx, tenantId))
 
   /**
+   * A conta do estabelecimento, uma vez por passada e não uma por mensagem.
+   *
+   * **Isto não é o interruptor do CRM logo abaixo.** `enabled` é a decisão do petshop
+   * sobre quando começar a falar com a base dele; isto é a nossa, sobre um petshop que
+   * parou de pagar — e por isso ela cala o tutor mas não o administrador, que precisa
+   * justamente receber o aviso dizendo por quê.
+   */
+  const operates = await tenantOperational(tenantId)
+
+  /**
    * O motor desligado **não** cala o e-mail de equipe (AC-04 de MOD-NOTIF-02).
    *
    * Até o MOD-NOTIF esta linha era um `return` seco, e ele estaria certo enquanto todo
@@ -138,6 +149,9 @@ export async function dispatchTenant(
      */
     if (
       recipientKind === 'TUTOR' &&
+      // Nada sai ao provedor quando a conta está parada: gastar a vaga do minuto aqui
+      // faria a fila bloqueada levar horas para esvaziar, a `perMinuteCap` por vez.
+      operates &&
       !(await consumeRateSlot(tenantId, settings.perMinuteCap))
     ) {
       summary.throttled += 1
@@ -146,7 +160,7 @@ export async function dispatchTenant(
       break
     }
 
-    const outcome = await dispatchOne(tenantId, id, settings, today, now)
+    const outcome = await dispatchOne(tenantId, id, settings, today, now, operates)
     if (outcome === 'sent') summary.sent += 1
     else if (outcome === 'blocked') summary.blocked += 1
     else if (outcome === 'throttled') summary.throttled += 1
@@ -183,6 +197,7 @@ async function dispatchOne(
   settings: Awaited<ReturnType<typeof loadSettings>>,
   today: string,
   now: Date,
+  operates: boolean,
 ): Promise<Outcome> {
   // A "lease" do worker: só quem consegue mover a mensagem para SENDING a envia. Dois
   // processos na mesma fila é o caso normal em produção, e sem isto os dois enviariam.
@@ -200,7 +215,13 @@ async function dispatchOne(
   type Prepared =
     | {
         kind: 'block'
-        block: 'NO_CONSENT' | 'SUPPRESSED' | 'NO_CHANNEL' | 'PET_DECEASED' | 'WEEKLY_CAP'
+        block:
+          | 'NO_CONSENT'
+          | 'SUPPRESSED'
+          | 'NO_CHANNEL'
+          | 'PET_DECEASED'
+          | 'WEEKLY_CAP'
+          | 'TENANT_INACTIVE'
         message: PreparedMessage
       }
     /** Pagou entre a fila e o envio: não é bloqueio, é assunto encerrado (AC-03 de MOD-CRM-08). */
@@ -227,6 +248,21 @@ async function dispatchOne(
     const subject = message.subjectEncrypted
       ? safeDecrypt(cipher.decrypt, message.subjectEncrypted)
       : null
+
+    /**
+     * A conta parou, e nada sai em nome dela para o cliente final.
+     *
+     * **Bloqueia aqui e não ao enfileirar**, que é a diferença entre uma fila e um
+     * estoque: represar quinze dias de lembretes e soltá-los todos no minuto em que a
+     * assinatura for paga manda ao tutor a confirmação de um banho de anteontem. A linha
+     * fica em `BLOCKED` com o motivo, que é o que o painel de entregas mostra.
+     *
+     * **Só o tutor.** O administrador continua alcançável — os três avisos da conta são
+     * `USER`, e são eles que dizem a esta pessoa por que o resto emudeceu.
+     */
+    if (!operates && message.recipientKind === 'TUTOR') {
+      return { kind: 'block' as const, block: 'TENANT_INACTIVE' as const, message }
+    }
 
     /**
      * RN-03: o mundo pode ter mudado desde o enfileiramento.

@@ -1,9 +1,9 @@
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
-import type { TenantStatus } from '@petshop/shared-types'
+import { tenantOperates, type TenantStatus } from '@petshop/shared-types'
 import { recordAudit } from './audit.js'
 import { publishEvent } from './events.js'
 import { logger } from './logger.js'
-import { CACHE_KEYS, cacheDelete } from './redis.js'
+import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheDelete, cacheGet, cacheSet } from './redis.js'
 
 /**
  * A mudança de estado da **conta** do estabelecimento — teste, ativo, em atraso, suspenso.
@@ -20,14 +20,19 @@ import { CACHE_KEYS, cacheDelete } from './redis.js'
 
 /**
  * O evento de cada transição. Voltar a `ACTIVE` é `ativado` na primeira vez (saindo do
- * teste) e `reativado` depois de atraso ou suspensão; `PAST_DUE` não publica nada, porque
- * o estabelecimento em atraso continua operando e nenhum consumidor tem o que fazer.
+ * teste) e `reativado` depois de atraso ou suspensão.
+ *
+ * **`PAST_DUE` passou a publicar.** Enquanto ninguém avisava o estabelecimento, o atraso
+ * era um estado sem consequência visível e o evento não teria ouvinte; com o aviso de
+ * mensalidade vencida, ele é o fato que dispara o e-mail. O estabelecimento continua
+ * operando — o que muda é que ele fica sabendo.
  */
 function routingKeyFor(
   from: TenantStatus,
   to: TenantStatus,
-): 'tenant.ativado' | 'tenant.suspenso' | 'tenant.reativado' | null {
+): 'tenant.ativado' | 'tenant.suspenso' | 'tenant.reativado' | 'tenant.em_atraso' | null {
   if (to === 'SUSPENDED' || to === 'TRIAL_EXPIRED') return 'tenant.suspenso'
+  if (to === 'PAST_DUE') return 'tenant.em_atraso'
   if (to !== 'ACTIVE') return null
   return from === 'TRIAL' || from === 'TRIAL_EXPIRED' ? 'tenant.ativado' : 'tenant.reativado'
 }
@@ -82,6 +87,13 @@ export async function transitionTenantStatus(
     CACHE_KEYS.portalTenantBySlug(tenant.slug),
     CACHE_KEYS.host(tenant.slug),
     CACHE_KEYS.hostMiss(tenant.slug),
+    /**
+     * A configuração do agente guarda o **efetivo**, e o estado da conta entra nele: a
+     * suspensão o desliga. Sem esta linha, o agente responderia por mais cinco minutos em
+     * nome de um estabelecimento que já não opera — e a mensagem dele é a única do produto
+     * que chega ao cliente final sem passar pela fila.
+     */
+    CACHE_KEYS.agentSettings(tenantId),
     ...(tenant.clerkOrgId ? [CACHE_KEYS.tenantByOrg(tenant.clerkOrgId)] : []),
   )
 
@@ -100,4 +112,31 @@ export async function transitionTenantStatus(
     'estado do estabelecimento alterado',
   )
   return true
+}
+
+/**
+ * O estabelecimento opera? — a pergunta de quem roda **fora** da requisição.
+ *
+ * Na porta, o estado já veio junto do tenant da sessão e custa zero. O despacho de
+ * mensagens, as varreduras diárias e o turno do agente não têm requisição nenhuma: para
+ * eles o estado é uma consulta, e por isso passa pelo mesmo `tenant:status` que a sessão
+ * escreve — TTL de um minuto, derrubado pela transição acima. É o que impede o caminho
+ * mais quente do sistema de perguntar a cada mensagem.
+ *
+ * **Tenant que não existe não opera.** Aqui a ausência é um `deletedAt` preenchido, e não
+ * um estado que ninguém reconheceu — o contrário do `tenantOperates`, que deixa passar o
+ * desconhecido porque lá a alternativa seria travar o produto por um enum novo.
+ */
+export async function tenantOperational(tenantId: string): Promise<boolean> {
+  const cached = await cacheGet<string>(CACHE_KEYS.tenantStatus(tenantId))
+  if (cached) return tenantOperates(cached)
+
+  const tenant = await getMaintenancePrisma().tenant.findFirst({
+    where: { id: tenantId, deletedAt: null },
+    select: { status: true },
+  })
+  if (!tenant) return false
+
+  await cacheSet(CACHE_KEYS.tenantStatus(tenantId), tenant.status, CACHE_TTL_SECONDS.tenantStatus)
+  return tenantOperates(tenant.status)
 }

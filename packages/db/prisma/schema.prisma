@@ -2843,6 +2843,9 @@ enum MessageBlockReason {
   /// O tutor já recebeu a mensagem de marketing da semana
   /// (`messaging_settings.marketing_weekly_cap`).
   WEEKLY_CAP
+  /// A conta do estabelecimento está em só leitura — teste vencido ou suspensão.
+  /// O único motivo que não fala do destinatário, e sim de quem ia falar com ele.
+  TENANT_INACTIVE
 }
 
 enum MessageOriginType {

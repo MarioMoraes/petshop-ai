@@ -14,6 +14,9 @@ import {
   handlePrescricaoEmitida,
   handleReciboEmitido,
   handleSuporteAcessoSolicitado,
+  handleTenantEmAtraso,
+  handleTenantSuspenso,
+  handleTenantTesteTerminando,
 } from './notifications.js'
 
 /**
@@ -265,6 +268,17 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'tenant.onboarding.concluido': handleOnboardingConcluido,
   'suporte.acesso.solicitado': handleSuporteAcessoSolicitado,
   'convite.aceito': handleConviteAceito,
+
+  /**
+   * Os avisos da conta — os únicos em que quem fala é a PetShop AI.
+   *
+   * `tenant.suspenso` também é ouvido pelo MOD-SITE, que tira o site do ar. Duas filas
+   * ligadas à mesma routing key é o desenho normal do topic: cada uma recebe a sua
+   * cópia, e nenhuma sabe da outra.
+   */
+  'tenant.teste_terminando': handleTenantTesteTerminando,
+  'tenant.em_atraso': handleTenantEmAtraso,
+  'tenant.suspenso': handleTenantSuspenso,
 }
 
 let connection: ChannelModel | null = null

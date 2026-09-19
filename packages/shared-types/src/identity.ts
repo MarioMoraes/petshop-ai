@@ -51,6 +51,26 @@ export const TenantStatusSchema = z.enum([
 ])
 export type TenantStatus = z.infer<typeof TenantStatusSchema>
 
+/**
+ * Os estados em que o estabelecimento **não opera** — só leitura na sessão (RN-04), e
+ * nada sai em nome dele para o cliente final.
+ *
+ * `PAST_DUE` fica de fora de propósito: quem está em atraso continua trabalhando durante
+ * a carência, e é justamente esse o desenho da cobrança. Quem cala é a suspensão, não o
+ * atraso.
+ *
+ * A lista mora aqui, e não em `auth/session.ts`, desde que deixou de ter um leitor só: a
+ * sessão barra a escrita, o motor de mensagens barra a saída para o tutor, as varreduras
+ * diárias pulam o tenant e o agente responde como desligado. Quatro cópias da mesma
+ * lista divergiriam no dia em que um estado novo nascesse.
+ */
+export const TENANT_BLOCKED_STATUSES = ['TRIAL_EXPIRED', 'SUSPENDED', 'TERMINATED'] as const
+
+/** `false` quando o estabelecimento está bloqueado. Estado desconhecido opera. */
+export function tenantOperates(status: string | null | undefined): boolean {
+  return !TENANT_BLOCKED_STATUSES.includes(status as (typeof TENANT_BLOCKED_STATUSES)[number])
+}
+
 export const RoleKeySchema = z.enum(ROLE_KEYS)
 
 // As etapas do wizard (MOD-IDENT-02) moram aqui, e não na seção de onboarding mais

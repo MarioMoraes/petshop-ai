@@ -7,6 +7,7 @@ import {
   givenTenant,
   givenTutorWithPet,
   installFakeMessagingPort,
+  ownerPrisma,
   resetDatabase,
   TEST_TIMEZONE,
   type FakeMessaging,
@@ -59,6 +60,25 @@ describe('aniversário do pet (AC-01)', () => {
     // 18:00 UTC é 15:00 em São Paulo — não são nove da manhã de ninguém aqui.
     const summary = await sendBirthdays(new Date('2027-06-15T18:00:00Z'))
 
+    expect(summary.pets.tenants).toBe(0)
+    expect(messaging.requests).toHaveLength(0)
+  })
+
+  it('a conta suspensa não felicita ninguém', async () => {
+    await enableAutomation(fixture, 'birthday_pet', { sendHour: 9 })
+    await givenTutorWithPet(fixture, { petBirthDate: '2020-06-15' })
+    await ownerPrisma.tenant.update({
+      where: { id: fixture.tenantId },
+      data: { status: 'SUSPENDED' },
+    })
+
+    const summary = await sendBirthdays(at9am('06-15'))
+
+    /**
+     * O despacho bloquearia de qualquer forma — é ele o fecho. Pular na varredura é o que
+     * evita encher a fila e o painel de entregas do cliente de linhas nascidas mortas,
+     * todo dia, enquanto a conta estiver parada.
+     */
     expect(summary.pets.tenants).toBe(0)
     expect(messaging.requests).toHaveLength(0)
   })

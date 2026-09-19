@@ -17,6 +17,9 @@ import {
   handleOnboardingConcluido,
   handlePrescricaoEmitida,
   handleReciboEmitido,
+  handleTenantEmAtraso,
+  handleTenantSuspenso,
+  handleTenantTesteTerminando,
 } from '../../src/modules/crm/notifications.js'
 
 /**
@@ -290,5 +293,135 @@ describe('os quatro não passam pelo interruptor das automações', () => {
     // Não há interruptor para o petshop desligar o e-mail que entrega o comprovante
     // que ele mesmo emitiu.
     expect(messaging.requests).toHaveLength(1)
+  })
+})
+
+// ─── Os avisos da conta ──────────────────────────────────────────────────────
+
+describe('os avisos da conta', () => {
+  /** Um segundo administrador: quem cobra não pode depender de uma caixa de entrada só. */
+  async function givenOutroAdmin(): Promise<string> {
+    const suffix = randomUUID().slice(0, 8)
+    const user = await ownerPrisma.user.create({
+      data: {
+        clerkUserId: `user_${suffix}`,
+        emailEncrypted: 'v1:x:x:x',
+        emailHash: `hash-${suffix}`,
+        fullName: 'Sócia de Teste',
+      },
+    })
+    await ownerPrisma.membership.create({
+      data: {
+        tenantId: fixture.tenantId,
+        userId: user.id,
+        roleKey: 'TENANT_ADMIN',
+        status: 'ACTIVE',
+      },
+    })
+    return user.id
+  }
+
+  async function givenAssinatura(data: { overdueSince?: Date; paymentUrl?: string }) {
+    await ownerPrisma.tenantSubscription.create({
+      data: {
+        tenantId: fixture.tenantId,
+        plan: 'PRO',
+        method: 'PIX',
+        status: 'PAST_DUE',
+        ...data,
+      },
+    })
+  }
+
+  it('avisa da véspera do fim do teste, com os dias e a data no fuso do petshop', async () => {
+    await handleTenantTesteTerminando({
+      tenantId: fixture.tenantId,
+      daysLeft: 3,
+      // Meia-noite UTC do dia 15 ainda é dia 14 em São Paulo: é o caso que prova que a
+      // data sai no fuso do estabelecimento, e não no do servidor.
+      trialEndsAt: '2026-09-15T00:30:00.000Z',
+    })
+
+    expect(messaging.requests).toHaveLength(1)
+    const request = messaging.requests[0]!
+    expect(request.templateKey).toBe('trial_ending')
+    expect(request.recipientKind).toBe('USER')
+    expect(request.userId).toBe(fixture.userId)
+    expect(request.variables?.['conta.dias_restantes']).toBe('3')
+    expect(request.variables?.['conta.vence_em']).toBe('14 de setembro')
+    // A chave é o vencimento, e não o dia do envio: a varredura publica de novo a cada
+    // passada, e um teste **estendido** merece o aviso do prazo novo.
+    expect(request.dedupeKey).toContain('2026-09-15')
+  })
+
+  it('manda o aviso a todo administrador, com dedupeKey por destinatário', async () => {
+    const outro = await givenOutroAdmin()
+
+    await handleTenantTesteTerminando({
+      tenantId: fixture.tenantId,
+      daysLeft: 1,
+      trialEndsAt: '2026-09-20T12:00:00.000Z',
+    })
+
+    expect(messaging.requests).toHaveLength(2)
+    const destinatarios = messaging.requests.map((request) => request.userId).sort()
+    expect(destinatarios).toEqual([fixture.userId, outro].sort())
+
+    // Sem o destinatário na chave, o motor devolveria a mesma mensagem duas vezes e só o
+    // primeiro administrador receberia.
+    const chaves = new Set(messaging.requests.map((request) => request.dedupeKey))
+    expect(chaves.size).toBe(2)
+  })
+
+  it('no atraso, aponta para a cobrança em aberto e diz até quando dá para trabalhar', async () => {
+    await givenAssinatura({
+      overdueSince: new Date('2026-09-10T12:00:00.000Z'),
+      paymentUrl: 'https://asaas.exemplo/cobranca/abc',
+    })
+
+    await handleTenantEmAtraso({
+      tenantId: fixture.tenantId,
+      previousStatus: 'ACTIVE',
+      newStatus: 'PAST_DUE',
+      reason: 'PAYMENT_OVERDUE',
+    })
+
+    expect(messaging.requests).toHaveLength(1)
+    const request = messaging.requests[0]!
+    expect(request.templateKey).toBe('subscription_past_due')
+    expect(request.variables?.['conta.link_pagamento']).toBe('https://asaas.exemplo/cobranca/abc')
+    // Sete dias de carência depois do vencimento (BILLING_GRACE_DAYS).
+    expect(request.variables?.['conta.vence_em']).toBe('17 de setembro')
+    // A chave é a data em que o atraso começou: quem atrasar de novo em dezembro recebe
+    // um aviso novo, e não uma repetição suprimida.
+    expect(request.dedupeKey).toContain('2026-09-10')
+  })
+
+  it('não manda "sua conta foi suspensa" a quem pediu para cancelar', async () => {
+    await handleTenantSuspenso({
+      tenantId: fixture.tenantId,
+      previousStatus: 'ACTIVE',
+      newStatus: 'SUSPENDED',
+      reason: 'CANCELLED_BY_TENANT',
+    })
+    expect(messaging.requests).toHaveLength(0)
+
+    // E o fim do teste também não: ele tem o aviso dele, na véspera.
+    await handleTenantSuspenso({
+      tenantId: fixture.tenantId,
+      previousStatus: 'TRIAL',
+      newStatus: 'TRIAL_EXPIRED',
+      reason: 'TRIAL_EXPIRED',
+    })
+    expect(messaging.requests).toHaveLength(0)
+
+    await handleTenantSuspenso({
+      tenantId: fixture.tenantId,
+      previousStatus: 'PAST_DUE',
+      newStatus: 'SUSPENDED',
+      reason: 'OVERDUE_GRACE_ENDED',
+    })
+    expect(messaging.requests).toHaveLength(1)
+    expect(messaging.requests[0]!.templateKey).toBe('tenant_suspended')
   })
 })

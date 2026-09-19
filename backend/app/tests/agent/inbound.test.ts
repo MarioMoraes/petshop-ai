@@ -88,6 +88,31 @@ describe('MOD-AI-01 — recepção de mensagem', () => {
     expect(conversa?.handoffAt).not.toBeNull()
   })
 
+  it('com a conta suspensa, o agente cala como se estivesse desligado', async () => {
+    const { enableAgent, installFakeModel } = await import('./fixtures.js')
+    await enableAgent(tenant)
+    installFakeModel()
+    await givenTutor(tenant)
+
+    /**
+     * A conta parou entre ligar o agente e a mensagem chegar. É o mesmo desenho do plano
+     * que desce: a linha de `agent_settings` fica como está — pagar religa sem
+     * reconfigurar nada —, e o efetivo é o que responde.
+     */
+    await ownerPrisma.tenant.update({
+      where: { id: tenant.tenantId },
+      data: { status: 'SUSPENDED' },
+    })
+
+    await callWebhook(token, upsertPayload({}))
+
+    const [conversa] = await conversations(tenant)
+    // A mensagem do cliente continua entrando e continua visível: o inbox é o que sobra
+    // de pé, e quem responde é gente.
+    expect(conversa?.status).toBe('HANDOFF')
+    expect(conversa?.handoffReason).toBe('DISABLED')
+  })
+
   it('AC-02: número sem ficha grava a linha, não tem dono e vai para a recepção', async () => {
     await callWebhook(token, upsertPayload({ phone: '+5511911112222' }))
 

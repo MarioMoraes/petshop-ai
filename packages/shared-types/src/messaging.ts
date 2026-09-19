@@ -88,6 +88,16 @@ export const MessageBlockReasonSchema = z.enum([
    * linha existe para que a campanha possa dizer por que aquela pessoa ficou de fora.
    */
   'WEEKLY_CAP',
+  /**
+   * O **estabelecimento** está em só leitura — teste vencido ou conta suspensa.
+   *
+   * É o único motivo desta lista que não fala do tutor nem do endereço dele: não há nada
+   * errado com o destinatário, e sim com a conta que ia falar com ele. Bloquear no
+   * despacho, e não ao enfileirar, é o que impede a fila de virar um estoque que dispara
+   * de uma vez no dia do pagamento — um lembrete de véspera guardado por duas semanas
+   * chega como mentira.
+   */
+  'TENANT_INACTIVE',
 ])
 export type MessageBlockReason = z.infer<typeof MessageBlockReasonSchema>
 
@@ -729,6 +739,7 @@ export const MESSAGE_BLOCK_REASON_LABELS: Record<MessageBlockReason, string> = {
   PET_DECEASED: 'Pet falecido',
   QUIET_HOURS_EXPIRED: 'A janela de envio passou antes de a mensagem sair',
   WEEKLY_CAP: 'O tutor já recebeu a mensagem de marketing da semana',
+  TENANT_INACTIVE: 'A conta do estabelecimento está suspensa',
 }
 
 /**

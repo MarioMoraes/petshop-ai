@@ -21,6 +21,14 @@ export const IDENTITY_ROUTING_KEYS = {
   tenantAtivado: 'tenant.ativado',
   tenantSuspenso: 'tenant.suspenso',
   tenantReativado: 'tenant.reativado',
+  /**
+   * A mensalidade da **plataforma** venceu sem pagamento. Não é a régua de cobrança do
+   * petshop com o cliente dele — aqui quem deve é o estabelecimento, e quem avisa é a
+   * PetShop AI.
+   */
+  tenantEmAtraso: 'tenant.em_atraso',
+  /** O teste está para acabar. Publicado pela varredura, não por uma mudança de estado. */
+  tenantTesteTerminando: 'tenant.teste_terminando',
   tenantEncerrado: 'tenant.encerrado',
   tenantConfiguracaoAtualizada: 'tenant.configuracao.atualizada',
   tenantPlanoAlterado: 'tenant.plano.alterado',
@@ -71,6 +79,19 @@ export interface TenantStatusAlteradoEvent extends BaseEvent {
   previousStatus: TenantStatus
   newStatus: TenantStatus
   reason: string
+}
+
+/**
+ * O teste que está para acabar (camada comercial).
+ *
+ * Nasce de varredura e não de transição, porque nada mudou de estado: o que aconteceu é
+ * uma data se aproximando. `daysLeft` vem calculado no fuso do estabelecimento — quem
+ * consome escreve o número no texto e não tem como refazer a conta.
+ */
+export interface TenantTesteTerminandoEvent extends BaseEvent {
+  tenantId: string
+  daysLeft: number
+  trialEndsAt: string
 }
 
 export interface TenantConfiguracaoAtualizadaEvent extends BaseEvent {
@@ -157,6 +178,8 @@ export interface IdentityEventMap {
   'tenant.ativado': TenantStatusAlteradoEvent
   'tenant.suspenso': TenantStatusAlteradoEvent
   'tenant.reativado': TenantStatusAlteradoEvent
+  'tenant.em_atraso': TenantStatusAlteradoEvent
+  'tenant.teste_terminando': TenantTesteTerminandoEvent
   'tenant.encerrado': TenantStatusAlteradoEvent
   'tenant.configuracao.atualizada': TenantConfiguracaoAtualizadaEvent
   'tenant.plano.alterado': TenantPlanoAlteradoEvent

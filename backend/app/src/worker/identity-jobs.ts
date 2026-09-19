@@ -2,11 +2,12 @@ import type { JobDefinition } from '@petshop/job-scheduler'
 import { runExpireInvitationsOnce } from '../modules/identity/invitations/expire.js'
 import { runExpireTrialsOnce } from '../modules/identity/tenants/expire-trials.js'
 import { runProvisioningRetryOnce } from '../modules/identity/tenants/provisioning-retry.js'
+import { runTrialWarningsOnce } from '../modules/identity/tenants/trial-warnings.js'
 
 /**
  * A grade da identidade.
  *
- * Três jobs, em cadências que dizem para quem cada um trabalha.
+ * Quatro jobs, em cadências que dizem para quem cada um trabalha.
  *
  * O retry de provisionamento existe porque o provisionamento fala com o Clerk: uma
  * indisponibilidade de dois minutos lá deixa um tenant preso em `PROVISIONING` aqui, e
@@ -44,5 +45,18 @@ export const identityJobs: JobDefinition[] = [
     schedule: '40 * * * *',
     timeoutMs: 120_000,
     run: (now) => runExpireTrialsOnce(now).then(() => undefined),
+  },
+  {
+    /**
+     * O aviso da véspera, uma vez por dia.
+     *
+     * 12h UTC é o começo da manhã no Brasil inteiro — de Fernando de Noronha a Rio
+     * Branco, entre 7h e 9h. Um aviso de cobrança que chega de madrugada é lido como
+     * spam, e este precisa ser lido.
+     */
+    name: 'identity.trial-warnings',
+    schedule: '10 12 * * *',
+    timeoutMs: 120_000,
+    run: (now) => runTrialWarningsOnce(now).then(() => undefined),
   },
 ]

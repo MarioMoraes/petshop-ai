@@ -5,7 +5,13 @@ import {
   resolveTenantByClerkOrgId,
   withTenant,
 } from '@petshop/db'
-import { AppError, type MfaState, type PermissionKey, type RoleKey } from '@petshop/shared-types'
+import {
+  AppError,
+  TENANT_BLOCKED_STATUSES,
+  type MfaState,
+  type PermissionKey,
+  type RoleKey,
+} from '@petshop/shared-types'
 import type { ServiceAuthContext } from '@petshop/service-auth'
 import { logger, recordMetric } from '../shared/logger.js'
 import { recordSecurityEvent } from '../shared/security-events.js'
@@ -37,8 +43,14 @@ interface CachedPermissions {
 /**
  * RN-04 — tenant suspenso bloqueia operação, mas leitura dos próprios dados e
  * exportação LGPD continuam liberadas.
+ *
+ * A lista saiu daqui para `shared-types` quando deixou de ter um leitor só: a porta barra
+ * a escrita, o motor de mensagens cala a saída para o tutor, as varreduras diárias pulam
+ * o tenant e o agente responde como desligado. Quatro cópias divergiriam no dia em que um
+ * estado novo nascesse — e a divergência seria um estabelecimento suspenso ainda falando
+ * com os clientes dele.
  */
-const BLOCKED_STATUSES = new Set(['SUSPENDED', 'TERMINATED', 'TRIAL_EXPIRED'])
+const BLOCKED_STATUSES = new Set<string>(TENANT_BLOCKED_STATUSES)
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 /**

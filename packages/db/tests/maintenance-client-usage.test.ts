@@ -73,6 +73,14 @@ const ALLOWED_WRITERS = new Set([
    */
   'backend/app/src/modules/platform/metrics.ts',
   'backend/app/src/modules/platform/alerts.ts',
+  /**
+   * A tabela de preços do console. `plan_prices` tem o **plano** por chave primária e
+   * nenhuma coluna de tenant: ela é o preço de tabela do produto, que a equipe PetShop AI
+   * mantém e todo estabelecimento lê. Não há contexto de tenant a respeitar porque não há
+   * dono — e o que protege o valor já contratado é o congelamento em
+   * `tenant_subscriptions.price_cents`, não a RLS.
+   */
+  'backend/app/src/modules/platform/prices.ts',
 ])
 
 /** Operações do Prisma que gravam. `$executeRaw` entra: é escrita crua. */

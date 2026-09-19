@@ -1,6 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { runExpireTrialsOnce } from '../../src/modules/identity/tenants/expire-trials.js'
 import {
+  TRIAL_WARNING_DAYS,
+  runTrialWarningsOnce,
+} from '../../src/modules/identity/tenants/trial-warnings.js'
+import {
   callApi,
   closeHarness,
   ownerPrisma,
@@ -112,5 +116,48 @@ describe('o estabelecimento com teste vencido', () => {
     })
     // Qualquer resposta da rota, menos o 423 da sessão: é a escrita que tira daqui.
     expect(response.statusCode).not.toBe(423)
+  })
+})
+
+// ─── O aviso da véspera ──────────────────────────────────────────────────────
+
+describe('a varredura do aviso de véspera', () => {
+  const DIA = 24 * HORA
+
+  it('avisa quem está dentro da janela e ignora quem ainda tem folga', async () => {
+    await testeTerminaEm(2 * DIA)
+
+    const longe = await seedTenant('petshop-com-folga', 'TRIAL')
+    await ownerPrisma.tenant.update({
+      where: { id: longe.tenantId },
+      data: { trialEndsAt: new Date(Date.now() + (TRIAL_WARNING_DAYS + 5) * DIA) },
+    })
+
+    expect(await runTrialWarningsOnce()).toBe(1)
+  })
+
+  it('não avisa da véspera quem já venceu — esse é caso do corte', async () => {
+    await testeTerminaEm(-HORA)
+    expect(await runTrialWarningsOnce()).toBe(0)
+  })
+
+  it('não avisa quem já assinou', async () => {
+    await testeTerminaEm(2 * DIA)
+    await ownerPrisma.tenant.update({
+      where: { id: tenant.tenantId },
+      data: { status: 'ACTIVE' },
+    })
+    expect(await runTrialWarningsOnce()).toBe(0)
+  })
+
+  /**
+   * Quem garante um aviso só é o `dedupeKey` da mensagem, e não esta varredura: enquanto
+   * o teste estiver na janela, toda passada publica de novo. O teste trava essa decisão —
+   * se um dia alguém puser uma coluna `trial_warned_at` aqui, é aqui que se vê.
+   */
+  it('publica outra vez na passada seguinte, e quem cala é a chave da mensagem', async () => {
+    await testeTerminaEm(2 * DIA)
+    expect(await runTrialWarningsOnce()).toBe(1)
+    expect(await runTrialWarningsOnce()).toBe(1)
   })
 })
