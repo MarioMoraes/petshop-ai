@@ -115,3 +115,53 @@
 		format json
 	}
 }
+
+# ── A landing de venda ────────────────────────────────────────────────────────
+#
+# Host próprio, fora de `{$APP_DOMAIN}`: `lp.officestecnologia.com.br` não é
+# subdomínio do domínio da aplicação, então o wildcard acima não o cobre e ele
+# precisa do bloco — e do certificado — dele.
+#
+# Os arquivos vêm DENTRO da imagem (`infra/Dockerfile.caddy`), não de um bind
+# mount: em `docker stack deploy` um bind relativo vira diretório vazio em
+# silêncio. Enquanto a VPS era compartilhada quem servia isto era um nginx à
+# parte, publicado pelo Traefik do EasyPanel; na máquina dedicada o Caddy é a
+# borda e serve arquivo nativamente, o que apaga um container inteiro.
+#
+# O DNS-01 aqui não é capricho: é o mesmo token da Cloudflare, e um desafio que
+# não depende de a porta 80 chegar limpa continua valendo se o registro um dia
+# passar a proxiar pela Cloudflare (laranja), onde o HTTP-01 quebraria.
+{$LANDING_DOMAIN:lp.officestecnologia.com.br} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	encode zstd gzip
+	root * /srv/landing
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# O HTML é sempre revalidado, porque uma troca de preço no console precisa
+	# aparecer no próximo acesso. CSS e JS não têm hash no nome, então uma hora com
+	# revalidação — é o que o nginx do EasyPanel fazia, e vale o mesmo aqui.
+	@estaticos path *.css *.js *.svg
+	header @estaticos Cache-Control "public, max-age=3600, must-revalidate"
+	header /index.html Cache-Control "no-cache"
+
+	# Nada aqui fala com o backend: a página busca o preço em `/api/planos` do
+	# Next, noutro host, e o HTML já traz o preço padrão como reserva.
+	try_files {path} {path}/ /index.html
+	file_server
+
+	log {
+		output stdout
+		format json
+	}
+}

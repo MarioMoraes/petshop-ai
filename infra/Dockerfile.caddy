@@ -26,4 +26,21 @@ COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 # O compose de produção continua sobrepondo este arquivo com o bind mount da pasta
 # `infra/`, que lá funciona: é o mesmo conteúdo, e editar sem rebuild ajuda em
 # desenvolvimento.
-COPY Caddyfile /etc/caddy/Caddyfile
+#
+# O contexto de build é a RAIZ do monorepo, e não `infra/`, por causa da linha
+# seguinte.
+COPY infra/Caddyfile /etc/caddy/Caddyfile
+
+# A landing de venda, servida pela própria borda.
+#
+# Enquanto a VPS era compartilhada, ela era um nginx à parte com router próprio no
+# Traefik do EasyPanel (`infra/docker-compose.landing.yml`), montando
+# `frontend/landing-page` do checkout — publicar uma mudança era `git pull`. Na
+# máquina dedicada não há Traefik nem rede `easypanel`, e o bind mount relativo é
+# justamente o que o comentário acima proíbe: viraria um diretório vazio e o
+# `lp.` responderia 404.
+#
+# São quatro arquivos estáticos e nenhum processo a mais: o Caddy já é a borda e
+# serve arquivo nativamente. O custo é que mudar a landing passou a pedir uma
+# imagem nova — o mesmo custo que o Caddyfile já tinha.
+COPY frontend/landing-page /srv/landing

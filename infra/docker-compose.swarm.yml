@@ -454,6 +454,10 @@ services:
       # sem DNS-01 não há certificado wildcard, e sem wildcard nenhum subdomínio
       # de tenant abre.
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?}
+      # A landing de venda, servida pela própria borda a partir de `/srv/landing`
+      # (a imagem a carrega). Host próprio porque não é subdomínio de APP_DOMAIN:
+      # o wildcard não o cobre e o Caddy emite um certificado só para ele.
+      LANDING_DOMAIN: ${LANDING_DOMAIN:-lp.officestecnologia.com.br}
     volumes:
       # Os certificados vivem aqui. Perder este volume é pedir tudo de novo à
       # Let's Encrypt, que limita emissões por domínio por semana — e com

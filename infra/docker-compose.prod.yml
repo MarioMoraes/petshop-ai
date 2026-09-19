@@ -297,8 +297,10 @@ services:
   # ─── Borda ──────────────────────────────────────────────────────────────────
   caddy:
     build:
-      context: .
-      dockerfile: Dockerfile.caddy
+      # A raiz, e não `infra/`: a imagem da borda leva também a landing de venda,
+      # que mora em `frontend/landing-page`.
+      context: ..
+      dockerfile: infra/Dockerfile.caddy
     image: petshop/caddy:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on: [frontend]

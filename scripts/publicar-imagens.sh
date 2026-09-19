@@ -105,10 +105,12 @@ docker build --platform "$PLATAFORMA" -f infra/Dockerfile --target frontend \
   --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$PK" \
   -t "$FRONTEND_IMAGE" .
 
-# Contexto `infra/`, não a raiz: o Dockerfile.caddy copia `Caddyfile` do lado dele.
+# Contexto: a raiz, como os outros três. Era `infra/` enquanto a imagem só levava
+# o Caddyfile; a landing de venda (`frontend/landing-page`) entrou nela e está
+# fora daquela pasta.
 echo "→ caddy (com o módulo DNS da Cloudflare — é o que emite o wildcard)"
 docker build --platform "$PLATAFORMA" -f infra/Dockerfile.caddy \
-  -t "$CADDY_IMAGE" infra/
+  -t "$CADDY_IMAGE" .
 
 # ── Push ──────────────────────────────────────────────────────────────────────
 echo
