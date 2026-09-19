@@ -3,6 +3,7 @@ import {
   DEFAULT_TIMEZONE,
   DOCUMENT_KIND_LABELS,
   ROLE_LABELS,
+  todayIn,
   type DocumentKind,
 } from '@petshop/shared-types'
 import { loadEnv } from '../../config/env.js'
@@ -238,7 +239,6 @@ export async function handleSuporteAcessoSolicitado(payload: unknown): Promise<v
 
 const TesteTerminandoSchema = z.object({
   tenantId: z.uuid(),
-  daysLeft: z.number().int(),
   trialEndsAt: z.string(),
 })
 
@@ -262,6 +262,7 @@ const TenantStatusSchema = z.object({
 export async function handleTenantTesteTerminando(payload: unknown): Promise<void> {
   const event = TesteTerminandoSchema.parse(payload)
   const timezone = await timezoneOf(event.tenantId)
+  const fim = new Date(event.trialEndsAt)
 
   const vencimento = event.trialEndsAt.slice(0, 10)
   await paraCadaAdmin(
@@ -269,10 +270,31 @@ export async function handleTenantTesteTerminando(payload: unknown): Promise<voi
     'trial_ending',
     `trial-ending:${event.tenantId}:${vencimento}`,
     {
-      'conta.dias_restantes': String(event.daysLeft),
-      'conta.vence_em': formatDay(new Date(event.trialEndsAt), timezone),
+      'conta.prazo': prazoAte(fim, timezone),
+      'conta.vence_em': formatDay(fim, timezone),
     },
   )
+}
+
+/**
+ * Quanto falta, **por extenso e no calendário do petshop** — `em 3 dias`, `em 2 dias`,
+ * `amanhã` —, e não frações de vinte e quatro horas.
+ *
+ * A diferença apareceu num e-mail de verdade. O teste vencia às 23h41 do dia 21 em São
+ * Paulo; a conta em milissegundos dava 2,5 dias, arredondados para cima, e o texto saiu
+ * dizendo "termina em 3 dias, no dia 21 de setembro" para quem o lia no dia 19. O número
+ * e a data vinham de relógios diferentes — na mesma frase.
+ *
+ * Contando as duas coisas no mesmo calendário elas não têm como divergir. O piso é 1: a
+ * varredura só alcança teste que ainda não venceu, e "faltam 0 dias" seria o corte
+ * falando, que tem aviso próprio — e esse último dia sai como **amanhã**, que é a palavra
+ * que a pessoa usaria.
+ */
+function prazoAte(instante: Date, timeZone: string, agora = new Date()): string {
+  const hoje = Date.parse(`${todayIn(timeZone, agora)}T00:00:00Z`)
+  const fim = Date.parse(`${todayIn(timeZone, instante)}T00:00:00Z`)
+  const dias = Math.max(1, Math.round((fim - hoje) / (24 * 60 * 60 * 1000)))
+  return dias === 1 ? 'amanhã' : `em ${dias} dias`
 }
 
 /**

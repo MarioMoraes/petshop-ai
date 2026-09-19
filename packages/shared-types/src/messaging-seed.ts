@@ -125,7 +125,14 @@ const ACCOUNT_VARIABLES = [
   'petshop.link_admin',
   'conta.link_assinatura',
   'conta.link_pagamento',
-  'conta.dias_restantes',
+  /**
+   * O prazo **por extenso** — `em 3 dias`, `em 2 dias`, `amanhã` —, e não o número.
+   *
+   * Com o número, o texto tinha de trazer o substantivo de fora (`em {{n}} dias`) e saía
+   * "em 1 dias" no último aviso, que é um em cada três. Quem monta o valor é quem sabe
+   * quantos dias são; deixar a concordância com o molde é deixá-la com quem não sabe.
+   */
+  'conta.prazo',
   'conta.vence_em',
 ] as const
 
@@ -720,7 +727,7 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
     variables: ACCOUNT_VARIABLES,
     audience: 'USER',
     authored: 'SYSTEM',
-    subject: 'Seu teste do {{petshop.nome}} termina em {{conta.dias_restantes}} dias',
+    subject: 'Seu teste do {{petshop.nome}} termina {{conta.prazo}}',
     /**
      * O texto diz o que **continua** e o que **para**, nessa ordem.
      *
@@ -730,13 +737,13 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
      */
     body: {
       WHATSAPP:
-        '{{usuario.primeiro_nome}}, o teste do {{petshop.nome}} termina em ' +
-        '{{conta.dias_restantes}} dias ({{conta.vence_em}}).\n\n' +
+        '{{usuario.primeiro_nome}}, o teste do {{petshop.nome}} termina ' +
+        '{{conta.prazo}} ({{conta.vence_em}}).\n\n' +
         'Seus dados continuam onde estão. Para seguir agendando e atendendo, escolha um ' +
         'plano em {{conta.link_assinatura}}',
       EMAIL:
         'Olá, {{usuario.primeiro_nome}}!\n\n' +
-        'O período de teste do {{petshop.nome}} termina em {{conta.dias_restantes}} dias, ' +
+        'O período de teste do {{petshop.nome}} termina {{conta.prazo}}, ' +
         'no dia {{conta.vence_em}}.\n\n' +
         'Tudo o que você cadastrou continua lá — clientes, pets, histórico e agenda. O que ' +
         'muda sem uma assinatura é que a conta passa a só leitura: dá para consultar, mas ' +

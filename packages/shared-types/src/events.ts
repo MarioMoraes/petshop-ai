@@ -85,12 +85,16 @@ export interface TenantStatusAlteradoEvent extends BaseEvent {
  * O teste que está para acabar (camada comercial).
  *
  * Nasce de varredura e não de transição, porque nada mudou de estado: o que aconteceu é
- * uma data se aproximando. `daysLeft` vem calculado no fuso do estabelecimento — quem
- * consome escreve o número no texto e não tem como refazer a conta.
+ * uma data se aproximando.
+ *
+ * **Só o instante, e nenhum "faltam N dias".** O evento carregou esse número por uma
+ * versão, calculado em frações de dia sobre UTC, e o e-mail saía dizendo "termina em 3
+ * dias, no dia 21" para quem lia no dia 19: a contagem e a data vinham de relógios
+ * diferentes. Quantos dias faltam é dia de **calendário no fuso do petshop** — uma conta
+ * que só quem vai escrever o texto pode fazer, porque é quem sabe o fuso.
  */
 export interface TenantTesteTerminandoEvent extends BaseEvent {
   tenantId: string
-  daysLeft: number
   trialEndsAt: string
 }
 

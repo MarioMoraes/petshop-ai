@@ -49,14 +49,13 @@ export async function runTrialWarningsOnce(now: Date = new Date()): Promise<numb
   for (const tenant of proximos) {
     if (!tenant.trialEndsAt) continue
     try {
+      /**
+       * Só o instante. Quantos dias faltam é conta de calendário no fuso do petshop, e
+       * esta varredura é cross-tenant — ela não abre contexto de tenant nenhum e não tem
+       * o fuso de ninguém. Quem escreve o texto tem.
+       */
       await publishEvent('tenant.teste_terminando', {
         tenantId: tenant.id,
-        /**
-         * Arredonda **para cima**: a quarenta e oito horas e meia do fim, o texto diz
-         * "3 dias". Para baixo diria "2" e a pessoa que abrisse a tela veria uma data
-         * que não bate com o e-mail que acabou de ler.
-         */
-        daysLeft: Math.max(1, Math.ceil((tenant.trialEndsAt.getTime() - now.getTime()) / DIA_MS)),
         trialEndsAt: tenant.trialEndsAt.toISOString(),
       })
       avisados += 1

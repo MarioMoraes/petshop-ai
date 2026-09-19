@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { beforeAll, afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { withTenant } from '@petshop/db'
 import {
   closeHarness,
@@ -333,12 +333,23 @@ describe('os avisos da conta', () => {
     })
   }
 
+  /** Congela o relógio: a contagem de dias é relativa a hoje, e hoje anda. */
+  function hojeEm(iso: string) {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(iso))
+  }
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('avisa da véspera do fim do teste, com os dias e a data no fuso do petshop', async () => {
+    hojeEm('2026-09-12T12:00:00.000Z')
+
     await handleTenantTesteTerminando({
       tenantId: fixture.tenantId,
-      daysLeft: 3,
-      // Meia-noite UTC do dia 15 ainda é dia 14 em São Paulo: é o caso que prova que a
-      // data sai no fuso do estabelecimento, e não no do servidor.
+      // Meia-noite e meia UTC do dia 15 ainda é dia 14 em São Paulo: é o caso que prova
+      // que a data sai no fuso do estabelecimento, e não no do servidor.
       trialEndsAt: '2026-09-15T00:30:00.000Z',
     })
 
@@ -347,11 +358,43 @@ describe('os avisos da conta', () => {
     expect(request.templateKey).toBe('trial_ending')
     expect(request.recipientKind).toBe('USER')
     expect(request.userId).toBe(fixture.userId)
-    expect(request.variables?.['conta.dias_restantes']).toBe('3')
     expect(request.variables?.['conta.vence_em']).toBe('14 de setembro')
+    // 12 → 14 em São Paulo são dois dias, e é o que o texto tem de dizer ao lado da data.
+    expect(request.variables?.['conta.prazo']).toBe('em 2 dias')
     // A chave é o vencimento, e não o dia do envio: a varredura publica de novo a cada
     // passada, e um teste **estendido** merece o aviso do prazo novo.
     expect(request.dedupeKey).toContain('2026-09-15')
+  })
+
+  /**
+   * O defeito que só o e-mail de verdade mostrou (2026-09-19): 2,5 dias de diferença
+   * viravam "3 dias" por arredondamento, ao lado de uma data que estava a 2 dias de quem
+   * lia. A contagem de calendário não tem como divergir da data que ela acompanha.
+   */
+  it('conta dias de calendário, não frações de 24 horas', async () => {
+    hojeEm('2026-09-19T14:41:00.000Z') // 11h41 em São Paulo
+
+    await handleTenantTesteTerminando({
+      tenantId: fixture.tenantId,
+      trialEndsAt: '2026-09-22T02:41:00.000Z', // 23h41 do dia 21 em São Paulo
+    })
+
+    const request = messaging.requests[0]!
+    expect(request.variables?.['conta.vence_em']).toBe('21 de setembro')
+    expect(request.variables?.['conta.prazo']).toBe('em 2 dias')
+  })
+
+  it('o último dia é "amanhã", e nunca "em 1 dias"', async () => {
+    hojeEm('2026-09-19T14:00:00.000Z')
+
+    await handleTenantTesteTerminando({
+      tenantId: fixture.tenantId,
+      trialEndsAt: '2026-09-19T23:00:00.000Z', // 20h do mesmo dia em São Paulo
+    })
+
+    // Zero seria o corte falando, e o corte tem aviso próprio. E o molde traz o prazo
+    // inteiro justamente para não sair "em 1 dias" — um em cada três avisos.
+    expect(messaging.requests[0]!.variables?.['conta.prazo']).toBe('amanhã')
   })
 
   it('manda o aviso a todo administrador, com dedupeKey por destinatário', async () => {
@@ -359,7 +402,6 @@ describe('os avisos da conta', () => {
 
     await handleTenantTesteTerminando({
       tenantId: fixture.tenantId,
-      daysLeft: 1,
       trialEndsAt: '2026-09-20T12:00:00.000Z',
     })
 
