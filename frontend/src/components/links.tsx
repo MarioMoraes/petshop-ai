@@ -115,6 +115,10 @@ export function NavPill<T extends string>({
  * Mesma peça do `<Button>` de `ui.tsx` vista do outro lado: lá o botão espera o backend
  * responder, aqui o link espera a próxima tela chegar. Quem clica não distingue os dois
  * casos, e por isso a resposta visual é a mesma.
+ *
+ * A variante `link` é a mesma peça **sem** a pílula — texto sublinhado, e só. Vale para
+ * o atalho que leva a outra tela ao lado de um cabeçalho sem ação própria; continua
+ * passando por aqui, e não por um `<Link>` cru, porque a espera precisa aparecer.
  */
 export function ButtonLink<T extends string>({
   href,
@@ -125,7 +129,7 @@ export function ButtonLink<T extends string>({
   children,
 }: {
   href: Parameters<typeof Link<T>>[0]['href']
-  variant?: 'primary' | 'accent' | 'ghost'
+  variant?: 'primary' | 'accent' | 'ghost' | 'link'
   className?: string
   /** Glifo à esquerda do rótulo. É ele que dá lugar ao giro, quando existe. */
   icon?: ReactNode

@@ -60,8 +60,12 @@ export default async function SitePage() {
         }
         actions={
           <>
-            <ButtonLink href="/site/galeria">Fotos</ButtonLink>
-            <ButtonLink href="/site/contatos">Contatos</ButtonLink>
+            <ButtonLink href="/site/galeria" variant="link">
+              Fotos
+            </ButtonLink>
+            <ButtonLink href="/site/contatos" variant="link">
+              Contatos
+            </ButtonLink>
           </>
         }
       />

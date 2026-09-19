@@ -695,6 +695,38 @@
     box-shadow: 0 1px 4px -2px rgb(35 36 39 / 0.3);
   }
 
+  /*
+   * Texto clicável: a peça que não é objeto.
+   *
+   * O fantasma ainda promete um botão — materializa uma pastilha no hover e ocupa o
+   * lugar de um. Esta não promete nada: é o rótulo sublinhado, com o mesmo giro de
+   * espera do `<ButtonLink>` porque continua sendo uma ida ao servidor. Serve ao
+   * atalho que **leva a outra tela** e não disputa com a ação da página — em Site, as
+   * Fotos e os Contatos ao lado de um cabeçalho que não tem ação escura nenhuma.
+   *
+   * Sem a física do `.btn`: sem pílula, sem sombra, sem elevação. O que responde ao
+   * hover é a tinta do sublinhado, que é o gesto de link e não de peça.
+   */
+  .btn-link {
+    /* O anel de foco do `:focus-visible` segue a aresta: a pílula do `.btn` em volta
+       de um rótulo sublinhado leria como botão justamente onde não há botão. */
+    border-radius: 8px;
+    padding: 0.375rem 0.25rem;
+    background-color: transparent;
+    color: var(--color-muted);
+    text-decoration-line: underline;
+    text-decoration-color: var(--color-line);
+    text-underline-offset: 4px;
+    transition:
+      color 0.2s,
+      text-decoration-color 0.2s;
+  }
+
+  .btn-link:hover:not(:disabled) {
+    color: var(--color-ink);
+    text-decoration-color: currentcolor;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .btn,
     .card-interactive,

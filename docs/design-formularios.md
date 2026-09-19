@@ -113,6 +113,7 @@ configuração em abas não tem ordem — o olho-de-boi vira o nome do domínio
 | Campo numa fila de ações, ao lado de botões | `.field` + `.field-inline` |
 | Botão | `<Button>` |
 | Link com cara de botão | `<ButtonLink>` (`components/links.tsx`) |
+| Atalho para outra tela, sem peça | `<ButtonLink variant="link">` |
 
 `.check-radio` é `.check` com o raio redondo e um ponto no lugar do tique: mesma caixa,
 mesma sombra, mesmo foco. O par "escolha uma" / "marque quantas quiser" passa a ser lido
@@ -162,6 +163,12 @@ valendo — ele não é `.btn`.
 **A exceção é a fila de filtros.** Onde o botão marca a opção escolhida (`active`, como
 em Contatos do site), o escolhido é escuro e os outros são fantasma: ali a variante é o
 próprio estado, e pintar todos de escuro apagaria a seleção.
+
+**`variant="link"` é texto sublinhado, e não uma terceira força de botão.** Vale para o
+atalho que só **muda de tela** num cabeçalho que não tem ação própria — as Fotos e os
+Contatos em `/site`, onde a ação de verdade (Salvar, Publicar) mora no formulário
+abaixo. Duas pílulas escuras ali disputavam o olho com o que a tela realmente pede. Não
+é o substituto do `ghost`: desistir continua sendo fantasma ao lado de quem grava.
 
 A regra é do Admin. O Portal tem peça própria desenhada para o celular, e o console da
 plataforma não entrou na troca.
