@@ -216,6 +216,13 @@ export const PROFESSIONAL_ROLE_KEYS = [
   'DRIVER',
 ] as const satisfies readonly RoleKey[]
 
+/**
+ * O papel que tem ficha na agenda. É o mesmo conjunto em `professionals.role_key`, e é
+ * por isso que `CreateProfessionalSchema` lê esta lista em vez de repetir os quatro
+ * nomes: papel operacional novo precisa nascer nos dois lugares ao mesmo tempo.
+ */
+export type ProfessionalRoleKey = (typeof PROFESSIONAL_ROLE_KEYS)[number]
+
 const OPERATIONAL_BASE = ['tenant:read'] as const
 
 export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
@@ -354,7 +361,13 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'checkin:manage',
   ],
 
-  DRIVER: [...OPERATIONAL_BASE, 'tutor:read_assigned', 'pet:read_assigned', 'record:read_alerts', 'taxi:operate'],
+  DRIVER: [
+    ...OPERATIONAL_BASE,
+    'tutor:read_assigned',
+    'pet:read_assigned',
+    'record:read_alerts',
+    'taxi:operate',
+  ],
 
   // Resolvido pelo portal-bff a partir de `tutor_id`, nunca de um membership (RN-05).
   TUTOR: [
@@ -383,6 +396,6 @@ export function isAssignableRole(role: string): role is AssignableRoleKey {
   return (ASSIGNABLE_ROLE_KEYS as readonly string[]).includes(role)
 }
 
-export function isProfessionalRole(role: RoleKey): boolean {
+export function isProfessionalRole(role: RoleKey): role is ProfessionalRoleKey {
   return (PROFESSIONAL_ROLE_KEYS as readonly RoleKey[]).includes(role)
 }

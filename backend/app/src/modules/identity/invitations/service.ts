@@ -31,6 +31,7 @@ import { logger } from '../../../shared/logger.js'
 import { getMailer } from '../mailer.js'
 import { mfaGraceFor } from '../../security/mfa.js'
 import { invalidatePermissions } from '../rbac/service.js'
+import { getScheduling } from '../scheduling-port.js'
 import { ensureLocalUser } from '../users/service.js'
 
 /**
@@ -365,7 +366,7 @@ export async function acceptInvitation(params: AcceptParams) {
 
   const roleKey = invitation.roleKey as AssignableRoleKey
 
-  await withTenant(
+  const mirror = await withTenant(
     invitation.tenantId,
     async (tx) => {
       const previous = await tx.membership.findFirst({
@@ -415,9 +416,30 @@ export async function acceptInvitation(params: AcceptParams) {
         ipAddress: params.ipAddress ?? null,
         userAgent: params.userAgent ?? null,
       })
+
+      /**
+       * RN-06 — quem entra pelo convite já entra na agenda.
+       *
+       * É o caminho **normal** de contratar alguém: o convite carrega o papel, e sem
+       * isto o administrador daria `GROOMER` a uma banhista e não a encontraria no
+       * assistente de marcar horário. O ator da trilha é o próprio convidado, que é
+       * quem está na requisição — o convite é dele.
+       */
+      return isProfessionalRole(roleKey)
+        ? await getScheduling().mirrorProfessional(tx, invitation.tenantId, {
+            userId: user.id,
+            displayName: user.fullName,
+            roleKey,
+            actorUserId: user.id,
+          })
+        : null
     },
     { userId: user.id },
   )
+
+  if (mirror) {
+    await getScheduling().announceProfessionalChange(invitation.tenantId, mirror)
+  }
 
   await invalidatePermissions(invitation.tenantId, user.id)
   await joinClerkOrganization(

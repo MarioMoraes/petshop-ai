@@ -52,6 +52,11 @@ const ACOES: Record<string, string> = {
   'membership.suspended': 'suspendeu o acesso de alguém da equipe',
   'membership.reactivated': 'reativou o acesso de alguém da equipe',
   'membership.removed': 'removeu alguém da equipe',
+  // RN-06: o papel operacional abre e fecha a ficha de agenda da pessoa. São duas ações
+  // próprias porque quem lê a trilha precisa distinguir a ficha aberta na tela da agenda
+  // daquela que nasceu de uma mudança na equipe.
+  'professional.mirrored': 'abriu a ficha de agenda de alguém da equipe',
+  'professional.mirror_dropped': 'tirou da agenda alguém que deixou o papel',
   'session.tenant_switched': 'entrou neste estabelecimento vindo de outro',
   'invitation.created': 'convidou alguém para a equipe',
   'invitation.revoked': 'cancelou um convite',

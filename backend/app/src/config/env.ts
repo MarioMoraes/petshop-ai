@@ -288,6 +288,24 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    * como provedor fora do ar e manda a conversa para a recepção.
    */
   GEMINI_MODEL: z.string().default('gemini-3.5-flash-lite'),
+
+  /**
+   * MOD-AI §9 — a retenção do que o cliente escreveu ao agente.
+   *
+   * Vinte e quatro meses, como a trilha do MOD-SEC, e pela mesma razão: é o prazo que a
+   * tabela de dados pessoais do PRD declara. A diferença é o que acontece no fim — lá a
+   * linha é apagada, aqui ela é esvaziada, porque a conversa também é a estatística do
+   * painel de qualidade.
+   */
+  AGENT_RETENTION_MONTHS: z.coerce.number().int().positive().default(24),
+  /** Conversas por lote. Cada uma é uma transação, dentro do tenant dela. */
+  AGENT_RETENTION_BATCH: z.coerce.number().int().positive().default(200),
+  /** Teto de tempo por execução. O que sobrar fica para amanhã. */
+  AGENT_RETENTION_MAX_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 60_000),
 })
 
 export type Env = ReturnType<typeof loadEnv>

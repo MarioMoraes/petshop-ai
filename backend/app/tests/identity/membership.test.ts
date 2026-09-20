@@ -6,6 +6,7 @@ import {
   asStranger,
   callApi,
   closeHarness,
+  dubleDaAgenda,
   fakeClerk,
   givenTeamMember,
   givenTenant,
@@ -191,9 +192,7 @@ describe('remover da equipe', () => {
     expect(membership.status).toBe('REMOVED')
     expect(membership.mfaGraceUntil).toBeNull()
 
-    expect(fakeClerk.organizationRemovals).toContain(
-      `${session.clerkOrgId}:${member.clerkUserId}`,
-    )
+    expect(fakeClerk.organizationRemovals).toContain(`${session.clerkOrgId}:${member.clerkUserId}`)
 
     const equipe = await callApi({ ...asAdmin(session), method: 'GET', url: '/v1/memberships' })
     expect(equipe.json().map((linha: { id: string }) => linha.id)).not.toContain(
@@ -207,18 +206,20 @@ describe('remover da equipe', () => {
     const session = await givenTenant('agendafutura')
     const member = await givenTeamMember(session, 'BATHER', 'banhistaagenda')
 
-    setSchedulingPort({
-      async listFutureProfessionalAppointments() {
-        return [
-          {
-            id: '2f1f4d3c-0000-4000-8000-000000000001',
-            startsAt: '2026-10-01T13:00:00.000Z',
-            petName: 'Rex',
-            serviceLabel: 'Banho e tosa',
-          },
-        ]
-      },
-    })
+    setSchedulingPort(
+      dubleDaAgenda({
+        async listFutureProfessionalAppointments() {
+          return [
+            {
+              id: '2f1f4d3c-0000-4000-8000-000000000001',
+              startsAt: '2026-10-01T13:00:00.000Z',
+              petName: 'Rex',
+              serviceLabel: 'Banho e tosa',
+            },
+          ]
+        },
+      }),
+    )
 
     const response = await callApi({
       ...asAdmin(session),
@@ -242,12 +243,14 @@ describe('remover da equipe', () => {
   it('recusa o último administrador antes de olhar a agenda', async () => {
     const session = await givenTenant('removeultimo')
     let consultouAgenda = false
-    setSchedulingPort({
-      async listFutureProfessionalAppointments() {
-        consultouAgenda = true
-        return []
-      },
-    })
+    setSchedulingPort(
+      dubleDaAgenda({
+        async listFutureProfessionalAppointments() {
+          consultouAgenda = true
+          return []
+        },
+      }),
+    )
 
     // Mesma razão do cenário de suspensão: a matriz precisa ser ajustada para que exista
     // alguém que possa remover sem ser administrador.

@@ -108,8 +108,5 @@ design/                 Biblioteca de padrões visuais
   `BATHER`, `VET` ou `DRIVER` deveria criar ou reativar o profissional da agenda; os
   eventos são publicados (`membership.papel_alterado`, `membership.suspenso`) e não há
   consumidor. Hoje o profissional é cadastrado à mão em `/agenda/profissionais`.
-- **Retenção de 24 meses dos dados do agente** (§9 do PRD de agentes).
-  `modules/security/retention.ts` expurga `audit_logs` e `security_events`;
-  `agent_turns` e `agent_tool_calls` ainda não têm job.
 - **Zero data retention com a Anthropic.** Contratual, não técnico — e é o que trava a
   ida do MOD-AI a produção.

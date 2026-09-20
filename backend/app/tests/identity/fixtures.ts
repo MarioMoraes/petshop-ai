@@ -24,6 +24,8 @@ process.env.CLERK_WEBHOOK_SECRET = CLERK_WEBHOOK_SECRET
 
 export * from '../harness.js'
 
+import type { SchedulingPort } from '../../src/modules/identity/scheduling-port.js'
+
 const { setClerkPort } = await import('../../src/modules/identity/clerk.js')
 const { setMailerPort } = await import('../../src/modules/identity/mailer.js')
 
@@ -273,4 +275,32 @@ export async function callClerkWebhook(
     },
     payload: raw,
   })
+}
+
+// ─── Dublê da agenda ─────────────────────────────────────────────────────────
+
+/**
+ * A `SchedulingPort` do MOD-IDENT com o resto preenchido.
+ *
+ * A porta tem quatro métodos — a leitura da RN-07 e as três escritas da RN-06 —, e o
+ * teste que quer dublar só a agenda futura não deveria precisar escrever os outros
+ * três. O padrão de cada um é o mesmo da porta vazia de produção: ninguém tem
+ * agendamento, ninguém tem espelho, não há o que avisar.
+ */
+export function dubleDaAgenda(parcial: Partial<SchedulingPort>): SchedulingPort {
+  return {
+    async listFutureProfessionalAppointments() {
+      return []
+    },
+    async mirrorProfessional() {
+      return null
+    },
+    async dropProfessionalMirror() {
+      return null
+    },
+    async announceProfessionalChange() {
+      // Sem cache nem broker no teste.
+    },
+    ...parcial,
+  }
 }

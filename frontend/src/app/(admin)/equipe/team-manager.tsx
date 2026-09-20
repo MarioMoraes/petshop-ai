@@ -62,6 +62,15 @@ export function TeamManager({
   /** A quem o diálogo de remoção se refere. Nulo é diálogo fechado. */
   const [removendo, setRemovendo] = useState<TeamMember | null>(null)
   /**
+   * Os agendamentos que recusaram uma troca de papel (RN-06 com RN-07).
+   *
+   * Tirar o papel operacional de quem tem agenda marcada é recusado como a remoção, e
+   * pela mesma razão: a ficha da pessoa sairia da agenda com o banho de sábado no nome
+   * dela. A lista desce no 409 porque a decisão — reatribuir ou cancelar — é de quem
+   * está na tela.
+   */
+  const [bloqueiosDoPapel, setBloqueiosDoPapel] = useState<BlockingAppointment[] | null>(null)
+  /**
    * Qual linha está esperando resposta.
    *
    * `pending` é um só para o componente inteiro: usá-lo como `busy` faria girar o botão
@@ -123,10 +132,15 @@ export function TeamManager({
 
   function trocarPapel(membershipId: string, novo: AssignableRoleKey) {
     setError(null)
+    setBloqueiosDoPapel(null)
     startTransition(async () => {
       const result = await changeRoleAction(membershipId, novo)
-      if (result.ok) router.refresh()
-      else setError(result.message)
+      if (result.ok) {
+        router.refresh()
+        return
+      }
+      setError(result.message)
+      setBloqueiosDoPapel(result.appointments ?? null)
     })
   }
 
@@ -209,7 +223,13 @@ export function TeamManager({
             </p>
           )}
 
-          <FormError message={error} />
+          <FormError message={bloqueiosDoPapel && bloqueiosDoPapel.length > 0 ? null : error} />
+
+          {bloqueiosDoPapel && bloqueiosDoPapel.length > 0 && (
+            <div className="mt-4">
+              <AgendamentosBloqueando itens={bloqueiosDoPapel} />
+            </div>
+          )}
 
           {novoConvite?.inviteUrl && (
             <LinkDoConvite email={novoConvite.email} url={novoConvite.inviteUrl} />
@@ -445,30 +465,41 @@ function DialogoDeRemocao({
           fecha a porta e devolve o acesso com um clique, sem gastar um convite.
         </p>
 
-        {bloqueios && bloqueios.length > 0 && (
-          <div className="card-soft rounded-xl p-4">
-            <p className="text-sm font-semibold">
-              {bloqueios.length === 1
-                ? 'Há 1 agendamento futuro no nome desta pessoa'
-                : `Há ${bloqueios.length} agendamentos futuros no nome desta pessoa`}
-            </p>
-            <p className="hint mt-1">
-              Reatribua a outro profissional ou cancele na agenda, e volte aqui depois.
-            </p>
-            <ul className="mt-3 space-y-1.5">
-              {bloqueios.map((agendamento) => (
-                <li key={agendamento.id} className="text-sm">
-                  {formatarDataHora(agendamento.startsAt)} · {agendamento.petName} ·{' '}
-                  <span className="text-subtle">{agendamento.serviceLabel}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {bloqueios && bloqueios.length > 0 && <AgendamentosBloqueando itens={bloqueios} />}
 
         <FormError message={bloqueios && bloqueios.length > 0 ? null : erro} />
       </div>
     </Modal>
+  )
+}
+
+/**
+ * O que precisa sair da agenda antes — a lista do 409.
+ *
+ * Serve às duas recusas que a agenda futura produz nesta tela, remover da equipe e tirar
+ * o papel operacional. É a mesma decisão nas duas, e mostrá-la de dois jeitos diferentes
+ * faria a segunda parecer outra coisa.
+ */
+function AgendamentosBloqueando({ itens }: { itens: BlockingAppointment[] }) {
+  return (
+    <div className="card-soft rounded-xl p-4">
+      <p className="text-sm font-semibold">
+        {itens.length === 1
+          ? 'Há 1 agendamento futuro no nome desta pessoa'
+          : `Há ${itens.length} agendamentos futuros no nome desta pessoa`}
+      </p>
+      <p className="hint mt-1">
+        Reatribua a outro profissional ou cancele na agenda, e volte aqui depois.
+      </p>
+      <ul className="mt-3 space-y-1.5">
+        {itens.map((agendamento) => (
+          <li key={agendamento.id} className="text-sm">
+            {formatarDataHora(agendamento.startsAt)} · {agendamento.petName} ·{' '}
+            <span className="text-subtle">{agendamento.serviceLabel}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

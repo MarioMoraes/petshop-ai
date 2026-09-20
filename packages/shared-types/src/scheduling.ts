@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PROFESSIONAL_ROLE_KEYS } from './permissions.js'
 import { StrictUFSchema } from './tutor.js'
 
 /**
@@ -141,7 +142,8 @@ export const CreateProfessionalSchema = z.object({
   /** Membership de origem; nulo é o profissional sem login (§4). */
   userId: z.uuid().nullish(),
   displayName: z.string().trim().min(2).max(60),
-  roleKey: z.enum(['GROOMER', 'BATHER', 'VET', 'DRIVER']),
+  /** A mesma lista da RN-06 do MOD-IDENT: papel operacional tem ficha na agenda. */
+  roleKey: z.enum(PROFESSIONAL_ROLE_KEYS),
   /**
    * Capacidade **simultânea**, não sequencial: o banhista lava um pet, põe para secar
    * e começa o próximo. Conflito é `count(sobreposições) >= limite`, não "existe

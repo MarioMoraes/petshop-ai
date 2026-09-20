@@ -16,13 +16,19 @@ import {
   type RoleResponse,
 } from '@petshop/shared-types'
 import { recordAudit } from '../../../shared/audit.js'
-import { getScheduling } from '../scheduling-port.js'
+import { getScheduling, type ProfessionalMirror } from '../scheduling-port.js'
 import { conflict, forbidden, notFound } from '../errors.js'
 import { publishEvent } from '../../../shared/events.js'
 import { getClerk } from '../clerk.js'
 import { mfaGraceFor } from '../../security/mfa.js'
 import { logger } from '../../../shared/logger.js'
-import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheDelete, cacheGet, cacheSet } from '../../../shared/redis.js'
+import {
+  CACHE_KEYS,
+  CACHE_TTL_SECONDS,
+  cacheDelete,
+  cacheGet,
+  cacheSet,
+} from '../../../shared/redis.js'
 
 /**
  * MOD-IDENT-04 — RBAC.
@@ -174,7 +180,16 @@ export async function changeMembershipRole(params: ChangeRoleParams) {
     async (tx) => {
       const membership = await tx.membership.findFirst({
         where: { id: membershipId, tenantId },
-        select: { id: true, userId: true, roleKey: true, permVersion: true, status: true },
+        select: {
+          id: true,
+          userId: true,
+          roleKey: true,
+          permVersion: true,
+          status: true,
+          // RN-06: o nome da ficha de agenda sai daqui. `users` é tabela global, sem
+          // RLS — é o mesmo usuário em N estabelecimentos (RN-01).
+          user: { select: { fullName: true } },
+        },
       })
       // RLS já garante o escopo; o null aqui vira 404, nunca 403 — não revelamos
       // que o membership existe em outro tenant.
@@ -219,13 +234,66 @@ export async function changeMembershipRole(params: ChangeRoleParams) {
         userAgent: params.userAgent ?? null,
       })
 
-      return { membership: updated, previousRole, changed: true as const }
+      /**
+       * RN-06 — a ficha de agenda acompanha o papel, na mesma transação.
+       *
+       * Promover a `GROOMER` abre (ou reativa) o profissional; tirar o papel operacional
+       * o desativa. **Suspender e reativar o acesso não passam por aqui, de propósito**:
+       * quem entra de licença continua dono dos compromissos dela, e é normal que a
+       * agenda de sábado siga no nome de quem volta na quinta.
+       */
+      let mirror: ProfessionalMirror | null = null
+      if (isProfessionalRole(newRole)) {
+        mirror = await getScheduling().mirrorProfessional(tx, tenantId, {
+          userId: membership.userId,
+          displayName: membership.user.fullName,
+          roleKey: newRole,
+          actorUserId,
+        })
+      } else if (isProfessionalRole(previousRole)) {
+        /**
+         * Rebaixar quem tem agenda futura é recusado com a lista, como remover (RN-07) e
+         * como desativar o profissional pela tela da agenda (AC-04 de MOD-AGENDA-02).
+         *
+         * A alternativa — trocar o papel e deixar a ficha ativa — guardaria alguém na
+         * escala de sábado sem o papel que o põe lá, e sem ninguém para contar isso. A
+         * decisão de reatribuir ou cancelar é de quem está na tela.
+         */
+        const futuros = await getScheduling().listFutureProfessionalAppointments(
+          tx,
+          tenantId,
+          membership.userId,
+        )
+        if (futuros.length > 0) {
+          throw conflict(
+            `Esta pessoa tem ${futuros.length} ${futuros.length === 1 ? 'agendamento' : 'agendamentos'} futuro${futuros.length === 1 ? '' : 's'}. Reatribua ou cancele antes de trocar o perfil.`,
+            undefined,
+            { appointments: futuros },
+          )
+        }
+        mirror = await getScheduling().dropProfessionalMirror(tx, tenantId, {
+          userId: membership.userId,
+          actorUserId,
+        })
+      }
+
+      return { membership: updated, previousRole, mirror, changed: true as const }
     },
     { userId: actorUserId },
   )
 
   if (!result.changed) {
-    return { id: result.membership.id, roleKey: newRole, permVersion: result.membership.permVersion }
+    return {
+      id: result.membership.id,
+      roleKey: newRole,
+      permVersion: result.membership.permVersion,
+    }
+  }
+
+  // Fora da transação: o cache do catálogo só pode cair depois do commit, senão a
+  // leitura que passar no meio o repovoa com o estado velho.
+  if (result.mirror) {
+    await getScheduling().announceProfessionalChange(tenantId, result.mirror)
   }
 
   // Invalidar antes de publicar: a próxima requisição do usuário não pode encontrar
@@ -434,6 +502,20 @@ export async function removeMembership(
         },
       })
 
+      /**
+       * RN-06 pelo outro lado: quem saiu da equipe sai da agenda.
+       *
+       * Sem conferir nada — a guarda da RN-07 logo acima já garantiu que não há
+       * compromisso futuro, e conferir de novo seria a mesma pergunta com outra
+       * resposta possível dentro da mesma transação.
+       */
+      const mirror = isProfessionalRole(membership.roleKey as RoleKey)
+        ? await getScheduling().dropProfessionalMirror(tx, tenantId, {
+            userId: membership.userId,
+            actorUserId,
+          })
+        : null
+
       await recordAudit(tx, {
         tenantId,
         actorUserId,
@@ -446,13 +528,17 @@ export async function removeMembership(
         userAgent: params.userAgent ?? null,
       })
 
-      return { membership: updated, changed: true as const }
+      return { membership: updated, mirror, changed: true as const }
     },
     { userId: actorUserId },
   )
 
   if (!result.changed) {
     return { id: membershipId, status: 'REMOVED' }
+  }
+
+  if (result.mirror) {
+    await getScheduling().announceProfessionalChange(tenantId, result.mirror)
   }
 
   await invalidatePermissions(tenantId, result.membership.userId)

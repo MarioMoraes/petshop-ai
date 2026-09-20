@@ -152,6 +152,16 @@ repassada ao modelo**: os textos do Portal foram escritos para uma tela com sess
 deles diz o valor exato da dívida — neste canal a prova de identidade é o número de quem
 escreveu (RN-01). O motivo completo fica em `result_summary`, que é onde a recepção o lê.
 
+**O expurgo do agente esvazia a linha, e não a apaga.** A retenção do §9 (24 meses) tira
+o corpo do turno, o argumento da tool e o vínculo com o tutor — e deixa a conversa, o
+custo e a contagem, porque a mesma linha é a estatística do painel de qualidade. É a
+diferença para o expurgo do MOD-SEC, onde a linha inteira **é** o dado pessoal. A
+varredura é diária (`agent.retention`, 03h50) e atende também ao art. 18: a conversa de
+um titular anonimizado sai no dia seguinte, sem esperar os 24 meses — o `contact_encrypted`
+vazio é a marca de "já passou", e a conversa que ainda estava na fila da recepção é
+encerrada com a data do **último turno**, sem evento, para não virar desfecho desta
+semana no painel.
+
 **O MOD-IMPORT é o único módulo que só escreve, e nunca é lido.** Ele traz a base do
 sistema anterior — tutores, pets, profissionais e agenda — a partir do CSV que o
 legado exporta, e não tem tabela de domínio nenhuma: compõe MOD-TUTOR, MOD-PET e
@@ -213,6 +223,23 @@ existem justamente para quem ainda não é membro de estabelecimento nenhum: cri
 primeiro tenant, espiar um convite e aceitá-lo. Quem exige contexto de tenant é cada
 handler, com `requireTenantContext` — e nos testes esse chamador é o `asStranger` de
 `tests/identity/fixtures.ts`, um token válido sem Organization.
+
+**O papel operacional abre ficha na agenda, e a porta é a mesma das duas regras.** A
+RN-06 do MOD-IDENT — atribuir `GROOMER`, `BATHER`, `VET` ou `DRIVER` cria ou reativa a
+linha de `professionals` — passa por `modules/identity/scheduling-port.ts`, que tem
+quatro métodos: a leitura da agenda futura (RN-07) e as três escritas do espelho. O PRD
+diz "via evento" e aqui é **chamada de função na transação de quem atribui o papel**: com
+`DISABLE_EVENTS` (o `pnpm dev` e a suíte) o espelho nunca nasceria, e com o broker de pé
+haveria a janela em que a pessoa tem o papel e não está na agenda.
+`membership.papel_alterado` continua sendo publicado — o que ele não é mais é o único
+caminho. Três decisões que o arquivo registra: a ficha nasce **pronta para agendar**
+(jornada do horário de funcionamento e todos os serviços ativos, menos o motorista, que
+não atende pet); ela **adota** o cadastro sem dono de mesmo nome, a chave natural do
+MOD-IMPORT, e não adota nada quando dois casam; e **suspender o acesso não a toca**, de
+propósito — quem entra de licença continua dono da agenda de sábado. Tirar o papel de
+quem tem agenda futura é recusado com a lista, como remover. Enquanto ninguém escrevia
+`professionals.user_id`, a guarda da RN-07 nunca achava nada: a regra estava escrita,
+testada e inerte, o mesmo caso do AC-02 de MOD-PET-05.
 
 **O gate de MFA roda na porta, não no módulo.** A exigência de segundo fator do
 `TENANT_ADMIN` (MOD-SEC-02) fica em `src/auth/session.ts`, antes do roteamento — e é por
