@@ -5,6 +5,23 @@ import 'package:http/http.dart' as http;
 
 import 'portal_error.dart';
 
+/// Tira do corpo os campos nulos.
+///
+/// Os modelos são gerados, e um `toJson` gerado não distingue "ausente" de "nulo":
+/// escreve `"website": null` onde o app queria não dizer nada. Os schemas das rotas são
+/// `.strict()`, e um campo `.optional()` recusa `null` com 422 — o erro é
+/// `expected string, received null`, e ele não aponta para o gerador.
+///
+/// **Não é para aplicar em tudo.** Em `UpdateOwnPetSchema`, `birthDate`, `neutered` e
+/// `notes` são `.nullable()` *e* `.optional()` ao mesmo tempo: ali `null` quer dizer
+/// **apague este valor** e ausente quer dizer **não mexa**. Cortar nulos por atacado
+/// transformaria "apagar a data de nascimento" num silêncio — o pior tipo de defeito,
+/// o que não dá erro. Por isso quem chama decide, caso a caso.
+Map<String, dynamic> semNulos(Map<String, dynamic> corpo) => {
+      for (final entrada in corpo.entries)
+        if (entrada.value != null) entrada.key: entrada.value,
+    };
+
 /// Quem sabe entregar um token de sessão válido.
 ///
 /// O token do Clerk **vive 60 segundos** — medido, não estimado. Por isso o contrato

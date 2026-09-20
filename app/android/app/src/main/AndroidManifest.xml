@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- O app é um cliente do Portal: sem rede ele não tem o que mostrar. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="petshop_tutor"
         android:name="${applicationName}"

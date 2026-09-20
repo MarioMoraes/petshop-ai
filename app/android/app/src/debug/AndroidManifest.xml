@@ -4,4 +4,11 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!--
+      O backend de desenvolvimento é http://10.0.2.2:3000, e o Android 9+ recusa
+      cleartext por padrão — com um erro de socket que não explica o motivo. Fica **só
+      aqui**, no manifesto de depuração: a versão publicada nunca fala http.
+    -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

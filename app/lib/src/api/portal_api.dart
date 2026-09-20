@@ -24,9 +24,12 @@ class PortalApi {
   // ── Vínculo da ficha ───────────────────────────────────────────────────────
 
   /// Pede o código que liga esta conta à ficha que o petshop já tem.
+  /// `semNulos` porque `website` é `.optional()` no schema, e não `.nullable()`: o
+  /// honeypot da web não existe no app, e mandá-lo como `null` é 422.
   Future<PortalChallengeResponse> pedirCodigo(PortalChallenge entrada) async =>
       PortalChallengeResponse.fromJson(
-        await _cliente.post('/portal/v1/access/challenge', corpo: entrada.toJson()),
+        await _cliente.post('/portal/v1/access/challenge',
+            corpo: semNulos(entrada.toJson())),
       );
 
   /// Confere o código e conclui o vínculo.
@@ -95,9 +98,11 @@ class PortalApi {
         await _cliente.get('/portal/v1/booking/taxi', query: {'petId': petId}),
       );
 
+  /// `semNulos` pelo mesmo motivo: `notes` e `taxi` são `.optional()`, e um pedido sem
+  /// observação nem leva-e-traz não deve dizer `null` — deve não dizer nada.
   Future<PortalAppointmentDetail> agendar(PortalBooking pedido) async =>
       PortalAppointmentDetail.fromJson(
-        await _cliente.post('/portal/v1/booking', corpo: pedido.toJson()),
+        await _cliente.post('/portal/v1/booking', corpo: semNulos(pedido.toJson())),
       );
 
   // ── Agendamentos ───────────────────────────────────────────────────────────

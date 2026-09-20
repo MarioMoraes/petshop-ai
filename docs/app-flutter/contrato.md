@@ -161,3 +161,118 @@ curl -s -X POST "https://api.clerk.com/v1/sessions/$SID/tokens" \
   dele. É limite da máquina, não do código — o Dart das telas é o mesmo para os dois.
 - Em desenvolvimento o app é **mais simples** que o Portal web: o slug é digitado, então
   não há `PORTAL_DEV_SLUG` nem `/etc/hosts`.
+
+---
+
+# A autenticação do app (etapa 2)
+
+Tudo abaixo foi medido contra a instância de desenvolvimento em 2026-09-20.
+
+## Por onde o app entra
+
+Sem SDK: a **Frontend API da Clerk, falada direto** por `app/lib/src/auth/clerk_fapi.dart`.
+O pacote `clerk_flutter` é 0.0.x, community-maintained, e a própria página diz que a
+Clerk não o suporta oficialmente — enquanto o que o app precisa cabe num arquivo nosso.
+
+Todas as chamadas levam `_is_native=1`. Isso põe a Clerk no modo de aplicativo: a sessão
+anda por cabeçalho em vez de cookie e — verificado — **dispensa o Turnstile no
+cadastro**, que de outro modo exigiria um desafio de navegador impossível de resolver
+nativamente.
+
+**Entrar** (conta existente):
+
+1. `POST /v1/client/sign_ins` com `identifier` → `sia_…` e os fatores disponíveis
+2. `POST /v1/client/sign_ins/{sia}/prepare_first_factor` com `strategy=email_code` e o
+   `email_address_id` que veio no passo 1
+3. `POST /v1/client/sign_ins/{sia}/attempt_first_factor` com `strategy=email_code` e o
+   código → `complete` e `created_session_id`
+
+**Criar conta** (o mesmo e-mail, sem conta):
+
+1. `POST /v1/client/sign_ups` com `email_address` e `password`
+2. `POST /v1/client/sign_ups/{sua}/prepare_verification` com `strategy=email_code`
+3. `POST /v1/client/sign_ups/{sua}/attempt_verification` → `complete`
+
+**Renovar**: `POST /v1/client/sessions/{sess}/tokens`. **Sair**: `…/remove`.
+
+## Quatro coisas que a instância impõe
+
+- **Só e-mail.** `phone_number` está desligado; a identificação é `email_address` ou
+  Google. O vínculo (`/access/challenge`) continua aceitando telefone, porque ali o
+  contato é o da **ficha do petshop**, não o da conta.
+- **`email_code` é primeiro fator** — dá para entrar sem senha.
+- **O cadastro exige senha** (`password: required` no `auth_config`). É por isso que a
+  tela de entrada pede senha **só** quando a conta não existe; de entrada em diante, o
+  caminho é sempre o código.
+- **Nenhum segundo fator** (`second_factors: []`). O app não lida com MFA.
+
+## As três que mordem
+
+1. **O token de cliente rotaciona.** Toda resposta da FAPI pode trazer um `Authorization`
+   novo no cabeçalho, e reusar o anterior responde `signed_out` — não `unauthorized`, o
+   que manda procurar no lugar errado. `ClerkFapi._chamar` grava o cabeçalho a cada
+   resposta, sem exceção.
+
+2. **`form_identifier_not_found` não é erro, é caminho.** É o sinal de que o e-mail não
+   tem conta, e a tela passa a pedir a senha para criar uma. Mostrá-lo como falha
+   quebraria a decisão do Portal de que entrar e criar conta são a mesma porta.
+
+3. **`toJson` gerado manda `null` onde o app queria silêncio.** Os schemas das rotas são
+   `.strict()`, e um campo `.optional()` recusa `null` com 422 (`expected string,
+   received null`) — um erro que não aponta para o gerador. O corte fica em `semNulos`
+   (`api/portal_client.dart`), aplicado **por chamada**: em `UpdateOwnPetSchema`,
+   `birthDate`, `neutered` e `notes` são `.nullable()` *e* `.optional()`, e ali `null`
+   quer dizer **apague** enquanto ausente quer dizer **não mexa**. Cortar por atacado
+   transformaria "apagar a data de nascimento" num silêncio.
+
+## Os quatro estados do app
+
+`Sessao` (`app/lib/src/auth/sessao.dart`) não navega — **ela está num estado**, e cada um
+tem uma tela. Quem não escolheu petshop não pode "voltar" para os pets; quem não vinculou
+não tem para onde ir. Um `Navigator` com pilha abriria caminhos que o backend responderia
+com 401.
+
+| Estado | Tela | Sai dele quando |
+|---|---|---|
+| `semPetshop` | Escolher petshop | `GET /portal/v1/tenant` confirma o slug |
+| `semConta` | Entrar | a Clerk devolve `created_session_id` |
+| `semVinculo` | Vincular | `/access/verify` liga a ficha |
+| `pronta` | Início | — |
+
+**O petshop vem antes da conta**, e não é ordem arbitrária: o mesmo login pode ser
+cliente de dois estabelecimentos, com fichas diferentes em cada um, e a tela de entrada
+mostra a marca de quem está sendo visitado.
+
+`ERR_PORTAL_006` cobre tanto "nunca vinculou" quanto "vínculo revogado" — a mesma
+resposta de propósito, e para o app dá no mesmo, porque a saída dos dois é a mesma tela.
+
+## Conferir sem emulador
+
+```
+CLERK_PUBLISHABLE_KEY=pk_test_… \
+  dart run tool/smoke_auth.dart <email> <codigo> <slug> [baseUrl]
+```
+
+Percorre entrar → renovar → apresentar ao Portal → pedir vínculo → sair, com as classes
+do app. Numa instância de desenvolvimento, um e-mail com `+clerk_test` aceita o código
+fixo `424242`, o que torna a verificação repetível sem caixa de entrada.
+
+Foi este arnês que apanhou o `null` do item 3 — o emulador tinha caído, e a tela sozinha
+nunca teria mostrado.
+
+## O Android desta máquina
+
+`flutter build apk --debug` + `adb install` funcionam, e o app roda. Duas linhas de
+manifesto que o app precisa e o `flutter create` não põe:
+
+- `INTERNET` no manifesto **principal** (o scaffold só a declara em depuração, para o
+  hot reload — sem ela a versão publicada não fala com backend nenhum);
+- `usesCleartextTraffic` **só** no manifesto de depuração, porque em dev o backend é
+  `http://10.0.2.2:3000` e o Android 9+ recusa cleartext com um erro de socket que não
+  explica o motivo. A versão publicada nunca fala http.
+
+`10.0.2.2` é como o emulador alcança o `localhost` da máquina.
+
+O emulador API 36 x86 sobre macOS 12.7.6 **é instável** — caiu no meio da verificação,
+com `adb: device offline`. É limite da máquina; a verificação de lógica não depende dele,
+e é por isso que o arnês acima existe.
