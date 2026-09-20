@@ -364,7 +364,14 @@ export function Choice({
           disabled={disabled}
           onChange={(event) => onChange(event.target.checked)}
         />
-        <span className="min-w-0">
+        {/*
+          `flex-1`: o rótulo ocupa a linha inteira depois da caixa.
+          Sem isso ele encolhia até o conteúdo, e um rótulo que alinha preço à direita
+          com `justify-between` não tinha espaço a repartir — o valor colava no nome em
+          vez de ir para a margem. Para rótulo de texto simples nada muda: o texto já
+          quebrava na mesma largura.
+        */}
+        <span className="min-w-0 flex-1">
           <span className="option-text block">{label}</span>
           {description && <span className="hint mt-0.5 block">{description}</span>}
         </span>
