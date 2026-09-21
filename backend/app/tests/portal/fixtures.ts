@@ -135,8 +135,11 @@ export interface TenantFixture {
 }
 
 export interface TenantOptions {
-  status?: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED'
+  status?: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'TRIAL_EXPIRED' | 'TERMINATED'
   portalEnabled?: boolean
+  /** O plano decide o que responde — e `STARTER` não tem Portal. */
+  plan?: 'STARTER' | 'PRO' | 'ENTERPRISE'
+  name?: string
 }
 
 export async function givenTenant(options: TenantOptions = {}): Promise<TenantFixture> {
@@ -148,9 +151,9 @@ export async function givenTenant(options: TenantOptions = {}): Promise<TenantFi
     data: {
       id: tenantId,
       slug,
-      name: 'Petshop do João',
+      name: options.name ?? 'Petshop do João',
       status: options.status ?? 'ACTIVE',
-      plan: 'PRO',
+      plan: options.plan ?? 'PRO',
       provisioningKey: `prov-${suffix}`,
       onboardingStep: 4,
       onboardingCompletedAt: new Date(),

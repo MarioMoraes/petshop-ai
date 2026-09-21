@@ -1,4 +1,5 @@
 import '../models/portal_models.dart';
+import 'agendamento_criado.dart';
 import 'portal_client.dart';
 
 /// As chamadas do Portal que o MVP usa, com os tipos que o backend define.
@@ -13,6 +14,20 @@ class PortalApi {
   final PortalClient _cliente;
 
   // ── Antes da sessão ────────────────────────────────────────────────────────
+
+  /// O catálogo de estabelecimentos, para a primeira tela.
+  ///
+  /// **A única rota do app que não fala de um petshop em particular** — é a pergunta de
+  /// quem ainda não escolheu —, e por isso a única fora de `/portal/v1`: todo caminho
+  /// daquele prefixo tem o tenant resolvido antes do roteamento, a partir do header do
+  /// slug que aqui ainda não existe.
+  ///
+  /// O que desce é o que está na fachada, e só de quem ligou o Portal do cliente final:
+  /// o critério é o mesmo que `tenant()` aplica, então nada daqui abre num 404.
+  Future<PortalDirectoryResponse> estabelecimentos() async =>
+      PortalDirectoryResponse.fromJson(
+        await _cliente.get('/public/v1/portal/tenants', anonimo: true),
+      );
 
   /// A identidade visual do petshop, sem sessão nenhuma.
   ///
@@ -57,12 +72,31 @@ class PortalApi {
       PortalPetDetail.fromJson(await _cliente.get('/portal/v1/pets/$petId'));
 
   /// O histórico do pet, paginado por cursor.
-  Future<PortalTimelineResponse> timeline(String petId, {String? cursor}) async =>
+  Future<PortalTimelineResponse> timeline(String petId, {String? cursor, int? limite}) async =>
       PortalTimelineResponse.fromJson(
         await _cliente.get(
           '/portal/v1/pets/$petId/timeline',
-          query: {'cursor': ?cursor},
+          query: {
+            'cursor': ?cursor,
+            if (limite != null) 'limit': '$limite',
+          },
         ),
+      );
+
+  /// A parte da ficha que o tutor pode corrigir: nome, nascimento, castração e
+  /// observações. Devolve a ficha **recarregada** — a idade e os alertas não saem de um
+  /// `update`, e a tela que acabou de salvar precisa deles.
+  ///
+  /// **Esta é a chamada em que `semNulos` seria um defeito.** No `UpdateOwnPetSchema`,
+  /// `birthDate`, `neutered` e `notes` são `.nullable()` *e* `.optional()`: `null` quer
+  /// dizer **apague** e ausente quer dizer **não mexa**. Quem limpou a data de
+  /// nascimento pediu para voltar ao "não sei", e cortar o `null` do corpo transformaria
+  /// esse pedido em silêncio — o formulário fecharia dizendo que salvou, com o valor
+  /// antigo intacto. Peso, porte, raça e pelagem não estão aqui porque não estão no
+  /// schema: a trava é o contrato, e o 422 nasce antes do handler.
+  Future<PortalPetDetail> atualizarPet(String petId, UpdateOwnPet mudanca) async =>
+      PortalPetDetail.fromJson(
+        await _cliente.patch('/portal/v1/pets/$petId', corpo: mudanca.toJson()),
       );
 
   // ── Agendar ────────────────────────────────────────────────────────────────
@@ -98,10 +132,17 @@ class PortalApi {
         await _cliente.get('/portal/v1/booking/taxi', query: {'petId': petId}),
       );
 
-  /// `semNulos` pelo mesmo motivo: `notes` e `taxi` são `.optional()`, e um pedido sem
-  /// observação nem leva-e-traz não deve dizer `null` — deve não dizer nada.
-  Future<PortalAppointmentDetail> agendar(PortalBooking pedido) async =>
-      PortalAppointmentDetail.fromJson(
+  /// Marca o horário.
+  ///
+  /// `semNulos` porque `notes` e `taxi` são `.optional()`: um pedido sem observação nem
+  /// leva-e-traz não deve dizer `null` — deve não dizer nada.
+  ///
+  /// **A resposta não é `PortalAppointmentDetail`**, ainda que se pareça: é
+  /// `AgendamentoCriado`, a única classe escrita à mão do app, porque esta rota não tem
+  /// schema Zod. A confusão durou da fatia 1 até `tool/smoke_booking.dart` marcar um
+  /// horário de verdade e o `actions` ausente derrubar o `fromJson`.
+  Future<AgendamentoCriado> agendar(PortalBooking pedido) async =>
+      AgendamentoCriado.fromJson(
         await _cliente.post('/portal/v1/booking', corpo: semNulos(pedido.toJson())),
       );
 
@@ -118,16 +159,22 @@ class PortalApi {
   Future<PortalAppointmentDetail> agendamento(String id) async =>
       PortalAppointmentDetail.fromJson(await _cliente.get('/portal/v1/appointments/$id'));
 
-  /// Cancela.
+  /// Cancela, e devolve o agendamento já cancelado.
   ///
-  /// Fora da janela, a **primeira** tentativa é recusada dizendo quanto custa, e só a
-  /// segunda — com `acknowledgeFee` — passa. A consequência é mostrada antes, e quem
-  /// confirma é a pessoa, não a tela.
-  Future<void> cancelar(String id, {bool aceitarTaxa = false}) => _cliente.post(
-        '/portal/v1/appointments/$id/cancel',
-        corpo: PortalCancel(acknowledgeFee: aceitarTaxa).toJson(),
+  /// Fora da janela, a **primeira** tentativa é recusada com `ERR_PORTAL_011` dizendo
+  /// quanto custa, e só a segunda — com `acknowledgeFee` — passa. A consequência é
+  /// mostrada antes, e quem confirma é a pessoa, não a tela. A tela pode estar velha; a
+  /// regra não, e é por isso que o servidor recusa mesmo quando o botão já avisou.
+  Future<PortalAppointmentDetail> cancelar(String id, {bool aceitarTaxa = false}) async =>
+      PortalAppointmentDetail.fromJson(
+        await _cliente.post(
+          '/portal/v1/appointments/$id/cancel',
+          corpo: PortalCancel(acknowledgeFee: aceitarTaxa).toJson(),
+        ),
       );
 
+  /// Remarca. Devolve o agendamento **novo** — o anterior vira histórico no instante
+  /// da resposta, e é para o novo que a tela olha.
   Future<PortalAppointmentDetail> remarcar(String id, PortalReschedule destino) async =>
       PortalAppointmentDetail.fromJson(
         await _cliente.post('/portal/v1/appointments/$id/reschedule', corpo: destino.toJson()),

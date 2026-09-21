@@ -46,6 +46,19 @@ Future<void> main(List<String> args) async {
 
   print('Portal em $baseUrl, petshop "$slug"\n');
 
+  await passo('GET /public/v1/portal/tenants (sem petshop nenhum)', () async {
+    // O catálogo é a única chamada anterior à escolha: vai sem o header do slug, por um
+    // cliente que não tem slug para mandar.
+    final semPetshop = PortalClient.semPetshop(baseUrl: baseUrl);
+    final catalogo = await PortalApi(semPetshop).estabelecimentos();
+    semPetshop.fechar();
+    print('        ${catalogo.tenants.length} estabelecimento(s)'
+        '${catalogo.truncated ? " (lista cortada)" : ""}');
+    for (final item in catalogo.tenants.take(5)) {
+      print('        ${item.name} (${item.slug})');
+    }
+  });
+
   await passo('GET /tenant (anônimo)', () async {
     final t = await api.tenant();
     print('        ${t.name} · portal ${t.portalEnabled ? "ligado" : "desligado"}');

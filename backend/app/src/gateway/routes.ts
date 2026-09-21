@@ -24,7 +24,11 @@ import { setPlatformPort } from '../modules/identity/platform-port.js'
 import { resolvePlatformAdmin } from '../modules/platform/service.js'
 import { registerPlatformRoutes } from '../modules/platform/routes.js'
 import { registerSupportAccessRoutes } from '../modules/platform/tenant-routes.js'
-import { registerPortalRoutes, registerPublicPortalRoutes } from '../modules/portal/routes.js'
+import {
+  registerPortalDirectoryRoutes,
+  registerPortalRoutes,
+  registerPublicPortalRoutes,
+} from '../modules/portal/routes.js'
 import { registerSchedulingModule } from '../modules/scheduling/routes-module.js'
 import { registerSecurityRoutes } from '../modules/security/routes.js'
 import { registerPhotoRoutes } from '../modules/photos/routes.js'
@@ -340,6 +344,15 @@ async function registerPlatformModule(app: FastifyInstance): Promise<void> {
  * Registrado por último, e é o último módulo da consolidação.
  */
 async function registerPortalModule(app: FastifyInstance): Promise<void> {
+  /**
+   * O catálogo do app fica **fora** do escopo autenticado, e é o único assim no módulo.
+   *
+   * Ele é a pergunta de quem ainda não escolheu petshop: não há slug no header, então
+   * não há contexto a exigir. Sob `/public/` o hook de sessão nem o alcança — e é por
+   * isso que ele se registra sozinho, com o teto por IP dentro do próprio handler.
+   */
+  await app.register(registerPortalDirectoryRoutes)
+
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerPublicPortalRoutes(scope)

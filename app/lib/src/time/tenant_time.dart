@@ -62,6 +62,9 @@ class TenantTime {
   /// `22/09`
   String diaCurto(String isoUtc) => DateFormat('dd/MM', 'pt_BR').format(_no(isoUtc));
 
+  /// `2026` — a linha de baixo da coluna de data do histórico, que desce anos.
+  String ano(String isoUtc) => DateFormat('yyyy', 'pt_BR').format(_no(isoUtc));
+
   /// `terça, 22 de setembro`
   String diaPorExtenso(String isoUtc) =>
       DateFormat("EEEE, d 'de' MMMM", 'pt_BR').format(_no(isoUtc));

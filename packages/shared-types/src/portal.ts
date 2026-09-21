@@ -187,6 +187,54 @@ export function isPortalVisibleStatus(status: string): boolean {
   return (PORTAL_VISIBLE_TENANT_STATUSES as readonly string[]).includes(status)
 }
 
+/**
+ * O catálogo de estabelecimentos da primeira tela do app (2026-09-21).
+ *
+ * **A web não tem esta tela**: lá o subdomínio já responde de que petshop se fala. Num
+ * aparelho não há host, e até aqui o app pedia o slug digitado — o que funciona e é
+ * ruim, porque o tutor conhece o petshop pelo nome da fachada, não pelo endereço do
+ * site.
+ *
+ * A decisão que isto carrega, e que não é técnica: **a lista torna enumerável quem usa
+ * o produto.** Antes era preciso saber o slug; agora não. O que a contém é o critério —
+ * entram só os estabelecimentos que **ligaram o Portal do cliente final**, isto é, que
+ * já abriram uma porta pública para os próprios clientes. O que desce é o que está na
+ * fachada: nome, endereço do site e identidade visual.
+ *
+ * O critério é, palavra por palavra, o que `GET /portal/v1/tenant` aceita — estado da
+ * conta, plano com Portal e o interruptor das configurações. É o que garante que a
+ * lista nunca ofereça um petshop que a tela seguinte responderia com 404 ou 403.
+ */
+export const PortalDirectoryEntrySchema = z.object({
+  slug: z.string(),
+  name: z.string(),
+  logoUrl: z.string().nullable(),
+  brandColor: z.string().nullable(),
+})
+export type PortalDirectoryEntry = z.infer<typeof PortalDirectoryEntrySchema>
+
+export const PortalDirectoryResponseSchema = z.object({
+  tenants: z.array(PortalDirectoryEntrySchema),
+  /**
+   * `true` quando havia mais estabelecimentos do que o teto.
+   *
+   * Existe para a tela poder dizer isso em vez de apresentar uma lista incompleta como
+   * se fosse completa — e para que o dia de trocar o catálogo por uma busca chegue como
+   * aviso, e não como reclamação de quem não se achou.
+   */
+  truncated: z.boolean(),
+})
+export type PortalDirectoryResponse = z.infer<typeof PortalDirectoryResponseSchema>
+
+/**
+ * O teto do catálogo.
+ *
+ * Não é paginado de propósito: a lista inteira cabe numa resposta enquanto forem
+ * centenas, e paginar um catálogo que o app filtra em memória só somaria idas ao
+ * servidor. Passar daqui é o sinal de que a tela precisa virar busca no servidor.
+ */
+export const PORTAL_DIRECTORY_LIMIT = 500
+
 // ─── MOD-PORTAL-03 — Meus Pets ───────────────────────────────────────────────
 
 /**

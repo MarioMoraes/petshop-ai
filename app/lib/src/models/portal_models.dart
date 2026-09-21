@@ -41,6 +41,8 @@ class PortalSchema {
     final PortalContextResponse portalContextResponse;
     final PortalDeletionRequest portalDeletionRequest;
     final PortalDeletionRequestInput portalDeletionRequestInput;
+    final PortalDirectoryEntry portalDirectoryEntry;
+    final PortalDirectoryResponse portalDirectoryResponse;
     final PortalDocument portalDocument;
     final PortalDocumentsResponse portalDocumentsResponse;
     final PortalFinanceResponse portalFinanceResponse;
@@ -99,6 +101,8 @@ class PortalSchema {
         required this.portalContextResponse,
         required this.portalDeletionRequest,
         required this.portalDeletionRequestInput,
+        required this.portalDirectoryEntry,
+        required this.portalDirectoryResponse,
         required this.portalDocument,
         required this.portalDocumentsResponse,
         required this.portalFinanceResponse,
@@ -158,6 +162,8 @@ class PortalSchema {
         portalContextResponse: PortalContextResponse.fromJson(json["PortalContextResponse"]),
         portalDeletionRequest: PortalDeletionRequest.fromJson(json["PortalDeletionRequest"]),
         portalDeletionRequestInput: PortalDeletionRequestInput.fromJson(json["PortalDeletionRequestInput"]),
+        portalDirectoryEntry: PortalDirectoryEntry.fromJson(json["PortalDirectoryEntry"]),
+        portalDirectoryResponse: PortalDirectoryResponse.fromJson(json["PortalDirectoryResponse"]),
         portalDocument: PortalDocument.fromJson(json["PortalDocument"]),
         portalDocumentsResponse: PortalDocumentsResponse.fromJson(json["PortalDocumentsResponse"]),
         portalFinanceResponse: PortalFinanceResponse.fromJson(json["PortalFinanceResponse"]),
@@ -217,6 +223,8 @@ class PortalSchema {
         "PortalContextResponse": portalContextResponse.toJson(),
         "PortalDeletionRequest": portalDeletionRequest.toJson(),
         "PortalDeletionRequestInput": portalDeletionRequestInput.toJson(),
+        "PortalDirectoryEntry": portalDirectoryEntry.toJson(),
+        "PortalDirectoryResponse": portalDirectoryResponse.toJson(),
         "PortalDocument": portalDocument.toJson(),
         "PortalDocumentsResponse": portalDocumentsResponse.toJson(),
         "PortalFinanceResponse": portalFinanceResponse.toJson(),
@@ -1214,6 +1222,54 @@ class PortalDeletionRequestInput {
 
     Map<String, dynamic> toJson() => {
         "reason": reason,
+    };
+}
+
+class PortalDirectoryEntry {
+    final String? brandColor;
+    final String? logoUrl;
+    final String name;
+    final String slug;
+
+    PortalDirectoryEntry({
+        required this.brandColor,
+        required this.logoUrl,
+        required this.name,
+        required this.slug,
+    });
+
+    factory PortalDirectoryEntry.fromJson(Map<String, dynamic> json) => PortalDirectoryEntry(
+        brandColor: json["brandColor"],
+        logoUrl: json["logoUrl"],
+        name: json["name"],
+        slug: json["slug"],
+    );
+
+    Map<String, dynamic> toJson() => {
+        "brandColor": brandColor,
+        "logoUrl": logoUrl,
+        "name": name,
+        "slug": slug,
+    };
+}
+
+class PortalDirectoryResponse {
+    final List<PortalDirectoryEntry> tenants;
+    final bool truncated;
+
+    PortalDirectoryResponse({
+        required this.tenants,
+        required this.truncated,
+    });
+
+    factory PortalDirectoryResponse.fromJson(Map<String, dynamic> json) => PortalDirectoryResponse(
+        tenants: List<PortalDirectoryEntry>.from(json["tenants"].map((x) => PortalDirectoryEntry.fromJson(x))),
+        truncated: json["truncated"],
+    );
+
+    Map<String, dynamic> toJson() => {
+        "tenants": List<dynamic>.from(tenants.map((x) => x.toJson())),
+        "truncated": truncated,
     };
 }
 

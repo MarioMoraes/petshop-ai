@@ -276,3 +276,278 @@ manifesto que o app precisa e o `flutter create` não põe:
 O emulador API 36 x86 sobre macOS 12.7.6 **é instável** — caiu no meio da verificação,
 com `adb: device offline`. É limite da máquina; a verificação de lógica não depende dele,
 e é por isso que o arnês acima existe.
+
+---
+
+# Meus Pets (etapa 3)
+
+Três telas e um formulário: a lista, a ficha com o histórico embaixo, e a folha inferior
+que edita os quatro campos que o tutor pode mexer. A rota nova em relação à tabela acima
+é uma só:
+
+| Método e rota | Corpo | Devolve |
+|---|---|---|
+| `PATCH /portal/v1/pets/:petId` | `UpdateOwnPet` | `PortalPetDetail` |
+
+## A chamada onde `semNulos` é o defeito
+
+Todo o resto do app corta os nulos antes de enviar, porque `toJson` gerado escreve
+`"campo": null` onde o app queria silêncio e o schema `.strict()` responde 422. **Esta
+chamada é a exceção, e ela é o motivo de o corte ser por chamada e não no cliente.**
+
+Em `UpdateOwnPetSchema`, `birthDate`, `neutered` e `notes` são `.nullable()` *e*
+`.optional()`: `null` quer dizer **apague** e ausente quer dizer **não mexa**. O
+formulário manda os quatro campos sempre, com os nulos, como a web manda — quem limpou a
+data de nascimento pediu para voltar ao "não sei", e cortar o `null` transformaria esse
+pedido num silêncio: a folha fecharia dizendo que salvou, com a data velha intacta.
+`test/atualizar_pet_test.dart` é a guarda disso.
+
+Peso, porte, raça e pelagem não estão no schema, então a recusa acontece **antes** do
+handler. Eles aparecem na ficha como leitura, com a frase que diz por quê — campo
+desabilitado num formulário é convite a tentar.
+
+## Divergências conscientes do plano e da web
+
+- **"Ver mais", e não rolagem infinita.** O plano do app previa rolagem infinita; a web
+  já tinha decidido o contrário, e o motivo — no 4G ela dispara buscas que ninguém pediu
+  — só fica mais forte num celular. A primeira página do histórico desce junto da ficha,
+  numa chamada que já ia acontecer.
+- **A ficha e o histórico saem na mesma ida**, com os dois futuros disparados antes do
+  primeiro `await`. É o `Promise.all` da página da web.
+- **O pet falecido não mostra o botão de editar.** O servidor recusa o `PATCH` com 404
+  (AC-05); oferecer o que será recusado é pior do que não oferecer.
+
+## O que a etapa acrescentou fora das telas
+
+- `ui/dados.dart` — `CarregarDados<T>`: os três estados (girando, falha com "tentar de
+  novo", dado) e o puxar-para-atualizar, num lugar só. Uma tela que tratasse só dois
+  mostraria giro eterno quando o 4G cai.
+- `ui/listas.dart` — `PilhaDeLinhas`, `Linha`, `Retrato`, `CabecalhoDeSecao`,
+  `LinhaDeDado`, `EstadoVazio`: a tradução de `frontend/src/app/(portal)/list.tsx`. A
+  linha inteira é o alvo, e as linhas moram num cartão só.
+- `telas/pets/rotulos.dart` — os textos da ficha fora das telas, porque são regra de
+  leitura e regra se testa sem pintar pixel (`test/rotulos_pet_test.dart`).
+- `flutter_localizations` com `pt_BR`: sem ele o seletor de data do Material abre em
+  inglês. Ele **fixa `intl` em 0.20.2**, e foi por isso que a restrição do pubspec desceu
+  de `^0.20.3`.
+
+## Vincular a conta de teste em dev
+
+O `+clerk_test` entra em qualquer instância de desenvolvimento com o código fixo
+`424242`, mas em dev ele **não tem espelho local**: quem cria a linha de `users` é o
+webhook `user.created` do Clerk, que não alcança esta máquina. Sem o espelho,
+`/access/verify` responde "Não foi possível concluir o acesso" — a guarda de
+`routes.ts`, não um defeito.
+
+O caminho que funciona, pelo código de produção:
+
+```bash
+# 1. o espelho, como o webhook o criaria
+cd backend/app && pnpm exec dotenv -e ../../.env -- tsx -e \
+  "import('./src/modules/identity/users/service.js').then(m => m.ensureLocalUser('user_...').then(u => console.log(u)))"
+
+# 2. apontar a ficha para ele (dev: o vínculo real exige o código no contato do tutor)
+docker exec petshop-postgres psql -U postgres -d petshop -c \
+  "update tutors set portal_user_id='<id do espelho>' where id='<id do tutor>';"
+
+# 3. o cache da sessão do Portal guarda o par tenant×user por um minuto
+docker exec petshop-redis redis-cli FLUSHALL
+```
+
+---
+
+# Marcar horário (etapa 5)
+
+Uma tela só, `telas/agendar/marcar_horario.dart`, e três rotas que já estavam na tabela
+do MVP — `GET /booking/services`, `GET /booking/availability`, `POST /booking`.
+
+## A resposta do POST não é o detalhe do agendamento
+
+**Corrige uma suposição da fatia 1.** `POST /portal/v1/booking` devolve `CreatedBooking`
+(`modules/portal/booking.ts`), que **não** é `PortalAppointmentDetail`:
+
+| Só no detalhe | Só na criação |
+|---|---|
+| `actions`, `petId`, `serviceIds`, `source`, `cancelledAt`, `cancelledLate` | `duplicate`, `taxiWarning` |
+
+`CreatedBooking` é uma `interface` do TypeScript, não um schema Zod — então o gerador não
+a alcança, e `AgendamentoCriado` (`api/agendamento_criado.dart`) é a **única classe do
+app escrita à mão**. O que impede essa cópia de envelhecer em silêncio é
+`tool/smoke_booking.dart`, que marca e cancela um horário de verdade; foi ele que apanhou
+a suposição — a tela nunca teria mostrado outra coisa senão um erro de tipo.
+
+```
+dart run tool/smoke_booking.dart <token> <slug> [baseUrl]
+```
+
+Ele marca o **último** horário de um dia 21 dias à frente e cancela em seguida. Deixa uma
+linha `CANCELLED` na agenda de desenvolvimento: é o preço de provar a escrita.
+
+## O que a tela decide
+
+- **Uma coluna que cresce**, e não um assistente com Avançar e Voltar — a decisão é da
+  web, e num celular ela vale ainda mais: o tutor marca quatro vezes por ano, com o
+  polegar, e trocar de ideia é rolar para cima.
+- **A numeração dos passos é montada**, porque o cartão do pet só existe para quem tem
+  mais de um.
+- **Só a última busca vale** (`_busca`): trocar de serviço ou de dia duas vezes num 4G
+  ruim deixa duas consultas no ar, e a que chegasse por último venceria — é o horário
+  fantasma que o assistente do Admin já teve. `test/telas_agendar_test.dart` completa as
+  duas fora de ordem de propósito.
+- **O instante volta como veio**: `DateTime.parse` de um texto com `Z` é um instante em
+  UTC e `toIso8601String` o devolve com o `Z`. Um `toLocal()` no meio mandaria a hora do
+  aparelho com cara de UTC, e o pet chegaria três horas atrasado.
+- **`ERR_AGENDA_009` é um "tem certeza?"**: a primeira recusa acende
+  `acknowledgedAlerts` e o botão passa a dizer "Confirmar mesmo assim". Pedir a mesma
+  resposta duas vezes sem mudar o texto é o que faz alguém tocar de novo achando que a
+  primeira falhou.
+- **O 409 aponta a saída**: `alternativeStartsAt` vira botão, e só para os instantes que
+  existem na grade em tela — é de lá que sai o profissional, e horário sem profissional
+  não é pedido válido.
+- **`minNoticeHours` vira frase.** Quando o dia escolhido é hoje, a tela diz por que o
+  começo do dia sumiu. A web tem o número e não o usa; aqui ele explica a grade que
+  começa às 14h em vez de parecer defeito.
+- **O comprovante para a tela.** Sem "Meus agendamentos" ainda, voltar sozinho ao Início
+  apagaria o que o tutor acabou de fazer em cinco toques.
+
+## O que ficou fora, de propósito
+
+**O leva-e-traz.** É um ramo inteiro — oferta, duas pernas, endereço, janela, a recusa
+por falta de vaga com horários alternativos e o "marcar sem o leva-e-traz" — e sozinho
+custa quase uma etapa. `features.taxiEnabled` não muda nada nesta tela; quem quiser o
+transporte continua pedindo pela web.
+
+**Observações no pedido.** A web também não as oferece; `notes` sai do corpo pelo
+`semNulos`.
+
+## Duas armadilhas de teste que custaram tempo
+
+- **`R$ 90,00` tem espaço inquebrável** (U+00A0) entre o símbolo e o número, como o
+  `pt_BR` do ICU manda. `find.text('R\$ 90,00')` com espaço comum não acha nada.
+- **O botão de confirmar nasce abaixo da dobra**, porque a coluna cresce a cada resposta.
+  `ensureVisible` antes de tocar — um toque fora da tela não erra, ele não acontece.
+
+---
+
+# Meus Agendamentos (etapa 4)
+
+Fecha o MVP. Três telas — a lista, a folha de cancelamento e a de remarcar — sobre quatro
+rotas que já estavam na tabela: `GET /appointments`, `GET /appointments/:id`,
+`POST .../cancel` e `POST .../reschedule`.
+
+## A armadilha da paginação
+
+`GET /portal/v1/appointments` devolve **os próximos inteiros em toda página**: o cursor
+só vale para o bloco `past`. Quem acrescentar a resposta inteira a cada "ver mais" faz o
+compromisso de sexta aparecer duas vezes, três, quatro — e o defeito não dá erro nenhum.
+Só `past` é acrescentado; `upcoming` é sempre o da última resposta.
+
+## O que vem do servidor, e não da tela
+
+- **`actions` decide os botões.** Cancelar e remarcar aparecem porque o servidor disse
+  que cabem; a janela de cancelamento é configuração do petshop e muda sem que ninguém
+  publique app. Uma tela que recalculasse isso mostraria "Cancelar" para quem já está
+  com o pet no banho.
+- **`ERR_PORTAL_011` é a segunda palavra do servidor.** A folha já abre com o valor da
+  taxa quando `cancelIsLate`, e manda `acknowledgeFee` junto — mas o servidor ainda
+  recusa se a tela estiver velha (o app ficou aberto e a janela de 24h fechou). Nesse
+  caso a folha **não cancela às escondidas**: adota o `feeCents` que veio no corpo,
+  reescreve o aviso e espera o segundo toque.
+- **`serviceIds` só existe no detalhe.** Por isso remarcar carrega
+  `GET /appointments/:id` antes da grade: reconstruir o conjunto a partir dos rótulos
+  exigiria casar texto com catálogo.
+- **Remarcar devolve outro registro.** O id da resposta é novo e o anterior já é
+  histórico; o arnês confere isso e falha se vier o mesmo.
+
+## A grade mora fora das duas telas
+
+`telas/agendar/grade_de_horarios.dart` guarda `buscarGrade`, `GradeDeHorarios`,
+`BotaoDeHora` e `RecusaComAlternativas`. Marcar e remarcar fazem **a mesma pergunta com
+os mesmos serviços** — duas cópias divergiriam no dia em que a antecedência mínima
+passasse a filtrar diferente, e a tela de remarcar ofereceria um horário que o POST
+recusa. A guarda da última busca (três linhas) fica em cada tela, porque é estado dela.
+
+## O leva-e-traz aparece, mas não se pede
+
+O app mostra as corridas de um agendamento (`legLabel`, `statusText` e a janela, nada
+mais) porque escondê-las faria o tutor achar que o transporte se perdeu. As duas telas
+dizem o que acontece com ele: a folha de cancelamento avisa que cai junto e sem
+cobrança (AC-06 de MOD-PORTAL-07), e a de remarcar avisa que **não vai junto** (RN-15 do
+MOD-TAXI) — descobrir isso na porta de casa é o pior jeito de aprender a regra.
+
+## O arnês de escrita cobre a agenda inteira
+
+`tool/smoke_booking.dart` agora percorre marcar → ler o detalhe → remarcar → cancelar,
+contra o servidor. É o que prova a forma das respostas, que é onde o gerador não alcança.
+
+---
+
+# O catálogo de estabelecimentos (2026-09-21)
+
+A primeira tela pedia o slug digitado. Funciona e é ruim: o tutor conhece o petshop pelo
+**nome da fachada**, não pelo endereço do site, e quem erra uma letra recebe "não
+encontramos" sem saber se errou ou se o estabelecimento não usa o app.
+
+**É a primeira linha de backend que o app exige.** Até aqui a propriedade do plano se
+sustentava — o app era um cliente novo para uma API pronta. A lista quebra isso porque
+não existia pergunta "quais petshops existem": `/portal/v1/tenant` valida um slug por
+vez, e responde o mesmo 404 para slug errado, estabelecimento invisível e plano sem
+Portal, justamente para ninguém poder sondar.
+
+| Método e rota | Parâmetros | Devolve |
+|---|---|---|
+| `GET /public/v1/portal/tenants` | — (anônimo, **sem slug**) | `PortalDirectoryResponse` |
+
+## A decisão, que não é técnica
+
+A lista torna **enumerável quem usa o produto**. O que a contém é o critério: entram só
+os estabelecimentos que **ligaram o Portal do cliente final** — ou seja, que já abriram
+uma porta pública para os próprios clientes —, e o que desce é o que está na fachada:
+nome, endereço do site, logo e cor. Nada de telefone, nada de endereço, nada de
+operação; quem quiser a vitrine abre o site do estabelecimento, que é onde ela mora.
+
+O critério é, palavra por palavra, o que `resolvePortalTenant` aplica: estado da conta
+visível, plano com Portal e `portalEnabled` nas configurações. Um teste percorre a lista
+inteira e exige 200 de `/portal/v1/tenant` para cada entrada — **a lista nunca oferece um
+petshop que a tela seguinte responderia com 404 ou 403**, que seria pior do que não ter
+lista.
+
+## Três decisões de mecânica
+
+- **Mora sob `/public/`, e não sob `/portal/v1`.** Todo caminho do Portal tem o tenant
+  resolvido antes do roteamento, a partir do header do slug — e esta é a pergunta de
+  quem ainda não sabe o slug. Pô-la no prefixo do Portal exigiria uma exceção no hook de
+  sessão, que é o lugar onde exceção custa caro. Pelo mesmo motivo ela se registra fora
+  do escopo de `registerModuleAuth`.
+- **Tem teto por IP dentro do handler.** `/public/` está fora do balde geral porque em
+  produção quem chama aquele prefixo é o servidor do Next, com um IP só (ver `app.ts`).
+  Um app nativo quebra essa premissa: quem chama é o aparelho de cada tutor. O contador é
+  o `withinRate` de `modules/portal/rate-limit.ts`, e não um segundo mecanismo — o
+  `DISABLE_REDIS` da suíte já o troca por um em memória, então o teto é **exercitado** no
+  teste em vez de sempre liberar.
+- **Cache de cinco minutos, chave única.** O catálogo muda quando um estabelecimento
+  entra, sai ou liga o Portal: evento de semana. É o cache que impede uma lista pública
+  de virar uma varredura de banco por aparelho aberto.
+
+## A tela
+
+Lista rolável com filtro local — a lista inteira já está no aparelho, e ir ao servidor a
+cada letra só somaria espera. O filtro ignora acento e caixa (quem procura "sao" precisa
+achar "São").
+
+O campo de endereço **continua existindo**, recolhido atrás de "Não achei o meu petshop",
+para dois casos que a lista não cobre: o estabelecimento recém-criado que ainda está no
+cache de cinco minutos, e o que prefere não aparecer em catálogo nenhum.
+
+`truncated` vem na resposta e vira aviso na tela. Uma lista incompleta apresentada como
+completa é o que faz o tutor concluir que o petshop dele não usa o app — e desistir.
+
+## O que isto **não** resolve: a borda
+
+O gateway **não é publicado** (decisão 1 do `infra/Caddyfile`): o cliente HTTP do
+frontend é `server-only`, então a API atende só na rede interna. O comentário de lá
+antecipa exatamente este caso — *"se um dia o MOD-PORTAL precisar de chamadas do browser,
+aí sim se abre `api.{$APP_DOMAIN}` — e não antes"*. O app é essa hora, e vale para **todas**
+as rotas que ele usa, não só para o catálogo. Em desenvolvimento nada disso aparece
+porque o app fala com `10.0.2.2:3000` direto. **Publicar `api.` é pré-requisito do app em
+produção, e é uma decisão de borda com peso próprio — não foi feita aqui.**

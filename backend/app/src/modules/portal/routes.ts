@@ -49,6 +49,7 @@ import {
 } from './finance.js'
 import { acceptOwnTerm, listOwnDocuments, listOwnTerms, readOwnDocument } from './documents.js'
 import { requestContactChange, verifyContactChange } from './contact-change.js'
+import { readPortalDirectory, withinDirectoryRateLimit } from './directory.js'
 import { readPortalContext, readPortalTenant, touchLastSeen } from './me.js'
 import {
   addOwnAddress,
@@ -152,6 +153,38 @@ const PORTAL_PREFIX = '/portal/v1'
 
 export function isPortalPath(path: string): boolean {
   return path === PORTAL_PREFIX || path.startsWith(`${PORTAL_PREFIX}/`)
+}
+
+/**
+ * O catálogo de estabelecimentos, para a primeira tela do app do tutor.
+ *
+ * **Mora sob `/public/`, e não sob `/portal/v1`**, por uma razão mecânica: todo caminho
+ * do Portal tem o tenant resolvido antes do roteamento, a partir do header do slug — e
+ * esta é justamente a pergunta de quem ainda não sabe o slug. Registrá-la no prefixo do
+ * Portal obrigaria a abrir uma exceção no hook de sessão, que é o lugar onde uma
+ * exceção custa caro.
+ *
+ * Fica **fora** do escopo de `registerModuleAuth` pelo mesmo motivo, e por isso é
+ * registrada à parte em `gateway/routes.ts`: a rota pública é a exceção declarada.
+ *
+ * O teto por IP é do módulo, e não do balde geral: `/public/` está fora dele porque em
+ * produção quem chama aquele prefixo é o servidor do Next, com um IP só. Esta rota
+ * quebra a premissa — quem chama é o aparelho de cada tutor.
+ */
+export async function registerPortalDirectoryRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/public/v1/portal/tenants', async (request, reply) => {
+    if (!(await withinDirectoryRateLimit(request.ip))) {
+      return reply.status(429).send({
+        type: 'about:blank',
+        title: 'Muitas requisições',
+        status: 429,
+        code: 'ERR_PORTAL_004',
+        detail: 'Muitas tentativas. Tente de novo em instantes.',
+      })
+    }
+
+    return readPortalDirectory()
+  })
 }
 
 export async function registerPublicPortalRoutes(app: FastifyInstance): Promise<void> {

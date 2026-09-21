@@ -82,6 +82,35 @@ export function resetRateMemory(): void {
   memory.clear()
 }
 
+/**
+ * Um teto simples por chave, para quem não precisa das duas janelas do desafio.
+ *
+ * Existe para que o catálogo público não monte um segundo mecanismo de contagem: o
+ * `DISABLE_REDIS` da suíte já troca o contador por um em memória aqui, e um contador
+ * paralelo em `directory.ts` sempre liberaria no teste — o teto estaria escrito e nunca
+ * exercitado, que é como uma regra vira letra morta.
+ *
+ * `seIndisponivel` é do chamador porque a escolha certa depende do que está do outro
+ * lado: o desafio barra (sem teto, seis dígitos caem por força bruta), o catálogo libera
+ * (é leitura de dado de fachada, e trancar a primeira tela do app seria pior).
+ */
+export async function withinRate(
+  key: string,
+  max: number,
+  windowSeconds: number,
+  seIndisponivel: boolean,
+): Promise<boolean> {
+  const store = resolveStore()
+  if (!store) return seIndisponivel
+
+  try {
+    return (await store.bump(key, windowSeconds)) <= max
+  } catch (error) {
+    logger.warn({ err: error, key }, 'falha no teto por chave')
+    return seIndisponivel
+  }
+}
+
 export async function checkChallengeRate(
   tenantId: string,
   identifierHash: string,

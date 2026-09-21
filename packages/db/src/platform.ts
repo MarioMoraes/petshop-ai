@@ -115,6 +115,62 @@ export async function resolveTenantBySlug(slug: string): Promise<TenantIdentity 
   })
 }
 
+/**
+ * Uma linha do catálogo de estabelecimentos do app do tutor.
+ *
+ * `branding` vem cru porque o recorte de quais chaves interessam é do módulo, e não
+ * desta camada — aqui só se garante que nada de pessoal atravessa.
+ */
+export interface PortalDirectoryRow {
+  id: string
+  slug: string
+  name: string
+  status: string
+  plan: string
+  branding: unknown
+}
+
+/**
+ * O catálogo que a primeira tela do app mostra.
+ *
+ * **É a única consulta daqui que enumera tenants**, e por isso merece a frase: o que
+ * ela devolve é o que já está na fachada — nome, endereço do site e a identidade visual
+ * —, de estabelecimentos que **ligaram o Portal do cliente final**. Nenhum dado de
+ * operação, nenhum de pessoa; a regra do topo do arquivo continua valendo.
+ *
+ * `portalEnabled` entra no `where` porque a lista promete uma porta que abre: o petshop
+ * com o Portal desligado responde 403 no primeiro `/me`, e oferecê-lo seria pôr um beco
+ * sem saída no catálogo. Estado da conta e plano ficam de fora do SQL de propósito —
+ * quem decide isso é `isPortalVisibleStatus` e o catálogo de planos, e repetir a regra
+ * aqui em outro vocabulário é como as duas se separam.
+ */
+export async function listPortalDirectory(limit: number): Promise<PortalDirectoryRow[]> {
+  return runInPlatformScope(async () => {
+    const rows = await getMaintenancePrisma().tenant.findMany({
+      where: { deletedAt: null, settings: { portalEnabled: true } },
+      orderBy: { name: 'asc' },
+      take: limit,
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        status: true,
+        plan: true,
+        settings: { select: { branding: true } },
+      },
+    })
+
+    return rows.map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      status: row.status,
+      plan: row.plan,
+      branding: row.settings?.branding ?? null,
+    }))
+  })
+}
+
 export interface UserMembershipRef {
   tenantId: string
   tenantName: string

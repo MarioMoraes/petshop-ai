@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import '../api/portal_api.dart';
 import '../api/portal_client.dart';
@@ -33,8 +34,9 @@ enum EstadoDaSessao {
 /// de dois petshops, com fichas diferentes em cada um —, e a tela de entrada mostra a
 /// marca de quem está sendo visitado.
 class Sessao extends ChangeNotifier {
-  Sessao({Armazenamento? armazenamento, ClerkFapi? clerk})
-      : _armazenamento = armazenamento ?? const CofreDoSistema() {
+  Sessao({Armazenamento? armazenamento, ClerkFapi? clerk, http.Client? http_})
+      : _armazenamento = armazenamento ?? const CofreDoSistema(),
+        _http = http_ {
     _clerk = clerk ??
         ClerkFapi(
           host: ClerkFapi.hostDaChave(Config.clerkPublishableKey),
@@ -43,6 +45,14 @@ class Sessao extends ChangeNotifier {
   }
 
   final Armazenamento _armazenamento;
+
+  /// O cliente HTTP do Portal, quando alguém o entrega pronto.
+  ///
+  /// Existe pelo mesmo motivo que `armazenamento` e `clerk` são injetáveis: é o que
+  /// permite a um teste de widget percorrer as telas de verdade — com a `Sessao`, a
+  /// navegação e o `CarregarDados` reais — contra respostas conhecidas, sem emulador.
+  /// Em produção fica nulo e o `PortalClient` faz o seu.
+  final http.Client? _http;
   late final ClerkFapi _clerk;
 
   EstadoDaSessao estado = EstadoDaSessao.carregando;
@@ -68,6 +78,20 @@ class Sessao extends ChangeNotifier {
 
   TenantTime get tempo => TenantTime(contexto?.tenant.timezone ?? 'America/Sao_Paulo');
 
+  /// O catálogo da primeira tela.
+  ///
+  /// Não passa pelo `api` porque `api` só existe depois de haver petshop escolhido — e
+  /// esta é exatamente a pergunta de antes. O cliente é descartável e não leva token:
+  /// ninguém está autenticado ainda.
+  Future<PortalDirectoryResponse> estabelecimentos() async {
+    final cliente = PortalClient.semPetshop(baseUrl: Config.apiUrl, http_: _http);
+    try {
+      return await PortalApi(cliente).estabelecimentos();
+    } finally {
+      cliente.fechar();
+    }
+  }
+
   Future<void> iniciar() async {
     await TenantTime.iniciar();
     await _clerk.carregar();
@@ -92,6 +116,7 @@ class Sessao extends ChangeNotifier {
       baseUrl: Config.apiUrl,
       slug: limpo,
       token: _token,
+      http_: _http,
     ));
 
     try {

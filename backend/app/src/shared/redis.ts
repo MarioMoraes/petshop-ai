@@ -77,6 +77,17 @@ export const CACHE_KEYS = {
    */
   portalFeatures: (tenantId: string) => `portal:features:${tenantId}`,
 
+  /**
+   * O catálogo de estabelecimentos da primeira tela do app.
+   *
+   * Chave única e sem parâmetro: a lista é a mesma para todo mundo, e é justamente o
+   * cache que impede um catálogo público de virar uma varredura de banco por aparelho.
+   */
+  portalDirectory: () => 'portal:directory',
+
+  /** Teto do catálogo, por IP. O balde geral não cobre `/public/`. */
+  portalDirectoryRate: (ip: string) => `portal:directory:rl:${ip}`,
+
   // ---- MOD-AI ----
   /** A configuração do agente, lida uma vez por mensagem recebida. */
   agentSettings: (tenantId: string) => `agent:settings:${tenantId}`,
@@ -314,6 +325,13 @@ export const CACHE_TTL_SECONDS = {
   schedule: 3_600,
 
   portalFeatures: 300,
+
+  /**
+   * Cinco minutos. O catálogo muda quando um estabelecimento entra, sai ou liga o
+   * Portal — eventos de semana, não de minuto —, e o custo de estar velho é um petshop
+   * novo esperando até cinco minutos para aparecer.
+   */
+  portalDirectory: 300,
 
   agentSettings: 300,
   agentSpend: 60,

@@ -42,11 +42,26 @@ class PortalClient {
     http.Client? http_,
   }) : _http = http_ ?? http.Client();
 
+  /// O cliente de quem ainda **não escolheu** petshop.
+  ///
+  /// Serve a uma rota só, o catálogo da primeira tela: ela é anterior à escolha, então
+  /// não há slug a mandar. Nasce por um construtor próprio, e não por um parâmetro
+  /// opcional, para que o slug continue obrigatório em todo o resto — a exceção é
+  /// declarada, e não um esquecimento possível.
+  PortalClient.semPetshop({required this.baseUrl, http.Client? http_})
+      : slug = null,
+        token = _semToken,
+        _http = http_ ?? http.Client();
+
+  static Future<String?> _semToken() async => null;
+
   final String baseUrl;
 
   /// O petshop de que se fala. Vai em **toda** requisição, inclusive nas anônimas:
   /// sem ele o backend responde 404, porque não sabe de quem é a pergunta.
-  final String slug;
+  ///
+  /// Nulo só no cliente do catálogo, que é a única pergunta anterior à escolha.
+  final String? slug;
 
   final TokenDeSessao token;
   final http.Client _http;
@@ -79,7 +94,7 @@ class PortalClient {
       queryParameters: (query == null || query.isEmpty) ? null : query,
     );
 
-    final cabecalhos = <String, String>{_headerSlug: slug};
+    final cabecalhos = <String, String>{_headerSlug: ?slug};
 
     // `content-type` **só quando há corpo**: anunciar JSON e não mandar nada faz o
     // Fastify recusar a requisição antes de chegar em rota nenhuma — e POST sem corpo é
@@ -106,8 +121,15 @@ class PortalClient {
       );
     }
 
+    // `allowMalformed` porque nem todo corpo de erro é nosso: um 502 do proxy chega
+    // como página HTML em outra codificação, e aí o `utf8.decode` estrito lança
+    // `FormatException` **por fora** do `PortalError` — a tela perde o status e o
+    // código, e diz "verifique a conexão" para um servidor que respondeu.
     if (resposta.statusCode >= 400) {
-      throw PortalError.deResposta(resposta.statusCode, utf8.decode(resposta.bodyBytes));
+      throw PortalError.deResposta(
+        resposta.statusCode,
+        utf8.decode(resposta.bodyBytes, allowMalformed: true),
+      );
     }
     if (resposta.statusCode == 204 || resposta.bodyBytes.isEmpty) return null;
     return jsonDecode(utf8.decode(resposta.bodyBytes));
