@@ -6,6 +6,7 @@ import '../../models/portal_models.dart';
 import '../../time/tenant_time.dart';
 import '../../ui/dados.dart';
 import '../../ui/listas.dart';
+import '../../ui/tema.dart';
 import 'rotulos.dart';
 
 /// O histórico do pet (MOD-PORTAL-04).
@@ -90,7 +91,8 @@ class _HistoricoState extends State<Historico> {
   @override
   Widget build(BuildContext context) {
     final cabecalho = CabecalhoDeSecao(
-      icone: Icons.favorite_outline,
+      icone: Icons.history_rounded,
+      base: Tons.pet,
       titulo: 'Histórico',
       descricao: _entradas.isEmpty
           ? 'O ${widget.nome} ainda não tem atendimento registrado. Assim que ele '
@@ -109,10 +111,14 @@ class _HistoricoState extends State<Historico> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (_erro != null) ...[
-                  Text(_erro!,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error, fontSize: 13)),
-                  const SizedBox(height: 8),
+                  Text(
+                    _erro!,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: context.tokens.perigo),
+                  ),
+                  const SizedBox(height: 10),
                 ],
                 if (_cursor != null)
                   OutlinedButton(
@@ -135,23 +141,40 @@ class _Entrada extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
+    final t = context.tokens;
     final anulado = entrada.voidedAt != null;
-    final cinza = tema.colorScheme.onSurfaceVariant;
+    final cinza = t.discreta;
 
     return Linha(
-      // A data à esquerda, em coluna de largura fixa: é por ela que o olho desce a
+      // A data à esquerda, em bloco de largura fixa: é por ela que o olho desce a
       // lista, e um marcador que muda de largura conforme o mês obriga a reler a cada
-      // linha.
-      inicio: SizedBox(
-        width: 48,
+      // linha. O bloco cinza a transforma em marcador de tempo — solta, ela lia como
+      // mais um dado da entrada.
+      inicio: Container(
+        width: 54,
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: anulado ? t.chip : t.acentoSuave,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: anulado ? t.linha : t.acentoAro),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tempo.diaCurto(entrada.startedAt),
-                style: tema.textTheme.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            Text(tempo.ano(entrada.startedAt),
-                style: tema.textTheme.bodySmall?.copyWith(color: cinza, fontSize: 11)),
+            Text(
+              tempo.diaCurto(entrada.startedAt),
+              style: tema.textTheme.titleSmall?.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: anulado ? t.fraca : t.acentoTinta,
+              ),
+            ),
+            Text(
+              tempo.ano(entrada.startedAt),
+              style: tema.textTheme.labelSmall?.copyWith(
+                fontSize: 11,
+                color: anulado ? t.discreta : t.acentoTinta.withValues(alpha: 0.7),
+              ),
+            ),
           ],
         ),
       ),
@@ -163,9 +186,10 @@ class _Entrada extends StatelessWidget {
                 ? entrada.services.join(', ')
                 : rotuloTipoDeAtendimento(entrada.type),
             style: tema.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: anulado ? cinza : null,
+              fontSize: 15,
+              color: anulado ? cinza : t.tinta,
               decoration: anulado ? TextDecoration.lineThrough : null,
+              decorationColor: cinza,
             ),
           ),
           if (anulado)
@@ -193,17 +217,22 @@ class _Entrada extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: SizedBox(
-                  height: 76,
+                  height: 84,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: entrada.photoUrls.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (_, i) => ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                    itemBuilder: (_, i) => Container(
+                      width: 84,
+                      height: 84,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: t.bordaDoCartao),
+                        color: t.chip,
+                      ),
+                      clipBehavior: Clip.antiAlias,
                       child: Image.network(
                         entrada.photoUrls[i],
-                        width: 76,
-                        height: 76,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),

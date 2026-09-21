@@ -63,6 +63,24 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # As fontes do produto, as mesmas do Admin e do Portal na web (`next/font` lá,
+  # arquivo embarcado aqui). Vão no pacote em vez de virem da rede: o tutor abre isto
+  # no 4G, e fonte que chega depois do texto faz a tela inteira pular.
+  #
+  # Quatro pesos do Inter, e não a variável: o Flutter mapeia `FontWeight` para
+  # instância estática sem depender do eixo `wght`, que nem toda plataforma interpola.
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

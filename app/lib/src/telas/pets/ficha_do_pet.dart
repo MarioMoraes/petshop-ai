@@ -5,6 +5,8 @@ import '../../models/portal_models.dart';
 import '../../ui/comuns.dart';
 import '../../ui/dados.dart';
 import '../../ui/listas.dart';
+import '../../ui/superficies.dart';
+import '../../ui/tema.dart';
 import 'editar_pet.dart';
 import 'historico.dart';
 import 'rotulos.dart';
@@ -59,9 +61,9 @@ class _FichaDoPetState extends State<FichaDoPet> {
       onPopInvokedWithResult: (jaSaiu, _) {
         if (!jaSaiu) Navigator.of(context).pop(_mudou);
       },
-      child: Scaffold(
+      child: Tela(
         appBar: AppBar(title: Text(widget.nome)),
-        body: CarregarDados<(PortalPetDetail, PortalTimelineResponse)>(
+        corpo: CarregarDados<(PortalPetDetail, PortalTimelineResponse)>(
           buscar: _buscar,
           construir: (context, dado, recarregar) {
             final (pet, historico) = dado;
@@ -97,34 +99,42 @@ class _Corpo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
+    final t = context.tokens;
     final nomeDoPetshop = sessao.contexto?.tenant.name ?? 'estabelecimento';
     final grave = pet.alerts.any((a) => a.severity == Severity.CRITICAL);
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
       children: [
-        Row(
-          children: [
-            Retrato(nome: pet.name, url: pet.photoUrl, tamanho: 64),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(pet.name,
-                      style: tema.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                  Text(
-                    descreverPet(
-                        especie: pet.species, raca: pet.breed, idade: pet.ageLabel),
-                    style: tema.textTheme.bodySmall
-                        ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
-                  ),
-                ],
+        // O retrato grande abre a tela: o tutor veio ver o **pet dele**, e o nome em
+        // cima de uma foto de 80px diz isso antes de qualquer campo.
+        Cartao(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Retrato(nome: pet.name, url: pet.photoUrl, tamanho: 80),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(pet.name, style: tema.textTheme.headlineSmall),
+                    const SizedBox(height: 4),
+                    Text(
+                      descreverPet(
+                          especie: pet.species, raca: pet.breed, idade: pet.ageLabel),
+                      style: tema.textTheme.bodySmall?.copyWith(color: t.discreta),
+                    ),
+                    if (pet.inMemoriam) ...[
+                      const SizedBox(height: 10),
+                      const Selo(texto: 'Em memória', icone: Icons.favorite_rounded),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 20),
 
@@ -141,39 +151,54 @@ class _Corpo extends StatelessWidget {
 
         if (pet.alerts.isNotEmpty) ...[
           Aviso(
+            // O grave é vermelho; o resto é âmbar, e não cinza: a alergia não impede
+            // nada, mas precisa ser vista antes do resto da ficha.
             erro: grave,
-            icone: Icons.warning_amber_outlined,
+            tom: TomDoAviso.atencao,
+            icone: Icons.warning_amber_rounded,
             titulo: 'Atenção no atendimento',
             linhas: pet.alerts.map(rotuloAlerta).toList(),
           ),
           const SizedBox(height: 16),
         ],
 
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+        Cartao(
+          padding: const EdgeInsets.all(18),
+          child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: CabecalhoDeSecao(
-                        icone: Icons.pets_outlined,
-                        titulo: 'A ficha',
-                      ),
-                    ),
-                    if (!pet.inMemoriam)
-                      TextButton(
-                        onPressed: () async {
-                          final salvou = await abrirEdicaoDoPet(context, sessao, pet);
-                          if (salvou) await aoSalvar();
-                        },
-                        child: const Text('Editar'),
-                      ),
-                  ],
+                CabecalhoDeSecao(
+                  icone: Icons.badge_outlined,
+                  titulo: 'A ficha',
+                  base: Tons.pet,
+                  // Pílula neutra, e não texto no acento: "Editar" é ação secundária, e
+                  // na cor da marca ela disputava o olho com o que a tela veio mostrar.
+                  aDireita: pet.inMemoriam
+                      ? null
+                      : TextButton(
+                          onPressed: () async {
+                            final salvou = await abrirEdicaoDoPet(context, sessao, pet);
+                            if (salvou) await aoSalvar();
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: t.tinta,
+                            backgroundColor: t.chip,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(999),
+                              side: BorderSide(color: t.linha),
+                            ),
+                            textStyle: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          child: const Text('Editar'),
+                        ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 LinhaDeDado(rotulo: 'Sexo', valor: rotuloSexo(pet.sex)),
                 LinhaDeDado(
                   rotulo: 'Nascimento',
@@ -189,22 +214,18 @@ class _Corpo extends StatelessWidget {
                 // A frase existe porque a tela mostra quatro campos que ela não deixa
                 // editar, e um campo travado sem explicação lê como defeito. Dizer por
                 // que — e para quem reclamar — é o que separa "não posso" de "não deu".
-                const SizedBox(height: 14),
-                Divider(color: tema.colorScheme.outlineVariant.withValues(alpha: 0.6)),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
+                Divider(color: t.linha),
+                const SizedBox(height: 12),
                 Text(
                   'Peso, porte, raça e pelagem são conferidos no balcão, porque entram '
                   'no preço do serviço. Se algum estiver errado, avise o $nomeDoPetshop.',
-                  style: tema.textTheme.bodySmall?.copyWith(
-                    color: tema.colorScheme.onSurfaceVariant,
-                    height: 1.45,
-                  ),
+                  style: tema.textTheme.bodySmall?.copyWith(color: t.discreta),
                 ),
               ],
-            ),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 30),
 
         Historico(
           sessao: sessao,

@@ -107,7 +107,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Marley'), findsOneWidget);
-    expect(find.text('Cachorro · Poodle · 11 anos'), findsOneWidget);
+    // Na lista, os atributos são **pílulas**, uma por valor: a frase única quebrava no
+    // meio dos separadores quando a raça era longa. A frase continua existindo na
+    // ficha, onde há largura para ela — e é lá que este teste a confere, logo abaixo.
+    expect(find.text('Cachorro'), findsOneWidget);
+    expect(find.text('Poodle'), findsOneWidget);
+    expect(find.text('11 anos'), findsOneWidget);
     // O falecido fica, na seção própria — e sem próximo agendamento.
     expect(find.text('Em memória'), findsOneWidget);
     expect(find.text('Fiona'), findsOneWidget);
@@ -117,11 +122,15 @@ void main() {
 
     // A ficha: o que se edita e o que não se edita, lado a lado.
     expect(find.text('A ficha'), findsOneWidget);
+    expect(find.text('Cachorro · Poodle · 11 anos'), findsOneWidget);
     expect(find.text('09/03/2015'), findsOneWidget);
     expect(find.text('8,5 kg'), findsOneWidget);
     expect(find.text('Alergia a shampoo neutro'), findsOneWidget);
 
-    // O histórico desceu junto, na mesma ida ao servidor.
+    // O histórico desceu junto, na mesma ida ao servidor — e continua sendo **uma**
+    // chamada depois de rolar até ele: a rolagem constrói o que já estava no estado.
+    expect(chamadas.where((c) => c.contains('timeline')).length, 1);
+    await aVista(tester, find.text('Banho, Tosa'));
     expect(chamadas.where((c) => c.contains('timeline')).length, 1);
     expect(find.text('Banho, Tosa'), findsOneWidget);
     // O anulado aparece — o tutor levou o pet ali naquele dia.
@@ -179,12 +188,8 @@ void main() {
     await tester.tap(find.text('Marley'));
     await tester.pumpAndSettle();
 
-    // `ensureVisible`, e não `scrollUntilVisible`: o botão já está **construído** (o
-    // `cacheExtent` do ListView constrói além do que se vê), então o segundo acha o
-    // alvo e não rola nada — e o toque cai fora da tela, sem erro e sem efeito.
     Future<void> verMais() async {
-      await tester.ensureVisible(find.text('Ver mais'));
-      await tester.pumpAndSettle();
+      await aVista(tester, find.text('Ver mais'));
       await tester.tap(find.text('Ver mais'));
       await tester.pumpAndSettle();
     }
@@ -336,3 +341,23 @@ Map<String, dynamic> _resumo(Map<String, dynamic> ficha) => {
       ])
         chave: ficha[chave],
     };
+
+/// Traz o alvo para a tela, rolando até ele se for preciso.
+///
+/// `ensureVisible` sozinho bastava enquanto a tela cabia no alcance do `cacheExtent`,
+/// que constrói um pedaço além da dobra. Com os cartões do redesenho, o fim de uma tela
+/// longa já nasce fora desse alcance — e `ensureVisible` sobre um widget que ainda não
+/// existe estoura com "Bad state: No element", que não diz nada sobre a causa. A rolagem
+/// primeiro **constrói**; o `ensureVisible` depois garante que o alvo está de fato sob o
+/// dedo, porque toque fora da tela não erra: ele não acontece.
+Future<void> aVista(WidgetTester tester, Finder alvo) async {
+  if (alvo.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      alvo,
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
+  await tester.ensureVisible(alvo);
+  await tester.pumpAndSettle();
+}

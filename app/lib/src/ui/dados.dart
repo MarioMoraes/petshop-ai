@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../api/portal_error.dart';
-import 'comuns.dart';
+import 'superficies.dart';
+import 'tema.dart';
 
 /// A frase que a tela mostra quando a chamada falha.
 ///
@@ -64,7 +65,7 @@ class _CarregarDadosState<T> extends State<CarregarDados<T>> {
       future: _futuro,
       builder: (context, instantaneo) {
         if (instantaneo.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: Girando());
         }
         if (instantaneo.hasError) {
           return _Falha(erro: instantaneo.error!, aoTentarDeNovo: _recarregar);
@@ -86,17 +87,66 @@ class _Falha extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+    final t = context.tokens;
+
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 24),
       children: [
-        const SizedBox(height: 40),
-        Aviso(texto: mensagemDoErro(erro), erro: true),
-        const SizedBox(height: 20),
-        OutlinedButton(
-          onPressed: () => aoTentarDeNovo(),
-          child: const Text('Tentar de novo'),
+        Cartao(
+          padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ChipDeIcone(
+                  Icons.wifi_tethering_error_rounded,
+                  tamanho: 44,
+                  fundo: t.perigoSuave,
+                  aro: t.perigo.withValues(alpha: 0.22),
+                  cor: t.perigo,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Não deu para carregar', style: tema.textTheme.titleMedium),
+              const SizedBox(height: 6),
+              Text(mensagemDoErro(erro), style: tema.textTheme.bodySmall),
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: () => aoTentarDeNovo(),
+                child: const Text('Tentar de novo'),
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// A espera.
+///
+/// Um anel só, na cor da marca, e o aro cinza por baixo dele — o indeterminado do
+/// Material desenha um arco no vazio, que numa tela clara some. O aro é o que diz que
+/// **há** algo girando ali, e não um traço solto passando.
+class Girando extends StatelessWidget {
+  const Girando({super.key, this.tamanho = 30});
+
+  final double tamanho;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return SizedBox(
+      width: tamanho,
+      height: tamanho,
+      child: CircularProgressIndicator(
+        strokeWidth: 3,
+        color: t.acento,
+        backgroundColor: t.linha,
+      ),
     );
   }
 }

@@ -5,8 +5,9 @@ import '../../models/portal_models.dart';
 import '../../time/tenant_time.dart';
 import '../../ui/dados.dart';
 import '../../ui/listas.dart';
+import '../../ui/superficies.dart';
+import '../../ui/tema.dart';
 import 'ficha_do_pet.dart';
-import 'rotulos.dart';
 
 /// "Meus pets" (MOD-PORTAL-03).
 ///
@@ -24,9 +25,9 @@ class ListaDePets extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Tela(
       appBar: AppBar(title: const Text('Meus pets')),
-      body: CarregarDados<List<PortalPetSummary>>(
+      corpo: CarregarDados<List<PortalPetSummary>>(
         buscar: sessao.api.pets,
         construir: (context, pets, _) => _Lista(sessao: sessao, pets: pets),
       ),
@@ -51,7 +52,7 @@ class _Lista extends StatelessWidget {
       // `always` para que o puxar-para-atualizar funcione mesmo com a lista curta
       // demais para rolar — que é justamente o caso de quem tem um pet só.
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
       children: [
         if (pets.isEmpty)
           EstadoVazio(
@@ -68,10 +69,11 @@ class _Lista extends StatelessWidget {
             ],
           ),
         if (emMemoria.isNotEmpty) ...[
-          if (vivos.isNotEmpty) const SizedBox(height: 28),
+          if (vivos.isNotEmpty) const SizedBox(height: 30),
           PilhaDeLinhas(
             cabecalho: const CabecalhoDeSecao(
-              icone: Icons.pets_outlined,
+              icone: Icons.favorite_rounded,
+              base: Tons.pet,
               titulo: 'Em memória',
               descricao: 'A ficha e o histórico continuam aqui.',
             ),
@@ -100,33 +102,65 @@ class _LinhaDePet extends StatelessWidget {
 
     // A terceira linha é a única aqui que muda de peso: o compromisso marcado vem em
     // texto de leitura, o atendimento passado desce ao cinza da legenda.
+    final t = context.tokens;
+
     Widget? extra;
     if (proximo != null) {
-      extra = Text.rich(
-        TextSpan(children: [
-          TextSpan(
-            text: 'Próximo · ',
-            style: TextStyle(color: tema.colorScheme.onSurfaceVariant),
-          ),
-          TextSpan(text: tempo.completo(proximo.startsAt)),
-          if (proximo.services.isNotEmpty)
-            TextSpan(
-              text: ' · ${proximo.services.join(', ')}',
-              style: TextStyle(color: tema.colorScheme.onSurfaceVariant),
+      // O compromisso marcado ganha a cor da marca e um fundo próprio: numa lista de
+      // três linhas cinzentas, ele é a única que muda o que o tutor faz hoje.
+      // **Uma linha só, e o que não couber é o serviço.**
+      //
+      // A pílula tinha três informações de comprimento livre — "Próximo", a data e os
+      // serviços — e quebrava em duas linhas no aparelho, com a segunda começando num
+      // pedaço de palavra. Agora a data, que é o que decide, vem em peso e não quebra;
+      // o serviço vai depois e é ele quem perde a ponta, porque é o detalhe que a tela
+      // do agendamento mostra inteiro.
+      extra = Container(
+        padding: const EdgeInsets.fromLTRB(9, 6, 11, 6),
+        decoration: BoxDecoration(
+          color: t.acentoSuave,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: t.acentoAro),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.event_rounded, size: 14, color: t.acentoTinta),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text.rich(
+                TextSpan(children: [
+                  TextSpan(
+                    // Dia e hora, sem o ano: o próximo compromisso é sempre das
+                    // próximas semanas, e o ano empurrava a pílula para duas linhas.
+                    // A data inteira continua em Meus agendamentos.
+                    text: '${tempo.diaCurto(proximo.startsAt)} às '
+                        '${tempo.hora(proximo.startsAt)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  if (proximo.services.isNotEmpty)
+                    TextSpan(
+                      text: ' · ${proximo.services.join(', ')}',
+                      style: TextStyle(color: t.acentoTinta.withValues(alpha: 0.78)),
+                    ),
+                ]),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tema.textTheme.bodySmall
+                    ?.copyWith(color: t.acentoTinta, fontSize: 12.5, height: 1.3),
+              ),
             ),
-        ]),
-        style: tema.textTheme.bodySmall,
+          ],
+        ),
       );
     } else if (pet.lastAttendanceAt != null) {
       extra = Text(
         'Último atendimento em ${tempo.diaCurto(pet.lastAttendanceAt!)}',
-        style: tema.textTheme.bodySmall
-            ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+        style: tema.textTheme.bodySmall?.copyWith(color: t.discreta),
       );
     }
 
     return Linha(
-      inicio: Retrato(nome: pet.name, url: pet.photoUrl),
+      inicio: Retrato(nome: pet.name, url: pet.photoUrl, tamanho: 52),
       aoTocar: () => Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => FichaDoPet(sessao: sessao, petId: pet.id, nome: pet.name),
@@ -134,11 +168,7 @@ class _LinhaDePet extends StatelessWidget {
       ),
       child: TextoDaLinha(
         titulo: pet.name,
-        dica: descreverPet(
-          especie: pet.species,
-          raca: pet.breed,
-          idade: pet.ageLabel,
-        ),
+        meta: [pet.species, pet.breed, pet.ageLabel],
         extra: extra,
       ),
     );

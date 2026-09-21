@@ -1,0 +1,492 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/testing.dart';
+import 'package:http/http.dart' as http;
+import 'package:petshop_tutor/src/app.dart';
+import 'package:petshop_tutor/src/auth/armazenamento.dart';
+import 'package:petshop_tutor/src/auth/clerk_fapi.dart';
+import 'package:petshop_tutor/src/auth/sessao.dart';
+
+/// O arnês de captura: as telas renderizadas com as fontes de verdade, em PNG.
+///
+/// Não é teste — não afirma nada. Existe para que o redesenho possa ser **olhado** numa
+/// máquina onde o emulador Android não sobe. Roda com
+/// `flutter test test/captura_visual.dart --update-goldens` e escreve em
+/// `test/capturas/`.
+void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    // Sem isto o texto sai no tipo de reserva do `flutter_test`, onde toda letra é um
+    // quadrado do tamanho do corpo — e a captura diria mais sobre a fonte de teste do
+    // que sobre o desenho.
+    await _carregar('Inter', [
+      'Inter-Regular.ttf',
+      'Inter-Medium.ttf',
+      'Inter-SemiBold.ttf',
+      'Inter-Bold.ttf',
+    ]);
+    // O `flutter test` não embarca a fonte de ícones: sem ela todo ícone vira um
+    // quadrado vazio na captura, e metade do que se quer olhar é justamente ícone.
+    final raiz = File(Platform.resolvedExecutable).parent.parent.parent.parent.path;
+    await _carregarDe('MaterialIcons',
+        ['$raiz/artifacts/material_fonts/MaterialIcons-Regular.otf']);
+  });
+
+  testWidgets('captura', (tester) async {
+    tester.view.physicalSize = const Size(1170, 2100);
+    tester.view.devicePixelRatio = 3;
+    // **O celular tem recortes, e o emulador da captura não tinha.** Sem isto, a barra
+    // de status e a de navegação valem zero aqui — e foi assim que o rodapé cortado da
+    // lista chegou ao aparelho do usuário sem aparecer em nenhuma captura.
+    tester.view.padding = const FakeViewPadding(top: 141, bottom: 144);
+    tester.view.viewPadding = const FakeViewPadding(top: 141, bottom: 144);
+    addTearDown(tester.view.reset);
+
+    Future<void> clique(String texto) async {
+      await tester.tap(find.text(texto));
+      await tester.pumpAndSettle();
+    }
+
+    /// Volta até o Início pelo `Navigator`, e não pelo botão da barra.
+    ///
+    /// O botão existe, mas depende de estar visível e de qual rota está por cima; aqui
+    /// o que se quer é só chegar ao começo para continuar fotografando.
+    Future<void> aoInicio() async {
+      final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
+      while (nav.canPop()) {
+        nav.pop();
+        await tester.pumpAndSettle();
+      }
+    }
+
+    Future<void> foto(String nome) async {
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('capturas/$nome.png'),
+      );
+    }
+
+    // ── a primeira tela, sem petshop escolhido ────────────────────────────────
+    await tester.pumpWidget(App(sessao: _sessao(cofre: CofreEmMemoria())));
+    await tester.pumpAndSettle();
+    await foto('01-escolher-petshop');
+
+    await clique('PetShop Amarillys');
+    await foto('02-entrar');
+
+    // ── o app com sessão ──────────────────────────────────────────────────────
+    final cofre = CofreEmMemoria();
+    await cofre.gravarSlug('petshopamarillys');
+    await cofre.gravarSessaoId('sess_1');
+
+    // Árvore nova, e não `pumpWidget` por cima: o `App` de cima tem o mesmo tipo e
+    // nenhuma chave, então o Flutter reaproveita o elemento — e com ele a `Sessao`
+    // antiga, que não sabe do vínculo.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(App(key: const ValueKey('app2'), sessao: _sessao(cofre: cofre)));
+    await tester.pumpAndSettle();
+    await foto('03-inicio');
+
+    await clique('Meus pets');
+    await foto('04-meus-pets');
+
+    await clique('Marley');
+    await foto('05-ficha-do-pet');
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -420));
+    await tester.pumpAndSettle();
+    await foto('06-historico');
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, 420));
+    await tester.pumpAndSettle();
+    await clique('Editar');
+    await foto('07-editar-pet');
+
+    // A folha é fechada pela cortina, e não pelo "Cancelar": num celular o botão nasce
+    // abaixo da dobra da própria folha, e toque em widget fora da tela não acontece.
+    await tester.tapAt(const Offset(200, 30));
+    await tester.pumpAndSettle();
+    await aoInicio();
+
+    // ── agendamentos ──────────────────────────────────────────────────────────
+    await clique('Meus agendamentos');
+    await foto('08-agendamentos');
+
+    // O fim da lista, que é onde o rodapé encostava na barra do sistema.
+    await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await foto('08b-agendamentos-fim');
+
+    await clique('Cancelar');
+    await foto('09-cancelar');
+
+    await clique('Manter horário');
+    await aoInicio();
+
+    // ── marcar horário ────────────────────────────────────────────────────────
+    await clique('Marcar horário');
+    await foto('10-marcar-servicos');
+
+    await clique('Banho');
+    await clique('Escolher o dia');
+    await clique('OK');
+    await foto('11-grade');
+
+    await clique('10:00');
+    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await foto('12-confirmar');
+
+    await clique('Confirmar horário');
+    await foto('13-comprovante');
+
+    // ── e o mesmo app no escuro ───────────────────────────────────────────────
+    //
+    // O tema escuro não é o claro invertido: sombra some, borda desaparece e a cor da
+    // marca precisa subir de clareza. É a metade do desenho que nenhum teste vê e que
+    // o aparelho de quem usa liga sozinho às seis da tarde.
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await tester.pumpAndSettle();
+    await aoInicio();
+    await foto('14-inicio-escuro');
+
+    await clique('Meus agendamentos');
+    await foto('15-agendamentos-escuro');
+  });
+}
+
+Future<void> _carregar(String familia, List<String> arquivos) =>
+    _carregarDe(familia, [for (final a in arquivos) 'assets/fonts/$a']);
+
+Future<void> _carregarDe(String familia, List<String> caminhos) async {
+  final carga = FontLoader(familia);
+  for (final caminho in caminhos) {
+    final bytes = File(caminho).readAsBytesSync();
+    carga.addFont(Future.value(ByteData.view(Uint8List.fromList(bytes).buffer)));
+  }
+  await carga.load();
+}
+
+Sessao _sessao({required Armazenamento cofre}) => Sessao(
+      armazenamento: cofre,
+      clerk: ClerkFapi(
+        host: 'exemplo.clerk.accounts.dev',
+        armazenamento: CofreEmMemoria(),
+        http_: MockClient((req) async => http.Response(
+              jsonEncode({'jwt': 'token'}),
+              200,
+              headers: {'content-type': 'application/json'},
+            )),
+      ),
+      http_: _portal,
+    );
+
+final _portal = MockClient((req) async {
+  final rota = '${req.method} ${req.url.path}';
+  Object? corpo;
+  switch (rota) {
+    case 'GET /public/v1/portal/tenants':
+      corpo = {
+        'tenants': [
+          {
+            'name': 'PetShop Amarillys',
+            'slug': 'petshopamarillys',
+            'logoUrl': null,
+            'city': 'São Paulo',
+          },
+          {'name': 'Amigo Fiel', 'slug': 'amigofiel', 'logoUrl': null, 'city': null},
+          {'name': 'Zoo Pet', 'slug': 'zoopet', 'logoUrl': null, 'city': null},
+        ],
+        'truncated': false,
+      };
+    case 'GET /portal/v1/tenant':
+      corpo = _tenant;
+    case 'GET /portal/v1/me':
+      corpo = _me;
+    case 'GET /portal/v1/pets':
+      corpo = {'pets': [_resumo(_ficha), _resumo(_fiona)]};
+    case 'GET /portal/v1/pets/pet-1':
+      corpo = _ficha;
+    case 'GET /portal/v1/pets/pet-1/timeline':
+      corpo = _timeline;
+    case 'GET /portal/v1/appointments':
+      // Com cursor, a lista ganha o "Ver mais" — que é justamente a linha que o
+      // aparelho mostrava por baixo da barra de navegação.
+      corpo = req.url.queryParameters['cursor'] == null
+          ? {
+              'upcoming': [_proximo],
+              'past': [_passado1, _passado2],
+              'nextCursor': 'cursor-2',
+              'timezone': _fuso,
+            }
+          : {
+              'upcoming': [_proximo],
+              'past': const [],
+              'nextCursor': null,
+              'timezone': _fuso,
+            };
+    case 'GET /portal/v1/booking/services':
+      corpo = _servicos;
+    case 'GET /portal/v1/booking/availability':
+      corpo = _disponibilidade;
+    case 'POST /portal/v1/booking':
+      corpo = _criado;
+    case 'POST /portal/v1/appointments/ag-1/cancel':
+      corpo = _proximo;
+    default:
+      return http.Response('{"detail":"rota nao dublada: $rota"}', 404,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+  }
+  return http.Response(jsonEncode(corpo), 200,
+      headers: {'content-type': 'application/json'});
+});
+
+const _fuso = 'America/Sao_Paulo';
+const _prof = '3f1e0d2c-1111-4a2b-8c3d-000000000001';
+
+const _tenant = {
+  'name': 'PetShop Amarillys',
+  'slug': 'petshopamarillys',
+  'logoUrl': null,
+  'brandColor': '#E34A32',
+  'portalEnabled': true,
+};
+
+const _me = {
+  'tenant': {
+    'name': 'PetShop Amarillys',
+    'slug': 'petshopamarillys',
+    'logoUrl': null,
+    'brandColor': '#E34A32',
+    'timezone': _fuso,
+  },
+  'tutor': {'id': 'tutor-1', 'name': 'Mário Moraes', 'petsCount': 2, 'balanceCents': 0},
+  'features': {
+    'portalEnabled': true,
+    'onlineBookingEnabled': true,
+    'onlineBookingRequiresApproval': false,
+    'taxiEnabled': true,
+  },
+};
+
+const _ficha = {
+  'id': 'pet-1',
+  'name': 'Marley',
+  'species': 'Cachorro',
+  'breed': 'Poodle',
+  'ageLabel': '11 anos',
+  'photoUrl': null,
+  'inMemoriam': false,
+  'lastAttendanceAt': '2026-09-01T13:00:00.000Z',
+  'nextAppointment': {
+    'id': 'ag-1',
+    'startsAt': '2026-09-28T13:00:00.000Z',
+    'status': 'CONFIRMED',
+    'services': ['Banho'],
+  },
+  'sex': 'MALE',
+  'birthDate': '2015-03-09',
+  'birthDatePrecision': 'EXACT',
+  'neutered': true,
+  'notes': 'Não gosta do secador alto.',
+  'color': 'Branco',
+  'weightKg': 8.5,
+  'size': 'Pequeno',
+  'coat': 'Encaracolado',
+  'alerts': [
+    {'kind': 'ALLERGY', 'label': 'shampoo neutro', 'severity': 'HIGH'},
+  ],
+};
+
+const _fiona = {
+  'id': 'pet-2',
+  'name': 'Fiona',
+  'species': 'Gato',
+  'breed': null,
+  'ageLabel': null,
+  'photoUrl': null,
+  'inMemoriam': true,
+  'lastAttendanceAt': '2025-02-10T13:00:00.000Z',
+  'nextAppointment': null,
+};
+
+const _timeline = {
+  'entries': [
+    {
+      'id': 'at-1',
+      'type': 'BATH',
+      'startedAt': '2026-09-01T13:00:00.000Z',
+      'finishedAt': '2026-09-01T15:00:00.000Z',
+      'professional': 'Marcelo',
+      'services': ['Banho', 'Tosa'],
+      'notes': ['Ficou tranquilo no secador.'],
+      'photoUrls': [],
+      'weightKg': 8.5,
+      'voidedAt': null,
+    },
+    {
+      'id': 'at-2',
+      'type': 'VET_CONSULT',
+      'startedAt': '2026-06-14T13:00:00.000Z',
+      'finishedAt': null,
+      'professional': null,
+      'services': [],
+      'notes': [],
+      'photoUrls': [],
+      'weightKg': null,
+      'voidedAt': '2026-06-15T13:00:00.000Z',
+    },
+  ],
+  'nextCursor': 'cursor-2',
+};
+
+const _proximo = {
+  'id': 'ag-1',
+  'status': 'CONFIRMED',
+  'startsAt': '2026-09-28T13:00:00.000Z',
+  'endsAt': '2026-09-28T14:00:00.000Z',
+  'petId': 'pet-1',
+  'petName': 'Marley',
+  'professionalName': 'Marcelo',
+  'services': ['Banho'],
+  'totalCents': 9000,
+  'awaitingApproval': true,
+  'taxi': [
+    {
+      'id': 'corrida-1',
+      'leg': 'PICKUP',
+      'legLabel': 'Ida',
+      'status': 'EN_ROUTE',
+      'statusText': 'A caminho',
+      'windowStartsAt': '2026-09-28T12:00:00.000Z',
+      'windowEndsAt': '2026-09-28T12:30:00.000Z',
+      'priceCents': 1500,
+    },
+  ],
+  'actions': {
+    'canCancel': true,
+    'canReschedule': true,
+    'cancelIsLate': false,
+    'cancelFeeCents': 0,
+    'cancellationWindowHours': 24,
+  },
+};
+
+const _passado1 = {
+  'id': 'ag-2',
+  'status': 'CANCELLED',
+  'startsAt': '2026-09-10T13:00:00.000Z',
+  'endsAt': '2026-09-10T14:00:00.000Z',
+  'petId': 'pet-1',
+  'petName': 'Marley',
+  'professionalName': 'Marcelo',
+  'services': ['Tosa'],
+  'totalCents': 7000,
+  'awaitingApproval': false,
+  'taxi': [],
+};
+
+const _passado2 = {
+  'id': 'ag-3',
+  'status': 'COMPLETED',
+  'startsAt': '2026-07-15T13:00:00.000Z',
+  'endsAt': '2026-07-15T14:00:00.000Z',
+  'petId': 'pet-1',
+  'petName': 'Marley',
+  'professionalName': 'Ana',
+  'services': ['Banho', 'Hidratação'],
+  'totalCents': 12000,
+  'awaitingApproval': false,
+  'taxi': [],
+};
+
+const _servicos = {
+  'petName': 'Marley',
+  'services': [
+    {
+      'id': 'servico-banho',
+      'name': 'Banho',
+      'description': 'Com secagem e perfume',
+      'category': 'BATH',
+      'priceCents': 9000,
+      'durationMin': 60,
+    },
+    {
+      'id': 'servico-tosa',
+      'name': 'Tosa',
+      'description': 'Higiênica ou na tesoura',
+      'category': 'GROOMING',
+      'priceCents': 7000,
+      'durationMin': 45,
+    },
+  ],
+};
+
+const _disponibilidade = {
+  'slots': [
+    {
+      'startsAt': '2026-09-30T13:00:00.000Z',
+      'endsAt': '2026-09-30T14:00:00.000Z',
+      'professionalId': _prof,
+      'professionalName': 'Marcelo',
+    },
+    {
+      'startsAt': '2026-09-30T14:00:00.000Z',
+      'endsAt': '2026-09-30T15:00:00.000Z',
+      'professionalId': _prof,
+      'professionalName': 'Marcelo',
+    },
+    {
+      'startsAt': '2026-09-30T16:30:00.000Z',
+      'endsAt': '2026-09-30T17:30:00.000Z',
+      'professionalId': _prof,
+      'professionalName': 'Ana',
+    },
+    {
+      'startsAt': '2026-09-30T18:00:00.000Z',
+      'endsAt': '2026-09-30T19:00:00.000Z',
+      'professionalId': _prof,
+      'professionalName': 'Ana',
+    },
+  ],
+  'nextAvailable': null,
+  'durationMin': 60,
+  'priceCents': 9000,
+  'timezone': _fuso,
+  'minNoticeHours': 2,
+};
+
+const _criado = {
+  'id': '9f1e0d2c-2222-4a2b-8c3d-000000000002',
+  'status': 'CONFIRMED',
+  'startsAt': '2026-09-30T13:00:00.000Z',
+  'endsAt': '2026-09-30T14:00:00.000Z',
+  'petName': 'Marley',
+  'professionalName': 'Marcelo',
+  'services': ['Banho'],
+  'totalCents': 9000,
+  'awaitingApproval': false,
+  'duplicate': false,
+  'taxi': [],
+  'taxiWarning': null,
+};
+
+Map<String, dynamic> _resumo(Map<String, dynamic> ficha) => {
+      for (final chave in [
+        'id',
+        'name',
+        'species',
+        'breed',
+        'ageLabel',
+        'photoUrl',
+        'inMemoriam',
+        'lastAttendanceAt',
+        'nextAppointment',
+      ])
+        chave: ficha[chave],
+    };

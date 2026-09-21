@@ -7,6 +7,8 @@ import '../../models/portal_models.dart';
 import '../../time/tenant_time.dart';
 import '../../ui/comuns.dart';
 import '../../ui/dados.dart';
+import '../../ui/superficies.dart';
+import '../../ui/tema.dart';
 
 /// Cancelar um horário (AC-02 e AC-03 de MOD-PORTAL-06).
 ///
@@ -104,31 +106,48 @@ class _CancelamentoState extends State<_Cancelamento> {
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
+    final t = context.tokens;
     final agendamento = widget.agendamento;
     final comTaxa = _tardio && _taxaCents > 0;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Cancelar este horário?',
-                style: tema.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            Text(
-              '${widget.tempo.diaPorExtenso(agendamento.startsAt)} às '
-              '${widget.tempo.hora(agendamento.startsAt)}\n'
-              '${agendamento.petName} · ${agendamento.services.join(', ')}',
-              style: tema.textTheme.bodyMedium?.copyWith(
-                color: tema.colorScheme.onSurfaceVariant,
-                height: 1.45,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ChipDeIcone(
+                  Icons.event_busy_rounded,
+                  tamanho: 40,
+                  fundo: comTaxa ? t.perigoSuave : t.chip,
+                  aro: comTaxa ? t.perigo.withValues(alpha: 0.22) : t.linha,
+                  cor: comTaxa ? t.perigo : t.fraca,
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Cancelar este horário?',
+                          style: tema.textTheme.titleLarge),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${widget.tempo.diaPorExtenso(agendamento.startsAt)} às '
+                        '${widget.tempo.hora(agendamento.startsAt)}\n'
+                        '${agendamento.petName} · ${agendamento.services.join(', ')}',
+                        style: tema.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
 
             Aviso(
               erro: comTaxa,
@@ -148,8 +167,7 @@ class _CancelamentoState extends State<_Cancelamento> {
               const SizedBox(height: 10),
               Text(
                 'O leva-e-traz deste horário é cancelado junto, sem cobrança.',
-                style: tema.textTheme.bodySmall
-                    ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+                style: tema.textTheme.bodySmall?.copyWith(color: t.discreta),
               ),
             ],
 

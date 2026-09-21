@@ -5,6 +5,8 @@ import '../../api/portal_error.dart';
 import '../../models/portal_models.dart';
 import '../../time/tenant_time.dart';
 import '../../ui/comuns.dart';
+import '../../ui/dados.dart';
+import '../../ui/tema.dart';
 
 /// A grade de horários de um dia, e as peças que respondem a ela.
 ///
@@ -80,18 +82,37 @@ class GradeDeHorarios extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
-    final cinza = tema.textTheme.bodySmall
-        ?.copyWith(color: tema.colorScheme.onSurfaceVariant, height: 1.4);
+    final t = context.tokens;
+    final cinza = tema.textTheme.bodySmall?.copyWith(height: 1.5);
 
-    if (carregando) return Text('Procurando horários…', style: cinza);
+    // A espera ganha o anel junto da frase: a grade some por inteiro enquanto a busca
+    // está em voo, e uma linha de texto sozinha no lugar dela parece resposta.
+    if (carregando) {
+      return Row(
+        children: [
+          const Girando(tamanho: 17),
+          const SizedBox(width: 10),
+          Expanded(child: Text('Procurando horários…', style: cinza)),
+        ],
+      );
+    }
 
     if (horarios.isEmpty) {
-      return Text(
-        proximo == null
-            ? 'Não há horário disponível neste dia.'
-            : 'Não há horário neste dia. O próximo disponível é '
-                '${tempo.diaPorExtenso(proximo!)} às ${tempo.hora(proximo!)}.',
-        style: cinza,
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: t.chip,
+          borderRadius: BorderRadius.circular(Raio.controle),
+          border: Border.all(color: t.linha),
+        ),
+        child: Text(
+          proximo == null
+              ? 'Não há horário disponível neste dia.'
+              : 'Não há horário neste dia. O próximo disponível é '
+                  '${tempo.diaPorExtenso(proximo!)} às ${tempo.hora(proximo!)}.',
+          style: cinza,
+        ),
       );
     }
 
@@ -99,8 +120,8 @@ class GradeDeHorarios extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 9,
+          runSpacing: 9,
           children: [
             for (final slot in horarios)
               BotaoDeHora(
@@ -130,6 +151,11 @@ class GradeDeHorarios extends StatelessWidget {
   }
 }
 
+/// Uma vaga da grade.
+///
+/// A escolhida fica **escura e com sombra**, e não só com a borda mais grossa: numa
+/// malha de doze pílulas iguais, a diferença de uma borda não sobrevive ao polegar em
+/// cima. É a mesma peça escura que o resto do app usa para dizer "este aqui".
 class BotaoDeHora extends StatelessWidget {
   const BotaoDeHora({
     super.key,
@@ -144,24 +170,45 @@ class BotaoDeHora extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final esquema = Theme.of(context).colorScheme;
-    final estilo = ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll(Size(72, 44)),
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16)),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+    final t = context.tokens;
+    final forma = BorderRadius.circular(Raio.controle);
 
-    if (marcado) {
-      return FilledButton(onPressed: aoTocar, style: estilo, child: Text(rotulo));
-    }
-    return OutlinedButton(
-      onPressed: aoTocar,
-      style: estilo.copyWith(
-        foregroundColor: WidgetStatePropertyAll(esquema.onSurface),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: aoTocar,
+        borderRadius: forma,
+        // **Sem `alignment` aqui.** Um `Container` com alinhamento se estica até o
+        // limite que recebe, e dentro do `Wrap` esse limite é a largura do cartão: a
+        // grade virava uma pilha de botões de largura inteira, um por linha, em vez da
+        // malha de pílulas. O alinhamento vertical fica no `Center` de dentro, que só
+        // ocupa a largura do próprio texto (`widthFactor: 1`).
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            gradient: marcado ? t.gradienteDoBotao : null,
+            color: marcado ? null : t.cartao,
+            borderRadius: forma,
+            border: Border.all(color: marcado ? Colors.transparent : t.linha),
+            boxShadow: marcado ? t.sombraDoBotao : null,
+          ),
+          child: Center(
+            widthFactor: 1,
+            child: Text(
+              rotulo,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: marcado ? t.sobreBotao : t.tinta,
+              ),
+            ),
+          ),
+        ),
       ),
-      child: Text(rotulo),
     );
   }
 }
@@ -197,16 +244,17 @@ class RecusaComAlternativas extends StatelessWidget {
       children: [
         Aviso(
           erro: !alertaClinico,
+          tom: alertaClinico ? TomDoAviso.marca : null,
           icone:
-              alertaClinico ? Icons.warning_amber_outlined : Icons.event_busy_outlined,
+              alertaClinico ? Icons.warning_amber_rounded : Icons.event_busy_rounded,
           titulo: alertaClinico ? 'Atenção no atendimento' : tituloPadrao,
           texto: falha.message,
         ),
         if (alternativas.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 9,
+            runSpacing: 9,
             children: [
               for (final instante in alternativas)
                 if (_slotDe(instante) case final slot?)

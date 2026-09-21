@@ -8,6 +8,8 @@ import '../../time/tenant_time.dart';
 import '../../ui/comuns.dart';
 import '../../ui/dados.dart';
 import '../../ui/listas.dart';
+import '../../ui/superficies.dart';
+import '../../ui/tema.dart';
 import '../agendar/marcar_horario.dart';
 import 'cancelar.dart';
 import 'remarcar.dart';
@@ -30,25 +32,38 @@ class ListaDeAgendamentos extends StatelessWidget {
   Widget build(BuildContext context) {
     final contexto = sessao.contexto!;
 
-    return Scaffold(
+    return Tela(
       appBar: AppBar(
         title: const Text('Meus agendamentos'),
         actions: [
           if (contexto.features.onlineBookingEnabled)
             Builder(
-              builder: (context) => TextButton(
-                onPressed: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => MarcarHorario(sessao: sessao)),
-                  );
-                  if (context.mounted) Recarregavel.de(context)?.call();
-                },
-                child: const Text('Marcar'),
+              builder: (context) => Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: TextButton.icon(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => MarcarHorario(sessao: sessao)),
+                    );
+                    if (context.mounted) Recarregavel.de(context)?.call();
+                  },
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  style: TextButton.styleFrom(
+                    foregroundColor: context.tokens.acentoTinta,
+                    backgroundColor: context.tokens.acentoSuave,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      side: BorderSide(color: context.tokens.acentoAro),
+                    ),
+                  ),
+                  label: const Text('Marcar'),
+                ),
               ),
             ),
         ],
       ),
-      body: CarregarDados<PortalAppointmentsResponse>(
+      corpo: CarregarDados<PortalAppointmentsResponse>(
         buscar: () => sessao.api.agendamentos(limite: 10),
         construir: (context, agenda, recarregar) => Recarregavel(
           recarregar: recarregar,
@@ -157,13 +172,10 @@ class _ListaState extends State<_Lista> {
           ),
 
         if (proximos.isNotEmpty) ...[
-          Text('PRÓXIMOS',
-              style: tema.textTheme.labelMedium?.copyWith(
-                color: tema.colorScheme.onSurfaceVariant,
-                letterSpacing: 1.1,
-                fontWeight: FontWeight.w700,
-              )),
-          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            child: Etiqueta('PRÓXIMOS', cor: tema.colorScheme.onSurfaceVariant),
+          ),
           // Cada próximo é **um cartão**, e não uma linha de pilha: carrega selo,
           // botões e o leva-e-traz. Espremer isso numa linha faria a lista virar cartão
           // de qualquer jeito, só que sem o respiro entre um compromisso e o outro.
@@ -174,9 +186,9 @@ class _ListaState extends State<_Lista> {
               tempo: tempo,
               recarregar: widget.recarregar,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
         ],
 
         if (_passados.isNotEmpty)
@@ -184,7 +196,8 @@ class _ListaState extends State<_Lista> {
             // "Histórico", e não "já aconteceram": o cancelado de sexta que vem cai
             // nesta seção e ainda não aconteceu. O rótulo precisa caber nos dois.
             cabecalho: const CabecalhoDeSecao(
-              icone: Icons.calendar_month_outlined,
+              icone: Icons.history_rounded,
+              base: Tons.tempo,
               titulo: 'Histórico',
             ),
             filhos: [
@@ -196,9 +209,12 @@ class _ListaState extends State<_Lista> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_erro != null) ...[
-                        Text(_erro!,
-                            style: TextStyle(color: tema.colorScheme.error, fontSize: 13)),
-                        const SizedBox(height: 8),
+                        Text(
+                          _erro!,
+                          style: tema.textTheme.bodySmall
+                              ?.copyWith(color: context.tokens.perigo),
+                        ),
+                        const SizedBox(height: 10),
                       ],
                       if (_cursor != null)
                         OutlinedButton(
@@ -236,105 +252,188 @@ class _CartaoDoProximo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
+    final t = context.tokens;
     final acoes = agendamento.actions;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: tema.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.calendar_month_outlined,
-                      size: 18, color: tema.colorScheme.onPrimaryContainer),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // O selo vem **antes** da data, e sozinho na linha: ao lado dela
-                      // roubava metade da largura do celular e quebrava
-                      // "Sexta-feira, 12 de setembro" em cinco linhas.
-                      if (agendamento.awaitingApproval) ...[
-                        const Selo(texto: 'Aguardando confirmação'),
-                        const SizedBox(height: 6),
-                      ],
-                      Text(
-                        _comMaiuscula('${tempo.diaPorExtenso(agendamento.startsAt)} '
-                            'às ${tempo.hora(agendamento.startsAt)}'),
-                        style: tema.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w600),
+    return Cartao(
+      // O horário que ainda espera confirmação ganha o aro da marca: numa pilha de
+      // cartões brancos, ele é o único que ainda pode mudar.
+      realce: agendamento.awaitingApproval,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ChipDeIcone(
+                Icons.calendar_month_rounded,
+                tamanho: 40,
+                base: Tons.tempo,
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // O selo vem **antes** da data, e sozinho na linha: ao lado dela
+                    // roubava metade da largura do celular e quebrava
+                    // "Sexta-feira, 12 de setembro" em cinco linhas.
+                    if (agendamento.awaitingApproval) ...[
+                      const Selo(
+                        texto: 'Aguardando confirmação',
+                        tom: TomDoSelo.marca,
+                        icone: Icons.schedule_rounded,
                       ),
-                      const SizedBox(height: 2),
-                      Text('${agendamento.petName} · ${agendamento.services.join(', ')}',
-                          style: tema.textTheme.bodySmall
-                              ?.copyWith(color: tema.colorScheme.onSurfaceVariant)),
-                      Text('com ${agendamento.professionalName}',
-                          style: tema.textTheme.bodySmall
-                              ?.copyWith(color: tema.colorScheme.onSurfaceVariant)),
+                      const SizedBox(height: 8),
                     ],
-                  ),
+                    Text(
+                      _comMaiuscula('${tempo.diaPorExtenso(agendamento.startsAt)} '
+                          'às ${tempo.hora(agendamento.startsAt)}'),
+                      style: tema.textTheme.titleMedium?.copyWith(fontSize: 16.5),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${agendamento.petName} · ${agendamento.services.join(', ')}',
+                      style: tema.textTheme.bodySmall?.copyWith(color: t.fraca),
+                    ),
+                    Text(
+                      'com ${agendamento.professionalName}',
+                      style: tema.textTheme.bodySmall?.copyWith(color: t.discreta),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+            ],
+          ),
+
+          _FaixaDoTaxi(corridas: agendamento.taxi, tempo: tempo),
+
+          // O valor e o que dá para fazer descem para um rodapé com fio: acima dele
+          // fica o que o compromisso **é**, abaixo o que ele **custa** e o que se pode
+          // mudar. Sem a divisão, o preço lia como mais uma legenda do pet.
+          const SizedBox(height: 16),
+          Divider(color: t.linha),
+          const SizedBox(height: 12),
+          Text(
+            reais(agendamento.totalCents),
+            style: tema.textTheme.titleMedium?.copyWith(
+              fontSize: 18,
+              letterSpacing: -0.4,
             ),
+          ),
 
-            _FaixaDoTaxi(corridas: agendamento.taxi, tempo: tempo),
-
-            // O valor e o que dá para fazer descem para um rodapé com fio: acima dele
-            // fica o que o compromisso **é**, abaixo o que ele **custa** e o que se pode
-            // mudar. Sem a divisão, o preço lia como mais uma legenda do pet.
+          // As ações moram numa linha própria, e cada uma ocupa metade dela.
+          //
+          // Ao lado do valor elas cabiam no papel e estouravam a largura de um celular
+          // de 360px — "Remarcar" e "Cancelar" com ícone somam mais do que sobra
+          // depois do preço. Em linha própria, de quebra, o alvo de toque dobra: são
+          // dois botões que mudam um compromisso, e não dois links de rodapé.
+          if (acoes.canReschedule || acoes.canCancel) ...[
             const SizedBox(height: 14),
-            Divider(color: tema.colorScheme.outlineVariant.withValues(alpha: 0.6)),
-            const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(
-                  child: Text(reais(agendamento.totalCents),
-                      style: tema.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                ),
                 if (acoes.canReschedule)
-                  TextButton(
-                    onPressed: () async {
-                      final remarcou = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => Remarcar(
-                            sessao: sessao,
-                            agendamentoId: agendamento.id,
+                  Expanded(
+                    child: _AcaoDoCartao(
+                      rotulo: 'Remarcar',
+                      icone: Icons.event_repeat_rounded,
+                      aoTocar: () async {
+                        final remarcou = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) => Remarcar(
+                              sessao: sessao,
+                              agendamentoId: agendamento.id,
+                            ),
                           ),
-                        ),
-                      );
-                      if (remarcou == true) await recarregar();
-                    },
-                    child: const Text('Remarcar'),
+                        );
+                        if (remarcou == true) await recarregar();
+                      },
+                    ),
                   ),
+                if (acoes.canReschedule && acoes.canCancel) const SizedBox(width: 10),
                 if (acoes.canCancel)
-                  TextButton(
-                    onPressed: () async {
-                      final cancelou = await abrirCancelamento(
-                        context,
-                        sessao,
-                        agendamento,
-                        tempo,
-                      );
-                      if (cancelou) await recarregar();
-                    },
-                    child: const Text('Cancelar'),
+                  Expanded(
+                    child: _AcaoDoCartao(
+                      rotulo: 'Cancelar',
+                      icone: Icons.close_rounded,
+                      aoTocar: () async {
+                        final cancelou = await abrirCancelamento(
+                          context,
+                          sessao,
+                          agendamento,
+                          tempo,
+                        );
+                        if (cancelou) await recarregar();
+                      },
+                    ),
                   ),
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// O que dá para fazer com um horário: uma pílula de contorno, não um texto sublinhado.
+///
+/// `TextButton` solto no rodapé de um cartão lê como legenda; a pílula diz que ali se
+/// toca. E as duas têm o mesmo peso de propósito — remarcar e cancelar são escolhas do
+/// tutor, e não uma principal e uma alternativa.
+class _AcaoDoCartao extends StatelessWidget {
+  const _AcaoDoCartao({
+    required this.rotulo,
+    required this.icone,
+    required this.aoTocar,
+  });
+
+  final String rotulo;
+  final IconData icone;
+  final VoidCallback aoTocar;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final forma = BorderRadius.circular(999);
+
+    return Material(
+      color: t.cartao,
+      borderRadius: forma,
+      child: InkWell(
+        onTap: aoTocar,
+        borderRadius: forma,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            borderRadius: forma,
+            border: Border.all(color: t.linha),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icone, size: 15, color: t.fraca),
+              const SizedBox(width: 6),
+              // Flexível e com reticências: metade da largura de um celular pequeno,
+              // com a fonte do sistema aumentada nas acessibilidades, não cabe
+              // "Remarcar" — e a pílula que estoura vira a tarja listrada do Flutter.
+              Flexible(
+                child: Text(
+                  rotulo,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: t.tinta,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -355,6 +454,7 @@ class _LinhaDoPassado extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
+    final t = context.tokens;
     final cancelado = agendamento.status == 'CANCELLED';
     final faltou = agendamento.status == 'NO_SHOW';
 
@@ -374,15 +474,15 @@ class _LinhaDoPassado extends StatelessWidget {
                   '${tempo.ano(agendamento.startsAt)} · '
                   '${tempo.hora(agendamento.startsAt)}',
                   style: tema.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
                     decoration: cancelado ? TextDecoration.lineThrough : null,
-                    color: cancelado ? tema.colorScheme.onSurfaceVariant : null,
+                    decorationColor: t.discreta,
+                    color: cancelado ? t.discreta : t.tinta,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text('${agendamento.petName} · ${agendamento.services.join(', ')}',
-                    style: tema.textTheme.bodySmall
-                        ?.copyWith(color: tema.colorScheme.onSurfaceVariant)),
+                    style: tema.textTheme.bodySmall?.copyWith(color: t.discreta)),
               ],
             ),
           ),
@@ -395,8 +495,7 @@ class _LinhaDoPassado extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(reais(agendamento.totalCents),
-                  style: tema.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
+                  style: tema.textTheme.titleSmall?.copyWith(fontSize: 14.5)),
             ),
         ],
       ),
@@ -424,40 +523,57 @@ class _FaixaDoTaxi extends StatelessWidget {
   Widget build(BuildContext context) {
     if (corridas.isEmpty) return const SizedBox.shrink();
     final tema = Theme.of(context);
+    final t = context.tokens;
 
+    // O transporte é assunto de outro fornecedor dentro do mesmo compromisso: a faixa
+    // com fundo próprio é o que o separa do horário sem precisar de um segundo cartão.
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final corrida in corridas)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.local_shipping_outlined,
-                      size: 18, color: tema.colorScheme.onSurfaceVariant),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${corrida.legLabel} · ${corrida.statusText}',
-                            style: tema.textTheme.bodySmall),
-                        Text(
-                          'entre ${tempo.hora(corrida.windowStartsAt)} e '
-                          '${tempo.hora(corrida.windowEndsAt)}',
-                          style: tema.textTheme.bodySmall
-                              ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
-                        ),
-                      ],
+      padding: const EdgeInsets.only(top: 14),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+        decoration: BoxDecoration(
+          color: t.chip,
+          borderRadius: BorderRadius.circular(Raio.controle),
+          border: Border.all(color: t.linha),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final corrida in corridas)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: corrida == corridas.last ? 0 : 10,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.local_shipping_rounded, size: 17, color: t.fraca),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${corrida.legLabel} · ${corrida.statusText}',
+                            style: tema.textTheme.bodySmall?.copyWith(
+                              color: t.tinta,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'entre ${tempo.hora(corrida.windowStartsAt)} e '
+                            '${tempo.hora(corrida.windowEndsAt)}',
+                            style: tema.textTheme.bodySmall
+                                ?.copyWith(color: t.discreta),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

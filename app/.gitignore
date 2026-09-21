@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# As capturas do arnês visual são saída, e não fonte: `flutter test
+# test/captura_visual.dart --update-goldens` as refaz em quinze segundos.
+test/capturas/

@@ -9,6 +9,8 @@ import '../../time/tenant_time.dart';
 import '../../ui/comuns.dart';
 import '../../ui/dados.dart';
 import '../../ui/listas.dart';
+import '../../ui/superficies.dart';
+import '../../ui/tema.dart';
 import 'grade_de_horarios.dart';
 
 /// Marcar horário (MOD-PORTAL-05).
@@ -37,9 +39,9 @@ class MarcarHorario extends StatelessWidget {
   Widget build(BuildContext context) {
     final contexto = sessao.contexto!;
 
-    return Scaffold(
+    return Tela(
       appBar: AppBar(title: const Text('Marcar horário')),
-      body: !contexto.features.onlineBookingEnabled
+      corpo: !contexto.features.onlineBookingEnabled
           // AC-07: a tela não existe com o agendamento online desligado — e quem chegou
           // aqui encontra a explicação, não um 403 cru. Quem garante a regra é o
           // servidor: as três rotas respondem 403 mesmo chamadas direto.
@@ -317,9 +319,10 @@ class _FormularioState extends State<_Formulario> {
         if (widget.pets.length > 1) ...[
           CartaoDeSecao(
             cabecalho: CabecalhoDeSecao(
-              icone: Icons.pets_outlined,
+              icone: Icons.pets_rounded,
+              base: Tons.tempo,
               titulo: 'Para quem é',
-              descricao: passo('pet'),
+              etiqueta: passo('pet'),
             ),
             filhos: [
               for (final candidato in widget.pets) ...[
@@ -341,9 +344,11 @@ class _FormularioState extends State<_Formulario> {
         if (pet != null) ...[
           CartaoDeSecao(
             cabecalho: CabecalhoDeSecao(
-              icone: Icons.content_cut_outlined,
+              icone: Icons.content_cut_rounded,
+              base: Tons.tempo,
               titulo: 'O que o pet vai fazer',
-              descricao: '${passo('servicos')} · os preços são os do porte do ${pet.name}',
+              etiqueta: passo('servicos'),
+              descricao: 'Os preços são os do porte do ${pet.name}',
             ),
             filhos: [
               if (_servicos.isEmpty && !_ocupado)
@@ -366,9 +371,14 @@ class _FormularioState extends State<_Formulario> {
               ],
               if (_selecionados.length > 1)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text('Total: ${reais(_totalCents)}',
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text('Total: ${reais(_totalCents)}',
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -378,14 +388,15 @@ class _FormularioState extends State<_Formulario> {
         if (_escolhidos.isNotEmpty) ...[
           CartaoDeSecao(
             cabecalho: CabecalhoDeSecao(
-              icone: Icons.calendar_today_outlined,
+              icone: Icons.calendar_month_rounded,
+              base: Tons.tempo,
               titulo: 'Que dia',
-              descricao: passo('dia'),
+              etiqueta: passo('dia'),
             ),
             filhos: [
               OutlinedButton.icon(
                 onPressed: _escolherDia,
-                icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                icon: const Icon(Icons.calendar_today_rounded, size: 17),
                 label: Text(_dia == null
                     ? 'Escolher o dia'
                     : _tempo.diaPorExtenso(_diaComoInstante(_dia!))),
@@ -426,28 +437,49 @@ class _FormularioState extends State<_Formulario> {
 
         if (_horario != null && pet != null)
           CartaoDeSecao(
+            // O último cartão é o que o olho precisa achar depois de rolar três
+            // perguntas: é ele que tem o botão que grava.
+            realce: true,
             cabecalho: const CabecalhoDeSecao(
               icone: Icons.check_circle_outline,
+              base: Tons.tempo,
               titulo: 'Tudo certo?',
             ),
             filhos: [
               Text('${pet.name} · ${_selecionados.map((s) => s.name).join(', ')}',
-                  style: Theme.of(context).textTheme.bodyLarge),
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: context.tokens.tinta,
+                      )),
               const SizedBox(height: 4),
               Text(
                 '${_tempo.diaPorExtenso(_horario!.startsAt)} às '
                 '${_tempo.hora(_horario!.startsAt)} com ${_horario!.professionalName}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(height: 10),
-              Text(reais(_totalCents),
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: context.tokens.chip,
+                  borderRadius: BorderRadius.circular(Raio.controle),
+                ),
+                child: Row(
+                  children: [
+                    Text('Total',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: context.tokens.discreta,
+                            )),
+                    const Spacer(),
+                    Text(reais(_totalCents),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontSize: 18,
+                              letterSpacing: -0.4,
+                            )),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
               BotaoPrincipal(
                 rotulo: _reconhecerAlertas ? 'Confirmar mesmo assim' : 'Confirmar horário',
                 rotuloOcupado: 'Marcando…',
@@ -485,48 +517,79 @@ class _Comprovante extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
+    final t = context.tokens;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 36),
       children: [
-        Icon(Icons.check_circle_outline, size: 56, color: tema.colorScheme.primary),
-        const SizedBox(height: 16),
-        Text(
-          agendamento.awaitingApproval ? 'Horário reservado' : 'Horário marcado',
-          textAlign: TextAlign.center,
-          style: tema.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          agendamento.awaitingApproval
-              ? 'O estabelecimento confirma em seguida. Você recebe um aviso quando '
-                  'isso acontecer.'
-              : 'Está tudo certo. Até lá!',
-          textAlign: TextAlign.center,
-          style: tema.textTheme.bodyMedium
-              ?.copyWith(color: tema.colorScheme.onSurfaceVariant, height: 1.45),
-        ),
-        const SizedBox(height: 24),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                LinhaDeDado(rotulo: 'Pet', valor: agendamento.petName),
-                LinhaDeDado(
-                    rotulo: 'Serviços', valor: agendamento.services.join(', ')),
-                LinhaDeDado(
-                  rotulo: 'Quando',
-                  valor: '${tempo.diaPorExtenso(agendamento.startsAt)} às '
-                      '${tempo.hora(agendamento.startsAt)}',
+        // O desfecho é a única outra tela com o painel escuro, e é de propósito: o
+        // tutor gastou cinco toques, e o que ele precisa ver agora não é mais um
+        // cartão branco igual aos três que respondeu.
+        PainelEscuro(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
                 ),
-                LinhaDeDado(
-                    rotulo: 'Com', valor: agendamento.professionalName),
-                LinhaDeDado(
-                    rotulo: 'Total', valor: reais(agendamento.totalCents)),
-              ],
-            ),
+                child: const Icon(Icons.check_rounded, size: 27, color: Colors.white),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                agendamento.awaitingApproval ? 'Horário reservado' : 'Horário marcado',
+                style: tema.textTheme.headlineMedium?.copyWith(color: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                agendamento.awaitingApproval
+                    ? 'O estabelecimento confirma em seguida. Você recebe um aviso '
+                        'quando isso acontecer.'
+                    : 'Está tudo certo. Até lá!',
+                style: tema.textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.76),
+                  height: 1.55,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        Cartao(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LinhaDeDado(rotulo: 'Pet', valor: agendamento.petName),
+              LinhaDeDado(
+                  rotulo: 'Serviços', valor: agendamento.services.join(', ')),
+              LinhaDeDado(
+                rotulo: 'Quando',
+                valor: '${tempo.diaPorExtenso(agendamento.startsAt)} às '
+                    '${tempo.hora(agendamento.startsAt)}',
+              ),
+              LinhaDeDado(rotulo: 'Com', valor: agendamento.professionalName),
+              const SizedBox(height: 6),
+              Divider(color: t.linha),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text('Total',
+                      style: tema.textTheme.bodySmall
+                          ?.copyWith(color: t.discreta)),
+                  const Spacer(),
+                  Text(reais(agendamento.totalCents),
+                      style: tema.textTheme.titleMedium
+                          ?.copyWith(fontSize: 18, letterSpacing: -0.4)),
+                ],
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),

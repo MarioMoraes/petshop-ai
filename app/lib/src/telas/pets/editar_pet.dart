@@ -5,6 +5,8 @@ import '../../auth/sessao.dart';
 import '../../models/portal_models.dart';
 import '../../ui/comuns.dart';
 import '../../ui/dados.dart';
+import '../../ui/superficies.dart';
+import '../../ui/tema.dart';
 
 /// A edição da ficha pelo tutor (AC-02 de MOD-PORTAL-03).
 ///
@@ -140,21 +142,33 @@ class _FormularioDoPetState extends State<_FormularioDoPet> {
       // O teclado sobe por cima da folha; sem isto, o campo em foco fica embaixo dele.
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Dados do ${widget.pet.name}',
-                style: tema.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(
-              'Peso, porte, raça e pelagem são atualizados pelo estabelecimento.',
-              style: tema.textTheme.bodySmall
-                  ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+            Row(
+              children: [
+                const ChipDeIcone(Icons.pets_rounded, tamanho: 40, base: Tons.pet),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Dados do ${widget.pet.name}',
+                          style: tema.textTheme.titleLarge),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Peso, porte, raça e pelagem são atualizados pelo '
+                        'estabelecimento.',
+                        style: tema.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             _Rotulo('Nome'),
             TextField(
@@ -200,8 +214,7 @@ class _FormularioDoPetState extends State<_FormularioDoPet> {
             Text(
               'Se não souber o dia exato, deixe em branco — o estabelecimento estima '
               'pela idade.',
-              style: tema.textTheme.bodySmall
-                  ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+              style: tema.textTheme.bodySmall?.copyWith(color: context.tokens.discreta),
             ),
             const SizedBox(height: 16),
 
@@ -229,8 +242,7 @@ class _FormularioDoPetState extends State<_FormularioDoPet> {
             ),
             Text(
               'O que ajuda quem vai atender: manias, medos, o que acalma.',
-              style: tema.textTheme.bodySmall
-                  ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+              style: tema.textTheme.bodySmall?.copyWith(color: context.tokens.discreta),
             ),
 
             if (_erro != null) ...[
@@ -257,6 +269,10 @@ class _FormularioDoPetState extends State<_FormularioDoPet> {
   }
 }
 
+/// O rótulo de um campo.
+///
+/// Inter, e nunca a serifa de destaque: a voz de destaque do produto é para título de
+/// tela, e num formulário ela transformaria cada campo num anúncio.
 class _Rotulo extends StatelessWidget {
   const _Rotulo(this.texto);
 
@@ -265,13 +281,13 @@ class _Rotulo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         texto,
-        style: Theme.of(context)
-            .textTheme
-            .labelLarge
-            ?.copyWith(fontWeight: FontWeight.w600),
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontSize: 13.5,
+              color: context.tokens.tinta,
+            ),
       ),
     );
   }

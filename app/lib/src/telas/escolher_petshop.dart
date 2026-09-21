@@ -5,6 +5,7 @@ import '../models/portal_models.dart';
 import '../ui/comuns.dart';
 import '../ui/dados.dart';
 import '../ui/listas.dart';
+import '../ui/superficies.dart';
 
 /// A primeira tela: de que petshop se fala.
 ///
@@ -52,10 +53,8 @@ class _EscolherPetshopState extends State<EscolherPetshop> {
 
   @override
   Widget build(BuildContext context) {
-    final tema = Theme.of(context);
-
-    return Scaffold(
-      body: SafeArea(
+    return Tela(
+      corpo: SafeArea(
         child: CarregarDados<PortalDirectoryResponse>(
           buscar: widget.sessao.estabelecimentos,
           construir: (context, catalogo, _) {
@@ -72,18 +71,15 @@ class _EscolherPetshopState extends State<EscolherPetshop> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               children: [
-                Text('Qual é o seu petshop?',
-                    style: tema.textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Text(
-                  'Escolha o estabelecimento onde o seu pet é atendido.',
-                  style: tema.textTheme.bodyMedium?.copyWith(
-                    color: tema.colorScheme.onSurfaceVariant,
-                    height: 1.5,
-                  ),
+                // A primeira tela do app é a única que não tem marca nenhuma para
+                // mostrar — ainda não se sabe de que petshop se fala. O que ela tem é o
+                // produto, e é por isso que o título vem na serifa de destaque: é o
+                // único momento em que a voz é a da plataforma.
+                const TituloDaTela(
+                  titulo: 'Qual é o seu petshop?',
+                  descricao: 'Escolha o estabelecimento onde o seu pet é atendido.',
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 22),
 
                 if (catalogo.tenants.isNotEmpty)
                   TextField(
@@ -121,13 +117,21 @@ class _EscolherPetshopState extends State<EscolherPetshop> {
                     filhos: [
                       for (final item in lista)
                         Linha(
+                          // Uma frase só na linha: o nome fica no meio do retrato e da
+                          // seta, como no menu do Início.
+                          aoCentro: true,
                           inicio: Retrato(
                             nome: item.name,
                             url: item.logoUrl,
-                            tamanho: 40,
+                            tamanho: 44,
                           ),
                           aoTocar: _ocupado ? null : () => _escolher(item.slug),
-                          child: TextoDaLinha(titulo: item.name, dica: item.slug),
+                          // Só o nome. O endereço do site embaixo repetia o nome sem
+                          // acento e sem espaço — o tutor reconhece a fachada, não o
+                          // slug —, e o filtro continua casando com ele mesmo sem
+                          // mostrá-lo. Se um dia dois estabelecimentos tiverem o mesmo
+                          // nome, é aqui que a distinção volta.
+                          child: TextoDaLinha(titulo: item.name),
                         ),
                     ],
                   ),
@@ -184,24 +188,25 @@ class _PorEnderecoState extends State<_PorEndereco> {
   @override
   Widget build(BuildContext context) {
     if (!_aberto) {
-      return TextButton(
-        onPressed: () => setState(() => _aberto = true),
-        child: const Text('Não achei o meu petshop'),
+      return Center(
+        child: TextButton(
+          onPressed: () => setState(() => _aberto = true),
+          child: const Text('Não achei o meu petshop'),
+        ),
       );
     }
 
     final tema = Theme.of(context);
 
-    return Column(
+    return Cartao(
+      padding: const EdgeInsets.all(18),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
           'Digite o endereço que o estabelecimento passou para você — é a primeira '
           'parte do site dele.',
-          style: tema.textTheme.bodySmall?.copyWith(
-            color: tema.colorScheme.onSurfaceVariant,
-            height: 1.45,
-          ),
+          style: tema.textTheme.bodySmall,
         ),
         const SizedBox(height: 12),
         TextField(
@@ -224,6 +229,7 @@ class _PorEnderecoState extends State<_PorEndereco> {
           onPressed: () => widget.aoEscolher(_controle.text.trim()),
         ),
       ],
+      ),
     );
   }
 }

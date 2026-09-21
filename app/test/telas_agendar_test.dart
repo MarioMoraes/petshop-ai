@@ -124,11 +124,11 @@ void main() {
   }
 
   /// O botão de confirmar nasce no fim de uma coluna que cresce a cada resposta, e num
-  /// celular ele quase sempre está abaixo da dobra. `ensureVisible` primeiro, porque um
-  /// toque fora da tela não erra: ele simplesmente não acontece.
+  /// celular ele está sempre abaixo da dobra — quase sempre fora até do alcance do
+  /// `cacheExtent`. Rolar até ele primeiro, porque um toque fora da tela não erra: ele
+  /// simplesmente não acontece.
   Future<void> confirmar(WidgetTester tester, [String rotulo = 'Confirmar horário']) async {
-    await tester.ensureVisible(find.text(rotulo));
-    await tester.pumpAndSettle();
+    await aVista(tester, find.text(rotulo));
     await tester.tap(find.text(rotulo));
     await tester.pumpAndSettle();
   }
@@ -450,3 +450,23 @@ Map<String, dynamic> _agendamento({required bool exigeAprovacao}) => {
       'taxi': [],
       'taxiWarning': null,
     };
+
+/// Traz o alvo para a tela, rolando até ele se for preciso.
+///
+/// `ensureVisible` sozinho bastava enquanto a tela cabia no alcance do `cacheExtent`,
+/// que constrói um pedaço além da dobra. Com os cartões do redesenho, o fim de uma tela
+/// longa já nasce fora desse alcance — e `ensureVisible` sobre um widget que ainda não
+/// existe estoura com "Bad state: No element", que não diz nada sobre a causa. A rolagem
+/// primeiro **constrói**; o `ensureVisible` depois garante que o alvo está de fato sob o
+/// dedo, porque toque fora da tela não erra: ele não acontece.
+Future<void> aVista(WidgetTester tester, Finder alvo) async {
+  if (alvo.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      alvo,
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
+  await tester.ensureVisible(alvo);
+  await tester.pumpAndSettle();
+}

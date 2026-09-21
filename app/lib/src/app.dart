@@ -6,6 +6,8 @@ import 'telas/entrar.dart';
 import 'telas/escolher_petshop.dart';
 import 'telas/inicio.dart';
 import 'telas/vincular.dart';
+import 'ui/dados.dart';
+import 'ui/superficies.dart';
 import 'ui/tema.dart';
 
 /// A raiz do app.
@@ -73,7 +75,7 @@ class _AppState extends State<App> {
 
   Widget _tela() => switch (_sessao.estado) {
         EstadoDaSessao.carregando =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+          const Tela(corpo: Center(child: Girando())),
         EstadoDaSessao.semPetshop => EscolherPetshop(sessao: _sessao),
         EstadoDaSessao.semConta => Entrar(sessao: _sessao),
         EstadoDaSessao.semVinculo => Vincular(sessao: _sessao),

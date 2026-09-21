@@ -8,6 +8,8 @@ import '../../time/tenant_time.dart';
 import '../../ui/comuns.dart';
 import '../../ui/dados.dart';
 import '../../ui/listas.dart';
+import '../../ui/superficies.dart';
+import '../../ui/tema.dart';
 import '../agendar/grade_de_horarios.dart';
 
 /// Remarcar (AC-04 de MOD-PORTAL-06).
@@ -28,9 +30,9 @@ class Remarcar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Tela(
       appBar: AppBar(title: const Text('Remarcar')),
-      body: CarregarDados<PortalAppointmentDetail>(
+      corpo: CarregarDados<PortalAppointmentDetail>(
         buscar: () => sessao.api.agendamento(agendamentoId),
         construir: (context, agendamento, _) =>
             _Formulario(sessao: sessao, agendamento: agendamento),
@@ -169,7 +171,8 @@ class _FormularioState extends State<_Formulario> {
         // para "adiantar meia hora" perde a referência do que está mudando.
         CartaoDeSecao(
           cabecalho: CabecalhoDeSecao(
-            icone: Icons.event_outlined,
+            icone: Icons.event_available_rounded,
+            base: Tons.tempo,
             titulo: 'Hoje está marcado',
             descricao: '${_tempo.diaPorExtenso(agendamento.startsAt)} às '
                 '${_tempo.hora(agendamento.startsAt)}',
@@ -178,10 +181,7 @@ class _FormularioState extends State<_Formulario> {
             Text(
               '${agendamento.petName} · ${agendamento.services.join(', ')}\n'
               'com ${agendamento.professionalName} · ${reais(agendamento.totalCents)}',
-              style: tema.textTheme.bodySmall?.copyWith(
-                color: tema.colorScheme.onSurfaceVariant,
-                height: 1.45,
-              ),
+              style: tema.textTheme.bodySmall?.copyWith(height: 1.55),
             ),
           ],
         ),
@@ -204,13 +204,14 @@ class _FormularioState extends State<_Formulario> {
 
         CartaoDeSecao(
           cabecalho: const CabecalhoDeSecao(
-            icone: Icons.calendar_today_outlined,
+            icone: Icons.calendar_month_rounded,
+            base: Tons.tempo,
             titulo: 'Novo horário',
           ),
           filhos: [
             OutlinedButton.icon(
               onPressed: _escolherDia,
-              icon: const Icon(Icons.calendar_month_outlined, size: 18),
+              icon: const Icon(Icons.calendar_today_rounded, size: 17),
               label: Text(_dia == null
                   ? 'Escolher o dia'
                   : _tempo.diaPorExtenso(_diaComoInstante(_dia!))),
@@ -251,8 +252,10 @@ class _FormularioState extends State<_Formulario> {
         if (_horario != null) ...[
           const SizedBox(height: 16),
           CartaoDeSecao(
+            realce: true,
             cabecalho: const CabecalhoDeSecao(
               icone: Icons.check_circle_outline,
+              base: Tons.tempo,
               titulo: 'Tudo certo?',
             ),
             filhos: [
