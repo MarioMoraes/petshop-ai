@@ -44,5 +44,17 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
+        <!--
+          O recibo do Financeiro abre no navegador do aparelho, por uma URL assinada
+          (`abrirEndereco`, em `lib/src/arquivos.dart`). Do Android 11 em diante um app
+          **não enxerga** os outros sem declarar o que pretende abrir: sem esta entrada,
+          o `url_launcher` não acha quem atenda https e o toque em "Baixar recibo" não
+          faz nada — sem erro, sem log e sem nada a investigar.
+        -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>
