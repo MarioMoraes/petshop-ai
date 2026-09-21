@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -83,6 +84,38 @@ class PortalClient {
   Future<dynamic> patch(String caminho, {Object? corpo}) =>
       _enviar('PATCH', caminho, corpo: corpo);
 
+  /// Um GET cuja resposta **não é JSON**: o extrato em PDF do MOD-DOC-09.
+  ///
+  /// Existe como método próprio, e não como um parâmetro do `_enviar`, porque o que
+  /// muda é o contrato inteiro da volta — bytes em vez de mapa, e um nome de arquivo
+  /// que só o servidor sabe. O que ele **não** muda é o tratamento do erro: um 403 ou
+  /// um 404 aqui continua chegando como `problem+json`, e é o mesmo `PortalError` que
+  /// a tela já sabe ler.
+  ///
+  /// O extrato desce em bytes, e não como URL assinada como o recibo, porque ele não é
+  /// arquivado (AC-04 de MOD-DOC-09): não existe endereço a assinar, o PDF nasce na
+  /// requisição e morre com ela.
+  Future<ArquivoDoPortal> arquivo(String caminho, {required String nomePadrao}) async {
+    final resposta = await _responder('GET', Uri.parse('$baseUrl$caminho'));
+
+    return ArquivoDoPortal(
+      bytes: resposta.bodyBytes,
+      // O `content-disposition` do backend traz o nome com a data dentro
+      // (`extrato-2026-09.pdf`), e é ele que a folha de compartilhamento mostra. Quando
+      // um intermediário o come, o padrão de quem chamou serve — arquivo sem nome chega
+      // ao e-mail como `documento` e não se acha depois.
+      nome: _nomeDoArquivo(resposta.headers['content-disposition']) ?? nomePadrao,
+    );
+  }
+
+  /// `attachment; filename="extrato-2026-09.pdf"` → `extrato-2026-09.pdf`.
+  static String? _nomeDoArquivo(String? disposicao) {
+    if (disposicao == null) return null;
+    final casamento = RegExp('filename="?([^";]+)"?').firstMatch(disposicao);
+    final nome = casamento?.group(1)?.trim();
+    return (nome == null || nome.isEmpty) ? null : nome;
+  }
+
   Future<dynamic> _enviar(
     String metodo,
     String caminho, {
@@ -94,6 +127,23 @@ class PortalClient {
       queryParameters: (query == null || query.isEmpty) ? null : query,
     );
 
+    final resposta = await _responder(metodo, uri, corpo: corpo, anonimo: anonimo);
+
+    if (resposta.statusCode == 204 || resposta.bodyBytes.isEmpty) return null;
+    return jsonDecode(utf8.decode(resposta.bodyBytes));
+  }
+
+  /// A requisição em si: os cabeçalhos, o teto de tempo e a tradução do erro.
+  ///
+  /// Tudo o que os dois caminhos — o JSON e o arquivo — têm em comum mora aqui, para
+  /// que o download não nasça sem `authorization`, sem slug ou sem `timeout`. Ele
+  /// devolve a resposta crua: quem chamou decide se a lê como mapa ou como bytes.
+  Future<http.Response> _responder(
+    String metodo,
+    Uri uri, {
+    Object? corpo,
+    bool anonimo = false,
+  }) async {
     final cabecalhos = <String, String>{_headerSlug: ?slug};
 
     // `content-type` **só quando há corpo**: anunciar JSON e não mandar nada faz o
@@ -131,9 +181,17 @@ class PortalClient {
         utf8.decode(resposta.bodyBytes, allowMalformed: true),
       );
     }
-    if (resposta.statusCode == 204 || resposta.bodyBytes.isEmpty) return null;
-    return jsonDecode(utf8.decode(resposta.bodyBytes));
+
+    return resposta;
   }
 
   void fechar() => _http.close();
+}
+
+/// Um documento que veio do Portal: os bytes e o nome com que ele deve ser gravado.
+class ArquivoDoPortal {
+  const ArquivoDoPortal({required this.bytes, required this.nome});
+
+  final Uint8List bytes;
+  final String nome;
 }

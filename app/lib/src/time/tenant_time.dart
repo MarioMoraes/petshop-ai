@@ -69,6 +69,12 @@ class TenantTime {
   String diaPorExtenso(String isoUtc) =>
       DateFormat("EEEE, d 'de' MMMM", 'pt_BR').format(_no(isoUtc));
 
+  /// `22/09/2026` — a data sem a hora, para o que aconteceu num dia e não num instante.
+  ///
+  /// O lançamento do extrato é disso: três serviços do mesmo dia entram no mesmo
+  /// instante, e mostrar `09:00` em todos diria uma precisão que o dado não tem.
+  String dia(String isoUtc) => DateFormat('dd/MM/yyyy', 'pt_BR').format(_no(isoUtc));
+
   /// `22/09/2026 às 14:30`
   String completo(String isoUtc) =>
       "${DateFormat('dd/MM/yyyy', 'pt_BR').format(_no(isoUtc))} às ${hora(isoUtc)}";

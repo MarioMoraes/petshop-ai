@@ -6,6 +6,7 @@ import '../ui/superficies.dart';
 import '../ui/tema.dart';
 import 'agendamentos/lista_de_agendamentos.dart';
 import 'agendar/marcar_horario.dart';
+import 'financeiro/minha_conta.dart';
 import 'pets/lista_de_pets.dart';
 
 /// O Início do app: quem é o tutor aqui, e por onde se entra.
@@ -144,6 +145,25 @@ class Inicio extends StatelessWidget {
                     ),
                   ),
                   child: const TextoDaLinha(titulo: 'Meus agendamentos'),
+                ),
+
+                /// "Minha conta", e não "Financeiro": o nome do módulo é vocabulário de
+                /// quem opera o petshop. O que o tutor procura aqui é a conta **dele**.
+                ///
+                /// Também não depende de `features`: a conta existe em todo
+                /// estabelecimento, inclusive no que não recebe agendamento pelo app —
+                /// quem foi atendido no balcão tem lançamento para conferir do mesmo
+                /// jeito.
+                Linha(
+                  aoCentro: true,
+                  inicio: const ChipDeIcone(
+                    Icons.account_balance_wallet_rounded,
+                    base: Tons.dinheiro,
+                  ),
+                  aoTocar: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => MinhaConta(sessao: sessao)),
+                  ),
+                  child: const TextoDaLinha(titulo: 'Minha conta'),
                 ),
               ],
             ),

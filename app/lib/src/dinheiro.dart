@@ -15,3 +15,20 @@ import 'package:intl/intl.dart';
 /// no começo da outra. Quem escrever teste contra este texto precisa do `\u00A0`.
 String reais(int centavos) =>
     NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(centavos / 100);
+
+/// Quanto o tutor **deve**, em centavos. Zero para quem está em dia ou tem crédito.
+///
+/// `portalOwesCents` de `packages/shared-types/src/portal.ts`, no vocabulário do Dart.
+///
+/// A convenção da plataforma é **negativo para dívida** (RN-02 do MOD-LEDGER, e a mesma
+/// de `tutors.balance_cents`), e ela é contraintuitiva para quem monta tela: a tentação
+/// é ler "saldo maior que zero" como "deve". Já aconteceu — o início do Portal na web
+/// dizia "Sem pendências" a quem devia e "Em aberto" a quem tinha crédito, e passou por
+/// typecheck, lint e suíte. Estas duas funções existem para que nenhuma tela do app
+/// refaça a conta.
+int deveEmCentavos(int saldoEmCentavos) =>
+    saldoEmCentavos < 0 ? -saldoEmCentavos : 0;
+
+/// Quanto o tutor tem de **crédito**, em centavos. Zero para quem deve.
+int creditoEmCentavos(int saldoEmCentavos) =>
+    saldoEmCentavos > 0 ? saldoEmCentavos : 0;

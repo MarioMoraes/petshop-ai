@@ -143,6 +143,20 @@ void main() {
 
     await clique('Confirmar horário');
     await foto('13-comprovante');
+    await aoInicio();
+
+    // ── minha conta ───────────────────────────────────────────────────────────
+    //
+    // A tela é longa e desce em três assuntos — o saldo, os pacotes e os lançamentos —,
+    // com o "Como pagar" no pé. Duas fotos, porque a dobra do celular corta no meio do
+    // extrato e é justamente o pé que ninguém olha.
+    await clique('Minha conta');
+    await foto('16-minha-conta');
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await foto('16b-minha-conta-como-pagar');
+    await aoInicio();
 
     // ── e o mesmo app no escuro ───────────────────────────────────────────────
     //
@@ -157,6 +171,12 @@ void main() {
 
     await clique('Meus agendamentos');
     await foto('15-agendamentos-escuro');
+    await aoInicio();
+
+    // O verde do crédito e o vermelho da dívida são as duas cores que o escuro mais
+    // maltrata: um pastel de tema claro sobre grafite vira adesivo aceso.
+    await clique('Minha conta');
+    await foto('17-minha-conta-escuro');
   });
 }
 
@@ -238,6 +258,10 @@ final _portal = MockClient((req) async {
       corpo = _criado;
     case 'POST /portal/v1/appointments/ag-1/cancel':
       corpo = _proximo;
+    case 'GET /portal/v1/finance':
+      corpo = _conta;
+    case 'GET /portal/v1/finance/statement':
+      corpo = _extrato;
     default:
       return http.Response('{"detail":"rota nao dublada: $rota"}', 404,
           headers: {'content-type': 'application/json; charset=utf-8'});
@@ -490,3 +514,81 @@ Map<String, dynamic> _resumo(Map<String, dynamic> ficha) => {
       ])
         chave: ficha[chave],
     };
+
+/// A conta com dívida: é o estado que tem mais tela — o saldo em vermelho, o bloco
+/// "Como pagar" e a chave PIX, que a conta em dia não mostra.
+const _conta = {
+  'balanceCents': -18000,
+  'openDebitsCents': 18000,
+  'oldestOpenDebitAt': '2026-08-14T13:00:00.000Z',
+  'packages': [
+    {
+      'id': '3f1c8b2e-0000-4000-8000-000000000001',
+      'name': 'Banho — 4 sessões',
+      'petName': 'Marley',
+      'creditsTotal': 4,
+      'creditsRemaining': 2,
+      'expiresAt': '2026-12-12T15:00:00.000Z',
+      'expiringSoon': false,
+    },
+    {
+      'id': '3f1c8b2e-0000-4000-8000-000000000002',
+      'name': 'Tosa higiênica — 2 sessões',
+      'petName': 'Fiona',
+      'creditsTotal': 2,
+      'creditsRemaining': 1,
+      'expiresAt': '2026-10-05T15:00:00.000Z',
+      'expiringSoon': true,
+    },
+  ],
+  'howToPay': {
+    'pixKey': '4f2a91c3-8d7e-4b16-9a05-c3e8d7f10b24',
+    'phone': '(11) 3333-1200',
+    'whatsapp': '(11) 99999-0000',
+    'hours': [
+      {'label': 'Seg a Sex', 'value': '08:00 às 18:00'},
+      {'label': 'Sábado', 'value': '08:00 às 13:00'},
+    ],
+  },
+  'timezone': _fuso,
+};
+
+const _extrato = {
+  'entries': [
+    {
+      'id': '3f1c8b2e-0000-4000-8000-000000000011',
+      'occurredAt': '2026-09-14T13:00:00.000Z',
+      'description': 'Pagamento recebido',
+      'amountCents': 9000,
+      'category': 'PAYMENT',
+      'petName': null,
+      'reversed': false,
+      'paymentId': 'pay-1',
+    },
+    {
+      'id': '3f1c8b2e-0000-4000-8000-000000000012',
+      'occurredAt': '2026-08-14T13:00:00.000Z',
+      'description': 'Banho e tosa',
+      'amountCents': -18000,
+      'category': 'SERVICE',
+      'petName': 'Marley',
+      'reversed': false,
+      'paymentId': null,
+    },
+    {
+      'id': '3f1c8b2e-0000-4000-8000-000000000013',
+      'occurredAt': '2026-07-02T13:00:00.000Z',
+      'description': 'Taxa de cancelamento',
+      'amountCents': -5000,
+      'category': 'FEE',
+      'petName': 'Marley',
+      'reversed': true,
+      'paymentId': 'pay-9',
+    },
+  ],
+  'page': 1,
+  'limit': 10,
+  'total': 3,
+  'balanceCents': -18000,
+  'timezone': _fuso,
+};

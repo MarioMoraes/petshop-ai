@@ -41,6 +41,21 @@ dependencies:
   timezone: ^0.11.1
   flutter_secure_storage: ^11.2.0
 
+  # Os três plugins do Financeiro, que é a primeira tela do app a produzir um
+  # **arquivo** em vez de uma tela.
+  #
+  # `url_launcher` abre o recibo: o backend devolve uma URL assinada e de vida curta, e
+  # quem sabe baixar um PDF de uma URL é o navegador do aparelho — embutir um visualizador
+  # seria carregar um renderizador de PDF para mostrar uma folha que a pessoa quer guardar.
+  #
+  # `path_provider` + `share_plus` são o extrato: aquele desce em **bytes**, atrás do
+  # token, então não há URL a entregar a ninguém. O caminho é gravar no diretório
+  # temporário e passar o arquivo à folha do sistema, que é onde o aparelho já sabe
+  # salvar, imprimir e mandar por e-mail.
+  url_launcher: ^6.3.2
+  share_plus: ^13.3.0
+  path_provider: ^2.1.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

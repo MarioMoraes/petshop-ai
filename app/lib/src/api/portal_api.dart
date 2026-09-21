@@ -179,4 +179,53 @@ class PortalApi {
       PortalAppointmentDetail.fromJson(
         await _cliente.post('/portal/v1/appointments/$id/reschedule', corpo: destino.toJson()),
       );
+
+  // ── Financeiro ─────────────────────────────────────────────────────────────
+
+  /// O painel da conta: saldo, pacotes com crédito e como pagar (MOD-PORTAL-08).
+  ///
+  /// `balanceCents` é **negativo para dívida** — a convenção da plataforma, e a mesma de
+  /// `tutors.balance_cents`. Nenhuma tela refaz essa leitura à mão: `deveEmCentavos` e
+  /// `creditoEmCentavos`, em `dinheiro.dart`, são a tradução das duas funções que
+  /// `shared-types/portal.ts` criou depois de o Portal da web ter dito "Sem pendências"
+  /// a quem devia.
+  Future<PortalFinanceResponse> financeiro() async =>
+      PortalFinanceResponse.fromJson(await _cliente.get('/portal/v1/finance'));
+
+  /// O extrato, paginado **por página** e não por cursor.
+  ///
+  /// É a única lista do app assim, e a razão está no dado: o extrato ordena por
+  /// `occurred_at`, que repete — três serviços do mesmo dia entram no mesmo instante —,
+  /// e um cursor por data pularia ou repetiria linhas. A resposta traz o `total`, que é
+  /// como a tela sabe quando parar de oferecer "Ver mais".
+  Future<PortalStatementResponse> extrato({int? pagina, int? limite}) async =>
+      PortalStatementResponse.fromJson(
+        await _cliente.get('/portal/v1/finance/statement', query: {
+          if (pagina != null) 'page': '$pagina',
+          if (limite != null) 'limit': '$limite',
+        }),
+      );
+
+  /// O mesmo extrato em papel (AC-02 de MOD-DOC-09).
+  ///
+  /// Bytes, e não uma URL: o extrato não é arquivado, então não há endereço a assinar.
+  /// O nome de reserva tem a data para o caso de o `content-disposition` não chegar —
+  /// dois extratos baixados no mesmo aparelho precisam de nomes diferentes.
+  Future<ArquivoDoPortal> extratoEmPdf(DateTime hoje) => _cliente.arquivo(
+        '/portal/v1/finance/statement/pdf',
+        nomePadrao: 'extrato-${hoje.toIso8601String().substring(0, 10)}.pdf',
+      );
+
+  /// O recibo de um pagamento (AC-03 de MOD-PORTAL-08).
+  ///
+  /// `url` **pode voltar nula**, e isso não é erro: o PDF nasce depois do pagamento,
+  /// fora da transação, e um recibo ainda em preparo tem número e não tem arquivo. A
+  /// tela diz "em preparo" em vez de abrir um endereço morto.
+  ///
+  /// 404 aqui é pagamento que não é deste tutor (RN-03), e a tela **não** o distingue de
+  /// uma falha: dizer "não é seu" a quem adivinhou um id confirmaria que ele existe.
+  Future<PortalReceiptResponse> recibo(String paymentId) async =>
+      PortalReceiptResponse.fromJson(
+        await _cliente.get('/portal/v1/finance/receipts/$paymentId'),
+      );
 }

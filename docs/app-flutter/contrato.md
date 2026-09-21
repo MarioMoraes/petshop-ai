@@ -69,6 +69,10 @@ um-a-um desta tabela.
 | `GET /portal/v1/appointments/:id` | — | `PortalAppointmentDetail` |
 | `POST /portal/v1/appointments/:id/cancel` | `PortalCancel` | — |
 | `POST /portal/v1/appointments/:id/reschedule` | `PortalReschedule` | `PortalAppointmentDetail` |
+| `GET /portal/v1/finance` | — | `PortalFinanceResponse` |
+| `GET /portal/v1/finance/statement` | `page?`, `limit?` | `PortalStatementResponse` |
+| `GET /portal/v1/finance/statement/pdf` | — | **bytes** (`application/pdf`) |
+| `GET /portal/v1/finance/receipts/:paymentId` | — | `PortalReceiptResponse` |
 
 `serviceIds` vai **separado por vírgula** numa string só — a rota repassa a pergunta ao
 domínio em vez de recalcular a grade, e é isso que garante que o tutor veja os mesmos
@@ -551,3 +555,89 @@ aí sim se abre `api.{$APP_DOMAIN}` — e não antes"*. O app é essa hora, e va
 as rotas que ele usa, não só para o catálogo. Em desenvolvimento nada disso aparece
 porque o app fala com `10.0.2.2:3000` direto. **Publicar `api.` é pré-requisito do app em
 produção, e é uma decisão de borda com peso próprio — não foi feita aqui.**
+
+# Minha conta (etapa 6, 2026-09-21)
+
+O Financeiro do Portal (MOD-PORTAL-08) no app: saldo, pacotes com crédito, extrato,
+recibo e o extrato em papel. **Nenhuma rota nova** — as quatro da tabela já existiam,
+servindo a web.
+
+É a primeira tela do app que produz **arquivo** em vez de tela, e quase tudo o que ela
+custou está aí.
+
+## Os dois documentos não descem do mesmo jeito, e a diferença é do documento
+
+| | recibo | extrato em PDF |
+|---|---|---|
+| o que a rota devolve | `{ number, status, issuedAt, url }` | os bytes do PDF |
+| por quê | já está arquivado no R2, com retenção de cinco anos: há um **endereço** a assinar | não é arquivado (AC-04 de MOD-DOC-09): o PDF nasce na requisição e morre com ela |
+| como o app entrega | `url_launcher`, no navegador do aparelho | grava no diretório temporário e passa à folha do sistema (`path_provider` + `share_plus`) |
+| autenticação | nenhuma: a URL **é** a credencial, e vence | o token, como qualquer outra chamada |
+
+`url` do recibo **pode voltar nula**, e isso não é erro: o PDF nasce depois do pagamento,
+fora da transação, e um recibo em preparo tem número e não tem arquivo. A tela diz "está
+sendo gerado" — um endereço morto seria a pior resposta a quem clicou para guardar o
+comprovante.
+
+O nome do arquivo do extrato vem do `content-disposition` da resposta
+(`attachment; filename="extrato-2026-09-21.pdf"`), e `PortalClient.arquivo` o lê dali com
+um nome de reserva para o caso de um intermediário o comer. Arquivo sem nome chega ao
+e-mail como "documento" e não se acha depois.
+
+## O que o app ganhou fora das telas
+
+- **`PortalClient.arquivo`** — o primeiro GET cujo corpo não é JSON. Ele e o `_enviar`
+  passam pelo mesmo `_responder`, que é o que garante que o download não nasça sem
+  `authorization`, sem slug ou sem teto de tempo. O erro continua sendo `PortalError`: um
+  403 nesta rota chega como `problem+json` igual a qualquer outra.
+- **`lib/src/arquivos.dart`** — `abrirEndereco` e `entregarArquivo`, as duas saídas do app
+  para fora do processo, como **variáveis de biblioteca**. Não é estilo: plugin nativo não
+  existe no `flutter_test`, e um `getTemporaryDirectory()` na árvore de teste lança
+  `MissingPluginException` — o arnês que substitui o emulador deixaria de alcançar
+  justamente o botão que se quer conferir. Com o ponto de troca ali, o teste dubla a
+  entrega e afirma **o que** o app mandou para fora. Mesmo desenho do `http_` injetado na
+  `Sessao` e das `setXPort` do backend.
+- **`deveEmCentavos` / `creditoEmCentavos`** em `dinheiro.dart` — `portalOwesCents` e
+  `portalCreditCents` traduzidos. A convenção é **negativo para dívida**, e a leitura
+  feita à mão já disse "Sem pendências" a quem devia, no Portal da web, passando por
+  typecheck, lint e suíte. Nenhuma tela do app refaz a conta.
+- **`TenantTime.dia`** — `dd/MM/yyyy` sem hora. O lançamento do extrato aconteceu num
+  **dia**: três serviços do mesmo dia entram no mesmo instante, e mostrar `09:00` em todos
+  diria uma precisão que o dado não tem.
+
+## Divergências conscientes da web
+
+- **A chave PIX tem botão de copiar.** Na web ela é texto selecionável, e o comentário de
+  lá diz por quê: copiar exigiria JavaScript no cliente, e aquele cartão não tinha outro
+  motivo para deixar de ser servidor. Num app não há esse custo — e a chave aleatória tem
+  36 caracteres que ninguém digita no teclado do banco sem errar.
+- **O chip do saldo em aberto é vermelho, e não da cor da marca.** Ele não está dizendo
+  "financeiro" (que é verde no resto da tela): está dizendo "em aberto", a mesma coisa que
+  o número embaixo. Com a cor da marca, o petshop de fachada azul teria a etiqueta azul ao
+  lado de um valor vermelho.
+- **A linha do menu chama-se "Minha conta"**, e não "Financeiro": o nome do módulo é
+  vocabulário de quem opera o petshop.
+
+## O que continua igual à web, de propósito
+
+- Paginação **por página**, e não por cursor. O extrato ordena por `occurred_at`, que
+  repete, e um cursor por data pularia ou repetiria linhas. O `total` diz quando parar de
+  oferecer "Ver mais".
+- O lançamento estornado **aparece riscado**, e sem recibo. Sumir com ele faz o tutor
+  duvidar do extrato inteiro; oferecer comprovante do que foi desfeito é pior.
+- **"Como pagar" só para quem deve.** Dar a chave PIX a quem está em dia é convidar a um
+  pagamento sem destino, que alguém concilia à mão depois.
+- **Não há botão de pagar**, e a ausência é o AC-05.
+
+## O que o arnês guarda
+
+`test/telas_financeiro_test.dart`, 10 casos. Os dois que valem por si: a convenção de
+sinal (crédito não vira dívida, saldo zero é "Em dia") e as duas saídas para o sistema —
+que o endereço aberto é o que o servidor assinou, e que a falha do PDF é dita **e** o
+botão volta a responder. Um `finally` esquecido ali deixaria "Preparando…" para sempre,
+sem erro nenhum no log.
+
+`tool/smoke.dart` ganhou quatro passos, e o do PDF confere que os primeiros cinco bytes
+são `%PDF-` — um `problem+json` de 200 bytes chegaria calado por aquele caminho.
+
+As capturas: `16-minha-conta`, `16b-minha-conta-como-pagar` e `17-minha-conta-escuro`.

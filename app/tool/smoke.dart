@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:petshop_tutor/src/api/portal_api.dart';
 import 'package:petshop_tutor/src/api/portal_client.dart';
 import 'package:petshop_tutor/src/api/portal_error.dart';
+import 'package:petshop_tutor/src/dinheiro.dart';
 import 'package:petshop_tutor/src/time/tenant_time.dart';
 
 int falhas = 0;
@@ -136,6 +137,68 @@ Future<void> main(List<String> args) async {
           '${ag.services.join(", ")} · cancelável: ${ag.actions.canCancel}');
     }
   });
+
+  // ── Financeiro (MOD-PORTAL-08) ─────────────────────────────────────────────
+  //
+  // Só leitura, como o resto deste arnês. O que ele confere aqui é o que nenhum dublê
+  // confere: que os modelos gerados aceitam o JSON real, e que `deveEmCentavos` está
+  // lendo o sinal do jeito que o servidor o escreve.
+
+  String? pagamentoId;
+
+  await passo('GET /finance', () async {
+    final conta = await api.financeiro();
+    final tempo = TenantTime(conta.timezone);
+    final deve = deveEmCentavos(conta.balanceCents);
+    final credito = creditoEmCentavos(conta.balanceCents);
+    print('        saldo ${conta.balanceCents} centavos -> '
+        '${deve > 0 ? "deve ${reais(deve)}" : credito > 0 ? "crédito ${reais(credito)}" : "em dia"}');
+    if (conta.oldestOpenDebitAt != null) {
+      print('        mais antigo em aberto: ${tempo.dia(conta.oldestOpenDebitAt!)}');
+    }
+    for (final pacote in conta.packages) {
+      print('        pacote ${pacote.name} · ${pacote.creditsRemaining}/'
+          '${pacote.creditsTotal} · expira ${tempo.dia(pacote.expiresAt)}'
+          '${pacote.expiringSoon ? " (vence logo)" : ""}');
+    }
+    print('        PIX: ${conta.howToPay.pixKey ?? "—"} · '
+        '${conta.howToPay.hours.length} linha(s) de horário');
+  });
+
+  await passo('GET /finance/statement', () async {
+    final extrato = await api.extrato(limite: 5);
+    final tempo = TenantTime(extrato.timezone);
+    print('        ${extrato.entries.length} de ${extrato.total} lançamento(s), '
+        'página ${extrato.page}');
+    for (final linha in extrato.entries) {
+      pagamentoId ??= linha.reversed ? null : linha.paymentId;
+      print('        ${tempo.dia(linha.occurredAt)} · ${linha.description} · '
+          '${linha.amountCents > 0 ? "+" : "−"}${reais(linha.amountCents.abs())}'
+          '${linha.reversed ? " (estornado)" : ""}'
+          '${linha.paymentId != null ? " · recibo ${linha.paymentId}" : ""}');
+    }
+  });
+
+  // O PDF é a **única** resposta do app que não é JSON: o que se confere aqui é que ela
+  // chega como bytes de PDF e com nome, e não como um `problem+json` que o cliente
+  // engoliria calado.
+  await passo('GET /finance/statement/pdf (bytes)', () async {
+    final arquivo = await api.extratoEmPdf(DateTime.now());
+    final assinatura = String.fromCharCodes(arquivo.bytes.take(5));
+    print('        ${arquivo.nome} · ${arquivo.bytes.length} bytes · começa em '
+        '"$assinatura"${assinatura == "%PDF-" ? "" : "  <- NÃO é um PDF"}');
+  });
+
+  if (pagamentoId != null) {
+    await passo('GET /finance/receipts/:paymentId', () async {
+      final recibo = await api.recibo(pagamentoId!);
+      print('        ${recibo.number} · ${recibo.status} · '
+          '${recibo.url == null ? "sem arquivo (em preparo)" : "url assinada, "
+              "${recibo.url!.length} caracteres"}');
+    });
+  } else {
+    print('  —     GET /finance/receipts/:paymentId (nenhum pagamento no extrato)');
+  }
 
   cliente.fechar();
   print(falhas == 0 ? '\ntudo verde.' : '\n$falhas falha(s).');
