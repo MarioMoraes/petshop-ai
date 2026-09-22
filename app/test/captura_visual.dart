@@ -70,8 +70,21 @@ void main() {
       );
     }
 
-    // ── a primeira tela, sem petshop escolhido ────────────────────────────────
+    // ── a abertura ────────────────────────────────────────────────────────────
+    //
+    // Ela só existe em movimento, então são três quadros pelo relógio da animação, e
+    // não um `pumpAndSettle` — que a atravessaria inteira e fotografaria a tela de
+    // depois. Os instantes são os três momentos que ela tem: a marca pousando, o coxim
+    // sendo traçado com o reflexo passando por cima, e o nome já assentado.
     await tester.pumpWidget(App(sessao: _sessao(cofre: CofreEmMemoria())));
+    await tester.pump(const Duration(milliseconds: 380));
+    await foto('00a-abertura-marca');
+    await tester.pump(const Duration(milliseconds: 420));
+    await foto('00b-abertura-traco');
+    await tester.pump(const Duration(milliseconds: 320));
+    await foto('00c-abertura-nome');
+
+    // ── a primeira tela, sem petshop escolhido ────────────────────────────────
     await tester.pumpAndSettle();
     await foto('01-escolher-petshop');
 

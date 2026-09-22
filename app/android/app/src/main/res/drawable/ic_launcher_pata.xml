@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A camada da frente do ícone adaptativo: a pata do `favicon.svg`, sem a pastilha.
+
+  A tela é de 108dp e só os 72 do meio aparecem; o resto é a folga que o sistema usa
+  para mover a camada quando o ícone balança. A pata cabe num círculo de 66dp — a caixa
+  dela mede 22 unidades das 24 do ícone, então `scale 2.1` dá 46dp de lado e 65 de
+  diagonal, que é o que nenhuma máscara corta.
+
+  O mesmo desenho está em `lib/src/ui/abertura.dart` e em `drawable/ic_splash_marca.xml`.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="28.8"
+        android:translateY="28.8"
+        android:scaleX="2.1"
+        android:scaleY="2.1">
+        <path
+            android:pathData="M9,4 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="1.9"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M16,8 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="1.9"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M18,16 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="1.9"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M9,10 a5,5 0 0 1 5,5 v3.5 a3.5,3.5 0 0 1 -6.84,1.045 Q6.52,17.48 4.46,16.84 A3.5,3.5 0 0 1 5.5,10 Z"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="1.9"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>

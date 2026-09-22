@@ -6,7 +6,7 @@ import 'telas/entrar.dart';
 import 'telas/escolher_petshop.dart';
 import 'telas/inicio.dart';
 import 'telas/vincular.dart';
-import 'ui/dados.dart';
+import 'ui/abertura.dart';
 import 'ui/superficies.dart';
 import 'ui/tema.dart';
 
@@ -53,7 +53,7 @@ class _AppState extends State<App> {
       builder: (context, _) {
         final brilho = MediaQuery.platformBrightnessOf(context);
         return MaterialApp(
-          title: 'Meu Petshop',
+          title: 'Meu PetShop AI',
           debugShowCheckedModeBanner: false,
           theme: temaDoPetshop(_sessao.tenant?.brandColor, brilho),
           // O app é de um público só, e ele fala português. Sem os delegates, o seletor
@@ -67,15 +67,24 @@ class _AppState extends State<App> {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: _tela(),
+          // A abertura cobre a resolução da sessão — e a tela de verdade é montada por
+          // baixo dela desde o primeiro quadro, então quando a cortina sai não há rota
+          // a empilhar nem primeiro quadro a construir.
+          home: Abertura(
+            pronto: _sessao.estado != EstadoDaSessao.carregando,
+            child: _tela(),
+          ),
         );
       },
     );
   }
 
   Widget _tela() => switch (_sessao.estado) {
-        EstadoDaSessao.carregando =>
-          const Tela(corpo: Center(child: Girando())),
+        // Sob a abertura, e quase sempre invisível: o que se vê enquanto a sessão não
+        // respondeu é a cortina. Este ramo é o fundo que ela cobre — sem disco girando,
+        // que apareceria por um quadro no esmaecer se a resposta demorasse mais que a
+        // animação.
+        EstadoDaSessao.carregando => const Tela(corpo: SizedBox.shrink()),
         EstadoDaSessao.semPetshop => EscolherPetshop(sessao: _sessao),
         EstadoDaSessao.semConta => Entrar(sessao: _sessao),
         EstadoDaSessao.semVinculo => Vincular(sessao: _sessao),

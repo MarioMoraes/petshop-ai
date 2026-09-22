@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
-        android:label="petshop_tutor"
+        android:label="Meu PetShop AI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

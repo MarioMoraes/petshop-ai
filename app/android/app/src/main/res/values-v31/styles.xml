@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Do Android 12 em diante quem desenha a janela de abertura é o sistema, e ele ignora o
+  `windowBackground`: pede uma **cor**, e cai no branco do tema quando não recebe uma.
+  É por isso que este arquivo existe ao lado de `drawable/launch_background.xml` em vez
+  de substituí-lo — as duas versões do Android continuam no ar.
+
+  A cor é o meio do degradê da `Tela`: chapada, porque o sistema não aceita degradê, e
+  a diferença para as pontas é menor que um quadro de transição.
+-->
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">#F4F5F7</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_marca</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>

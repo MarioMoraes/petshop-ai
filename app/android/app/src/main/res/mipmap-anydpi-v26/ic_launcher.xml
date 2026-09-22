@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  O ícone do lançador do Android 8 em diante, em duas camadas que o sistema anima e
+  recorta na máscara do aparelho — redonda na Pixel, quadrada arredondada na Samsung.
+
+  É por isso que a pastilha **não** é a camada de frente: ela já é uma forma recortada,
+  e uma forma dentro de outra máscara vira um quadrado com cantos comidos. Aqui o
+  degradê da marca é o fundo, que sangra até a borda, e a pata é a frente.
+
+  Os PNGs de `mipmap-*dpi` continuam existindo para o Android 7 e para baixo, e lá a
+  pastilha inteira é o ícone.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_fundo" />
+    <foreground android:drawable="@drawable/ic_launcher_pata" />
+    <!-- Android 13+, quando o tema do aparelho tinge os ícones: a mesma pata, chapada. -->
+    <monochrome android:drawable="@drawable/ic_launcher_mono" />
+</adaptive-icon>

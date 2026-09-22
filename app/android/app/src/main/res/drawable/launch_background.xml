@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+<!--
+  A janela que o Android pinta entre o toque no ícone e o primeiro quadro do Flutter.
 
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+  É o mesmo degradê de `TokensDoApp.fundo` (`lib/src/ui/tema.dart`), com as mesmas três
+  paradas: a passagem para a abertura do app precisa ser um quadro que ninguém percebe,
+  e o branco do modelo era um flash antes de toda vez que o app abria.
+
+  Muda aqui, muda lá: são dois arquivos porque são duas plataformas, e não porque são
+  duas decisões.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#FBFBFC"
+                android:centerColor="#F1F2F4"
+                android:centerY="0.45"
+                android:endColor="#EAEBEE"
+                android:type="linear" />
+        </shape>
+    </item>
 </layer-list>
