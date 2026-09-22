@@ -23,9 +23,12 @@ import '../ui/superficies.dart';
 /// num 404. O filtro é local: a lista inteira já está no aparelho, e ir ao servidor a
 /// cada letra só somaria espera.
 ///
-/// O campo de endereço continua existindo, embaixo, para dois casos que a lista não
-/// cobre: o petshop que acabou de entrar e ainda está no cache de cinco minutos, e o
-/// que prefere não aparecer em catálogo nenhum.
+/// **O campo de endereço digitado saiu em 2026-09-22**, a pedido. Ele era a porta dos
+/// fundos para dois casos que a lista não cobre — o petshop que acabou de entrar e
+/// ainda está no cache de cinco minutos do catálogo, e o que prefere não aparecer em
+/// lista nenhuma. Sem ele, a lista é o único caminho: quem não se vê aqui não entra
+/// pelo app, e é por isso que os três textos de exceção desta tela mandam falar com o
+/// estabelecimento em vez de digitar um endereço.
 class EscolherPetshop extends StatefulWidget {
   const EscolherPetshop({super.key, required this.sessao});
 
@@ -72,11 +75,10 @@ class _EscolherPetshopState extends State<EscolherPetshop> {
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               children: [
                 // A primeira tela do app é a única que não tem marca nenhuma para
-                // mostrar — ainda não se sabe de que petshop se fala. O que ela tem é o
-                // produto, e é por isso que o título vem na serifa de destaque: é o
-                // único momento em que a voz é a da plataforma.
+                // mostrar — ainda não se sabe de que petshop se fala. A voz aqui é a da
+                // plataforma, e é o único momento em que ela é.
                 const TituloDaTela(
-                  titulo: 'Qual é o seu petshop?',
+                  titulo: 'Selecione Seu PetShop',
                   descricao: 'Escolha o estabelecimento onde o seu pet é atendido.',
                 ),
                 const SizedBox(height: 22),
@@ -102,15 +104,15 @@ class _EscolherPetshopState extends State<EscolherPetshop> {
                   const EstadoVazio(
                     icone: Icons.storefront_outlined,
                     titulo: 'Nenhum estabelecimento disponível',
-                    descricao: 'Nenhum petshop abriu o acesso pelo app ainda. Use o '
-                        'endereço que o seu passou para você.',
+                    descricao: 'Nenhum petshop abriu o acesso pelo app ainda. Quem '
+                        'libera o acesso é o estabelecimento — fale com o seu.',
                   )
                 else if (lista.isEmpty)
                   const EstadoVazio(
                     icone: Icons.search_off_outlined,
                     titulo: 'Nada com esse nome',
-                    descricao: 'Confira a escrita, ou use o endereço do site que o '
-                        'estabelecimento passou para você.',
+                    descricao: 'Confira a escrita — o nome aqui é o mesmo da fachada '
+                        'do estabelecimento.',
                   )
                 else
                   PilhaDeLinhas(
@@ -144,91 +146,13 @@ class _EscolherPetshopState extends State<EscolherPetshop> {
                   const Aviso(
                     icone: Icons.filter_list_outlined,
                     texto: 'Há mais estabelecimentos do que cabe nesta lista. Se o seu '
-                        'não estiver aqui, use o endereço do site dele.',
+                        'não estiver aqui, fale com o estabelecimento.',
                   ),
                 ],
-
-                const SizedBox(height: 28),
-                _PorEndereco(aoEscolher: _escolher, ocupado: _ocupado),
               ],
             );
           },
         ),
-      ),
-    );
-  }
-}
-
-/// A porta dos fundos: o endereço digitado.
-///
-/// Recolhida de propósito. Ela existe para o caso raro — o petshop recém-criado que
-/// ainda está no cache do catálogo, ou o que não quer aparecer em lista nenhuma — e
-/// deixá-la aberta ao lado da lista devolveria à tela a pergunta que a lista veio
-/// responder.
-class _PorEndereco extends StatefulWidget {
-  const _PorEndereco({required this.aoEscolher, required this.ocupado});
-
-  final Future<void> Function(String slug) aoEscolher;
-  final bool ocupado;
-
-  @override
-  State<_PorEndereco> createState() => _PorEnderecoState();
-}
-
-class _PorEnderecoState extends State<_PorEndereco> {
-  final _controle = TextEditingController();
-  bool _aberto = false;
-
-  @override
-  void dispose() {
-    _controle.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_aberto) {
-      return Center(
-        child: TextButton(
-          onPressed: () => setState(() => _aberto = true),
-          child: const Text('Não achei o meu petshop'),
-        ),
-      );
-    }
-
-    final tema = Theme.of(context);
-
-    return Cartao(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Digite o endereço que o estabelecimento passou para você — é a primeira '
-          'parte do site dele.',
-          style: tema.textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _controle,
-          autofocus: true,
-          autocorrect: false,
-          textCapitalization: TextCapitalization.none,
-          keyboardType: TextInputType.url,
-          decoration: const InputDecoration(
-            hintText: 'petshopdojoao',
-            prefixIcon: Icon(Icons.storefront_outlined),
-          ),
-          onSubmitted: (valor) => widget.aoEscolher(valor.trim()),
-        ),
-        const SizedBox(height: 12),
-        BotaoPrincipal(
-          rotulo: 'Continuar',
-          ocupado: widget.ocupado,
-          rotuloOcupado: 'Procurando…',
-          onPressed: () => widget.aoEscolher(_controle.text.trim()),
-        ),
-      ],
       ),
     );
   }

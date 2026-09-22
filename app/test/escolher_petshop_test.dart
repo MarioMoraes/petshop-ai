@@ -78,7 +78,7 @@ void main() {
   testWidgets('abre com a lista, sem ninguém digitar nada', (tester) async {
     await abrirApp(tester);
 
-    expect(find.text('Qual é o seu petshop?'), findsOneWidget);
+    expect(find.text('Selecione Seu PetShop'), findsOneWidget);
     expect(find.text('Amigo Fiel'), findsOneWidget);
     expect(find.text('São Bernardo Pet'), findsOneWidget);
     expect(find.text('Zoo Pet'), findsOneWidget);
@@ -117,27 +117,7 @@ void main() {
     expect(chamadas, contains('GET /portal/v1/tenant'));
     expect(slugsEnviados, contains('zoopet'));
     // Sem petshop escolhido não havia tela de entrada; agora há.
-    expect(find.text('Qual é o seu petshop?'), findsNothing);
-  });
-
-  testWidgets('a porta dos fundos continua existindo, recolhida', (tester) async {
-    await abrirApp(tester);
-
-    // Recolhida: o campo de endereço não disputa a tela com a lista.
-    expect(find.text('petshopdojoao'), findsNothing);
-
-    await tester.ensureVisible(find.text('Não achei o meu petshop'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Não achei o meu petshop'));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField).last, 'amigofiel');
-    await tester.ensureVisible(find.text('Continuar'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
-
-    expect(slugsEnviados, contains('amigofiel'));
+    expect(find.text('Selecione Seu PetShop'), findsNothing);
   });
 
   testWidgets('lista cortada avisa que está cortada', (tester) async {
@@ -154,7 +134,10 @@ void main() {
     expect(find.textContaining('Há mais estabelecimentos'), findsOneWidget);
   });
 
-  testWidgets('catálogo vazio não deixa a pessoa sem saída', (tester) async {
+  // Sem a porta dos fundos, o catálogo vazio **não** tem saída dentro do app — então o
+  // que a tela deve é dizer de quem depende o acesso, em vez de mandar digitar um
+  // endereço que não tem mais onde ser digitado.
+  testWidgets('catálogo vazio diz de quem depende o acesso', (tester) async {
     await abrirApp(tester);
     catalogo = [];
     // Puxar para atualizar refaz a busca com a resposta nova.
@@ -162,7 +145,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Nenhum estabelecimento disponível'), findsOneWidget);
-    expect(find.text('Não achei o meu petshop'), findsOneWidget);
+    expect(find.textContaining('fale com o seu'), findsOneWidget);
+    expect(find.text('Não achei o meu petshop'), findsNothing);
   });
 }
 
