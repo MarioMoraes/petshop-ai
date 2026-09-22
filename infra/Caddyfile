@@ -81,18 +81,27 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 		# O Caddy anuncia a si mesmo por padrão; não há razão para contar a versão.
 		-Server
+	}
 
-		# MOD-SEC-09 — a política de conteúdo, em modo relatório.
-		#
-		# `Report-Only`, e não valendo: as três raízes do Next carregam script do
-		# Clerk, fonte do Google e imagem de bucket, e uma CSP restritiva errada não
-		# degrada — apaga a tela, e só no navegador do cliente. Uma semana de
-		# relatório limpo é o que autoriza trocar o nome do cabeçalho.
-		#
-		# `'unsafe-inline'` em `script-src` é o Next: ele injeta o payload de
-		# hidratação num `<script>` inline sem nonce. Removê-lo exige nonce por
-		# requisição no middleware, que é frente própria — está na questão 3 do §11
-		# do PRD.
+	# MOD-SEC-09 — a política de conteúdo, em modo relatório.
+	#
+	# `Report-Only`, e não valendo: as três raízes do Next carregam script do
+	# Clerk, fonte do Google e imagem de bucket, e uma CSP restritiva errada não
+	# degrada — apaga a tela, e só no navegador do cliente. Uma semana de
+	# relatório limpo é o que autoriza trocar o nome do cabeçalho.
+	#
+	# `'unsafe-inline'` em `script-src` é o Next: ele injeta o payload de
+	# hidratação num `<script>` inline sem nonce. Removê-lo exige nonce por
+	# requisição no middleware, que é frente própria — está na questão 3 do §11
+	# do PRD.
+	#
+	# Fica FORA do bloco acima, com matcher de host, porque `api.` não tem
+	# navegador: é quase 1 KB de instrução que ninguém lê, em cima de toda
+	# resposta de API, em rede móvel. Apagá-la com `-Cabeçalho` dentro do
+	# `handle @api` NÃO funciona — os dois `header` são diferidos, o global é
+	# aplicado depois, e ele a repõe. Medido na resposta, não deduzido.
+	@navegador not host api.{$APP_DOMAIN}
+	header @navegador {
 		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com; frame-src https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
 	}
 
@@ -142,10 +151,6 @@
 		path /portal/v1 /portal/v1/* /public/v1/portal/tenants
 	}
 	handle @api {
-		# A CSP é instrução para navegador. Num cliente nativo ela não é lida por
-		# ninguém, o relatório não sai de lugar nenhum, e é perto de 1 KB em cima
-		# de toda resposta — numa rede móvel isso se paga.
-		header -Content-Security-Policy-Report-Only
 		reverse_proxy {$BACKEND_UPSTREAM:api-gateway:3000}
 	}
 

@@ -172,6 +172,33 @@ void main() {
     expect(find.text('Não informado'), findsWidgets);
   });
 
+  testWidgets('a folha de edição mostra "Cancelar" sem precisar rolar',
+      (tester) async {
+    await abrirApp(tester);
+    await tester.tap(find.text('Meus pets'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Marley'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar'));
+    await tester.pumpAndSettle();
+
+    // A barra de ações é presa no rodapé da folha; de volta ao fim da coluna rolada,
+    // os dois botões nascem abaixo da dobra e esta medida denuncia.
+    final tela = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    final cancelar = tester.getRect(find.widgetWithText(TextButton, 'Cancelar'));
+    expect(cancelar.bottom, lessThanOrEqualTo(tela));
+    expect(
+      tester.getRect(find.widgetWithText(InkWell, 'Salvar')).bottom,
+      lessThanOrEqualTo(tela),
+    );
+
+    // E ele desiste de verdade, sem gravar nada.
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dados do Marley'), findsNothing);
+    expect(corpoDoPatch, isNull);
+  });
+
   testWidgets('a ficha do falecido não oferece o botão de editar', (tester) async {
     await abrirApp(tester);
     await tester.tap(find.text('Meus pets'));

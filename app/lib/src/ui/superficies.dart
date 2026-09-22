@@ -19,11 +19,18 @@ class Tela extends StatelessWidget {
     super.key,
     required this.corpo,
     this.appBar,
+    this.fab,
     this.brilho = true,
   });
 
   final Widget corpo;
   final PreferredSizeWidget? appBar;
+
+  /// A ação principal da tela, pousada sobre o corpo.
+  ///
+  /// Mora no `Scaffold`, e não dentro de `corpo`, porque é ele quem desconta a barra do
+  /// sistema do canto inferior — a mesma conta que o `SafeArea` abaixo faz pelo corpo.
+  final Widget? fab;
 
   /// O halo da marca no topo. Desligado nas telas que já têm um painel escuro ali — dois
   /// focos de luz na mesma dobra viram borrão.
@@ -63,6 +70,7 @@ class Tela extends StatelessWidget {
               // e o `SafeArea` da própria tela nas que não têm. `SafeArea` aninhado não
               // soma — o de dentro vê o recorte já consumido.
               body: SafeArea(top: false, child: corpo),
+              floatingActionButton: fab,
             ),
           ],
         ),

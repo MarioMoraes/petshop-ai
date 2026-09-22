@@ -33,36 +33,24 @@ class ListaDeAgendamentos extends StatelessWidget {
     final contexto = sessao.contexto!;
 
     return Tela(
-      appBar: AppBar(
-        title: const Text('Meus agendamentos'),
-        actions: [
-          if (contexto.features.onlineBookingEnabled)
-            Builder(
-              builder: (context) => Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: TextButton.icon(
-                  onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => MarcarHorario(sessao: sessao)),
-                    );
-                    if (context.mounted) Recarregavel.de(context)?.call();
-                  },
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  style: TextButton.styleFrom(
-                    foregroundColor: context.tokens.acentoTinta,
-                    backgroundColor: context.tokens.acentoSuave,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      side: BorderSide(color: context.tokens.acentoAro),
-                    ),
-                  ),
-                  label: const Text('Marcar'),
-                ),
+      appBar: AppBar(title: const Text('Meus agendamentos')),
+      // Marcar é a ação principal desta tela, e ela **flutua** sobre a lista. Na barra
+      // do topo dividia a linha com o título, num alvo pequeno e no canto que o polegar
+      // só alcança trocando a mão de posição — e é o toque que o tutor vem dar aqui.
+      fab: contexto.features.onlineBookingEnabled
+          ? Builder(
+              builder: (context) => BotaoFlutuante(
+                rotulo: 'Marcar',
+                icone: Icons.add_rounded,
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => MarcarHorario(sessao: sessao)),
+                  );
+                  if (context.mounted) Recarregavel.de(context)?.call();
+                },
               ),
-            ),
-        ],
-      ),
+            )
+          : null,
       corpo: CarregarDados<PortalAppointmentsResponse>(
         buscar: () => sessao.api.agendamentos(limite: 10),
         construir: (context, agenda, recarregar) => Recarregavel(
@@ -76,7 +64,7 @@ class ListaDeAgendamentos extends StatelessWidget {
 
 /// Quem sabe pedir a lista de novo, para quem está abaixo dela na árvore.
 ///
-/// Existe porque o botão "Marcar" mora na barra do topo — fora do corpo que o
+/// Existe porque o botão "Marcar" é o flutuante do `Scaffold` — fora do corpo que o
 /// `CarregarDados` constrói — e, quando o tutor volta de lá com um horário novo, a lista
 /// precisa deixar de mentir.
 class Recarregavel extends InheritedWidget {
@@ -160,7 +148,14 @@ class _ListaState extends State<_Lista> {
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      // O flutuante pousa sobre o fim da lista: sem a folga, ele cobre o "Ver mais" e a
+      // última linha do histórico.
+      padding: EdgeInsets.fromLTRB(
+        16,
+        8,
+        16,
+        contexto.features.onlineBookingEnabled ? 96 : 32,
+      ),
       children: [
         if (proximos.isEmpty && _passados.isEmpty)
           EstadoVazio(

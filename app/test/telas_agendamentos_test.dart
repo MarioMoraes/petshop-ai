@@ -131,6 +131,24 @@ void main() {
     expect(find.text('Não compareceu'), findsOneWidget);
   });
 
+  testWidgets('marcar é o flutuante, e não um botão da barra do topo',
+      (tester) async {
+    await abrirApp(tester);
+
+    // `find.text` casa a string inteira, então "Remarcar" do cartão não conta aqui.
+    expect(
+      find.descendant(
+        of: find.byType(FloatingActionButton),
+        matching: find.text('Marcar'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('Marcar')),
+      findsNothing,
+    );
+  });
+
   testWidgets('"ver mais" acrescenta só o passado, e não repete os próximos',
       (tester) async {
     await abrirApp(tester);

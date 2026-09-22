@@ -121,6 +121,66 @@ class _BotaoPrincipalState extends State<BotaoPrincipal> {
       );
 }
 
+/// O mesmo botão que grava, pousado sobre a lista.
+///
+/// **É a ação principal da tela, e por isso sai da barra do topo.** Na `AppBar` ela
+/// disputava a linha com o título e ficava no canto que o polegar não alcança sem
+/// trocar a mão de posição; flutuando no canto inferior ela fica onde o dedo já está,
+/// e continua visível com a lista rolada.
+///
+/// Desenhado com os tokens do `BotaoPrincipal`, e não com o FAB de fábrica: o botão
+/// que age é escuro em todo o produto, e um FAB na cor do acento abriria um segundo
+/// dialeto de "aqui se toca" na mesma tela.
+class BotaoFlutuante extends StatelessWidget {
+  const BotaoFlutuante({
+    super.key,
+    required this.rotulo,
+    required this.icone,
+    required this.onPressed,
+  });
+
+  final String rotulo;
+  final IconData icone;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: t.gradienteDoBotao,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: t.sombraDoBotao,
+      ),
+      child: FloatingActionButton.extended(
+        onPressed: onPressed,
+        // O fundo é do `DecoratedBox`: o FAB do Material não aceita degradê, e uma cor
+        // chapada apagaria o que separa o botão de um retângulo preto.
+        backgroundColor: Colors.transparent,
+        foregroundColor: t.sobreBotao,
+        elevation: 0,
+        focusElevation: 0,
+        hoverElevation: 0,
+        highlightElevation: 0,
+        splashColor: t.sobreBotao.withValues(alpha: 0.10),
+        shape: const StadiumBorder(),
+        icon: Icon(icone, size: 20),
+        label: Text(
+          rotulo,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+            color: t.sobreBotao,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// O tom de um aviso — o que ele é antes de ser lido.
 ///
 /// `atencao` é o degrau que faltava entre o cinza e o vermelho: a alergia de um pet

@@ -106,10 +106,10 @@ void main() {
     await clique('Editar');
     await foto('07-editar-pet');
 
-    // A folha é fechada pela cortina, e não pelo "Cancelar": num celular o botão nasce
-    // abaixo da dobra da própria folha, e toque em widget fora da tela não acontece.
-    await tester.tapAt(const Offset(200, 30));
-    await tester.pumpAndSettle();
+    // Pelo "Cancelar", e sem rolar: a barra de ações da folha é presa no rodapé, e o
+    // toque num widget fora da tela não acontece — se ela voltar para o fim da coluna
+    // rolada, esta linha falha em vez de a captura sair igual.
+    await clique('Cancelar');
     await aoInicio();
 
     // ── agendamentos ──────────────────────────────────────────────────────────
