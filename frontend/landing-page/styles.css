@@ -1709,6 +1709,21 @@ ul {
   transform: none;
 }
 
+/*
+  A importação fecha a grade ocupando a linha inteira. Ela é o primeiro passo de quem
+  vem de outro sistema, e não o décimo recurso — e um décimo cartão sozinho na última
+  linha deixava a grade quebrada.
+*/
+.catalog .card-wide {
+  grid-column: 1 / -1;
+}
+
+.catalog .card-wide .ticks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 26px;
+}
+
 .catalog-head {
   display: flex;
   align-items: center;
@@ -2374,6 +2389,9 @@ ul {
   .catalog {
     grid-template-columns: repeat(2, 1fr);
   }
+  .catalog .card-wide .ticks {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 960px) {
@@ -2555,6 +2573,10 @@ ul {
   .bento,
   .catalog,
   .sec-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog .card-wide .ticks {
     grid-template-columns: 1fr;
   }
 
