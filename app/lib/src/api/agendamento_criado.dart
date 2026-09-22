@@ -48,11 +48,16 @@ class AgendamentoCriado {
   /// trata este campo.
   final bool duplicate;
 
-  /// As corridas criadas junto. Sempre vazia neste app: o leva-e-traz fica na web.
+  /// As corridas criadas junto (MOD-PORTAL-07). Uma por perna pedida, e vazia no
+  /// pedido sem transporte — que segue sendo o caminho da maioria.
   final List<PortalTaxiRide> taxi;
 
   /// O que deu errado **só** com o transporte: o agendamento existe mesmo assim.
-  /// Sempre nulo aqui, pela mesma razão.
+  ///
+  /// É a recusa por endereço (AC-03) — sem endereço, fora de área, módulo desligado —,
+  /// que não derruba o horário. A falta de **vaga** na van é outra coisa: ela acontece
+  /// antes de o agendamento nascer, e chega como `ERR_TAXI_007` com horários
+  /// alternativos, porque aí ainda dá para escolher outro.
   final String? taxiWarning;
 
   factory AgendamentoCriado.fromJson(Map<String, dynamic> json) => AgendamentoCriado(

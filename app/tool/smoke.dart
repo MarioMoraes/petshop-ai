@@ -123,9 +123,18 @@ Future<void> main(List<String> args) async {
     });
   }
 
+  // A oferta não recebe pet: o preço sai do CEP do endereço primário do **tutor**, e o
+  // handler resolve o `tutorId` por `requireOwnScope`.
   await passo('GET /booking/taxi', () async {
-    final o = await api.ofertaDeTaxi(petId!);
-    print('        disponível: ${o.available}');
+    final o = await api.ofertaDeTaxi();
+    print('        disponível: ${o.available}'
+        '${o.reason == null ? "" : " · motivo ${o.reason!.name}"}');
+    if (o.available) {
+      print('        ${reais(o.priceCentsPerLeg ?? 0)} por perna · janela de '
+          '${o.windowMinutes}min · ${o.address?.label ?? "sem endereço"}');
+    } else {
+      print('        ${o.message}');
+    }
   });
 
   await passo('GET /appointments', () async {

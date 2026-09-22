@@ -132,17 +132,37 @@ void main() {
     await foto('10-marcar-servicos');
 
     await clique('Banho');
+    await foto('10b-leva-e-traz');
+
+    // As duas pernas: é com elas marcadas que o cartão mostra o endereço e a janela, e
+    // é o único estado em que a confirmação tem a linha do transporte.
+    await clique('Buscar em casa');
+    await clique('Devolver em casa');
+
+    // O seletor de dia desceu abaixo da dobra quando o leva-e-traz entrou entre ele e
+    // os serviços — toque em widget fora da tela não acontece.
+    await tester.drag(find.byType(ListView).first, const Offset(0, -320));
+    await tester.pumpAndSettle();
     await clique('Escolher o dia');
     await clique('OK');
     await foto('11-grade');
 
     await clique('10:00');
-    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+    // O "Tudo certo?" fecha uma coluna que cresceu de três cartões para quatro: sem
+    // descer o bastante, o toque em "Confirmar horário" cai fora da tela e não
+    // acontece — e as duas fotos saem iguais, que é como isso se manifesta aqui.
+    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
     await tester.pumpAndSettle();
     await foto('12-confirmar');
 
     await clique('Confirmar horário');
     await foto('13-comprovante');
+
+    // O comprovante cresceu com as duas corridas, e o total — que é o único número que
+    // soma o transporte ao atendimento — passou a nascer abaixo da dobra.
+    await tester.drag(find.byType(ListView).first, const Offset(0, -420));
+    await tester.pumpAndSettle();
+    await foto('13b-comprovante-total');
     await aoInicio();
 
     // ── minha conta ───────────────────────────────────────────────────────────
@@ -250,6 +270,8 @@ final _portal = MockClient((req) async {
               'nextCursor': null,
               'timezone': _fuso,
             };
+    case 'GET /portal/v1/booking/taxi':
+      corpo = _oferta;
     case 'GET /portal/v1/booking/services':
       corpo = _servicos;
     case 'GET /portal/v1/booking/availability':
@@ -485,6 +507,18 @@ const _disponibilidade = {
   'minNoticeHours': 2,
 };
 
+/// A oferta de leva-e-traz: **preço por perna**, e o endereço para onde a van vai.
+const _oferta = {
+  'available': true,
+  'reason': null,
+  'message': null,
+  'address': {'label': 'Rua das Acácias, 120 — Pinheiros', 'zipCode': '05422-030'},
+  'priceCentsPerLeg': 2500,
+  'windowMinutes': 60,
+};
+
+/// O comprovante com as duas corridas: `totalCents` é só o do atendimento, e é a tela
+/// que soma o transporte — é o que faz o número bater com o da confirmação.
 const _criado = {
   'id': '9f1e0d2c-2222-4a2b-8c3d-000000000002',
   'status': 'CONFIRMED',
@@ -496,7 +530,28 @@ const _criado = {
   'totalCents': 9000,
   'awaitingApproval': false,
   'duplicate': false,
-  'taxi': [],
+  'taxi': [
+    {
+      'id': 'corrida-ida',
+      'leg': 'PICKUP',
+      'legLabel': 'Buscar em casa',
+      'status': 'REQUESTED',
+      'statusText': 'Aguardando o motorista',
+      'windowStartsAt': '2026-09-30T12:00:00.000Z',
+      'windowEndsAt': '2026-09-30T13:00:00.000Z',
+      'priceCents': 2500,
+    },
+    {
+      'id': 'corrida-volta',
+      'leg': 'DROPOFF',
+      'legLabel': 'Devolver em casa',
+      'status': 'REQUESTED',
+      'statusText': 'Aguardando o motorista',
+      'windowStartsAt': '2026-09-30T14:00:00.000Z',
+      'windowEndsAt': '2026-09-30T15:00:00.000Z',
+      'priceCents': 2500,
+    },
+  ],
   'taxiWarning': null,
 };
 

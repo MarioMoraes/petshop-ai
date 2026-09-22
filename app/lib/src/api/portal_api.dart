@@ -126,11 +126,18 @@ class PortalApi {
         }),
       );
 
-  /// O leva-e-traz disponível para este pet, se o plano o tiver.
-  Future<PortalTaxiOffer> ofertaDeTaxi(String petId) async =>
-      PortalTaxiOffer.fromJson(
-        await _cliente.get('/portal/v1/booking/taxi', query: {'petId': petId}),
-      );
+  /// A oferta de leva-e-traz: dá para buscar aqui, e quanto custa cada perna.
+  ///
+  /// **Não recebe pet**, ainda que a rota viva sob `/booking`: o preço sai do CEP do
+  /// endereço primário do **tutor**, e o handler resolve o `tutorId` por
+  /// `requireOwnScope`. A primeira versão mandava `?petId=`, que o servidor ignorava em
+  /// silêncio — e um parâmetro ignorado é o que faz a tela acreditar numa dependência
+  /// que não existe, e repetir a pergunta a cada troca de pet.
+  ///
+  /// Um POST que criasse a corrida para descobrir o preço deixaria lixo no painel do
+  /// petshop a cada pergunta do tutor; é para isso que esta rota existe.
+  Future<PortalTaxiOffer> ofertaDeTaxi() async =>
+      PortalTaxiOffer.fromJson(await _cliente.get('/portal/v1/booking/taxi'));
 
   /// Marca o horário.
   ///

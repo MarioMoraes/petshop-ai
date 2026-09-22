@@ -17,10 +17,13 @@ import 'pets/lista_de_pets.dart';
 /// mesma lista, ele lia como o item selecionado, e não como o que se veio fazer.
 ///
 /// O menu é curto de propósito. Cada linha que existe leva a algo que funciona — o que
-/// ainda não foi construído não vira item cinza que aceita o toque e não faz nada. O
-/// que o app ainda não faz — pedir leva-e-traz — também não é anunciado aqui: o aviso
-/// que dizia isso saiu a pedido do usuário, porque a primeira tela do app não é lugar
-/// para falar do que ele não tem. Quem tem corrida pedida continua vendo-a no
+/// ainda não foi construído não vira item cinza que aceita o toque e não faz nada, e o
+/// que falta também não é anunciado aqui: a primeira tela do app não é lugar para falar
+/// do que ele não tem.
+///
+/// **O leva-e-traz não ganhou linha própria**, ainda que o app agora o peça: no MOD-TAXI
+/// o dono da corrida é o agendamento, e uma entrada aqui prometeria um pedido solto que
+/// não existe. Ele mora dentro de "Marcar horário", e quem já tem corrida pedida a vê no
 /// agendamento, que é onde ela acontece.
 ///
 /// **As linhas não têm legenda**, também a pedido do usuário: "Meus pets" já diz o que

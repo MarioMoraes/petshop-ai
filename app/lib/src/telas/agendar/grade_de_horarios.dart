@@ -226,6 +226,7 @@ class RecusaComAlternativas extends StatelessWidget {
     required this.horarios,
     required this.aoEscolher,
     this.tituloPadrao = 'Não deu para marcar',
+    this.rodape,
   });
 
   final PortalError falha;
@@ -233,6 +234,14 @@ class RecusaComAlternativas extends StatelessWidget {
   final List<PortalSlot> horarios;
   final ValueChanged<PortalSlot> aoEscolher;
   final String tituloPadrao;
+
+  /// A saída que **esta** recusa tem e as outras não.
+  ///
+  /// Nasceu para a falta de vaga no leva-e-traz (AC-04 de MOD-PORTAL-07): ali, além dos
+  /// horários alternativos, existe um segundo caminho — marcar o banho sem o transporte.
+  /// Perder o atendimento por causa da van é o pior desfecho possível, e um toque é o
+  /// que separa o tutor dele.
+  final Widget? rodape;
 
   @override
   Widget build(BuildContext context) {
@@ -265,6 +274,10 @@ class RecusaComAlternativas extends StatelessWidget {
                   ),
             ],
           ),
+        ],
+        if (rodape != null) ...[
+          const SizedBox(height: 12),
+          rodape!,
         ],
       ],
     );

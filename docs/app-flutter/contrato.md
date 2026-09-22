@@ -641,3 +641,101 @@ sem erro nenhum no log.
 são `%PDF-` — um `problem+json` de 200 bytes chegaria calado por aquele caminho.
 
 As capturas: `16-minha-conta`, `16b-minha-conta-como-pagar` e `17-minha-conta-escuro`.
+
+---
+
+# O leva-e-traz (etapa 7, 2026-09-22)
+
+O que ficou de fora do MVP de propósito — "pedir uma corrida é um ramo inteiro e custa
+quase uma etapa" — entrou aqui. **Nenhuma rota nova no backend**: as duas que faltavam já
+serviam a web.
+
+| Método e rota | Parâmetros | Devolve |
+|---|---|---|
+| `GET /portal/v1/booking/taxi` | — | `PortalTaxiOffer` |
+| `POST /portal/v1/booking` | `taxi: { pickup, dropoff }` | `AgendamentoCriado` com `taxi[]` e `taxiWarning` |
+
+## A oferta não recebe pet, ainda que a rota viva sob `/booking`
+
+O handler resolve o `tutorId` por `requireOwnScope` e **ignora a query**: o preço sai do
+CEP do endereço primário do tutor, e nem o pet, nem os serviços, nem o horário o mudam. A
+primeira versão do `PortalApi` mandava `?petId=`, que o servidor engolia em silêncio — e
+um parâmetro ignorado é o que faz a tela acreditar numa dependência que não existe e
+repetir a pergunta a cada troca de pet. A assinatura agora é `ofertaDeTaxi()`, sem
+argumento, e a oferta é pedida **uma vez**, na abertura da tela.
+
+Com `features.taxiEnabled` falso ela não é pedida de jeito nenhum: a rota responderia 402,
+e a navegação lê `features`, nunca uma constante.
+
+## Não existe pedido de corrida solto, e a razão é do domínio
+
+No MOD-TAXI o dono da corrida é o agendamento (RN-01). Uma segunda porta criaria uma
+segunda fila de aprovação além da que o agendamento online já pode ter, e o tutor
+esperaria duas confirmações para uma tarde só. Por isso o leva-e-traz é um **cartão dentro
+de "Marcar horário"** (`telas/agendar/leva_e_traz.dart`), entre os serviços e o dia, e não
+uma linha no Início.
+
+Ele aparece por dois motivos e some por um: aparece quando dá para pedir, e aparece quando
+**não** dá por um motivo do próprio tutor (`NO_ADDRESS`, `OUT_OF_AREA`, `UNAVAILABLE`),
+porque essa é a informação que ele precisa para resolver; some em `DISABLED` e
+`NOT_CONFIGURED`, onde não é uma negativa e sim um serviço que não existe. O motivo viaja
+como **enum** para a tela decidir isso, e como **texto** para nenhum cliente reescrever a
+frase que a web já diz.
+
+Ida e volta são duas linhas em `taxi_rides` (RN-02) e por isso duas caixas independentes,
+com o preço **por perna** nas duas — somá-las na tela esconderia que quem pede só a ida
+paga metade.
+
+## As duas recusas são diferentes, e a diferença é quando elas acontecem
+
+- **Falta de vaga** (`ERR_TAXI_007`, 409) acontece **antes** de o agendamento nascer, com
+  o horário ainda livre. Chega com `alternativeStartsAt` — horários do mesmo dia que o
+  servidor sondou —, ganha título próprio ("Sem vaga no leva-e-traz"; "Não deu para
+  marcar" faria o tutor procurar o defeito no horário, que está livre) e um segundo
+  caminho: **"Marcar sem o leva-e-traz"**, que reenvia o mesmo pedido com
+  `_confirmar(comTaxi: false)`. Perder o banho por causa da van é o pior desfecho, e um
+  toque é o que separa o tutor dele. É o `rodape` de `RecusaComAlternativas`.
+- **Recusa por endereço** (AC-03) não derruba nada: o agendamento nasce e `taxiWarning`
+  vem preenchido com a corrida vazia.
+
+## O `taxiWarning` é lido no comprovante, e aqui isso diverge da web
+
+Na web a confirmação navega para a lista, então o aviso precisa de um estado próprio para
+**segurar** o tutor na tela. No app o desfecho já é uma tela que para: o agendamento
+nasceu, o transporte não, e as duas notícias chegam juntas, que é a ordem em que
+aconteceram. Passar batido daria ao tutor a certeza de que alguém vai buscar o pet.
+
+## O total é somado pela tela, nos dois lugares
+
+`totalCents` — na confirmação e na resposta do POST — é o do **atendimento**: a corrida é
+outra linha, com preço próprio, e o servidor não as soma. A tela soma nos dois, e é isso
+que faz o comprovante dizer o mesmo número que a confirmação dizia. Discriminado e nunca
+embutido (AC-02): o transporte é o que o tutor pode tirar se o total surpreender.
+
+## Duas divergências conscientes da web
+
+- **As caixas dizem "Buscar em casa" e "Devolver em casa"**, e não "Buscar o pet em casa".
+  A captura mostrou o rótulo quebrando em duas linhas ao dividir a largura de um celular
+  de 390px com o preço; a descrição da seção já diz que se trata do pet.
+- **O cartão vem antes do dia**, como na web, mas aqui isso custou um `aVista` em todo
+  toque do arnês: a coluna cresceu de três cartões para quatro, e o seletor de dia, a
+  grade e o botão de confirmar passaram a nascer abaixo da dobra. Toque fora da tela não
+  erra — ele não acontece, e as duas capturas saem iguais, que é como isso se manifesta.
+
+## O que o arnês guarda
+
+`test/telas_agendar_test.dart` foi de 7 para 15 casos. Os que valem por si: a oferta
+pedida **uma vez**; o módulo fora do plano que não gera chamada nenhuma; `DISABLED` que
+não mostra o cartão e `NO_ADDRESS` que mostra; o pedido de uma perna só; e a van lotada
+que termina com um agendamento sem `taxi` no corpo.
+
+`tool/smoke_booking.dart` ganhou `--taxi`, atrás de um sinalizador porque cria corridas de
+verdade no painel: ele lê a oferta, marca com as duas pernas e imprime `legLabel`,
+`statusText` e a janela de cada corrida — a forma que nenhum dublê prova. A remarcação do
+passo seguinte cancela as corridas (RN-15: remarcar não move a corrida) e o cancelamento
+do fim derruba o resto sem cobrança (AC-06), o que torna o ensaio limpo. **Não foi rodado
+contra o servidor vivo**: as rotas exigem um JWT do Clerk, e o vínculo de dev está na
+conta real do usuário.
+
+Capturas novas: `10b-leva-e-traz` e `13b-comprovante-total`; `12-confirmar` e
+`13-comprovante` mudaram.

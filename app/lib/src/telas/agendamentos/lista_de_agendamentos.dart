@@ -511,8 +511,9 @@ class _LinhaDoPassado extends StatelessWidget {
 /// servidor — o rótulo do painel é escrito para quem opera, e "Sem motorista" no celular
 /// do tutor leria como falha.
 ///
-/// O app não **pede** leva-e-traz, mas mostra o que foi pedido pela web: esconder aqui
-/// faria o tutor achar que o transporte se perdeu.
+/// A corrida é pedida junto do agendamento, em "Marcar horário", e é aqui que ela
+/// reaparece depois: esconder o transporte nesta lista faria o tutor achar que ele se
+/// perdeu.
 class _FaixaDoTaxi extends StatelessWidget {
   const _FaixaDoTaxi({required this.corridas, required this.tempo});
 
