@@ -5,8 +5,9 @@ import 'package:petshop_tutor/src/ui/tema.dart';
 
 /// A cortina de abertura (`ui/abertura.dart`).
 ///
-/// Três invariantes, e as três já foram defeito em alguma tela deste app: a de baixo
-/// existe desde o começo, a de cima não engole o primeiro toque, e o que anima **acaba**.
+/// Quatro invariantes, e as quatro já foram defeito: a de baixo existe desde o começo,
+/// **atravessa a saída sem renascer**, a de cima não engole o primeiro toque, e o que
+/// anima acaba.
 void main() {
   Widget palco({required bool pronto, required VoidCallback aoTocar}) => MaterialApp(
         theme: temaDoPetshop(null, Brightness.light),
@@ -50,6 +51,25 @@ void main() {
     expect(toques, 1, reason: 'a cortina saiu e o toque chega à tela');
   });
 
+  testWidgets('a tela de baixo atravessa a saída sem perder o estado', (tester) async {
+    // O defeito que este teste tranca: enquanto a cortina existia, `build` devolvia o
+    // `Stack`, e depois dela devolvia o filho cru. Trocar o tipo do widget nesta
+    // posição desmonta a subárvore e monta outra igual — a tela reaparecia zerada, com
+    // `initState` de novo, e quem carregava dado do servidor refazia a chamada. Na mão,
+    // o sintoma era a tela piscar duas vezes depois da abertura.
+    _Contador.nascimentos = 0;
+
+    await tester.pumpWidget(MaterialApp(
+      theme: temaDoPetshop(null, Brightness.light),
+      home: const Abertura(pronto: true, child: _Contador()),
+    ));
+    await tester.pump();
+    expect(_Contador.nascimentos, 1);
+
+    await tester.pumpAndSettle();
+    expect(_Contador.nascimentos, 1, reason: 'a cortina saiu e não levou a tela junto');
+  });
+
   testWidgets('a abertura termina sozinha e não deixa nada animando', (tester) async {
     await tester.pumpWidget(palco(pronto: true, aoTocar: () {}));
 
@@ -61,4 +81,25 @@ void main() {
     expect(find.text('Meu PetShop AI'), findsNothing);
     expect(find.text('a tela de verdade'), findsOneWidget);
   });
+}
+
+/// Uma tela que conta quantas vezes nasceu.
+class _Contador extends StatefulWidget {
+  const _Contador();
+
+  static int nascimentos = 0;
+
+  @override
+  State<_Contador> createState() => _ContadorState();
+}
+
+class _ContadorState extends State<_Contador> {
+  @override
+  void initState() {
+    super.initState();
+    _Contador.nascimentos++;
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }

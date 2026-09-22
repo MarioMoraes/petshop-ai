@@ -105,8 +105,20 @@ class _AberturaState extends State<Abertura> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    if (_foi) return widget.child;
-
+    // **A forma da árvore não muda quando a cortina sai** — só a cortina deixa a lista
+    // de filhos.
+    //
+    // Devolver `widget.child` cru aqui, em vez do `Stack`, troca o tipo do widget nesta
+    // posição: o Flutter desmonta a subárvore inteira e monta outra igual, e a tela de
+    // baixo **perde o estado** no exato instante em que aparece. O sintoma era a tela
+    // piscar duas vezes depois da abertura — o `CarregarDados` do "de que petshop se
+    // fala" nascia de novo, voltava ao giro e refazia a chamada ao servidor que já
+    // tinha respondido embaixo da cortina.
+    //
+    // Tirar o **último** filho de um `Stack` não mexe no primeiro, porque a
+    // reconciliação é por posição. Por isso o `Transform` e o `AnimatedBuilder` de
+    // baixo ficam para sempre, mesmo em repouso: eles custam uma matriz identidade por
+    // quadro, e trocá-los por um `if` custaria a mesma remontagem.
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -124,16 +136,18 @@ class _AberturaState extends State<Abertura> with TickerProviderStateMixin {
           ),
           child: widget.child,
         ),
-        AnimatedBuilder(
-          animation: _saida,
-          builder: (context, filho) => IgnorePointer(
-            // Durante o esmaecer a cortina ainda está na frente: sem isto, o primeiro
-            // toque na tela de baixo é engolido por uma camada que já não se vê.
-            ignoring: _saida.value > 0,
-            child: Opacity(opacity: 1 - _saida.value, child: filho),
+        if (!_foi)
+          AnimatedBuilder(
+            animation: _saida,
+            builder: (context, filho) => IgnorePointer(
+              // Durante o esmaecer a cortina ainda está na frente: sem isto, o
+              // primeiro toque na tela de baixo é engolido por uma camada que já não
+              // se vê.
+              ignoring: _saida.value > 0,
+              child: Opacity(opacity: 1 - _saida.value, child: filho),
+            ),
+            child: _Cortina(entrada: _entrada, espera: _espera, saida: _saida),
           ),
-          child: _Cortina(entrada: _entrada, espera: _espera, saida: _saida),
-        ),
       ],
     );
   }
