@@ -1,0 +1,4 @@
+{
+  "_comentario": "O backend da sua máquina. `10.0.2.2` é como o emulador do Android alcança o localhost do Mac; num aparelho por USB, troque pelo IP do Mac na rede. Só o que muda fica aqui — o resto vem do padrão de lib/src/config.dart. Uso: flutter run --dart-define-from-file=dart_defines/local.json",
+  "API_URL": "http://10.0.2.2:3000"
+}

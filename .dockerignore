@@ -30,3 +30,10 @@ design
 docs
 *.log
 .DS_Store
+
+# O app Flutter não entra em imagem nenhuma: o backend não o serve, e ele é o
+# maior diretório do repositório (o `build/` dele sozinho passa de 1,5 GB).
+# Sem esta linha, mexer numa tela do app atravessa tudo isso pelo contexto e
+# invalida o cache do `COPY . .` do backend e do frontend — duas imagens
+# reconstruídas por uma mudança que não as toca.
+app

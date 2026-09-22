@@ -2,12 +2,23 @@
 #
 # Duas decisões estão embutidas aqui:
 #
-# 1. O gateway NÃO é publicado. O cliente HTTP do frontend é `server-only` — o
-#    browser nunca fala com a API — então o gateway atende só na rede interna do
-#    compose. Isso apaga a superfície pública inteira da API e torna o CORS
-#    desnecessário. Se um dia o MOD-PORTAL precisar de chamadas do browser, aí sim
-#    se abre `api.{$APP_DOMAIN}` — e não antes. As duas exceções são os webhooks de
-#    provedor abaixo, que nascem fora e não têm como entrar pela rede interna.
+# 1. Do gateway publica-se o MÍNIMO, host a host e caminho a caminho — nunca o
+#    processo inteiro. O cliente HTTP do frontend é `server-only`, então o Admin,
+#    o site e o Portal na web não precisam de endereço público nenhum: falam pela
+#    rede interna do compose. O que precisa é quem nasce FORA e não alcança essa
+#    rede, e hoje são dois casos:
+#
+#      - os webhooks de provedor (`/internal/…`), no ápice;
+#      - o app do tutor, em `api.{$APP_DOMAIN}` — o caso que este comentário
+#        antecipava como "se um dia o MOD-PORTAL precisar". Um aparelho não tem
+#        rede interna, e aí não há alternativa.
+#
+#    O recorte do `api.` é por CAMINHO, e é a parte que importa: só `/portal/v1`
+#    e o catálogo de estabelecimentos. O `/v1` do Admin e o `/platform/v1` do
+#    console continuam sem endereço na internet, e é isso que impede uma rota
+#    administrativa nova de nascer publicada por engano.
+#
+#    O CORS continua irrelevante: cliente nativo não manda `Origin`.
 #
 # 2. O wildcard existe porque o slug do tenant é subdomínio. Ele exige DNS-01, que
 #    exige o módulo da Cloudflare (ver Dockerfile.caddy) e um token de API com
@@ -104,6 +115,47 @@
 	}
 	handle @webhooks {
 		reverse_proxy {$BACKEND_UPSTREAM:api-gateway:3000}
+	}
+
+	# ── A API do app do tutor ────────────────────────────────────────────────
+	#
+	# O app Flutter de `app/` é o outro cliente que nasce fora da rede interna, e
+	# o que ele alcança aqui é o Portal e mais nada: dezessete caminhos, todos
+	# sob `/portal/v1`, mais o catálogo de estabelecimentos da primeira tela.
+	#
+	# O catálogo mora sob `/public/` e é nomeado um a um de propósito — o prefixo
+	# inteiro serve também ao site do tenant, cujo cliente é o servidor do Next,
+	# e que por isso está FORA do balde de rate limit geral (`app.ts`). Abrir o
+	# prefixo publicaria uma superfície sem teto; esta rota tem o teto por IP
+	# dela, no módulo.
+	#
+	# O slug do petshop vai no header `x-petshop-tenant-slug`, e não no host,
+	# porque um aparelho não tem host: um `api.` só atende todos os tenants. E
+	# `api` está na lista de slugs reservados (`shared-types/identity.ts`), então
+	# nenhum estabelecimento o reivindica.
+	#
+	# Isto é um matcher DENTRO deste bloco, e não um site próprio: `api.` é
+	# subdomínio de APP_DOMAIN e o certificado é o wildcard que já está aqui. Um
+	# site próprio pediria à Let's Encrypt uma emissão só para ele, sem ganho.
+	@api {
+		host api.{$APP_DOMAIN}
+		path /portal/v1 /portal/v1/* /public/v1/portal/tenants
+	}
+	handle @api {
+		# A CSP é instrução para navegador. Num cliente nativo ela não é lida por
+		# ninguém, o relatório não sai de lugar nenhum, e é perto de 1 KB em cima
+		# de toda resposta — numa rede móvel isso se paga.
+		header -Content-Security-Policy-Report-Only
+		reverse_proxy {$BACKEND_UPSTREAM:api-gateway:3000}
+	}
+
+	# Todo o resto de `api.` morre aqui, e não no Next. Sem este bloco um caminho
+	# fora do recorte cairia no `handle` de baixo e voltaria como o 307 que o
+	# Admin dá para quem chega por subdomínio reservado — e o app leria uma
+	# redireção para uma tela de login como se fosse resposta da API.
+	@apiOutros host api.{$APP_DOMAIN}
+	handle @apiOutros {
+		respond 404
 	}
 
 	handle {

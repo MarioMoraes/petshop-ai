@@ -8,6 +8,55 @@ A referência viva continua sendo `backend/app/src/modules/portal/routes.ts` e
 `packages/shared-types/src/portal.ts` — mas só se abre uma delas quando este arquivo não
 responder.
 
+## Onde o app fala com o backend
+
+Desde 2026-09-22 o padrão de compilação é a **VPS**: `flutter run` e `flutter build apk`
+sem argumento nenhum já apontam para
+
+```
+https://api.petshop.officestecnologia.com.br
+```
+
+Para falar com o backend desta máquina:
+
+```
+flutter run --dart-define-from-file=dart_defines/local.json
+```
+
+Os dois endereços vivem em `app/lib/src/config.dart` (o padrão) e
+`app/dart_defines/local.json` (o desvio).
+
+### O que `api.` publica, e o que não publica
+
+O recorte é da **borda**, em `infra/Caddyfile`, e é por caminho:
+
+| Caminho | |
+|---|---|
+| `/portal/v1` e `/portal/v1/*` | vai ao gateway |
+| `/public/v1/portal/tenants` | vai ao gateway (o catálogo da primeira tela) |
+| qualquer outro | **404 do Caddy**, sem chegar ao backend |
+
+São exatamente os dezessete caminhos que `lib/src/api/portal_api.dart` chama. O `/v1` do
+Admin e o `/platform/v1` do console **não têm endereço na internet** — o que os fecha é a
+borda, não a matriz de papéis, e é isso que impede uma rota administrativa nova de nascer
+publicada por engano. Rota nova do Portal, por outro lado, já nasce alcançável.
+
+O resto do prefixo `/public/` fica de fora de propósito: ele serve também o site do
+tenant, cujo cliente é o servidor do Next, e por isso está **fora do balde de rate limit
+geral** (`backend/app/src/app.ts`). Abri-lo publicaria superfície sem teto. O catálogo é
+nomeado um a um porque tem o teto por IP dele, dentro do módulo.
+
+Um `api.` só atende **todos** os tenants, porque quem diz de que petshop se fala é o
+header `x-petshop-tenant-slug` — um aparelho não tem host. E `api` é slug reservado
+(`packages/shared-types/src/identity.ts`), então nenhum estabelecimento o reivindica.
+
+**A Clerk é a mesma instância em dev e na VPS.** Enquanto for, a conta com que se entra no
+app de desenvolvimento é a mesma da produção. Quando a produção passar para uma
+`pk_live_`, o app precisa de build nova: a chave está assada em `config.dart`.
+
+**Mudar o Caddyfile pede imagem nova da borda** (`infra/Dockerfile.caddy` o assa dentro
+da imagem), e portanto `publicar-imagens.sh` + `atualizar-vps.sh`.
+
 ## A sessão
 
 O app **não precisa de nada novo no backend**. `resolvePortalSession`

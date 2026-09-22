@@ -262,8 +262,9 @@ barrado para todos.
 em `plan_prices`, mantido pelo console (`/plataforma/planos`), e o catálogo virou o
 **padrão** — o valor de uma instalação nova e a reserva do HTML da landing. Todo caminho de
 cobrança pergunta a `shared/plan-prices.ts` (`effectivePlanPrice`), nunca ao catálogo; a
-landing lê `/api/planos` **no Next**, e não no backend, porque a borda não publica o
-gateway (decisão 1 do `infra/Caddyfile`). **Mexer no preço não reajusta quem já assina:** o
+landing lê `/api/planos` **no Next**, e não no backend, porque a borda publica do
+gateway só o que nasce fora dela, e a landing não é esse caso (decisão 1 do
+`infra/Caddyfile`). **Mexer no preço não reajusta quem já assina:** o
 valor fica congelado em `tenant_subscriptions.price_cents` — e em
 `scheduled_price_cents` quando a descida anual já foi agendada —, e é dele que saem a tela
 do estabelecimento, a diferença de uma subida de plano e o desfazer de um agendamento. Rota da equipe sob recurso pago é bloqueada por
@@ -320,9 +321,18 @@ aviso só é o `dedupeKey` da mensagem, não uma coluna de estado.
 
 **Um terceiro prefixo anônimo entrou com o MOD-NOTIF:** `/internal/`, onde moram os
 webhooks dos provedores (Evolution no pareamento do WhatsApp, Resend no retorno de
-entrega). O nome diz de onde a chamada nasce, não que ela seja privada — a rota do
-Resend é a única superfície de backend que a borda publica (`infra/Caddyfile`). Cada uma
-se autentica sozinha, com o token da instância ou a assinatura Svix sobre o corpo cru.
+entrega). O nome diz de onde a chamada nasce, não que ela seja privada — o `/internal/`
+do Resend e do Clerk é publicado pela borda (`infra/Caddyfile`). Cada uma se autentica
+sozinha, com o token da instância ou a assinatura Svix sobre o corpo cru.
+
+**A borda publica do gateway só o que nasce fora da rede interna, caminho a caminho.**
+Eram os webhooks; desde 2026-09-22 são eles e o **app do tutor**, em `api.{APP_DOMAIN}`,
+onde passam `/portal/v1` e o catálogo de estabelecimentos — e nada mais. O `/v1` do Admin
+e o `/platform/v1` do console não têm endereço na internet, e é a borda que os fecha, não
+a matriz de papéis: rota administrativa nova não nasce publicada por engano, e rota nova
+do Portal já nasce alcançável pelo app. O recorte está no matcher `@api` do
+`infra/Caddyfile`, e `app/test/recorte_da_borda_test.dart` compara a lista com os
+caminhos que o app de fato chama.
 
 ## O grafo do repositório (graphify)
 
