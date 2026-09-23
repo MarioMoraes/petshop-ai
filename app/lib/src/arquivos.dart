@@ -53,7 +53,15 @@ Future<void> _entregarPelaFolhaDoSistema(ArquivoDoPortal arquivo, {Rect? origem}
 
   await SharePlus.instance.share(
     ShareParams(
-      files: [XFile(destino.path, mimeType: 'application/pdf')],
+      // O tipo sai do nome: a exportação de Meus Dados entrega também o JSON da
+      // portabilidade, e anunciá-lo como PDF faria o sistema oferecer um leitor de PDF
+      // para abri-lo.
+      files: [
+        XFile(
+          destino.path,
+          mimeType: arquivo.nome.endsWith('.json') ? 'application/json' : 'application/pdf',
+        ),
+      ],
       sharePositionOrigin: origem,
     ),
   );

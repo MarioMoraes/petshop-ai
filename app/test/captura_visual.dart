@@ -191,6 +191,31 @@ void main() {
     await foto('16b-minha-conta-como-pagar');
     await aoInicio();
 
+    // ── meus dados ────────────────────────────────────────────────────────────
+    //
+    // A tela e três das quatro folhas: a do contato nos dois passos, porque o segundo é
+    // o que a pessoa encontra ao voltar do WhatsApp, e a do endereço, que é a mais
+    // longa do app e a que mais sofre com o teclado.
+    await clique('Meus dados');
+    await foto('18-meus-dados');
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await foto('18b-meus-dados-fim');
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, 900));
+    await tester.pumpAndSettle();
+    await clique('Alterar');
+    await foto('18c-trocar-contato');
+    await clique('Cancelar');
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    await clique('Rua das Flores, 120 — Apto 42');
+    await foto('18d-endereco');
+    await clique('Cancelar');
+    await aoInicio();
+
     // ── e o mesmo app no escuro ───────────────────────────────────────────────
     //
     // O tema escuro não é o claro invertido: sombra some, borda desaparece e a cor da
@@ -210,6 +235,10 @@ void main() {
     // maltrata: um pastel de tema claro sobre grafite vira adesivo aceso.
     await clique('Minha conta');
     await foto('17-minha-conta-escuro');
+    await aoInicio();
+
+    await clique('Meus dados');
+    await foto('19-meus-dados-escuro');
   });
 }
 
@@ -297,6 +326,8 @@ final _portal = MockClient((req) async {
       corpo = _conta;
     case 'GET /portal/v1/finance/statement':
       corpo = _extrato;
+    case 'GET /portal/v1/me/data':
+      corpo = _meusDados;
     default:
       return http.Response('{"detail":"rota nao dublada: $rota"}', 404,
           headers: {'content-type': 'application/json; charset=utf-8'});
@@ -659,4 +690,47 @@ const _extrato = {
   'total': 3,
   'balanceCents': -18000,
   'timezone': _fuso,
+};
+
+const _meusDados = {
+  'profile': {
+    'fullName': 'Mário Moraes',
+    'socialName': 'Mário',
+    'displayName': 'Mário',
+    'cpfMasked': '***.598.588-**',
+    'cnpjMasked': null,
+    'phoneMasked': '(11) 9****-8801',
+    'email': 'mario@exemplo.com',
+    'birthDate': '1990-04-12',
+  },
+  'addresses': [
+    {
+      'id': '5b0c6a55-1111-4222-8333-444455556666',
+      'label': 'Casa',
+      'zipCode': '01310100',
+      'street': 'Rua das Flores',
+      'number': '120',
+      'complement': 'Apto 42',
+      'district': 'Bela Vista',
+      'city': 'São Paulo',
+      'state': 'SP',
+      'accessNotes': 'Portão azul, interfone 42.',
+      'isPrimary': true,
+    },
+    {
+      'id': '5b0c6a55-1111-4222-8333-444455556667',
+      'label': 'Trabalho',
+      'zipCode': '04538133',
+      'street': 'Avenida Brigadeiro Faria Lima',
+      'number': '3500',
+      'complement': null,
+      'district': 'Itaim Bibi',
+      'city': 'São Paulo',
+      'state': 'SP',
+      'accessNotes': null,
+      'isPrimary': false,
+    },
+  ],
+  'pendingContact': null,
+  'deletionRequest': null,
 };

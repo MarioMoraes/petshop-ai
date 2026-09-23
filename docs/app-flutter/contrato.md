@@ -788,3 +788,72 @@ conta real do usuário.
 
 Capturas novas: `10b-leva-e-traz` e `13b-comprovante-total`; `12-confirmar` e
 `13-comprovante` mudaram.
+
+---
+
+# Meus dados (etapa 8, 2026-09-23)
+
+MOD-PORTAL-09 no app, e o que o deixa pronto para a revisão das lojas: a Apple (5.1.1(v))
+e o Google Play exigem que o app que cria conta ofereça, **dentro dele**, o caminho para
+pedir a exclusão. **Nenhuma rota nova no backend**, e os modelos já existiam — o gerador
+cobre todo schema de `portal.ts`.
+
+| Método e rota | Corpo | Devolve |
+|---|---|---|
+| `GET /portal/v1/me/data` | — | `PortalMeDataResponse` |
+| `PATCH /portal/v1/me/data` | `UpdateOwnTutor` — os **dois** campos, nulos inclusive | `PortalMeDataResponse` |
+| `POST /portal/v1/me/addresses` | `PortalAddressInput`, `semNulos` | `PortalMeDataResponse` (201) |
+| `PATCH /portal/v1/me/addresses/:id` | `UpdatePortalAddress`, `semNulos` | `PortalMeDataResponse` |
+| `POST /portal/v1/me/contact` | `PortalContactChange` | `PortalContactChangeResponse` (202) |
+| `POST /portal/v1/me/contact/verify` | `PortalContactVerify` | `PortalMeDataResponse` |
+| `GET /portal/v1/me/export/pdf` | — | bytes, com `content-disposition` |
+| `GET /portal/v1/me/export` | — | JSON, **sem** `content-disposition` |
+| `POST /portal/v1/me/deletion-request` | `PortalDeletionRequestInput`, `semNulos` | `PortalMeDataResponse` (201) |
+
+**Toda escrita devolve a ficha inteira relida**, e a tela troca o estado por ela — nunca
+remenda o que tinha. Nenhuma escrita é seguida de um `GET`.
+
+## Três schemas, três sentidos de `null`
+
+É a armadilha da etapa, e o que o arnês mais guarda:
+
+- **Perfil** — `socialName` e `birthDate` são `.nullable()`: `null` é "apague", e vai
+  sempre. Mesma exceção do `PATCH /pets/:id`.
+- **Endereço** — `complement` e `accessNotes` são `.optional()`: `null` é **422**. O jeito
+  de apagar é **string vazia**, que o serviço de endereços grava como `null`
+  (`addresses/service.ts`). O formulário só manda `""` quando havia algo — não escreve na
+  trilha uma mudança que ninguém fez.
+- **Exclusão** — `reason` é `.optional()`: sem motivo, o corpo é `{}`.
+
+## Divergências conscientes da web
+
+- **A seta de voltar existe também com o desafio que veio do servidor.** Na web ela some
+  quando o código pendente veio de `pendingContact`. Mas pedir um código novo consome o
+  anterior (`contact-change.ts`), então não há o que proteger — e quem digitou o número
+  errado e fechou o app ficaria preso a ele por dez minutos.
+- **O desafio aberto aparece no cartão de Contato**, num aviso, e não só dentro da folha:
+  no app a pessoa volta do WhatsApp para uma tela que não sabe o que ficou pela metade.
+- **"Nome social"** no rótulo da ficha, e não "Como prefere ser chamado": a coluna de
+  rótulos de `LinhaDeDado` tem 116px e a frase quebrava em duas linhas. A folha de edição
+  mantém a frase longa, onde o rótulo tem a largura toda.
+- **O JSON sai pela folha do sistema**, como o PDF. `entregarArquivo` passou a tirar o tipo
+  do nome do arquivo, para não anunciar o JSON como PDF.
+
+## O que ficou fora
+
+As duas exportações não entraram no `tool/smoke.dart`: cada uma grava `tutor.exported`
+na trilha, e um arnês que roda à toa não deve registrar um exercício do direito de acesso
+que o titular não fez. O smoke lê só `GET /me/data`.
+
+## O que o arnês guarda
+
+`test/telas_meus_dados_test.dart`, 8 casos. O dublê **recusa `null`** nas rotas de endereço
+com 422, como o servidor — um dublê que aceitasse qualquer corpo deixaria passar
+exatamente o defeito que a etapa mais arrisca.
+
+`ui/folha.dart` (`FolhaDeFormulario`, `RotuloDeCampo`, `DicaDeCampo`) nasceu aqui, da
+construção que `editar_pet.dart` tem escrita à mão; as quatro folhas de Meus Dados a usam.
+A edição do pet continua com a cópia própria.
+
+Capturas novas: `18-meus-dados`, `18b-meus-dados-fim`, `18c-trocar-contato`,
+`18d-endereco` e `19-meus-dados-escuro`.

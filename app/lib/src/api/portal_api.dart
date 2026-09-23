@@ -235,4 +235,97 @@ class PortalApi {
       PortalReceiptResponse.fromJson(
         await _cliente.get('/portal/v1/finance/receipts/$paymentId'),
       );
+
+  // ── Meus Dados ─────────────────────────────────────────────────────────────
+  //
+  // **Toda escrita desta seção devolve a ficha inteira relida**, e não o recurso que
+  // mudou: a tela é uma só, e é a resposta do servidor que passa a valer — a tela nunca
+  // remenda o que tinha com o que supôs ter salvado.
+
+  /// A ficha como o titular a vê (MOD-PORTAL-09). Sem `notes`: aquilo é o caderno da
+  /// recepção, e só desce na exportação.
+  Future<PortalMeDataResponse> meusDados() async =>
+      PortalMeDataResponse.fromJson(await _cliente.get('/portal/v1/me/data'));
+
+  /// Nome social e nascimento — os dois campos que o tutor muda sozinho.
+  ///
+  /// **Sem `semNulos`, pela mesma razão do `atualizarPet`:** no `UpdateOwnTutorSchema`
+  /// os dois são `.nullable()`, e `null` é o "apague" de quem limpou o campo. O
+  /// formulário manda os dois sempre. Nome civil, CPF e contato ficam fora porque o
+  /// schema é `.strict()` — mandá-los seria 422.
+  Future<PortalMeDataResponse> atualizarPerfil(UpdateOwnTutor mudanca) async =>
+      PortalMeDataResponse.fromJson(
+        await _cliente.patch('/portal/v1/me/data', corpo: mudanca.toJson()),
+      );
+
+  /// Endereço novo. `semNulos` porque `complement` e `accessNotes` são `.optional()`, e
+  /// não `.nullable()`: aqui `null` é 422.
+  Future<PortalMeDataResponse> adicionarEndereco(PortalAddressInput endereco) async =>
+      PortalMeDataResponse.fromJson(
+        await _cliente.post('/portal/v1/me/addresses', corpo: semNulos(endereco.toJson())),
+      );
+
+  /// Corrige um endereço.
+  ///
+  /// Também `semNulos`, e o jeito de **apagar** o complemento é string vazia, não
+  /// `null`: o serviço de endereços grava `null` quando recebe `""`. Quem monta o
+  /// pedido é o formulário, que sabe a diferença entre "não mexi" e "limpei".
+  Future<PortalMeDataResponse> corrigirEndereco(
+    String enderecoId,
+    UpdatePortalAddress mudanca,
+  ) async =>
+      PortalMeDataResponse.fromJson(
+        await _cliente.patch(
+          '/portal/v1/me/addresses/$enderecoId',
+          corpo: semNulos(mudanca.toJson()),
+        ),
+      );
+
+  /// Pede o código que confirma um telefone ou e-mail novo (AC-02).
+  ///
+  /// O código sai para o contato **novo** — é a posse dele que se prova. Pedir de novo
+  /// invalida o pedido anterior no servidor, e é por isso que a tela deixa voltar e
+  /// corrigir o número digitado mesmo com um desafio aberto.
+  Future<PortalContactChangeResponse> pedirTrocaDeContato(PortalContactChange troca) async =>
+      PortalContactChangeResponse.fromJson(
+        await _cliente.post('/portal/v1/me/contact', corpo: troca.toJson()),
+      );
+
+  /// Confere o código. Só agora o contato entra na ficha.
+  Future<PortalMeDataResponse> confirmarTrocaDeContato(PortalContactVerify codigo) async =>
+      PortalMeDataResponse.fromJson(
+        await _cliente.post('/portal/v1/me/contact/verify', corpo: codigo.toJson()),
+      );
+
+  /// A cópia dos dados em PDF (AC-04 — LGPD art. 18, direito de acesso).
+  ///
+  /// Bytes, como o extrato: o documento é o retrato da ficha agora, e guardá-lo num
+  /// bucket criaria uma segunda cópia dos dados pessoais só para poder entregá-los.
+  /// Cada chamada vira `tutor.exported` na trilha — é a prova de que o direito foi
+  /// exercido.
+  Future<ArquivoDoPortal> meusDadosEmPdf(DateTime hoje) => _cliente.arquivo(
+        '/portal/v1/me/export/pdf',
+        nomePadrao: 'meus-dados-${_diaDoArquivo(hoje)}.pdf',
+      );
+
+  /// A mesma exportação em JSON — a portabilidade do art. 19, o arquivo que outro
+  /// sistema consegue importar.
+  ///
+  /// Vai por `arquivo`, e não por `get`: o app não lê este JSON, entrega-o. Decodificar
+  /// e codificar de novo só arriscaria mudar o que o servidor escreveu. A rota não manda
+  /// `content-disposition`, então o nome é sempre o de reserva.
+  Future<ArquivoDoPortal> meusDadosEmJson(DateTime hoje) => _cliente.arquivo(
+        '/portal/v1/me/export',
+        nomePadrao: 'meus-dados-${_diaDoArquivo(hoje)}.json',
+      );
+
+  /// O pedido de exclusão (AC-05). **Registra, não apaga**: vira uma linha na fila da
+  /// equipe, que responde em até 15 dias. `semNulos` porque o motivo é opcional, e
+  /// ausente — não `null`.
+  Future<PortalMeDataResponse> pedirExclusao(PortalDeletionRequestInput pedido) async =>
+      PortalMeDataResponse.fromJson(
+        await _cliente.post('/portal/v1/me/deletion-request', corpo: semNulos(pedido.toJson())),
+      );
+
+  static String _diaDoArquivo(DateTime dia) => dia.toIso8601String().substring(0, 10);
 }

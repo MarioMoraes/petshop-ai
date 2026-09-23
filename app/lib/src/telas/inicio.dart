@@ -6,6 +6,7 @@ import '../ui/superficies.dart';
 import '../ui/tema.dart';
 import 'agendamentos/lista_de_agendamentos.dart';
 import 'agendar/marcar_horario.dart';
+import 'dados/meus_dados.dart';
 import 'financeiro/minha_conta.dart';
 import 'pets/lista_de_pets.dart';
 
@@ -167,6 +168,19 @@ class Inicio extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => MinhaConta(sessao: sessao)),
                   ),
                   child: const TextoDaLinha(titulo: 'Minha conta'),
+                ),
+
+                /// Por último, porque é o destino menos frequente — corrigir um
+                /// endereço, trocar o telefone. Mas não sai do menu: é também onde mora
+                /// o pedido de exclusão, e um direito que só se acha procurando não é
+                /// um direito exercível (e as lojas exigem o caminho dentro do app).
+                Linha(
+                  aoCentro: true,
+                  inicio: const ChipDeIcone(Icons.badge_rounded, base: Tons.gente),
+                  aoTocar: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => MeusDados(sessao: sessao)),
+                  ),
+                  child: const TextoDaLinha(titulo: 'Meus dados'),
                 ),
               ],
             ),

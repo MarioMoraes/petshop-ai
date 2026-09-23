@@ -209,6 +209,16 @@ Future<void> main(List<String> args) async {
     print('  —     GET /finance/receipts/:paymentId (nenhum pagamento no extrato)');
   }
 
+  // Só a leitura de Meus Dados. As duas exportações ficam de fora de propósito: cada
+  // uma grava `tutor.exported` na trilha, e um arnês que roda à toa não deve registrar
+  // um exercício do direito de acesso que o titular não fez.
+  await passo('GET /me/data', () async {
+    final dados = await api.meusDados();
+    print('        ${dados.addresses.length} endereço(s) · '
+        'contato pendente: ${dados.pendingContact == null ? "não" : "sim"} · '
+        'pedido de exclusão: ${dados.deletionRequest?.status.name ?? "nenhum"}');
+  });
+
   cliente.fechar();
   print(falhas == 0 ? '\ntudo verde.' : '\n$falhas falha(s).');
   exit(falhas == 0 ? 0 : 1);
