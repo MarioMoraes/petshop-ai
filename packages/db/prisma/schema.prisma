@@ -2918,6 +2918,12 @@ model Message {
   /// o template depois não reescreve o que já está esperando para sair.
   bodyEncrypted    String  @map("body_encrypted")
 
+  /// O texto do e-mail, renderizado junto com o do WhatsApp, para quando o WhatsApp não
+  /// consegue entregar (a confirmação do agendamento online). Apagado assim que a
+  /// mensagem sai por um dos dois; nulo em quem não pediu segundo canal.
+  fallbackSubjectEncrypted String? @map("fallback_subject_encrypted")
+  fallbackBodyEncrypted    String? @map("fallback_body_encrypted")
+
   status      MessageStatus       @default(QUEUED)
   blockReason MessageBlockReason? @map("block_reason")
 

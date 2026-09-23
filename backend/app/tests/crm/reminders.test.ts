@@ -155,6 +155,55 @@ describe('reação a eventos (§8)', () => {
     expect(messaging.requests[0]!.templateKey).toBe('appointment_confirmed')
   })
 
+  it('a confirmação do agendamento online pede o e-mail como segundo canal', async () => {
+    /**
+     * Quem marcou pelo Portal ou pelo app não falou com ninguém: a confirmação é a única
+     * prova de que o horário é dele, e um WhatsApp represado não a entrega a tempo.
+     */
+    const appointment = await givenAppointment(fixture, { hoursFromNow: 48 })
+
+    await handleAgendamentoCriado({
+      tenantId: fixture.tenantId,
+      appointmentId: appointment.appointmentId,
+      source: 'PORTAL',
+    })
+
+    expect(messaging.requests).toHaveLength(1)
+    expect(messaging.requests[0]!.fallbackToEmail).toBe(true)
+  })
+
+  it('no agendamento online o WhatsApp vai na frente mesmo com a confirmação configurada para e-mail', async () => {
+    const configured = await callApi({
+      ...asAdmin(fixture),
+      method: 'PATCH',
+      url: '/v1/crm/automations/appointment_confirmed',
+      payload: { channel: 'EMAIL' },
+    })
+    expect(configured.statusCode).toBe(200)
+    const appointment = await givenAppointment(fixture, { hoursFromNow: 48 })
+
+    await handleAgendamentoCriado({
+      tenantId: fixture.tenantId,
+      appointmentId: appointment.appointmentId,
+      source: 'PORTAL',
+    })
+
+    expect(messaging.requests[0]!.channel).toBe('WHATSAPP')
+    expect(messaging.requests[0]!.fallbackToEmail).toBe(true)
+  })
+
+  it('a confirmação do balcão segue sem segundo canal', async () => {
+    const appointment = await givenAppointment(fixture, { hoursFromNow: 48 })
+
+    await handleAgendamentoCriado({
+      tenantId: fixture.tenantId,
+      appointmentId: appointment.appointmentId,
+      source: 'STAFF',
+    })
+
+    expect(messaging.requests[0]!.fallbackToEmail).toBeUndefined()
+  })
+
   it('não manda a confirmação quando quem publicou pediu silêncio (MOD-IMPORT)', async () => {
     /**
      * A carga da base anterior cria a agenda inteira de uma vez. Sem esta bandeira, o

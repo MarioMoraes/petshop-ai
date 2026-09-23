@@ -655,7 +655,14 @@ async function fallbackPendingToEmail(tenantId: string): Promise<number> {
         tutorId: { not: null },
         status: { in: ['QUEUED', 'SCHEDULED'] },
       },
-      select: { id: true, tutorId: true, category: true, templateKey: true },
+      select: {
+        id: true,
+        tutorId: true,
+        category: true,
+        templateKey: true,
+        fallbackSubjectEncrypted: true,
+        fallbackBodyEncrypted: true,
+      },
     }),
   )
 
@@ -681,6 +688,15 @@ async function fallbackPendingToEmail(tenantId: string): Promise<number> {
       }
 
       const subject = findTemplateDefinition(message.templateKey)?.label ?? null
+      // Quem pediu segundo canal já tem o texto do e-mail pronto, com o assunto próprio
+      // — é ele que vai, e não o corpo do WhatsApp com o rótulo do template.
+      const prepared =
+        decision.delivery.channel === 'EMAIL' && message.fallbackBodyEncrypted
+          ? {
+              subjectEncrypted: message.fallbackSubjectEncrypted,
+              bodyEncrypted: message.fallbackBodyEncrypted,
+            }
+          : { subjectEncrypted: subject ? cipher.encrypt(subject) : null }
       await tx.message.update({
         where: { id: message.id },
         data: {
@@ -690,7 +706,9 @@ async function fallbackPendingToEmail(tenantId: string): Promise<number> {
             `messaging:${decision.delivery.channel.toLowerCase()}`,
             decision.delivery.address.toLowerCase(),
           ),
-          subjectEncrypted: subject ? cipher.encrypt(subject) : null,
+          ...prepared,
+          fallbackSubjectEncrypted: null,
+          fallbackBodyEncrypted: null,
           // Não errou nada: foi o canal que morreu. Manter o backoff acumulado
           // atrasaria por horas um aviso que agora pode sair imediatamente.
           status: 'QUEUED',

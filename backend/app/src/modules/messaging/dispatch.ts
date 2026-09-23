@@ -16,6 +16,7 @@ import { marketingCapReached } from './frequency.js'
 import { isSuppressed, suppress } from './suppressions.js'
 import { loadSettings } from './settings.js'
 import { markBanned, warmupStartedAt } from './whatsapp.js'
+import { switchToEmail } from './fallback.js'
 import { tenantToday } from './window.js'
 
 /**
@@ -189,6 +190,8 @@ interface PreparedMessage {
   channel: 'WHATSAPP' | 'EMAIL'
   category: 'TRANSACTIONAL' | 'OPERATIONAL' | 'MARKETING'
   attempts: number
+  /** O texto do segundo canal, cifrado. Só a presença importa aqui (ver `fallback.ts`). */
+  fallbackBodyEncrypted: string | null
 }
 
 async function dispatchOne(
@@ -422,6 +425,23 @@ async function dispatchOne(
     return 'blocked'
   }
 
+  /**
+   * O WhatsApp ficou inviável entre a fila e o envio — o tutor revogou o canal, o número
+   * entrou na supressão. Para quem pediu segundo canal isso é motivo de queda, e não de
+   * bloqueio: o e-mail pode estar de pé. Óbito e conta parada **não** caem, porque o
+   * impedimento ali não é do canal.
+   */
+  if (
+    prepared.kind === 'block' &&
+    prepared.message.channel === 'WHATSAPP' &&
+    (prepared.block === 'NO_CONSENT' ||
+      prepared.block === 'SUPPRESSED' ||
+      prepared.block === 'NO_CHANNEL') &&
+    (await switchToEmail(tenantId, messageId, { blockReason: prepared.block }, now))
+  ) {
+    return 'failed'
+  }
+
   if (prepared.kind === 'block') {
     await withTenant(tenantId, (tx) =>
       tx.message.update({
@@ -494,6 +514,9 @@ async function dispatchOne(
           providerMessageId: result.providerMessageId,
           errorCode: null,
           errorDetail: null,
+          // Saiu: o texto do segundo canal não tem mais serventia, e é dado pessoal.
+          fallbackSubjectEncrypted: null,
+          fallbackBodyEncrypted: null,
         },
       })
       await tx.messageEvent.create({
@@ -545,6 +568,24 @@ async function dispatchOne(
     )
     await markBanned(tenantId, result.errorDetail ?? null)
     return 'failed'
+  }
+
+  /**
+   * O segundo canal (ver `fallback.ts`): para esta mensagem, **qualquer** falha do
+   * WhatsApp é motivo de ir para o e-mail — inclusive a queda de canal logo abaixo, que
+   * para as outras é só espera. O chamador disse, ao enfileirar, que esperar não serve.
+   *
+   * A supressão do número que não existe continua valendo: o próximo lembrete desse
+   * tutor não deve tentar o mesmo número de novo.
+   */
+  if (prepared.message.channel === 'WHATSAPP' && prepared.message.fallbackBodyEncrypted) {
+    if (result.permanent && result.errorCode !== 'CHANNEL_UNAVAILABLE') {
+      await withTenant(tenantId, (tx) =>
+        suppress(tx, tenantId, 'WHATSAPP', prepared.to, 'HARD_BOUNCE'),
+      )
+    }
+    const cause = { errorCode: result.errorCode ?? null, errorDetail: result.errorDetail ?? null }
+    if (await switchToEmail(tenantId, messageId, cause, now)) return 'failed'
   }
 
   // AC-04 de MOD-CRM-01: o canal saiu do ar, a mensagem não errou nada.

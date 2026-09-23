@@ -217,6 +217,22 @@ export const EnqueueMessageSchema = z
      * aplica: o que atravessa aqui é execução de contrato, e o tutor acabou de pedir.
      */
     overrideAddress: z.string().min(3).max(160).optional(),
+    /**
+     * Se o WhatsApp não conseguir entregar, manda pelo e-mail.
+     *
+     * A cascata do `AUTO` já cai para o e-mail quando o WhatsApp é inviável **na
+     * entrada da fila** — sem telefone, sem número pareado, sem consentimento. O que ela
+     * não cobre é o WhatsApp que parecia viável e falhou **no envio**: o celular do
+     * petshop sem internet, o número do tutor que não tem WhatsApp, o provedor fora. Sem
+     * este campo a mensagem espera o canal voltar ou morre. Com ele, o texto do e-mail é
+     * renderizado junto com o do WhatsApp e o despacho troca de canal na primeira falha.
+     *
+     * O caso que o motivou é a confirmação do agendamento feito pelo Portal ou pelo app:
+     * quem marcou sozinho, sem falar com ninguém, precisa da prova de que o horário é
+     * dele — e um "confirmado" que chega no dia seguinte, quando o celular voltou, não é
+     * confirmação. Só para tutor; ignorado com `overrideAddress`, que já fixa o canal.
+     */
+    fallbackToEmail: z.boolean().optional(),
   })
   /**
    * AC-02 de MOD-NOTIF-01 — exatamente um destinatário, coerente com o tipo.

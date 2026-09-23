@@ -91,7 +91,13 @@ export async function purgeExpiredBodies(now: Date = new Date()): Promise<{ purg
       const { count } = await withTenant(tenantId, (tx) =>
         tx.message.updateMany({
           where: { createdAt: { lt: cutoff }, bodyEncrypted: { not: '' } },
-          data: { bodyEncrypted: '', subjectEncrypted: null, toEncrypted: '' },
+          data: {
+            bodyEncrypted: '',
+            subjectEncrypted: null,
+            toEncrypted: '',
+            fallbackSubjectEncrypted: null,
+            fallbackBodyEncrypted: null,
+          },
         }),
       )
       purged += count

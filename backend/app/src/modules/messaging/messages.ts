@@ -225,6 +225,9 @@ async function absorbIntoRecent(
       category: input.category,
       direction: 'OUTBOUND',
       status: { in: ['QUEUED', 'SCHEDULED'] },
+      // A irmã com segundo canal não recebe texto de outra: o e-mail guardado nela não
+      // o teria, e a queda entregaria só metade.
+      fallbackBodyEncrypted: null,
       createdAt: { gte: new Date(input.now.getTime() - MERGE_WINDOW_MS) },
     },
     orderBy: { createdAt: 'desc' },
@@ -363,7 +366,7 @@ export async function enqueueMessage(
       }
 
       const cipher = await openCipher(tx, actor.tenantId)
-      const decision = recipient.kind === 'USER'
+      let decision = recipient.kind === 'USER'
         ? await resolveUserDelivery(tx, { tenantId: actor.tenantId, userId: recipient.userId })
         : input.overrideAddress
         ? await resolveOverrideDelivery(tx, {
@@ -379,6 +382,26 @@ export async function enqueueMessage(
             preference: input.channel === 'AUTO' ? settings.defaultChannel : input.channel,
             category,
           })
+
+      /**
+       * O segundo canal pedido pelo chamador (ver `fallbackToEmail` no schema).
+       *
+       * Só faz diferença quando a preferência **não** é `AUTO`: a cascata do `AUTO` já
+       * tenta o e-mail sozinha. Um tenant com o WhatsApp como canal padrão, ou uma
+       * automação configurada para WhatsApp, recusaria aqui a mensagem que o chamador
+       * pediu explicitamente para não perder.
+       */
+      const wantsFallback =
+        input.fallbackToEmail && recipient.kind === 'TUTOR' && !input.overrideAddress
+      if (wantsFallback && !decision.ok && decision.channel === 'WHATSAPP') {
+        const byEmail = await resolveDelivery(tx, cipher, {
+          tenantId: actor.tenantId,
+          tutorId: recipient.tutorId,
+          preference: 'EMAIL',
+          category,
+        })
+        if (byEmail.ok) decision = byEmail
+      }
 
       /**
        * O teto semanal do tutor, cobrado **aqui** e não no despacho.
@@ -416,6 +439,27 @@ export async function enqueueMessage(
       }
       const body = render(template.body, variables)
       const subject = template.subject ? render(template.subject, variables).text : null
+
+      /**
+       * O texto do e-mail, renderizado **agora** junto com o do WhatsApp.
+       *
+       * Na hora em que o despacho descobre que o WhatsApp falhou, as variáveis já não
+       * existem — a mensagem guarda o texto, não os dados (RN-14). Renderizar o e-mail
+       * depois com o corpo do WhatsApp mandaria o texto curto, sem o profissional e sem
+       * assunto próprio.
+       */
+      const fallbackTemplate =
+        wantsFallback && decision.ok && channel === 'WHATSAPP'
+          ? await resolveTemplate(tx, input.templateKey, 'EMAIL')
+          : null
+      const fallback = fallbackTemplate
+        ? {
+            body: render(fallbackTemplate.body, variables).text,
+            subject: fallbackTemplate.subject
+              ? render(fallbackTemplate.subject, variables).text
+              : null,
+          }
+        : null
 
       if (body.missing.length > 0) {
         // Não impede o envio: um template que perdeu uma variável ainda comunica o
@@ -469,8 +513,11 @@ export async function enqueueMessage(
        * troca sem prova nenhuma. Hoje nenhum chamador chega aqui — o único texto que usa
        * o campo é `urgent` —, e a guarda existe para o segundo.
        */
+      // Com segundo canal, também não: a irmã não carrega o texto do e-mail, e o que se
+      // absorvesse nela perderia a queda que o chamador pediu.
       const absorbedBy =
         blocked ||
+        fallback ||
         input.urgent ||
         input.overrideAddress ||
         Boolean(input.documentId) ||
@@ -501,6 +548,8 @@ export async function enqueueMessage(
           toHash: hashSearchable(`messaging:${channel.toLowerCase()}`, address.toLowerCase()),
           subjectEncrypted: subject ? cipher.encrypt(subject) : null,
           bodyEncrypted: cipher.encrypt(body.text),
+          fallbackSubjectEncrypted: fallback?.subject ? cipher.encrypt(fallback.subject) : null,
+          fallbackBodyEncrypted: fallback ? cipher.encrypt(fallback.body) : null,
           status: blocked
             ? 'BLOCKED'
             : absorbedBy

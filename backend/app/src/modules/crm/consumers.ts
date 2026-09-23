@@ -55,6 +55,11 @@ const AgendamentoSchema = z.object({
    * que ele não conhece, não rendem trezentas confirmações.
    */
   notify: z.boolean().optional(),
+  /**
+   * De onde veio o agendamento. Ausente nos eventos de cancelamento e reagendamento,
+   * e nos publicados antes do campo existir — tratado como balcão.
+   */
+  source: z.string().optional(),
 })
 
 const AtendimentoConcluidoSchema = z.object({
@@ -81,11 +86,22 @@ const TaxiCorridaSchema = z.object({
   notify: z.boolean().optional(),
 })
 
-/** Confirmação do horário recém-marcado. */
+/**
+ * Confirmação do horário recém-marcado.
+ *
+ * **Quem marcou pelo Portal ou pelo app recebe pelo WhatsApp e, se ele falhar, pelo
+ * e-mail.** Marcado no balcão, o cliente saiu de lá sabendo do horário; marcado sozinho,
+ * a confirmação é a única prova que ele tem de que o horário é dele — e um WhatsApp
+ * esperando o celular do petshop voltar a ter internet não prova nada a tempo. O
+ * pedido que o dono aprova depois (`onlineBookingRequiresApproval`) chega aqui com a
+ * mesma origem, e cai do mesmo jeito.
+ */
 export async function handleAgendamentoCriado(payload: unknown): Promise<void> {
   const event = AgendamentoSchema.parse(payload)
   if (event.notify === false) return
-  await notifyAppointment(event.tenantId, event.appointmentId, 'appointment_confirmed')
+  await notifyAppointment(event.tenantId, event.appointmentId, 'appointment_confirmed', {
+    fallbackToEmail: event.source === 'PORTAL',
+  })
 }
 
 /**
@@ -221,6 +237,7 @@ async function notifyAppointment(
   tenantId: string,
   appointmentId: string,
   key: 'appointment_confirmed' | 'appointment_cancelled' | 'service_done',
+  options: { fallbackToEmail?: boolean } = {},
 ): Promise<void> {
   const automation = await withTenant(tenantId, (tx) => resolveAutomation(tx, key))
   if (!automation.enabled) return
@@ -235,11 +252,15 @@ async function notifyAppointment(
     tutorId: context.tutorId,
     petId: context.petId,
     templateKey: automation.templateKey,
-    channel: automation.channel,
+    // Com segundo canal, o WhatsApp vai na frente **mesmo** que a automação ou o padrão
+    // do petshop digam e-mail: o e-mail é a queda, e não a primeira escolha. É pedir o
+    // WhatsApp pelo nome que passa por cima do padrão do tenant, que só vale para `AUTO`.
+    channel: options.fallbackToEmail ? 'WHATSAPP' : automation.channel,
     dedupeKey: `${key}:${appointmentId}`,
     originType: 'APPOINTMENT',
     originId: appointmentId,
     variables: context.variables,
+    ...(options.fallbackToEmail ? { fallbackToEmail: true } : {}),
   })
 }
 

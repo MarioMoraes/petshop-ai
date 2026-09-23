@@ -47,6 +47,8 @@ export interface EnqueueRequest {
   originType?: MessageOriginType
   originId?: string
   scheduledFor?: Date
+  /** Se o WhatsApp não entregar, manda pelo e-mail (ver `EnqueueMessageSchema`). */
+  fallbackToEmail?: boolean
 }
 
 /**
@@ -95,6 +97,7 @@ function createInProcessPort(): MessagingPort {
           ...(request.originType ? { originType: request.originType } : {}),
           ...(request.originId ? { originId: request.originId } : {}),
           ...(request.scheduledFor ? { scheduledFor: request.scheduledFor } : {}),
+          ...(request.fallbackToEmail ? { fallbackToEmail: true } : {}),
         })
 
         const result = await enqueueMessage({ tenantId: request.tenantId }, input)
