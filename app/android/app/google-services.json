@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "564774514963",
+    "project_id": "petshop-ai",
+    "storage_bucket": "petshop-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:564774514963:android:aac11630cea832fd74eae6",
+        "android_client_info": {
+          "package_name": "com.petshopai.petshop_tutor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhrSoJiN6B1_c4TIRxrCvx_LKYleZuHF0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
