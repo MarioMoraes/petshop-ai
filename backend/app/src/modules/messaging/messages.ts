@@ -461,6 +461,27 @@ export async function enqueueMessage(
           }
         : null
 
+      /**
+       * O aviso no aparelho, renderizado **agora** pelo mesmo motivo do texto de reserva:
+       * no despacho as variáveis já não existem (RN-14).
+       *
+       * Só para tutor e só em template que declara `push` — a lista de avisos que viram
+       * push é aquele campo. Se o tutor tem aparelho quem responde é o despacho, porque
+       * o app pode ser instalado entre a entrada na fila e a saída. Mensagem bloqueada
+       * não guarda o texto: ela não sai, e o push também não.
+       *
+       * Absorvida por uma irmã (RN-08), o aviso dela se perde e vale o da irmã — que é a
+       * mensagem que de fato sai. Dois avisos na tela bloqueada para um WhatsApp só
+       * contariam uma história diferente da que o cliente lê na conversa.
+       */
+      const push =
+        recipient.kind === 'TUTOR' && definition?.push && decision.ok
+          ? {
+              title: render(definition.push.title, variables).text,
+              body: render(definition.push.body, variables).text,
+            }
+          : null
+
       if (body.missing.length > 0) {
         // Não impede o envio: um template que perdeu uma variável ainda comunica o
         // essencial, e barrar aqui silenciaria o lembrete inteiro por um campo vazio.
@@ -550,6 +571,8 @@ export async function enqueueMessage(
           bodyEncrypted: cipher.encrypt(body.text),
           fallbackSubjectEncrypted: fallback?.subject ? cipher.encrypt(fallback.subject) : null,
           fallbackBodyEncrypted: fallback ? cipher.encrypt(fallback.body) : null,
+          pushTitleEncrypted: push ? cipher.encrypt(push.title) : null,
+          pushBodyEncrypted: push ? cipher.encrypt(push.body) : null,
           status: blocked
             ? 'BLOCKED'
             : absorbedBy

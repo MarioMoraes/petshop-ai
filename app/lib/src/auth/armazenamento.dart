@@ -21,6 +21,11 @@ abstract class Armazenamento {
   ///
   /// Quem sai da conta quase sempre vai entrar com outra no mesmo estabelecimento —
   /// fazê-lo digitar o endereço de novo seria castigo sem motivo.
+  /// A pessoa tocou "Agora não" no cartão de avisos do Início. Guardado para o cartão
+  /// não voltar a cada abertura — insistir é o que faz alguém recusar de vez.
+  Future<bool> get avisosDispensados;
+  Future<void> dispensarAvisos();
+
   Future<void> esquecerSessao();
 
   Future<void> esquecerTudo();
@@ -44,6 +49,11 @@ class CofreEmMemoria implements Armazenamento {
   Future<String?> get sessaoId async => _valores['sessao'];
   @override
   Future<void> gravarSessaoId(String valor) async => _valores['sessao'] = valor;
+
+  @override
+  Future<bool> get avisosDispensados async => _valores['avisos'] == 'dispensados';
+  @override
+  Future<void> dispensarAvisos() async => _valores['avisos'] = 'dispensados';
 
   @override
   Future<void> esquecerSessao() async {

@@ -244,6 +244,10 @@ services:
       # Rede interna: este webhook nunca passa pela borda.
       EVOLUTION_WEBHOOK_URL: http://backend:3000/internal/v1/whatsapp/webhook
       RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+      # Push do app do tutor (FCM). Vazias = push desligado; a mensagem de WhatsApp
+      # ou e-mail sai do mesmo jeito. A conta de serviço vai em base64.
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      FCM_SERVICE_ACCOUNT_JSON_B64: ${FCM_SERVICE_ACCOUNT_JSON_B64:-}
       ASAAS_API_KEY: ${ASAAS_API_KEY:-}
       ASAAS_API_URL: ${ASAAS_API_URL:-https://api-sandbox.asaas.com/v3}
       ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}

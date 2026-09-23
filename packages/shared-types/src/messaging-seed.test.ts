@@ -33,6 +33,14 @@ const textos = MESSAGE_TEMPLATES.flatMap((template) => [
     onde: canal,
     texto: corpo as string,
   })),
+  // O texto do push passa pelo mesmo `render`, e um marcador errado ali apareceria na
+  // tela bloqueada do tutor do mesmo jeito que `{{mensagem}}` apareceu no WhatsApp.
+  ...(template.push
+    ? [
+        { key: template.key, onde: 'push.title', texto: template.push.title },
+        { key: template.key, onde: 'push.body', texto: template.push.body },
+      ]
+    : []),
 ])
 
 describe('marcadores dos textos semeados', () => {
@@ -74,4 +82,55 @@ describe('variáveis declaradas', () => {
       expect(semPonto).toEqual([])
     },
   )
+})
+
+/**
+ * O que chega à tela bloqueada (etapa 9 do app).
+ *
+ * O push é lido por qualquer um que esteja ao lado do celular, sem desbloquear. Três
+ * regras que nenhum outro teste percebe e que um template novo copiado de outro pode
+ * quebrar sem ninguém notar.
+ */
+describe('texto de push', () => {
+  const comPush = MESSAGE_TEMPLATES.filter((template) => template.push)
+
+  it('existe nos avisos escolhidos, e só neles', () => {
+    expect(comPush.map((template) => template.key).sort()).toEqual(
+      [
+        'appointment_cancelled',
+        'appointment_confirmed',
+        'appointment_reminder',
+        'dunning_final',
+        'dunning_firm',
+        'dunning_soft',
+        'service_done',
+        'taxi_arrived',
+        'taxi_delivered',
+        'taxi_en_route',
+        'taxi_failed',
+      ].sort(),
+    )
+  })
+
+  it('nunca é de marketing, de equipe nem de código de acesso', () => {
+    for (const template of comPush) {
+      expect(template.category, template.key).not.toBe('MARKETING')
+      expect(template.audience ?? 'TUTOR', template.key).toBe('TUTOR')
+      expect(template.key, template.key).not.toMatch(/codigo/)
+    }
+  })
+
+  it('não diz valor de dinheiro na tela bloqueada', () => {
+    for (const template of comPush) {
+      const texto = `${template.push!.title} ${template.push!.body}`
+      expect(texto, template.key).not.toMatch(/financeiro\.|R\$/)
+    }
+  })
+
+  it('cabe na notificação sem ser cortado', () => {
+    for (const template of comPush) {
+      expect(template.push!.title.length, template.key).toBeLessThanOrEqual(50)
+      expect(template.push!.body.length, template.key).toBeLessThanOrEqual(120)
+    }
+  })
 })

@@ -327,5 +327,22 @@ class PortalApi {
         await _cliente.post('/portal/v1/me/deletion-request', corpo: semNulos(pedido.toJson())),
       );
 
+  // ── Aparelho (push) ────────────────────────────────────────────────────────
+
+  /// Registra este aparelho para receber avisos. Repetir é inofensivo: o servidor faz
+  /// upsert pelo token, e o app chama a cada abertura e a cada troca de token.
+  Future<void> registrarAparelho(String token, String plataforma) => _cliente.post(
+        '/portal/v1/devices',
+        corpo: PortalDevice(token: token, platform: portalDevicePlatformValues.map[plataforma]!).toJson(),
+      );
+
+  /// Ao sair: o aparelho deixa de receber os avisos desta ficha. Sem isto, quem entrar
+  /// depois naquele celular receberia os avisos do anterior até o registro dele trocar
+  /// o dono.
+  Future<void> esquecerAparelho(String token) => _cliente.delete(
+        '/portal/v1/devices',
+        corpo: PortalDeviceForget(token: token).toJson(),
+      );
+
   static String _diaDoArquivo(DateTime dia) => dia.toIso8601String().substring(0, 10);
 }

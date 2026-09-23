@@ -14,6 +14,7 @@ class CofreDoSistema implements Armazenamento {
   static const _slug = 'petshop.slug';
   static const _tokenCliente = 'clerk.client_token';
   static const _sessao = 'clerk.session_id';
+  static const _avisos = 'avisos.dispensados';
 
   @override
   Future<String?> get slug => _cofre.read(key: _slug);
@@ -30,6 +31,11 @@ class CofreDoSistema implements Armazenamento {
   Future<String?> get sessaoId => _cofre.read(key: _sessao);
   @override
   Future<void> gravarSessaoId(String valor) => _cofre.write(key: _sessao, value: valor);
+
+  @override
+  Future<bool> get avisosDispensados async => (await _cofre.read(key: _avisos)) == '1';
+  @override
+  Future<void> dispensarAvisos() => _cofre.write(key: _avisos, value: '1');
 
   @override
   Future<void> esquecerSessao() async {

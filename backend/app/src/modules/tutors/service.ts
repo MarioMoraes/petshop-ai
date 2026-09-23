@@ -589,6 +589,11 @@ export async function anonymizeTutor(
       const anonymousName = `Tutor Anonimizado #${randomBytes(2).toString('hex').toUpperCase()}`
 
       await tx.tutorAddress.deleteMany({ where: { tutorId } })
+      // Os aparelhos do app, pelo mesmo motivo dos endereços: o token do Firebase
+      // escreve na tela bloqueada desta pessoa, e é dado dela. Na mesma transação, e não
+      // por evento — com `DISABLE_EVENTS` o consumidor nunca rodaria, e a ficha
+      // anonimizada ficaria com um canal aberto para o celular do titular.
+      await tx.pushDevice.deleteMany({ where: { tutorId } })
 
       await tx.tutor.update({
         where: { id: tutorId },

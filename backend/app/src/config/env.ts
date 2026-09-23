@@ -129,6 +129,21 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    */
   RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
 
+  /**
+   * Firebase Cloud Messaging — o push do app do tutor (etapa 9 do app).
+   *
+   * Opcionais pela mesma razão que `RESEND_API_KEY`, e com uma diferença: sem elas o push
+   * não vira log, ele simplesmente **não existe**. O push vai junto com a mensagem de
+   * WhatsApp ou e-mail, então desligá-lo não deixa ninguém sem aviso — só sem o segundo.
+   *
+   * `FCM_SERVICE_ACCOUNT_JSON_B64` é o JSON da conta de serviço do Firebase em base64: o
+   * arquivo tem quebras de linha dentro da chave privada, e uma variável de ambiente com
+   * quebra de linha é o tipo de coisa que o `.env`, o compose e o Swarm leem cada um de
+   * um jeito.
+   */
+  FCM_PROJECT_ID: z.string().min(1).optional(),
+  FCM_SERVICE_ACCOUNT_JSON_B64: z.string().min(1).optional(),
+
   // ---- Camada comercial (fatia 4): a assinatura, cobrada pelo Asaas ----
 
   /**

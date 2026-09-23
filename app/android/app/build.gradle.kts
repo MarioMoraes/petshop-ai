@@ -42,3 +42,13 @@ android {
 flutter {
     source = "../.."
 }
+
+// O Google Services só entra quando o `google-services.json` do projeto Firebase está
+// aqui. Sem ele o plugin derruba o build — e o app precisa continuar construindo antes de
+// o projeto existir: o push fica desligado (`lib/src/notificacoes.dart` engole a falha do
+// `Firebase.initializeApp`) e todo o resto funciona igual. O arquivo **pode** ir para o
+// git: é configuração de cliente, embarcada em todo APK, e não segredo. O segredo do push
+// é a conta de serviço, e ela mora só no backend (`FCM_SERVICE_ACCOUNT_JSON_B64`).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}

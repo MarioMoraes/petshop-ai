@@ -56,6 +56,13 @@ dependencies:
   share_plus: ^13.3.0
   path_provider: ^2.1.6
 
+  # O push (etapa 9). O `firebase_messaging` é o cliente do FCM, que é o único caminho
+  # de push no Android e o que embrulha o APNs no iOS. Nada mais do Firebase entra: o
+  # app não usa Analytics, Crashlytics nem banco — o projeto do Firebase existe só para
+  # dar ao backend um lugar para onde mandar o aviso.
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

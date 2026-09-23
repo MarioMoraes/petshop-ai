@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'auth/sessao.dart';
+import 'notificacoes.dart';
+import 'telas/agendamentos/lista_de_agendamentos.dart';
 import 'telas/entrar.dart';
 import 'telas/escolher_petshop.dart';
+import 'telas/financeiro/minha_conta.dart';
 import 'telas/inicio.dart';
 import 'telas/vincular.dart';
 import 'ui/abertura.dart';
@@ -34,16 +39,85 @@ class App extends StatefulWidget {
 class _AppState extends State<App> {
   late final _sessao = widget.sessao ?? Sessao();
 
+  /// As duas chaves existem pelo push: o aviso chega por fora da árvore de widgets, e é
+  /// por elas que ele alcança a pilha de telas e a barra de recado.
+  final _navegador = GlobalKey<NavigatorState>();
+  final _mensageiro = GlobalKey<ScaffoldMessengerState>();
+
+  /// O aviso tocado antes de a sessão ficar pronta — o caso comum: o toque abre o app
+  /// frio, e a tela certa só existe depois de a Clerk e o `/me` responderem.
+  AvisoTocado? _pendente;
+  StreamSubscription<AvisoTocado>? _tocados;
+  StreamSubscription<AvisoTocado>? _primeiroPlano;
+
   @override
   void initState() {
     super.initState();
+    _sessao.addListener(_abrirPendente);
     _sessao.iniciar();
+    _escutarAvisos();
   }
 
   @override
   void dispose() {
+    _tocados?.cancel();
+    _primeiroPlano?.cancel();
+    _sessao.removeListener(_abrirPendente);
     _sessao.dispose();
     super.dispose();
+  }
+
+  Future<void> _escutarAvisos() async {
+    if (!await avisos.iniciar()) return;
+    _tocados = avisos.tocados.listen(_abrir);
+    _primeiroPlano = avisos.emPrimeiroPlano.listen(_mostrar);
+    final inicial = await avisos.inicial();
+    if (inicial != null) _abrir(inicial);
+  }
+
+  void _abrir(AvisoTocado aviso) {
+    _pendente = aviso;
+    _abrirPendente();
+  }
+
+  /// Leva à tela do aviso, quando há sessão para isso.
+  ///
+  /// **O aviso de outro petshop não navega.** O celular pode ter estado em duas contas, e
+  /// o toque no lembrete do petshop A com a sessão no B abriria a agenda errada, dizendo
+  /// "nenhum horário" sobre um horário que existe. Nesse caso o toque só abre o app.
+  void _abrirPendente() {
+    final aviso = _pendente;
+    if (aviso == null || _sessao.estado != EstadoDaSessao.pronta) return;
+    _pendente = null;
+    if (aviso.slug != null && aviso.slug != _sessao.slug) return;
+
+    // Depois do quadro: este método também roda dentro do `notifyListeners` da sessão,
+    // e empilhar rota no meio de uma reconstrução é o que o `Navigator` recusa.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pilha = _navegador.currentState;
+      if (pilha == null) return;
+      pilha.popUntil((rota) => rota.isFirst);
+      pilha.push(MaterialPageRoute(
+        builder: (_) => aviso.abre == 'conta'
+            ? MinhaConta(sessao: _sessao)
+            : ListaDeAgendamentos(sessao: _sessao),
+      ));
+    });
+    // E o quadro precisa existir: o aviso chega por fora da árvore, com o app parado, e
+    // sem nada pedindo redesenho o callback acima esperaria o próximo toque na tela.
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  /// O aviso com o app aberto. O Android não o desenha em primeiro plano, e sem isto ele
+  /// simplesmente não apareceria para quem está olhando para o app.
+  void _mostrar(AvisoTocado aviso) {
+    if (aviso.slug != null && aviso.slug != _sessao.slug) return;
+    _mensageiro.currentState?.showSnackBar(
+      SnackBar(
+        content: Text(aviso.titulo ?? 'Novo aviso do ${_sessao.tenant?.name ?? 'petshop'}'),
+        action: SnackBarAction(label: 'Ver', onPressed: () => _abrir(aviso)),
+      ),
+    );
   }
 
   @override
@@ -53,6 +127,8 @@ class _AppState extends State<App> {
       builder: (context, _) {
         final brilho = MediaQuery.platformBrightnessOf(context);
         return MaterialApp(
+          navigatorKey: _navegador,
+          scaffoldMessengerKey: _mensageiro,
           title: 'Meu PetShop AI',
           debugShowCheckedModeBanner: false,
           theme: temaDoPetshop(_sessao.tenant?.brandColor, brilho),

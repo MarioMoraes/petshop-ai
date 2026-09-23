@@ -121,6 +121,16 @@ sempre, `modules/agent/messaging-port.ts` → `enqueueMessage`: o motor do MOD-N
 única saída do produto, e uma segunda seria uma saída sem fila, sem teto de vazão, sem
 supressão e sem histórico.
 
+**O push do app do tutor não é um canal do motor: pega carona na mensagem.** O texto
+mora no catálogo (`push` em `messaging-seed.ts` — a lista de avisos **é** esse campo), é
+renderizado no enfileiramento como o corpo, e sai em `messaging/push.ts` depois dos
+portões do tutor e antes dos tetos de vazão, que protegem o número do petshop e não o
+celular. `push_deliveries` único por (mensagem, aparelho) é o que impede a retentativa de
+repetir o aviso, e falha do FCM nunca muda a mensagem. Os aparelhos são do MOD-NOTIF e o
+Portal os grava pela `devices-port.ts`, a **sétima porta**; o token é único **entre
+tenants**, porque um celular tem um dono só. Sem `FCM_*` o push não existe e nada mais
+muda.
+
 **O turno do modelo não roda dentro do webhook.** A Evolution reentrega o que não recebe
 2xx depressa, e um turno com tools leva dezenas de segundos. O webhook grava e carimba
 `agent_conversations.pending_at`; quem responde é `modules/agent/runner.ts`, disparado

@@ -84,6 +84,11 @@ class PortalClient {
   Future<dynamic> patch(String caminho, {Object? corpo}) =>
       _enviar('PATCH', caminho, corpo: corpo);
 
+  /// `DELETE` **com corpo**: o esquecimento do aparelho manda o token assim, e não no
+  /// caminho, porque caminho de URL vai parar em log de acesso.
+  Future<dynamic> delete(String caminho, {Object? corpo}) =>
+      _enviar('DELETE', caminho, corpo: corpo);
+
   /// Um GET cuja resposta **não é JSON**: o extrato em PDF do MOD-DOC-09.
   ///
   /// Existe como método próprio, e não como um parâmetro do `_enviar`, porque o que

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -6,6 +8,7 @@ import '../api/portal_client.dart';
 import '../api/portal_error.dart';
 import '../config.dart';
 import '../models/portal_models.dart';
+import '../notificacoes.dart';
 import '../time/tenant_time.dart';
 import 'armazenamento.dart';
 import 'cofre_do_sistema.dart';
@@ -63,6 +66,17 @@ class Sessao extends ChangeNotifier {
 
   PortalApi? _api;
   String? _sessaoId;
+
+  /// Os avisos no aparelho (etapa 9). `indisponivel` até a sessão ficar pronta, e para
+  /// sempre num build sem Firebase — o Início lê isto para decidir se oferece o cartão.
+  PermissaoDeAvisos permissaoDeAvisos = PermissaoDeAvisos.indisponivel;
+
+  /// `true` quando a pessoa tocou "Agora não": o cartão não volta.
+  bool avisosDispensados = false;
+
+  /// O token que o servidor conhece para esta ficha — é ele que `sair()` esquece.
+  String? _tokenRegistrado;
+  StreamSubscription<String>? _trocaDeToken;
 
   ClerkFapi get clerk => _clerk;
 
@@ -155,6 +169,9 @@ class Sessao extends ChangeNotifier {
     try {
       contexto = await api.me();
       _ir(EstadoDaSessao.pronta);
+      // Sem `await`: o aviso é acessório, e a tela do Início não espera o Firebase
+      // responder para aparecer.
+      unawaited(_ligarAvisos());
     } on PortalError catch (erro) {
       contexto = null;
       if (erro.status == 401) {
@@ -181,7 +198,69 @@ class Sessao extends ChangeNotifier {
     await revalidar();
   }
 
+  /// Liga os avisos para a sessão que acabou de ficar pronta.
+  ///
+  /// Não pede permissão: o pedido do sistema só aparece a partir de um toque no cartão
+  /// do Início (`pedirAvisos`). Pedir na abertura do app é o jeito de colher um "não"
+  /// de quem ainda nem sabe o que o app avisa — e no Android 13 o segundo pedido pode
+  /// nem aparecer.
+  Future<void> _ligarAvisos() async {
+    if (!await avisos.iniciar()) return;
+    avisosDispensados = await _armazenamento.avisosDispensados;
+    permissaoDeAvisos = await avisos.permissao();
+    notifyListeners();
+    if (permissaoDeAvisos == PermissaoDeAvisos.concedida) await _registrarAparelho();
+  }
+
+  /// O toque em "Ativar avisos".
+  Future<void> pedirAvisos() async {
+    permissaoDeAvisos = await avisos.pedir();
+    notifyListeners();
+    if (permissaoDeAvisos == PermissaoDeAvisos.concedida) await _registrarAparelho();
+  }
+
+  /// O toque em "Agora não". Guardado no aparelho, e não na ficha: é sobre este celular.
+  Future<void> dispensarAvisos() async {
+    avisosDispensados = true;
+    notifyListeners();
+    await _armazenamento.dispensarAvisos();
+  }
+
+  Future<void> _registrarAparelho() async {
+    final token = await avisos.token();
+    if (token != null) await _enviarToken(token);
+
+    // O Firebase troca o token quando quer — reinstalação, dados apagados, rotação. Cada
+    // troca vai ao servidor, senão os avisos param de chegar sem ninguém saber por quê.
+    _trocaDeToken ??= avisos.tokensNovos.listen(_enviarToken);
+  }
+
+  Future<void> _enviarToken(String token) async {
+    if (_api == null || estado != EstadoDaSessao.pronta) return;
+    try {
+      await api.registrarAparelho(token, avisos.plataforma);
+      _tokenRegistrado = token;
+    } catch (erro) {
+      // O registro volta na próxima abertura. Falhar aqui não pode derrubar a sessão.
+      debugPrint('avisos: registro do aparelho falhou ($erro)');
+    }
+  }
+
   Future<void> sair() async {
+    // **Antes** de encerrar a sessão da Clerk: o esquecimento precisa do token dela, e
+    // sem ele quem entrar depois neste celular receberia os avisos desta ficha.
+    final registrado = _tokenRegistrado;
+    if (registrado != null && _api != null) {
+      try {
+        await api.esquecerAparelho(registrado);
+      } catch (erro) {
+        debugPrint('avisos: esquecimento do aparelho falhou ($erro)');
+      }
+    }
+    _tokenRegistrado = null;
+    await _trocaDeToken?.cancel();
+    _trocaDeToken = null;
+
     final id = _sessaoId;
     if (id != null) await _clerk.sair(id);
     _sessaoId = null;
@@ -197,6 +276,12 @@ class Sessao extends ChangeNotifier {
     tenant = null;
     _api = null;
     _ir(EstadoDaSessao.semPetshop);
+  }
+
+  @override
+  void dispose() {
+    _trocaDeToken?.cancel();
+    super.dispose();
   }
 
   void _ir(EstadoDaSessao novo) {

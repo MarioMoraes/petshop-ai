@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../auth/sessao.dart';
+import '../notificacoes.dart';
+import '../ui/comuns.dart';
 import '../ui/listas.dart';
 import '../ui/superficies.dart';
 import '../ui/tema.dart';
@@ -122,6 +124,12 @@ class Inicio extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 26),
+
+            if (sessao.permissaoDeAvisos == PermissaoDeAvisos.naoDecidida &&
+                !sessao.avisosDispensados) ...[
+              _CartaoDeAvisos(sessao: sessao),
+              const SizedBox(height: 22),
+            ],
 
             PilhaDeLinhas(
               filhos: [
@@ -308,6 +316,94 @@ class _AcaoDoPainel extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// O convite para os avisos no celular (etapa 9 — push).
+///
+/// **O pedido do sistema só sai daqui, de um toque.** Pedir na abertura do app colhe o
+/// "não" de quem ainda nem sabe o que o app avisa — e no Android 13 o sistema pode não
+/// mostrar o segundo pedido. O cartão diz primeiro **o que** vai chegar; o diálogo do
+/// sistema vem depois, para quem já quis.
+///
+/// Some quando a pessoa decide, para os dois lados, e também com "Agora não" — que fica
+/// guardado no aparelho. Um cartão que volta a cada abertura é o que faz alguém ir às
+/// configurações desligar tudo. Quem mudar de ideia acha o caminho em Meus dados.
+class _CartaoDeAvisos extends StatefulWidget {
+  const _CartaoDeAvisos({required this.sessao});
+
+  final Sessao sessao;
+
+  @override
+  State<_CartaoDeAvisos> createState() => _CartaoDeAvisosState();
+}
+
+class _CartaoDeAvisosState extends State<_CartaoDeAvisos> {
+  bool _pedindo = false;
+
+  Future<void> _ativar() async {
+    setState(() => _pedindo = true);
+    try {
+      await widget.sessao.pedirAvisos();
+    } finally {
+      if (mounted) setState(() => _pedindo = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+
+    return Cartao(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ChipDeIcone(Icons.notifications_active_rounded, tamanho: 40, base: Tons.tempo),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Receber avisos no celular', style: tema.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Confirmação e lembrete do horário, a van a caminho e o aviso de que o '
+                      'pet está pronto.',
+                      style: tema.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: _pedindo ? null : widget.sessao.dispensarAvisos,
+                  child: const Text('Agora não'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: BotaoPrincipal(
+                  rotulo: 'Ativar avisos',
+                  rotuloOcupado: 'Ativando…',
+                  ocupado: _pedindo,
+                  onPressed: _ativar,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

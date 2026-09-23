@@ -4,6 +4,7 @@ import '../../api/portal_client.dart';
 import '../../arquivos.dart';
 import '../../auth/sessao.dart';
 import '../../models/portal_models.dart';
+import '../../notificacoes.dart';
 import '../../ui/comuns.dart';
 import '../../ui/dados.dart';
 import '../../ui/listas.dart';
@@ -95,6 +96,7 @@ class _CorpoState extends State<_Corpo> {
             'Contato atualizado.',
           ),
         ),
+        _AvisosNoCelular(sessao: sessao),
         const SizedBox(height: 26),
         _Enderecos(
           enderecos: _dados.addresses,
@@ -530,6 +532,67 @@ class _Exclusao extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Os avisos no celular (etapa 9 — push): o estado, e o caminho de volta.
+///
+/// É o lugar de quem tocou "Agora não" no Início, ou de quem recusou e mudou de ideia. O
+/// app não consegue religar uma permissão recusada — só o sistema —, então para esse caso
+/// a linha diz onde fica a chave, em vez de um botão que não faria nada.
+///
+/// Ouve a sessão por conta própria: esta tela é uma rota empilhada, e não se reconstrói
+/// quando o `App` reconstrói o Início.
+class _AvisosNoCelular extends StatelessWidget {
+  const _AvisosNoCelular({required this.sessao});
+
+  final Sessao sessao;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: sessao,
+      builder: (context, _) {
+        final estado = sessao.permissaoDeAvisos;
+        if (estado == PermissaoDeAvisos.indisponivel) return const SizedBox.shrink();
+
+        final t = context.tokens;
+        final tema = Theme.of(context);
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: Cartao(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CabecalhoDeSecao(
+                  icone: Icons.notifications_active_rounded,
+                  base: Tons.tempo,
+                  titulo: 'Avisos no celular',
+                  aDireita: estado == PermissaoDeAvisos.naoDecidida
+                      ? _AcaoDaSecao(rotulo: 'Ativar', aoTocar: sessao.pedirAvisos)
+                      : null,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  switch (estado) {
+                    PermissaoDeAvisos.concedida =>
+                      'Ligados. Você recebe a confirmação e o lembrete do horário, a van a '
+                          'caminho e o aviso de que o pet está pronto.',
+                    PermissaoDeAvisos.negada =>
+                      'Desligados. Para ligar, abra as configurações do celular, toque em '
+                          'Apps, depois em Meu PetShop AI e em Notificações.',
+                    _ => 'Desligados. As mensagens continuam chegando pelo WhatsApp.',
+                  },
+                  style: tema.textTheme.bodySmall?.copyWith(color: t.discreta),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

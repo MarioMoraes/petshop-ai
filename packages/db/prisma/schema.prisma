@@ -168,6 +168,8 @@ model Tenant {
   portalChallenges     PortalLinkChallenge[]
   portalContactChanges PortalContactChange[]
   deletionRequests     DataDeletionRequest[]
+  pushDevices          PushDevice[]
+  pushDeliveries       PushDelivery[]
 
   documents    Document[]
   termVersions TermVersion[]
@@ -272,9 +274,9 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  memberships Membership[]
+  memberships   Membership[]
   /// MOD-NOTIF-01: o que o produto mandou a esta pessoa **como membro da equipe**.
-  messages    Message[]
+  messages      Message[]
   /// MOD-ADMIN-01: o vínculo com a plataforma, que não é membership de tenant nenhum.
   platformAdmin PlatformAdmin[]
   /// MOD-ADMIN-02: os acessos de suporte que esta pessoa pediu.
@@ -828,6 +830,7 @@ model Tutor {
   portalChallenges     PortalLinkChallenge[]
   portalContactChanges PortalContactChange[]
   deletionRequests     DataDeletionRequest[]
+  pushDevices          PushDevice[]
 
   agentConversations AgentConversation[]
 
@@ -2924,6 +2927,12 @@ model Message {
   fallbackSubjectEncrypted String? @map("fallback_subject_encrypted")
   fallbackBodyEncrypted    String? @map("fallback_body_encrypted")
 
+  /// O aviso no aparelho do tutor, que vai **junto** com a mensagem (etapa 9 do app).
+  /// Renderizado na entrada da fila, como o corpo (RN-14), e apagado quando o despacho
+  /// o entrega aos aparelhos. Nulo em todo template sem texto de push.
+  pushTitleEncrypted String? @map("push_title_encrypted")
+  pushBodyEncrypted  String? @map("push_body_encrypted")
+
   status      MessageStatus       @default(QUEUED)
   blockReason MessageBlockReason? @map("block_reason")
 
@@ -2961,7 +2970,8 @@ model Message {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  events MessageEvent[]
+  events         MessageEvent[]
+  pushDeliveries PushDelivery[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tutor  Tutor? @relation(fields: [tutorId], references: [id], onDelete: Cascade)
@@ -3753,9 +3763,9 @@ model TermVersion {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
 
-  kind TermKind
+  kind    TermKind
   /// `1.0`, `2.0`. Ordinal, não texto livre — é o que a comparação de vigência usa.
-  version String @db.VarChar(20)
+  version String   @db.VarChar(20)
 
   title String @db.VarChar(120)
   /// Markdown restrito: título, parágrafo, lista e negrito. Nada de HTML — o texto é
@@ -4016,7 +4026,7 @@ model AgentToolCall {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
 
-  conversationId String @map("conversation_id") @db.Uuid
+  conversationId String  @map("conversation_id") @db.Uuid
   /// Nulo enquanto a linha nasce dentro do turno — o turno só é gravado quando o modelo
   /// termina de falar, e a chamada acontece no meio. O `runner` costura os dois.
   turnId         String? @map("turn_id") @db.Uuid
@@ -4066,9 +4076,9 @@ model TenantSubscription {
   priceCents Int? @map("price_cents")
 
   /// A descida de plano que espera a renovação (só no anual). `plan` segue em vigor até lá.
-  scheduledPlan Plan? @map("scheduled_plan")
+  scheduledPlan       Plan?     @map("scheduled_plan")
   /// O preço que a descida agendada vai custar, fixado quando ela foi agendada.
-  scheduledPriceCents Int? @map("scheduled_price_cents")
+  scheduledPriceCents Int?      @map("scheduled_price_cents")
   /// O fim do período pago. É por ele que a subida proporcional sabe quantos meses faltam.
   currentPeriodEndsAt DateTime? @map("current_period_ends_at") @db.Timestamptz(6)
 
@@ -4215,4 +4225,73 @@ model ImportRow {
 
   @@index([batchId, outcome], map: "idx_import_rows_batch")
   @@map("import_rows")
+}
+
+// ─── Notificações push do app do tutor (etapa 9) ─────────────────────────────
+
+enum PushPlatform {
+  ANDROID
+  IOS
+}
+
+enum PushDeliveryStatus {
+  SENT
+  FAILED
+  INVALID_TOKEN
+}
+
+/// Um aparelho onde o app do tutor está instalado e autorizou avisos.
+///
+/// **Um aparelho tem um dono só.** O token é do app instalado, não da pessoa: quando
+/// outro tutor entra no mesmo celular — ou o mesmo tutor entra noutro petshop —, a linha
+/// muda de dono em vez de duplicar. É o índice único em `token_hash` que garante isso, e
+/// é por ele ser global que a troca de tenant passa pelo cliente de manutenção.
+model PushDevice {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  tutorId  String @map("tutor_id") @db.Uuid
+
+  /// O token do FCM, cifrado com a DEK do tenant: com ele e a chave do projeto,
+  /// qualquer um escreve na tela bloqueada do tutor.
+  tokenEncrypted String       @map("token_encrypted")
+  /// `hashSearchable('push:token', token)`.
+  tokenHash      String       @unique(map: "idx_push_devices_token") @map("token_hash") @db.Char(64)
+  platform       PushPlatform
+
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  /// O FCM disse que o token morreu (app desinstalado, dados apagados).
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  deliveries PushDelivery[]
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tutor  Tutor  @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, tutorId], map: "idx_push_devices_tutor")
+  @@map("push_devices")
+}
+
+/// Um aviso entregue a um aparelho, pendurado na mensagem que o originou.
+///
+/// É o histórico do push — sem ele, "o cliente diz que não recebeu" não tem resposta.
+/// O par (mensagem, aparelho) é único: é o que impede a retentativa do despacho de
+/// repetir o aviso.
+model PushDelivery {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  messageId String @map("message_id") @db.Uuid
+  deviceId  String @map("device_id") @db.Uuid
+
+  status            PushDeliveryStatus
+  providerMessageId String?            @map("provider_message_id") @db.VarChar(200)
+  errorCode         String?            @map("error_code") @db.VarChar(60)
+  sentAt            DateTime           @default(now()) @map("sent_at") @db.Timestamptz(6)
+
+  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  message Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  device  PushDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, deviceId], map: "idx_push_deliveries_unico")
+  @@map("push_deliveries")
 }

@@ -1211,3 +1211,32 @@ export const PortalDeletionRequestInputSchema = z
   })
   .strict()
 export type PortalDeletionRequestInput = z.output<typeof PortalDeletionRequestInputSchema>
+
+// ─── Aparelhos do app (etapa 9 — push) ───────────────────────────────────────
+
+/**
+ * O aparelho onde o app do tutor autorizou avisos.
+ *
+ * `token` é o do Firebase Cloud Messaging: opaco, longo (≈ 160 caracteres) e rotativo —
+ * o app o manda de novo a cada troca. O teto largo é só para recusar lixo.
+ */
+/** Nomeado para o gerador Dart: anônimo, ele virava `Platform` e colidia com `dart:io`. */
+export const PortalDevicePlatformSchema = z.enum(['ANDROID', 'IOS'])
+export type PortalDevicePlatform = z.infer<typeof PortalDevicePlatformSchema>
+
+export const PortalDeviceSchema = z
+  .object({
+    token: z.string().min(20).max(4096),
+    platform: PortalDevicePlatformSchema,
+  })
+  .strict()
+export type PortalDeviceInput = z.output<typeof PortalDeviceSchema>
+
+/**
+ * O esquecimento, ao sair da conta.
+ *
+ * Um `DELETE` com o token **no corpo**, e não no caminho: o token é credencial para
+ * escrever na tela bloqueada de alguém, e caminho de URL vai parar em log de acesso.
+ */
+export const PortalDeviceForgetSchema = z.object({ token: z.string().min(20).max(4096) }).strict()
+export type PortalDeviceForgetInput = z.output<typeof PortalDeviceForgetSchema>

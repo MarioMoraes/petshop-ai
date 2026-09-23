@@ -41,6 +41,9 @@ class PortalSchema {
     final PortalContextResponse portalContextResponse;
     final PortalDeletionRequest portalDeletionRequest;
     final PortalDeletionRequestInput portalDeletionRequestInput;
+    final PortalDevice portalDevice;
+    final PortalDeviceForget portalDeviceForget;
+    final PortalDevicePlatform portalDevicePlatform;
     final PortalDirectoryEntry portalDirectoryEntry;
     final PortalDirectoryResponse portalDirectoryResponse;
     final PortalDocument portalDocument;
@@ -101,6 +104,9 @@ class PortalSchema {
         required this.portalContextResponse,
         required this.portalDeletionRequest,
         required this.portalDeletionRequestInput,
+        required this.portalDevice,
+        required this.portalDeviceForget,
+        required this.portalDevicePlatform,
         required this.portalDirectoryEntry,
         required this.portalDirectoryResponse,
         required this.portalDocument,
@@ -162,6 +168,9 @@ class PortalSchema {
         portalContextResponse: PortalContextResponse.fromJson(json["PortalContextResponse"]),
         portalDeletionRequest: PortalDeletionRequest.fromJson(json["PortalDeletionRequest"]),
         portalDeletionRequestInput: PortalDeletionRequestInput.fromJson(json["PortalDeletionRequestInput"]),
+        portalDevice: PortalDevice.fromJson(json["PortalDevice"]),
+        portalDeviceForget: PortalDeviceForget.fromJson(json["PortalDeviceForget"]),
+        portalDevicePlatform: portalDevicePlatformValues.map[json["PortalDevicePlatform"]]!,
         portalDirectoryEntry: PortalDirectoryEntry.fromJson(json["PortalDirectoryEntry"]),
         portalDirectoryResponse: PortalDirectoryResponse.fromJson(json["PortalDirectoryResponse"]),
         portalDocument: PortalDocument.fromJson(json["PortalDocument"]),
@@ -223,6 +232,9 @@ class PortalSchema {
         "PortalContextResponse": portalContextResponse.toJson(),
         "PortalDeletionRequest": portalDeletionRequest.toJson(),
         "PortalDeletionRequestInput": portalDeletionRequestInput.toJson(),
+        "PortalDevice": portalDevice.toJson(),
+        "PortalDeviceForget": portalDeviceForget.toJson(),
+        "PortalDevicePlatform": portalDevicePlatformValues.reverse[portalDevicePlatform],
         "PortalDirectoryEntry": portalDirectoryEntry.toJson(),
         "PortalDirectoryResponse": portalDirectoryResponse.toJson(),
         "PortalDocument": portalDocument.toJson(),
@@ -1222,6 +1234,52 @@ class PortalDeletionRequestInput {
 
     Map<String, dynamic> toJson() => {
         "reason": reason,
+    };
+}
+
+class PortalDevice {
+    final PortalDevicePlatform platform;
+    final String token;
+
+    PortalDevice({
+        required this.platform,
+        required this.token,
+    });
+
+    factory PortalDevice.fromJson(Map<String, dynamic> json) => PortalDevice(
+        platform: portalDevicePlatformValues.map[json["platform"]]!,
+        token: json["token"],
+    );
+
+    Map<String, dynamic> toJson() => {
+        "platform": portalDevicePlatformValues.reverse[platform],
+        "token": token,
+    };
+}
+
+enum PortalDevicePlatform {
+    ANDROID,
+    IOS
+}
+
+final portalDevicePlatformValues = EnumValues({
+    "ANDROID": PortalDevicePlatform.ANDROID,
+    "IOS": PortalDevicePlatform.IOS
+});
+
+class PortalDeviceForget {
+    final String token;
+
+    PortalDeviceForget({
+        required this.token,
+    });
+
+    factory PortalDeviceForget.fromJson(Map<String, dynamic> json) => PortalDeviceForget(
+        token: json["token"],
+    );
+
+    Map<String, dynamic> toJson() => {
+        "token": token,
     };
 }
 

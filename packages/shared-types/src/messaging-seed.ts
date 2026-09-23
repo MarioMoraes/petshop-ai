@@ -46,6 +46,21 @@ export interface MessageTemplateDefinition {
    * para os dois casos pioraria um dos dois.
    */
   authored?: 'TENANT' | 'SYSTEM'
+  /**
+   * O aviso no aparelho do tutor, que vai **junto** com a mensagem (etapa 9 do app).
+   *
+   * A lista de avisos que viram push **é** este campo: template sem ele nunca chega à
+   * tela bloqueada. Ficam de fora os códigos de acesso — seis dígitos na tela bloqueada
+   * são credencial exposta a quem estiver ao lado —, a resposta do agente (a conversa é
+   * no WhatsApp) e todo `MARKETING`, que pediria consentimento próprio.
+   *
+   * Texto do **produto**, e não do petshop: não aparece na tela do CRM. E é escrito
+   * para a tela bloqueada — o que se lê ali sem desbloquear é lido por qualquer um,
+   * então a cobrança diz que há algo em aberto e não quanto.
+   *
+   * `abre` é para onde o toque leva no app.
+   */
+  push?: { title: string; body: string; abre: 'agendamento' | 'conta' }
 }
 
 /**
@@ -167,6 +182,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'Profissional: {{agendamento.profissional}}\n\n' +
         'Precisa remarcar? Fale com a gente pelo {{petshop.telefone}}.',
     },
+    push: {
+      title: 'Horário confirmado',
+      body: '{{pets.lista}} — {{agendamento.data}} às {{agendamento.hora}} no {{petshop.nome}}.',
+      abre: 'agendamento',
+    },
   },
   {
     key: 'appointment_reminder',
@@ -188,6 +208,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'Quando: {{agendamento.data}} às {{agendamento.hora}}\n\n' +
         'Se precisar cancelar, avise pelo {{petshop.telefone}}.',
     },
+    push: {
+      title: 'Amanhã tem horário',
+      body: '{{pets.lista}} — {{agendamento.data}} às {{agendamento.hora}} no {{petshop.nome}}.',
+      abre: 'agendamento',
+    },
   },
   {
     key: 'appointment_cancelled',
@@ -206,6 +231,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'foi cancelado.\n\n' +
         'Quando quiser remarcar, é só chamar no {{petshop.telefone}}.',
     },
+    push: {
+      title: 'Horário cancelado',
+      body: 'O horário de {{pets.lista}} em {{agendamento.data}} às {{agendamento.hora}} foi cancelado.',
+      abre: 'agendamento',
+    },
   },
   {
     key: 'service_done',
@@ -221,6 +251,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         '{{tutor.primeiro_nome}},\n\n' +
         '{{pets.lista}} já está pronto(a) e esperando por você no {{petshop.nome}}.\n\n' +
         'Serviço: {{agendamento.servico}}',
+    },
+    push: {
+      title: '{{pets.lista}} está pronto(a)',
+      body: 'Já pode buscar no {{petshop.nome}}.',
+      abre: 'agendamento',
     },
   },
 
@@ -245,6 +280,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'Saímos para buscar {{pets.lista}}. A previsão de chegada é {{taxi.janela}}.\n\n' +
         'Qualquer coisa, fale com a gente pelo {{petshop.telefone}}.',
     },
+    push: {
+      title: 'A van está a caminho',
+      body: 'Saímos para buscar {{pets.lista}}. Previsão: {{taxi.janela}}.',
+      abre: 'agendamento',
+    },
   },
   {
     key: 'taxi_arrived',
@@ -260,6 +300,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         '{{tutor.primeiro_nome}},\n\n' +
         'Chegamos no endereço para buscar {{pets.lista}}. Estamos esperando na porta.',
     },
+    push: {
+      title: 'A van chegou',
+      body: 'Estamos na porta para buscar {{pets.lista}}.',
+      abre: 'agendamento',
+    },
   },
   {
     key: 'taxi_delivered',
@@ -271,6 +316,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
       WHATSAPP: '{{tutor.primeiro_nome}}, {{pets.lista}} já está em casa. Até a próxima!',
       EMAIL:
         '{{tutor.primeiro_nome}},\n\n' + '{{pets.lista}} já está em casa. Obrigado pela confiança!',
+    },
+    push: {
+      title: '{{pets.lista}} chegou em casa',
+      body: 'Até a próxima!',
+      abre: 'agendamento',
     },
   },
   {
@@ -289,6 +339,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'Passamos para buscar {{pets.lista}}, mas {{taxi.motivo}}.\n\n' +
         'O horário no {{petshop.nome}} continua de pé. Fale com a gente pelo ' +
         '{{petshop.telefone}} para combinarmos o que fazer.',
+    },
+    push: {
+      title: 'Não conseguimos buscar {{pets.lista}}',
+      body: 'O horário continua de pé. Toque para ver o que fazer.',
+      abre: 'agendamento',
     },
   },
   {
@@ -536,6 +591,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'Se já tiver pago, é só ignorar esta mensagem. Para regularizar, fale com a gente ' +
         'pelo {{petshop.telefone}}.',
     },
+    push: {
+      title: 'Sua conta no {{petshop.nome}}',
+      body: 'Há um valor em aberto. Toque para ver.',
+      abre: 'conta',
+    },
   },
   {
     key: 'dunning_firm',
@@ -555,6 +615,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         'aberto há {{financeiro.dias_atraso}} dias.\n\n' +
         'Fale com a gente pelo {{petshop.telefone}} para combinarmos a melhor forma de ' +
         'regularizar.',
+    },
+    push: {
+      title: 'Sua conta no {{petshop.nome}}',
+      body: 'Há um valor em aberto. Toque para ver.',
+      abre: 'conta',
     },
   },
   {
@@ -580,6 +645,11 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
         '{{financeiro.dias_atraso}} dias no {{petshop.nome}}.\n\n' +
         'Precisamos regularizar para seguir atendendo. Fale com a gente pelo ' +
         '{{petshop.telefone}}.',
+    },
+    push: {
+      title: 'Sua conta no {{petshop.nome}}',
+      body: 'Há um valor em aberto. Toque para ver.',
+      abre: 'conta',
     },
   },
 

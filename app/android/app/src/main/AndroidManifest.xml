@@ -1,6 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- O app é um cliente do Portal: sem rede ele não tem o que mostrar. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!--
+      Os avisos do petshop (etapa 9 — push). Do Android 13 em diante a notificação pede
+      permissão como a câmera pede, e sem esta linha o pedido nem aparece: o sistema
+      responde "negado" calado.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
         android:label="Meu PetShop AI"
@@ -28,6 +34,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!--
+          O aviso que chega com o app fechado é desenhado pelo Firebase, não pelo app, e
+          ele precisa saber qual ícone pôr na barra de status. O ícone da barra é uma
+          silhueta branca — o colorido do lançador vira um quadrado cinza ali —, e a pata
+          chapada do ícone temático é exatamente isso.
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_launcher_mono" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="avisos" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

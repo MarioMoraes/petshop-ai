@@ -857,3 +857,95 @@ A edição do pet continua com a cópia própria.
 
 Capturas novas: `18-meus-dados`, `18b-meus-dados-fim`, `18c-trocar-contato`,
 `18d-endereco` e `19-meus-dados-escuro`.
+
+---
+
+# Avisos no celular — push (etapa 9, 2026-09-23)
+
+Decisões do usuário: **o push vai junto** com a mensagem de WhatsApp/e-mail (não
+substitui), e cobre agendamento, pet pronto, leva-e-traz e cobrança. Recibo, documentos,
+códigos de acesso, resposta do agente e todo `MARKETING` ficam de fora.
+
+**A conta do Firebase é da PetShop AI, e uma só**: o app é um só nas lojas. O FCM não tem
+custo; o plano Spark basta.
+
+## O desenho: carona na mensagem, não canal novo
+
+O CLAUDE.md diz que o motor do MOD-NOTIF é a única saída do produto. O push respeita isso
+sem virar um terceiro `MessageChannel`:
+
+- **O texto** mora no catálogo, em `push: { title, body, abre }` de
+  `packages/shared-types/src/messaging-seed.ts`. A lista de avisos **é** esse campo.
+- **No enfileiramento** (`messages.ts`) ele é renderizado com as mesmas variáveis e
+  gravado cifrado em `messages.push_title_encrypted`/`push_body_encrypted` (RN-14).
+- **No despacho** (`dispatch.ts` → `push.ts`, `sendPushCompanion`) ele sai **depois** dos
+  portões do tutor (conta parada, consentimento, supressão, óbito) e **antes** dos tetos
+  de vazão, que protegem o número do petshop e não o celular do cliente. O aviso da van
+  não espera o WhatsApp do petshop voltar.
+- **`push_deliveries`** tem `(message_id, device_id)` único: a retentativa do despacho não
+  repete o aviso. Falha do FCM **nunca** muda o status da mensagem.
+- Mensagem absorvida por uma irmã (RN-08) perde o próprio aviso; vale o da irmã.
+
+A tela bloqueada é lida por qualquer um: **a cobrança não diz o valor**, e um teste do
+catálogo proíbe `financeiro.*` e `R$` no texto de push.
+
+## Os aparelhos
+
+| Método e rota | Corpo | Devolve |
+|---|---|---|
+| `POST /portal/v1/devices` | `PortalDevice` `{ token, platform }` | 204 |
+| `DELETE /portal/v1/devices` | `PortalDeviceForget` `{ token }` — **no corpo**, não no caminho | 204 |
+
+- A tabela `push_devices` é do MOD-NOTIF (`modules/messaging/devices.ts`); o Portal grava
+  por `modules/portal/devices-port.ts`, a **sétima porta** do MOD-PORTAL.
+- **Um aparelho, um dono, em todos os tenants**: `token_hash` é único global. O celular
+  que passa a outra conta muda de dono, e a limpeza da linha antiga passa pelo cliente de
+  manutenção, porque ela pode estar noutro tenant.
+- `UNREGISTERED`/404 do FCM revoga o aparelho. `INVALID_ARGUMENT` **não**: é também a
+  resposta a um payload malformado nosso, e revogaria a base inteira no dia de um defeito.
+- A anonimização do tutor apaga os aparelhos na mesma transação.
+
+## No app
+
+- `lib/src/notificacoes.dart` — a interface `Avisos` e o ponto de troca `avisos`. O real
+  **nunca lança**: sem `google-services.json`, `Firebase.initializeApp` falha e o app segue
+  igual, sem push. É também por isso que os testes antigos não precisaram de dublê.
+- `Sessao` registra o aparelho quando fica pronta **e** a permissão já foi concedida,
+  reenvia a cada `onTokenRefresh` e o esquece em `sair()` **antes** de encerrar a sessão da
+  Clerk — sem o token dela o `DELETE` seria recusado.
+- **O pedido do sistema só sai de um toque**, no cartão "Receber avisos no celular" do
+  Início. "Agora não" fica guardado no aparelho (`Armazenamento.avisosDispensados`). Meus
+  dados tem a linha "Avisos no celular" com o estado e o caminho de volta.
+- O toque leva a Meus agendamentos (`abre: agendamento`) ou Minha conta (`abre: conta`).
+  Aviso de **outro petshop** não navega. Com o app aberto vira `SnackBar` com "Ver".
+- **O `addPostFrameCallback` precisa de `scheduleFrame()`**: o aviso chega com o app
+  parado, e sem quadro pedido o toque não levaria a lugar nenhum até o próximo toque na
+  tela. O arnês de widget apanhou isso.
+
+## Android
+
+- `POST_NOTIFICATIONS` no manifesto (Android 13+), o ícone da barra é
+  `@drawable/ic_launcher_mono`, e o canal `avisos` ("Avisos do petshop") é criado em
+  `MainActivity.kt` — é o `channel_id` que o backend manda.
+- O plugin `com.google.gms.google-services` só é aplicado **se** `android/app/google-services.json`
+  existir. O arquivo pode ir para o git: é configuração de cliente, não segredo.
+
+## Para ligar de verdade
+
+1. Criar o projeto no Firebase (conta Google da empresa), adicionar o app Android
+   `com.petshopai.petshop_tutor` e baixar o `google-services.json` para `app/android/app/`.
+2. Em Configurações do projeto → Contas de serviço, gerar a chave privada e colocar no
+   `.env.production` da VPS:
+   `FCM_PROJECT_ID=<id do projeto>` e
+   `FCM_SERVICE_ACCOUNT_JSON_B64=$(base64 -i chave.json | tr -d '\n')`.
+3. `scripts/conferir-ambiente.sh` avisa quando faltam.
+4. `flutter build apk --debug`, instalar num Android físico, entrar, tocar "Ativar avisos"
+   e marcar um horário: a confirmação chega por WhatsApp **e** na tela.
+
+## O que o arnês guarda
+
+- Backend: `tests/messaging/push.test.ts` (9) e `tests/portal/devices.test.ts` (6);
+  `messaging-seed.test.ts` com as regras do texto de push.
+- App: `test/notificacoes_test.dart` (9), com o dublê de `Avisos`.
+
+**Não verificado num aparelho**: depende do projeto Firebase, que ainda não existe.

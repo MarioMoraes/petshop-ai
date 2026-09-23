@@ -231,6 +231,8 @@ titulo "E-mail (Resend)"
 opcional RESEND_API_KEY "todo e-mail vira log: a mensagem consta como enviada com provider='log' e ninguém recebe"
 opcional MAIL_FROM "o Resend recusa o envio sem remetente de domínio verificado"
 opcional RESEND_WEBHOOK_SECRET "a rota /internal/v1/email/webhook recusa tudo com 401 e bounce não volta"
+opcional FCM_PROJECT_ID "o app do tutor não recebe push; o WhatsApp e o e-mail saem normalmente"
+opcional FCM_SERVICE_ACCOUNT_JSON_B64 "o app do tutor não recebe push; o WhatsApp e o e-mail saem normalmente"
 
 # ── Assinatura ────────────────────────────────────────────────────────────────
 titulo "Assinatura (Asaas)"

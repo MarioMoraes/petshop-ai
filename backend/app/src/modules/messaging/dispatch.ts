@@ -17,6 +17,7 @@ import { isSuppressed, suppress } from './suppressions.js'
 import { loadSettings } from './settings.js'
 import { markBanned, warmupStartedAt } from './whatsapp.js'
 import { switchToEmail } from './fallback.js'
+import { sendPushCompanion } from './push.js'
 import { tenantToday } from './window.js'
 
 /**
@@ -192,6 +193,11 @@ interface PreparedMessage {
   attempts: number
   /** O texto do segundo canal, cifrado. Só a presença importa aqui (ver `fallback.ts`). */
   fallbackBodyEncrypted: string | null
+  id: string
+  originId: string | null
+  /** O aviso no aparelho, cifrado (ver `push.ts`). */
+  pushTitleEncrypted: string | null
+  pushBodyEncrypted: string | null
 }
 
 async function dispatchOne(
@@ -461,6 +467,14 @@ async function dispatchOne(
     })
     return 'blocked'
   }
+
+  // O aviso no aparelho do tutor, quando o template tem um (etapa 9 do app).
+  //
+  // Aqui, e não depois do envio: a mensagem já passou por todos os portões que dizem
+  // respeito ao tutor, e o que vem abaixo — tetos de vazão, canal fora do ar — protege
+  // o número do petshop, não o celular do cliente. O aviso da van não pode esperar o
+  // WhatsApp do petshop voltar. Nunca lança e nunca muda a mensagem.
+  await sendPushCompanion(tenantId, prepared.message)
 
   // O teto diário é só de MARKETING (RN-05): lembrete e aviso de taxi não podem ser
   // represados por um limite pensado para campanha.

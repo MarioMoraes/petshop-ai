@@ -21,6 +21,9 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "8.11.1" apply false
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    // O push (etapa 9): lê o `google-services.json` e o transforma nos recursos que o
+    // Firebase procura na subida. Aplicado em `app/build.gradle.kts` só quando o arquivo existe.
+    id("com.google.gms.google-services") version "4.4.2" apply false
 }
 
 include(":app")

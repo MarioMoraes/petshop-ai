@@ -19,6 +19,8 @@ import {
   UpdateOwnTutorSchema,
   UpdatePortalAddressSchema,
   UpdatePortalPreferenceSchema,
+  PortalDeviceSchema,
+  PortalDeviceForgetSchema,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
@@ -31,6 +33,7 @@ import {
 import { forbidden, invalid, unauthorized } from './errors.js'
 import { logger } from '../../shared/logger.js'
 import { parseInput } from './validate.js'
+import { getDevicesPort } from './devices-port.js'
 import type { ActorContext } from './actor.js'
 import type { SchedulingCaller } from './scheduling-port.js'
 import { requestChallenge } from './challenge.js'
@@ -728,6 +731,44 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
 
       const data = await requestOwnDeletion(tutorCallerOf(request), tutorId, input)
       return reply.status(201).send(data)
+    },
+  )
+
+  // ─── Aparelhos do app (etapa 9 — push) ────────────────────────────────────
+
+  /**
+   * O app registra o aparelho que autorizou avisos. Chamado ao entrar e a cada troca de
+   * token do Firebase — o upsert torna as repetições inofensivas.
+   *
+   * `tutor:update_own`: é a ficha do tutor ganhando um endereço de entrega, como um
+   * telefone. 204 porque não há o que devolver: o app já sabe o token que mandou.
+   */
+  app.post(
+    '/portal/v1/devices',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request, reply) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const input = parseInput(PortalDeviceSchema, request.body)
+      await getDevicesPort().register({ tenantId, tutorId }, input.token, input.platform)
+      return reply.status(204).send()
+    },
+  )
+
+  /**
+   * Ao sair da conta. O token vai **no corpo**: é credencial para escrever na tela
+   * bloqueada de alguém, e caminho de URL acaba em log de acesso. 204 também para token
+   * que não é deste tutor — dizer outra coisa contaria que ele existe noutra ficha.
+   */
+  app.delete(
+    '/portal/v1/devices',
+    { preHandler: requirePermission('tutor:update_own') },
+    async (request, reply) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const input = parseInput(PortalDeviceForgetSchema, request.body)
+      await getDevicesPort().forget({ tenantId, tutorId }, input.token)
+      return reply.status(204).send()
     },
   )
 
