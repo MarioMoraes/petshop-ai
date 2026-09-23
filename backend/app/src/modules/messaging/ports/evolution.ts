@@ -103,13 +103,61 @@ export interface EvolutionPort {
 const REQUEST_TIMEOUT_MS = 12_000
 
 /**
- * Erros da Evolution que não adianta repetir.
+ * O que a falha de um envio diz — **sobre quem**.
  *
- * `404` merece nota: significa que a instância sumiu do lado do provedor (alguém a
- * apagou, ou o volume foi perdido). Insistir não a traz de volta — o petshop precisa
- * parear de novo, e quem diz isso é a faixa da tela.
+ * O despacho suprime o endereço de toda falha permanente que não seja
+ * `CHANNEL_UNAVAILABLE`, e isso só é certo quando o defeito é do **destinatário**. Até
+ * 2026-09-23 esta função não separava as duas coisas: um 401 da Evolution — a chave
+ * errada na VPS nova, antes de o WhatsApp ser pareado — voltava como falha permanente, e
+ * o número do **cliente** entrava na lista de supressão como "devolução definitiva". A
+ * partir daí nenhuma mensagem saía para ele, nem o push que vai junto, e nada no painel
+ * apontava para a Evolution.
+ *
+ * Três casos, portanto:
+ *
+ * - **401, 403, 404** são do canal do petshop — chave recusada, instância sem permissão,
+ *   instância apagada. Viram `CHANNEL_UNAVAILABLE`: a mensagem volta à fila sem contar
+ *   tentativa e sai sozinha quando a Evolution for consertada.
+ * - **O número sem WhatsApp** é o único defeito do destinatário que a Evolution relata:
+ *   400 com `exists: false` na resposta. Vira `NOT_ON_WHATSAPP`, permanente, e esse sim
+ *   suprime.
+ * - **Qualquer outro 400/422** é o corpo que **nós** mandamos. Falha, mas não é
+ *   permanente: retenta e morre pelo backoff, sem suprimir ninguém. Suprimir por ele
+ *   envenenaria a base inteira no dia de um defeito no payload.
  */
-const PERMANENT_STATUSES = new Set([400, 401, 403, 404, 422])
+export function classifySendFailure(
+  status: number,
+  body: unknown,
+  detail: string,
+): EvolutionSendResult {
+  const base = { ok: false as const, providerMessageId: null, errorDetail: detail }
+
+  if (isBan(detail)) {
+    // `WHATSAPP_BANNED` é lido por `whatsapp.ts`, que derruba a instância e faz as
+    // pendentes caírem para o e-mail (AC-05). Nenhum outro código faz isso.
+    return { ...base, permanent: true, errorCode: 'WHATSAPP_BANNED' }
+  }
+
+  if (status === 401 || status === 403 || status === 404) {
+    return {
+      ...base,
+      permanent: true,
+      errorCode: 'CHANNEL_UNAVAILABLE',
+      errorDetail: `A Evolution recusou o envio (HTTP ${status}): ${detail}`.slice(0, 480),
+    }
+  }
+
+  if ((status === 400 || status === 422) && numberDoesNotExist(body)) {
+    return { ...base, permanent: true, errorCode: 'NOT_ON_WHATSAPP' }
+  }
+
+  return { ...base, permanent: false, errorCode: `EVOLUTION_${status}` }
+}
+
+/** `{"response":{"message":[{"exists":false,"number":"5511…"}]}}`, em qualquer profundidade. */
+function numberDoesNotExist(body: unknown): boolean {
+  return /"exists"\s*:\s*false/.test(typeof body === 'string' ? body : JSON.stringify(body ?? ''))
+}
 
 /** O que o provedor diz quando a conta foi bloqueada pela Meta (AC-05). */
 const BAN_MARKERS = ['banned', 'blocked', 'forbidden device', 'account is disabled']
@@ -310,17 +358,7 @@ function createHttpPort(baseUrl: string, globalApiKey: string): EvolutionPort {
         }
       }
 
-      const detail = detailOf(body) || `HTTP ${status}`
-      const banned = isBan(detail)
-      return {
-        ok: false,
-        providerMessageId: null,
-        permanent: banned || PERMANENT_STATUSES.has(status),
-        // `WHATSAPP_BANNED` é lido por `whatsapp.ts`, que derruba a instância e faz as
-        // pendentes caírem para o e-mail (AC-05). Nenhum outro código faz isso.
-        errorCode: banned ? 'WHATSAPP_BANNED' : `EVOLUTION_${status}`,
-        errorDetail: detail,
-      }
+      return classifySendFailure(status, body, detailOf(body) || `HTTP ${status}`)
     },
 
     async logout(instanceName, apiKey) {

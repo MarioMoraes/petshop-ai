@@ -200,6 +200,14 @@ interface PreparedMessage {
   pushBodyEncrypted: string | null
 }
 
+/**
+ * O motivo que o painel mostra ao lado do endereço suprimido. "Número sem WhatsApp" diz
+ * à recepção o que conferir com o cliente; "devolução definitiva" não diz nada.
+ */
+function suppressionReasonOf(errorCode: string | null | undefined) {
+  return errorCode === 'NOT_ON_WHATSAPP' ? ('NOT_ON_WHATSAPP' as const) : ('HARD_BOUNCE' as const)
+}
+
 async function dispatchOne(
   tenantId: string,
   messageId: string,
@@ -595,7 +603,7 @@ async function dispatchOne(
   if (prepared.message.channel === 'WHATSAPP' && prepared.message.fallbackBodyEncrypted) {
     if (result.permanent && result.errorCode !== 'CHANNEL_UNAVAILABLE') {
       await withTenant(tenantId, (tx) =>
-        suppress(tx, tenantId, 'WHATSAPP', prepared.to, 'HARD_BOUNCE'),
+        suppress(tx, tenantId, 'WHATSAPP', prepared.to, suppressionReasonOf(result.errorCode)),
       )
     }
     const cause = { errorCode: result.errorCode ?? null, errorDetail: result.errorDetail ?? null }
@@ -655,7 +663,13 @@ async function dispatchOne(
     // Bounce permanente suprime o endereço: continuar tentando um e-mail que não
     // existe é o caminho mais rápido para o domínio do petshop virar spam.
     if (result.permanent && result.errorCode !== 'CHANNEL_UNAVAILABLE') {
-      await suppress(tx, tenantId, prepared.message.channel, prepared.to, 'HARD_BOUNCE')
+      await suppress(
+        tx,
+        tenantId,
+        prepared.message.channel,
+        prepared.to,
+        suppressionReasonOf(result.errorCode),
+      )
     }
   })
 

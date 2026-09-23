@@ -354,7 +354,7 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
   const disclosed = history.hasAgentTurn
   const reply = disclosed ? output.reply : `${agentDisclosure(settings)}\n\n${output.reply}`
 
-  await persistTurn(tenantId, conversationId, {
+  const turnId = await persistTurn(tenantId, conversationId, {
     reply: output.reply,
     sentiment: output.sentiment,
     usage,
@@ -363,7 +363,14 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
     records,
   })
 
-  await say(tenantId, conversationId, tutorId, reply)
+  const messageId = await say(tenantId, conversationId, tutorId, reply)
+  // O turno aponta a mensagem que o levou, como o da recepção já fazia. É por esse
+  // vínculo que o histórico sabe, no turno seguinte, se o cliente leu o que o agente disse.
+  if (messageId) {
+    await withTenant(tenantId, (tx) =>
+      tx.agentTurn.update({ where: { id: turnId }, data: { messageId } }),
+    )
+  }
 
   /**
    * AC-05 de MOD-AI-04 — o gate que recusa **depois** da confirmação.
@@ -555,12 +562,41 @@ async function loadHistory(
       where: { id: tutorId },
       select: { fullName: true, socialName: true },
     })
-    const rows = await tx.agentTurn.findMany({
+    const recentes = await tx.agentTurn.findMany({
       where: { conversationId },
       orderBy: { createdAt: 'desc' },
       take: AGENT_HISTORY_TURNS,
-      select: { role: true, contentEncrypted: true, kind: true },
+      select: { role: true, contentEncrypted: true, kind: true, messageId: true },
     })
+
+    /**
+     * A resposta que **não chegou** ao cliente sai do histórico.
+     *
+     * O defeito que motivou isto (2026-09-23): o número do cliente estava na lista de
+     * supressão, e as respostas do agente nasceram bloqueadas. O turno ficou gravado, e
+     * na mensagem seguinte o modelo leu a própria resposta como algo que o cliente tinha
+     * visto — e continuou oferecendo horário de banho a quem só tinha dito "oi". Para o
+     * cliente, o agente puxou um assunto do nada.
+     *
+     * Só sai o que é **certeza** de não entrega: bloqueada, cancelada ou morta. A que
+     * ainda está na fila fica — ela vai sair, e o cliente vai ler. A fala do cliente
+     * nunca sai: o que ele disse, ele disse.
+     */
+    const ditas = recentes.filter((row) => row.role !== 'TUTOR' && row.messageId)
+    const perdidas = new Set(
+      ditas.length === 0
+        ? []
+        : (
+            await tx.message.findMany({
+              where: {
+                id: { in: ditas.map((row) => row.messageId as string) },
+                status: { in: ['BLOCKED', 'CANCELLED', 'DEAD'] },
+              },
+              select: { id: true },
+            })
+          ).map((message) => message.id),
+    )
+    const rows = recentes.filter((row) => !(row.messageId && perdidas.has(row.messageId)))
 
     const messages: Anthropic.MessageParam[] = []
     for (const row of [...rows].reverse()) {
@@ -598,8 +634,8 @@ async function persistTurn(
   tenantId: string,
   conversationId: string,
   turn: PersistedTurn,
-): Promise<void> {
-  await withTenant(tenantId, async (tx) => {
+): Promise<string> {
+  return withTenant(tenantId, async (tx) => {
     const cipher = await openCipher(tx, tenantId)
 
     // O turno sem resposta também é gravado: ele custou dinheiro, e um gasto sem linha
@@ -630,6 +666,8 @@ async function persistTurn(
         lastTurnAt: new Date(),
       },
     })
+
+    return created.id
   })
 }
 
@@ -639,9 +677,9 @@ async function say(
   conversationId: string,
   tutorId: string,
   text: string,
-): Promise<void> {
+): Promise<string | null> {
   try {
-    await getAgentMessagingPort().sendReply({
+    return await getAgentMessagingPort().sendReply({
       actor: { tenantId },
       tutorId,
       conversationId,
@@ -652,6 +690,7 @@ async function say(
     // O motor desligado é o caso mais comum, e é configuração — não defeito. A conversa
     // continua na tela da equipe, com o que o agente teria dito.
     logger.error({ err: error, tenantId, conversationId }, 'não foi possível enviar a resposta')
+    return null
   }
 }
 

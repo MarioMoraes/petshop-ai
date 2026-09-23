@@ -158,6 +158,49 @@ describe('MOD-AI-03 — o agente responde lendo', () => {
     expect(motor.sent[1]?.text).not.toContain('atendimento automático')
   })
 
+  it('a resposta que não chegou ao cliente sai do histórico, e o aviso de robô volta', async () => {
+    installFakePortal()
+    const modelo = installFakeModel(
+      { reply: 'Tenho banho amanhã às 9h, 10h e 11h. Qual prefere?' },
+      { reply: 'Olá! Em que posso ajudar?' },
+    )
+
+    const id = await givenInbound('quero marcar banho amanhã')
+    await answer(tenant.tenantId, id)
+
+    // O motor recebeu a resposta, mas ela nasceu bloqueada — o número do cliente estava na
+    // lista de supressão. É o caso real de 2026-09-23.
+    const [, primeira] = await turnos(id)
+    expect(primeira?.messageId).toBeTruthy()
+    await ownerPrisma.message.create({
+      data: {
+        id: primeira!.messageId!,
+        tenantId: tenant.tenantId,
+        tutorId,
+        channel: 'WHATSAPP',
+        category: 'OPERATIONAL',
+        templateKey: 'agent_reply',
+        toEncrypted: 'x',
+        toHash: 'x'.repeat(64),
+        bodyEncrypted: 'x',
+        status: 'BLOCKED',
+        blockReason: 'SUPPRESSED',
+        dedupeKey: `teste-bloqueada-${id}`,
+      },
+    })
+
+    await callWebhook(token, upsertPayload({ text: 'oi' }))
+    await answer(tenant.tenantId, id)
+
+    // O modelo não vê a oferta de horário que o cliente nunca leu…
+    const historico = JSON.stringify(modelo.calls[1]?.messages)
+    expect(historico).not.toContain('Tenho banho amanhã')
+    // …mas continua vendo o que o cliente disse.
+    expect(historico).toContain('quero marcar banho amanhã')
+    // E o aviso de atendimento automático sai de novo: o primeiro também não chegou.
+    expect(motor.sent[1]?.text).toContain('atendimento automático')
+  })
+
   it('AC-02: a tool recusa o pet que não é do cliente da conversa', async () => {
     // Sem dublê do Portal: quem responde é a porta real, e quem recusa é o `assertOwnsPet`
     // do MOD-PORTAL — a mesma função que protege a tela do tutor.
