@@ -18,7 +18,8 @@ import {
   type ServicePackage,
   type Statement,
 } from '@petshop/shared-types'
-import { Badge, Button, Card, EmptyState, Field, FormError } from '@/components/ui'
+import { ReceiptIcon, WalletIcon } from '@/components/icons'
+import { Badge, Button, Card, CardHead, EmptyState, Field, FormError } from '@/components/ui'
 import {
   createEntryAction,
   loadReceiptAction,
@@ -163,7 +164,7 @@ export function FinanceiroTab({
 
       <Card>
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h3 className="font-semibold">Extrato</h3>
+          <CardHead icon={<ReceiptIcon />} tone="icon-money" title="Extrato" />
           <div className="flex flex-wrap items-end gap-2">
             <Field label="De" htmlFor="extrato-de">
               <input
@@ -222,6 +223,8 @@ export function FinanceiroTab({
         {entries.length === 0 ? (
           <div className="mt-4">
             <EmptyState
+              icon={<ReceiptIcon />}
+              tone="icon-money"
               title="Sem movimentação"
               description={
                 from || to
@@ -535,7 +538,7 @@ function ReceiptLink({ paymentId }: { paymentId: string }) {
 function PackagesCard({ purchases }: { purchases: PackagePurchase[] }) {
   return (
     <Card>
-      <h3 className="font-semibold">Pacotes ativos</h3>
+      <CardHead icon={<WalletIcon />} tone="icon-money" title="Pacotes ativos" />
       <ul className="mt-3 space-y-2">
         {purchases.map((purchase) => {
           const daysLeft = Math.ceil(
@@ -659,7 +662,7 @@ function PaymentPanel({
 
   return (
     <Card>
-      <h3 className="font-semibold">Registrar pagamento recebido</h3>
+      <CardHead icon={<WalletIcon />} tone="icon-money" title="Registrar pagamento recebido" />
       <p className="hint mt-1">
         O dinheiro entra fora do sistema — no balcão, no PIX ou na maquininha. Aqui se registra o
         recebimento, que quita os lançamentos mais antigos primeiro.
@@ -791,7 +794,7 @@ function EntryPanel({
 
   return (
     <Card>
-      <h3 className="font-semibold">Lançamento manual</h3>
+      <CardHead icon={<ReceiptIcon />} tone="icon-money" title="Lançamento manual" />
 
       <FormError message={error} />
 
@@ -923,7 +926,7 @@ function PackagePanel({
 
   return (
     <Card>
-      <h3 className="font-semibold">Vender pacote</h3>
+      <CardHead icon={<WalletIcon />} tone="icon-money" title="Vender pacote" />
 
       <FormError message={error} />
 

@@ -12,6 +12,7 @@ import {
   type MessageStatus,
   type MessageSummary,
 } from '@petshop/shared-types'
+import { BellIcon } from '@/components/icons'
 import { Badge, Button, Card, EmptyState, FormError } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { cancelMessageAction, retryMessageAction } from './actions'
@@ -49,7 +50,14 @@ export function MessageList({ messages, canSend, showTutor, empty }: Props) {
   const router = useRouter()
 
   if (messages.length === 0) {
-    return <EmptyState title={empty.title} description={empty.description} />
+    return (
+      <EmptyState
+        icon={<BellIcon />}
+        tone="icon-brand"
+        title={empty.title}
+        description={empty.description}
+      />
+    )
   }
 
   function run(action: () => Promise<{ ok: boolean; message?: string }>) {

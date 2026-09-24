@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { ApiError } from '@petshop/api-client'
+import { AlertTriangleIcon, VanIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
@@ -95,6 +96,8 @@ export default async function TaxiPage({ searchParams }: PageProps) {
 
       {desligado ? (
         <EmptyState
+          icon={<VanIcon />}
+          tone="icon-time"
           title="O Taxi Dog está desligado"
           description={
             canConfigure
@@ -104,6 +107,7 @@ export default async function TaxiPage({ searchParams }: PageProps) {
         />
       ) : boardFailed ? (
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de Taxi Dog está indisponível agora. Recarregue em instantes."
         />

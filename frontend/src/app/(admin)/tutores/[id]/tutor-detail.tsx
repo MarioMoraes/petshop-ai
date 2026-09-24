@@ -22,8 +22,16 @@ import type {
 } from '@petshop/shared-types'
 import { PetAvatar } from '@/components/pet-avatar'
 import { Modal } from '@/components/modal'
-import { DocumentIcon } from '@/components/icons'
-import { Alert, Badge, Button, Card, DataRow, FormError, Tabs } from '@/components/ui'
+import {
+  DocumentIcon,
+  IdCardIcon,
+  NoteIcon,
+  PhoneIcon,
+  ShieldCheckIcon,
+  TagIcon,
+} from '@/components/icons'
+import { DataGroup } from '@/components/record-hero'
+import { Alert, Badge, Button, Card, CardHead, DataRow, FormError, Tabs } from '@/components/ui'
 import { TextoDoTermo } from '@/components/term-text'
 import { ButtonLink } from '@/components/links'
 import { ComunicacaoTab } from './comunicacao-tab'
@@ -85,10 +93,10 @@ export function TutorDetailView({ overview, consents, tags, pets, finance, comms
       <Tabs
         tabs={[
           { id: 'dados', label: 'Dados' },
-          { id: 'enderecos', label: `Endereços (${tutor.addresses.length})` },
+          { id: 'enderecos', label: 'Endereços', count: tutor.addresses.length },
           { id: 'consentimentos', label: 'Consentimento' },
           { id: 'tags', label: 'Tags' },
-          { id: 'pets', label: `Pets (${pets.length})` },
+          { id: 'pets', label: 'Pets', count: pets.length },
           // A aba só existe para quem pode ver o financeiro (§9). Escondê-la é mais
           // honesto que abri-la para um 403.
           ...(finance ? [{ id: 'financeiro', label: 'Financeiro' }] : []),
@@ -148,46 +156,51 @@ function DadosTab({ overview }: { overview: TutorOverview }) {
     <div className="space-y-5">
       <FormError message={error} />
 
-      <Card>
-        <dl>
-          <DataRow label="Tipo">
-            {tutor.personType === 'PF' ? 'Pessoa física' : 'Pessoa jurídica'}
-          </DataRow>
-          <DataRow label="Nome civil">{tutor.fullName}</DataRow>
-          {tutor.legalName && <DataRow label="Razão social">{tutor.legalName}</DataRow>}
-          <DataRow label={tutor.personType === 'PF' ? 'CPF' : 'CNPJ'}>
-            {tutor.cpfMasked ?? tutor.cnpjMasked ?? '—'}
-          </DataRow>
-          <DataRow label="Telefone">{tutor.phoneMasked}</DataRow>
-          {tutor.phoneAltMasked && (
-            <DataRow label="Telefone secundário">{tutor.phoneAltMasked}</DataRow>
-          )}
-          <DataRow label="E-mail">{tutor.email ?? '—'}</DataRow>
-          <DataRow label="Nascimento">
-            {tutor.birthDate ? formatDate(tutor.birthDate) : '—'}
-          </DataRow>
-          <DataRow label="Último atendimento">
-            {tutor.lastAttendanceAt ? formatDate(tutor.lastAttendanceAt) : 'Nenhum ainda'}
-          </DataRow>
-          <DataRow label="Saldo">
-            <span className={tutor.balance < 0 ? 'text-danger' : undefined}>
-              {tutor.balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </span>
-          </DataRow>
-        </dl>
-      </Card>
+      {/*
+        Saldo e último atendimento subiram para o herói da página: são o que se procura
+        ao abrir a ficha, e aqui ficariam repetidos.
+      */}
+      <div className="grid gap-5 md:grid-cols-2">
+        <DataGroup icon={<PhoneIcon />} tone="icon-people" title="Contato">
+          <dl>
+            <DataRow label="Telefone">{tutor.phoneMasked}</DataRow>
+            {tutor.phoneAltMasked && (
+              <DataRow label="Telefone secundário">{tutor.phoneAltMasked}</DataRow>
+            )}
+            <DataRow label="E-mail">{tutor.email ?? '—'}</DataRow>
+          </dl>
+        </DataGroup>
 
-      {tutor.notes && (
-        <Card>
-          <h3 className="font-semibold">Observações</h3>
-          <p className="hint mt-2 whitespace-pre-wrap">{tutor.notes}</p>
-        </Card>
-      )}
+        <DataGroup icon={<IdCardIcon />} tone="icon-people" title="Documento">
+          <dl>
+            <DataRow label="Tipo">
+              {tutor.personType === 'PF' ? 'Pessoa física' : 'Pessoa jurídica'}
+            </DataRow>
+            <DataRow label="Nome civil">{tutor.fullName}</DataRow>
+            {tutor.legalName && <DataRow label="Razão social">{tutor.legalName}</DataRow>}
+            <DataRow label={tutor.personType === 'PF' ? 'CPF' : 'CNPJ'}>
+              {tutor.cpfMasked ?? tutor.cnpjMasked ?? '—'}
+            </DataRow>
+            <DataRow label="Nascimento">
+              {tutor.birthDate ? formatDate(tutor.birthDate) : '—'}
+            </DataRow>
+          </dl>
+        </DataGroup>
+
+        {tutor.notes && (
+          <DataGroup
+            icon={<NoteIcon />}
+            tone="icon-people"
+            title="Observações"
+            className="md:col-span-2"
+          >
+            <p className="whitespace-pre-wrap text-sm leading-6 text-muted">{tutor.notes}</p>
+          </DataGroup>
+        )}
+      </div>
 
       {!isTerminal && (
         <div className="flex flex-wrap items-center gap-3">
-          <ButtonLink href={`/tutores/${tutor.id}/editar`}>Editar</ButtonLink>
-
           {tutor.status === 'INACTIVE' && (
             <Button
               type="button"
@@ -327,7 +340,7 @@ function ConsentimentosTab({ tutorId, consents }: { tutorId: string; consents: C
       <FormError message={error} />
 
       <Card className="space-y-1">
-        <h3 className="font-semibold">Estado atual</h3>
+        <CardHead icon={<ShieldCheckIcon />} tone="icon-people" title="Estado atual" />
         <p className="hint pb-2">
           Mensagens de confirmação e lembrete de um serviço contratado continuam saindo mesmo sem
           opt-in de marketing.
@@ -367,7 +380,7 @@ function ConsentimentosTab({ tutorId, consents }: { tutorId: string; consents: C
       </Card>
 
       <Card className="space-y-1">
-        <h3 className="font-semibold">Termos e autorizações</h3>
+        <CardHead icon={<DocumentIcon />} tone="icon-people" title="Termos e autorizações" />
         <p className="hint pb-2">
           Apresente o texto ao tutor e registre o aceite. O papel do aceite fica arquivado com data,
           hora e origem — é ele que prova o que foi apresentado.
@@ -380,7 +393,7 @@ function ConsentimentosTab({ tutorId, consents }: { tutorId: string; consents: C
       </Card>
 
       <Card>
-        <h3 className="font-semibold">Histórico</h3>
+        <CardHead icon={<NoteIcon />} tone="icon-people" title="Histórico" />
         <p className="hint mt-1 pb-2">
           Registro imutável: nada aqui é sobrescrito. É a prova perante a ANPD.
         </p>
@@ -592,7 +605,7 @@ function TagsTab({
       <FormError message={error} />
 
       <Card>
-        <h3 className="font-semibold">Tags manuais</h3>
+        <CardHead icon={<TagIcon />} tone="icon-people" title="Tags manuais" />
         <p className="hint mt-1">
           Tags automáticas — inativo, inadimplente, aniversariante — são mantidas pelo sistema e não
           podem ser aplicadas à mão.

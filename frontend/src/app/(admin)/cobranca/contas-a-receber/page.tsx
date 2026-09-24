@@ -4,6 +4,7 @@ import {
   formatBRL,
   type AccountsReceivableReport,
 } from '@petshop/shared-types'
+import { AlertTriangleIcon, ReceiptIcon } from '@/components/icons'
 import { Card, EmptyState, PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { BackToCobranca, ReportFilters } from '../report-filters'
@@ -84,7 +85,11 @@ export default async function ContasAReceberPage({ searchParams }: PageProps) {
         </label>
         <label className="block">
           <span className="hint">Atraso</span>
-          <select name="minOverdueDays" className="field mt-1" defaultValue={String(minOverdueDays)}>
+          <select
+            name="minOverdueDays"
+            className="field mt-1"
+            defaultValue={String(minOverdueDays)}
+          >
             {ATRASOS.map((opcao) => (
               <option key={opcao.value} value={opcao.value}>
                 {opcao.label}
@@ -96,11 +101,14 @@ export default async function ContasAReceberPage({ searchParams }: PageProps) {
 
       {report instanceof ApiError ? (
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O financeiro não respondeu"
           description={report.message}
         />
       ) : report.rows.length === 0 ? (
         <EmptyState
+          icon={<ReceiptIcon />}
+          tone="icon-money"
           title="Nada em aberto"
           description={
             minOverdueDays > 0
@@ -115,9 +123,9 @@ export default async function ContasAReceberPage({ searchParams }: PageProps) {
             <div className="card border-danger/40 bg-danger-soft/60 px-5 py-4">
               <p className="text-sm font-semibold text-danger">A lista foi cortada</p>
               <p className="hint mt-1">
-                Só cabem {report.rows.length} tutores por relatório, e estes são os de dívida
-                mais antiga. Os totais somam apenas o que está listado — há mais contas em
-                aberto. Estreite pelo atraso para ver o resto.
+                Só cabem {report.rows.length} tutores por relatório, e estes são os de dívida mais
+                antiga. Os totais somam apenas o que está listado — há mais contas em aberto.
+                Estreite pelo atraso para ver o resto.
               </p>
             </div>
           )}

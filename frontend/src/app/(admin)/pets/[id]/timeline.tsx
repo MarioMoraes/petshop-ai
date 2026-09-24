@@ -15,7 +15,7 @@ import {
   type TimelinePage,
 } from '@petshop/shared-types'
 import { Badge, Button, EmptyState, Field, FormError } from '@/components/ui'
-import { HeartPulseIcon } from '@/components/icons'
+import { HeartPulseIcon, NoteIcon } from '@/components/icons'
 import { Modal } from '@/components/modal'
 import {
   addAddendumAction,
@@ -126,6 +126,8 @@ export function TimelineTab({
   if (entries.length === 0) {
     return (
       <EmptyState
+        icon={<NoteIcon />}
+        tone="icon-pet"
         title="Nada registrado ainda"
         description="O histórico começa no primeiro atendimento concluído. Pesagens, alergias e fotos entram aqui junto."
       />

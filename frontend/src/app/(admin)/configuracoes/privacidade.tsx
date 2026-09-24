@@ -18,7 +18,7 @@ import {
   Segmented,
 } from '@/components/ui'
 import { Modal } from '@/components/modal'
-import { AlertTriangleIcon, ShieldCheckIcon } from '@/components/icons'
+import { AlertTriangleIcon, InboxIcon, ShieldCheckIcon } from '@/components/icons'
 import { resolveDeletionRequestAction } from './actions'
 
 /**
@@ -61,6 +61,8 @@ export function Privacidade({ pedidos }: { pedidos: DeletionRequestResponse[] })
         {abertos.length === 0 ? (
           <div className="mt-6">
             <EmptyState
+              icon={<InboxIcon />}
+              tone="icon-system"
               title="Nenhum pedido esperando"
               description="Quando um cliente pedir a exclusão dos dados pelo Portal, o pedido aparece aqui e no sino da topbar."
             />

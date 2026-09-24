@@ -5,6 +5,7 @@ import {
   type CalendarBlockResponse,
   type TaxiRideResponse,
 } from '@petshop/shared-types'
+import { AlertTriangleIcon, ShieldCheckIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { rotuloDoDia } from '@/lib/agenda-dia'
@@ -130,6 +131,8 @@ export default async function DiaPage({ searchParams }: PageProps) {
 
       {failed ? (
         <EmptyState
+          icon={view.status === 403 ? <ShieldCheckIcon /> : <AlertTriangleIcon />}
+          tone={view.status === 403 ? 'icon-system' : undefined}
           title={view.status === 403 ? 'Sem acesso à agenda geral' : 'A agenda não respondeu'}
           description={
             view.status === 403

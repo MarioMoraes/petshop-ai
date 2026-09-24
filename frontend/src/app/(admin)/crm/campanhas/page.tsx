@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
+import { AlertTriangleIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { CampaignsBoard } from './campaigns-board'
@@ -57,6 +58,7 @@ export default async function CampanhasPage() {
 
       {failed ? (
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de automações está indisponível agora. Recarregue em instantes."
         />

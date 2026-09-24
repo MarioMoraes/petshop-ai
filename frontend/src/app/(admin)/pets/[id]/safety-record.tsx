@@ -16,7 +16,7 @@ import {
   type TemperamentClassification,
   type TemperamentContext,
 } from '@petshop/shared-types'
-import { Button, Card, Field, FormError, SectionHead } from '@/components/ui'
+import { Button, Card, CardHead, Field, FormError, SectionHead } from '@/components/ui'
 import { AlertTriangleIcon, HeartPulseIcon, PawPrintIcon } from '@/components/icons'
 import {
   createAllergyAction,
@@ -90,7 +90,11 @@ export function SafetyRecordTab({
         </Card>
       ) : (
         <Card className="space-y-3">
-          <h3 className="font-semibold">O que a equipe precisa saber</h3>
+          <CardHead
+            icon={<AlertTriangleIcon />}
+            tone="icon-pet"
+            title="O que a equipe precisa saber"
+          />
           <ul className="space-y-2">
             {record.alerts.map((alert, index) => (
               <li

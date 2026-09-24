@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, KeyboardEvent, ReactNode } from 'react'
 import { SpinnerIcon, type IconTone } from './icons'
 
 /**
@@ -181,52 +181,97 @@ export function PageHeader({
 /**
  * Estado vazio. Distingue "não há nada ainda" de "a busca não achou": são situações
  * diferentes, e oferecer "cadastrar o primeiro" a quem só errou a busca é ruído.
+ *
+ * O chip no topo é o do domínio, com o mesmo tom do menu lateral: é a primeira tela que
+ * um estabelecimento novo vê em cada área, e só texto num cartão branco lia como página
+ * inacabada. Para o "não respondeu" e o "sem acesso" o ícone é o do problema
+ * (`AlertTriangleIcon`, `ShieldCheckIcon`) e não o da área — um estado de erro com o
+ * mesmo rosto do "ainda não há nada" faria os dois se confundirem num relance.
+ *
+ * O halo em volta do chip é um anel de 8px na cor clara do próprio tom: dá ao ícone o
+ * peso de figura central sem precisar de ilustração.
+ *
+ * `icon` é opcional no tipo porque o Portal e o console da plataforma também usam a
+ * peça e têm linguagem própria; nas telas do Admin ele é obrigatório, e quem cobra é
+ * `lib/estados-vazios.test.ts`.
  */
 export function EmptyState({
   title,
   description,
   action,
+  icon,
+  tone,
 }: {
   title: string
   description: string
   action?: ReactNode
+  icon?: ReactNode
+  /** O tom do domínio. Sem tom, o chip cai no neutro com traço no acento — o do erro. */
+  tone?: IconTone
 }) {
   return (
     <div className="card flex flex-col items-center px-6 py-14 text-center">
-      <h3 className="text-lg font-semibold">{title}</h3>
+      {icon && <span className={`icon-chip empty-chip ${tone ?? ''}`}>{icon}</span>}
+      <h3 className={`text-lg font-semibold ${icon ? 'mt-6' : ''}`}>{title}</h3>
       <p className="hint mt-2 max-w-sm">{description}</p>
       {action && <div className="mt-6">{action}</div>}
     </div>
   )
 }
 
+/**
+ * Abas em trilho: a ativa é uma pastilha branca levantada, a mesma física do
+ * `.nav-item-active` e do polegar do `Segmented` (regra 6 de
+ * `docs/design-formularios.md`). Era um sublinhado coral — a única peça do sistema em
+ * que o ativo não era levante, e o acento aparecendo onde não precisa.
+ *
+ * Não desliza como o `Segmented`: aqui os rótulos têm larguras diferentes e trazem
+ * contador, e medir cada aba para mover um polegar custaria mais que o efeito vale.
+ *
+ * O trilho rola na horizontal quando não cabe — o pet tem seis abas e as
+ * Configurações nove —, em vez de quebrar em duas linhas. As setas do teclado andam
+ * entre as abas, como o padrão de `tablist` pede.
+ */
 export function Tabs({
   tabs,
   active,
   onSelect,
 }: {
-  tabs: { id: string; label: string }[]
+  tabs: { id: string; label: string; count?: number }[]
   active: string
   onSelect: (id: string) => void
 }) {
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
+    const index = tabs.findIndex((tab) => tab.id === active)
+    const step = event.key === 'ArrowRight' ? 1 : -1
+    const next = tabs[(index + step + tabs.length) % tabs.length]
+    if (!next) return
+    event.preventDefault()
+    onSelect(next.id)
+    event.currentTarget.querySelector<HTMLButtonElement>(`[data-tab="${next.id}"]`)?.focus()
+  }
+
   return (
-    <div className="flex flex-wrap gap-1 border-b border-line" role="tablist">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          role="tab"
-          aria-selected={tab.id === active}
-          onClick={() => onSelect(tab.id)}
-          className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-            tab.id === active
-              ? 'border-accent text-ink'
-              : 'border-transparent text-subtle hover:text-muted'
-          }`}
-        >
-          {tab.label}
-        </button>
-      ))}
+    <div className="tabs-rail" role="tablist" onKeyDown={onKeyDown}>
+      {tabs.map((tab) => {
+        const selected = tab.id === active
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            data-tab={tab.id}
+            aria-selected={selected}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onSelect(tab.id)}
+            className="tab"
+          >
+            {tab.label}
+            {tab.count !== undefined && <span className="tab-count">{tab.count}</span>}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -275,6 +320,43 @@ export function SectionHead({
           {eyebrow && <p className="section-eyebrow">{eyebrow}</p>}
           <h2 className="section-title">{title}</h2>
         </div>
+      </div>
+      {description && <p className="hint mt-2">{description}</p>}
+    </div>
+  )
+}
+
+/**
+ * Cabeçalho de cartão de leitura: o `SectionHead` do cartão branco.
+ *
+ * Os cartões de conteúdo abriam com um `<h3>` solto em negrito, e o cartão de
+ * formulário ao lado abria com chip e Título 4 — duas gramáticas na mesma ficha. Aqui é
+ * a mesma peça sem o olho-de-boi (cartão de leitura não é sequência numerada) e com um
+ * slot à direita para a ação ou o filtro do cartão.
+ *
+ * `h3` e não `h2`: dentro de uma ficha o `h1` é o nome do registro e o `h2` é a aba.
+ */
+export function CardHead({
+  icon,
+  tone,
+  title,
+  description,
+  action,
+}: {
+  icon: ReactNode
+  tone: IconTone
+  title: ReactNode
+  description?: ReactNode
+  action?: ReactNode
+}) {
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="section-head min-w-0">
+          <span className={`icon-chip icon-chip-sm ${tone}`}>{icon}</span>
+          <h3 className="section-title min-w-0">{title}</h3>
+        </div>
+        {action}
       </div>
       {description && <p className="hint mt-2">{description}</p>}
     </div>

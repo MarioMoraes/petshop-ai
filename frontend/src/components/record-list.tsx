@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import type { PetAlert } from '@petshop/shared-types'
 import type { Route } from 'next'
 import { ChevronRightIcon } from './icons'
 import { ButtonLink, LinkSpinner } from './links'
@@ -93,7 +94,16 @@ export function RecordFact({
 }
 
 /** Iniciais num círculo — o rosto de quem não tem foto: o tutor. */
-export function InitialsAvatar({ name, tone }: { name: string; tone: string }) {
+export function InitialsAvatar({
+  name,
+  tone,
+  size = 'md',
+}: {
+  name: string
+  tone: string
+  /** `md` (48px) na listagem, `lg` (64px) na ficha — os mesmos da `PetAvatar`. */
+  size?: 'md' | 'lg'
+}) {
   const initials = name
     .trim()
     .split(/\s+/)
@@ -103,15 +113,30 @@ export function InitialsAvatar({ name, tone }: { name: string; tone: string }) {
   const text = (
     initials.length > 1 ? `${initials[0]}${initials[initials.length - 1]}` : (initials[0] ?? '?')
   ).toUpperCase()
+  const box = size === 'lg' ? 'h-16 w-16 text-lg' : 'h-12 w-12 text-sm'
 
   return (
     <span
       aria-hidden
-      className={`${tone} flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--icon-soft)] text-sm font-semibold tracking-wide text-[var(--icon)] shadow-[0_0_0_1px_var(--icon-ring)_inset]`}
+      className={`${tone} ${box} flex shrink-0 items-center justify-center rounded-full bg-[var(--icon-soft)] font-semibold tracking-wide text-[var(--icon)] shadow-[0_0_0_1px_var(--icon-ring)_inset]`}
     >
       {text}
     </span>
   )
+}
+
+/**
+ * O alerta do prontuário que cabe num selo: o mais grave, com "+N" quando há outros.
+ * O backend já entrega `alerts[]` ordenado por gravidade, do mais grave para o menos.
+ */
+export function topAlert(alerts: PetAlert[]): { label: string; critical: boolean } | null {
+  const first = alerts[0]
+  if (!first) return null
+  const rest = alerts.length - 1
+  return {
+    label: rest > 0 ? `${first.label} +${rest}` : first.label,
+    critical: first.severity === 'HIGH' || first.severity === 'CRITICAL',
+  }
 }
 
 /** Paginação das listagens: a mesma nos dois cadastros, com os filtros preservados. */

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
+import { AlertTriangleIcon, ShieldCheckIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { GalleryManager } from './gallery-manager'
@@ -28,6 +29,8 @@ export default async function SiteGalleryPage() {
       <>
         <PageHeader title="Fotos do site" />
         <EmptyState
+          icon={<ShieldCheckIcon />}
+          tone="icon-system"
           title="Esta tela é do administrador"
           description="As fotos que aparecem no site são configuradas por quem administra o estabelecimento."
         />
@@ -56,7 +59,11 @@ export default async function SiteGalleryPage() {
       />
 
       {photos instanceof ApiError ? (
-        <EmptyState title="Não foi possível carregar as fotos" description={photos.message} />
+        <EmptyState
+          icon={<AlertTriangleIcon />}
+          title="Não foi possível carregar as fotos"
+          description={photos.message}
+        />
       ) : (
         <GalleryManager photos={photos} />
       )}

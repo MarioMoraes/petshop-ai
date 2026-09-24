@@ -13,7 +13,7 @@ import {
   type PaginatedAgentConversations,
 } from '@petshop/shared-types'
 import { Alert, Badge, Button, Card, EmptyState, Tabs } from '@/components/ui'
-import { AlertTriangleIcon, BellIcon, InboxIcon } from '@/components/icons'
+import { AlertTriangleIcon, BellIcon, InboxIcon, SparkleIcon } from '@/components/icons'
 import { Modal } from '@/components/modal'
 import {
   assumirConversaAction,
@@ -97,6 +97,8 @@ export function AtendimentosBoard({ page, status, podeAtender }: Props) {
 
       {page.data.length === 0 ? (
         <EmptyState
+          icon={<SparkleIcon />}
+          tone="icon-brand"
           title={VAZIO[status]?.title ?? 'Nada por aqui'}
           description={VAZIO[status]?.description ?? ''}
         />

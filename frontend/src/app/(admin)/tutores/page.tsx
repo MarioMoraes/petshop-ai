@@ -1,4 +1,4 @@
-import { PawPrintIcon, WalletIcon } from '@/components/icons'
+import { PawPrintIcon, UsersIcon, WalletIcon } from '@/components/icons'
 import { Badge, EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { ListSearch } from '@/components/list-search'
@@ -59,11 +59,15 @@ export default async function TutoresPage({ searchParams }: PageProps) {
       {result.data.length === 0 ? (
         isSearching ? (
           <EmptyState
+            icon={<UsersIcon />}
+            tone="icon-people"
             title="Nenhum tutor encontrado"
             description="Tente outro nome, telefone ou CPF. A busca também aceita o número com máscara."
           />
         ) : (
           <EmptyState
+            icon={<UsersIcon />}
+            tone="icon-people"
             title="Sua base começa aqui"
             description="O cadastro do tutor é o ponto de partida de tudo: pets, agenda e conta corrente."
             action={<ButtonLink href="/tutores/novo">Cadastrar o primeiro tutor</ButtonLink>}

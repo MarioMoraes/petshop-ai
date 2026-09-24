@@ -86,6 +86,35 @@ export function ListSkeleton({ rows = 6 }: { rows?: number }) {
   )
 }
 
+/**
+ * O herói da ficha (`components/record-hero.tsx`): o link de volta, o cartão com o
+ * rosto, o nome e a faixa de quatro números.
+ */
+export function RecordHeroSkeleton() {
+  return (
+    <div className="space-y-3">
+      <SkeletonLine w="w-16" className="h-3" />
+      <div className="card p-6 sm:p-7">
+        <div className="flex items-start gap-5">
+          <Skeleton className="h-16 w-16 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-3 pt-1">
+            <SkeletonLine w="w-56 max-w-full" className="h-7" />
+            <SkeletonLine w="w-72 max-w-full" className="h-3" />
+          </div>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-4 border-t border-line pt-5 sm:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="space-y-2">
+              <SkeletonLine w="w-20" className="h-3" />
+              <SkeletonLine w="w-24" className="h-5" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Cartão branco de conteúdo com N linhas dentro. O detalhe é feito destes. */
 export function CardSkeleton({ lines = 4 }: { lines?: number }) {
   return (

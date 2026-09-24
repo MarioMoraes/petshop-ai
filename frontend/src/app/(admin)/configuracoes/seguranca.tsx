@@ -150,6 +150,8 @@ function Trilha({ itens, cursor }: { itens: AuditLogEntry[]; cursor: string | nu
       {lista.length === 0 ? (
         <div className="mt-6">
           <EmptyState
+            icon={<ShieldCheckIcon />}
+            tone="icon-system"
             title="Nada registrado no período"
             description="Cada alteração de cadastro, perfil ou configuração aparece aqui assim que acontece."
           />
@@ -225,6 +227,8 @@ function Eventos({ resumo }: { resumo: SecurityEventSummary[] }) {
       {total === 0 ? (
         <div className="mt-6">
           <EmptyState
+            icon={<ShieldCheckIcon />}
+            tone="icon-system"
             title="Nenhum evento no período"
             description="Acesso negado, assinatura inválida e tentativa de alcançar outro estabelecimento aparecem aqui."
           />

@@ -1,4 +1,5 @@
 import { ApiError } from '@petshop/api-client'
+import { AlertTriangleIcon, InboxIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
@@ -32,6 +33,8 @@ export default async function SitePage() {
       <>
         <PageHeader title="Site" />
         <EmptyState
+          icon={<InboxIcon />}
+          tone="icon-metric"
           title="Os contatos ficam na outra tela"
           description="Configurar e publicar a página é do administrador. O que chega pelo formulário do site está em Contatos."
           action={<ButtonLink href="/site/contatos">Ver contatos</ButtonLink>}
@@ -71,7 +74,11 @@ export default async function SitePage() {
       />
 
       {preview instanceof ApiError ? (
-        <EmptyState title="Não foi possível carregar o site" description={preview.message} />
+        <EmptyState
+          icon={<AlertTriangleIcon />}
+          title="Não foi possível carregar o site"
+          description={preview.message}
+        />
       ) : (
         <SiteForm preview={preview} />
       )}

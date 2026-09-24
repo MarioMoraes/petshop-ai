@@ -8,6 +8,7 @@ import {
   type ServiceResponse,
   type Size,
 } from '@petshop/shared-types'
+import { CalendarIcon } from '@/components/icons'
 import { Badge, Button, Card, EmptyState, Field } from '@/components/ui'
 import {
   createServiceAction,
@@ -63,6 +64,8 @@ export function ServicesManager({ services, sizes }: Props) {
   if (services.length === 0 && !creating) {
     return (
       <EmptyState
+        icon={<CalendarIcon />}
+        tone="icon-time"
         title="Nenhum serviço cadastrado"
         description="Os serviços definem o que o tutor pode agendar e quanto custa cada porte."
         action={

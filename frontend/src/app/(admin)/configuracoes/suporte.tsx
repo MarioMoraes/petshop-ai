@@ -70,6 +70,8 @@ export function AcessoSuporte({ grants, canEdit }: AcessoSuporteProps) {
         {pendentes.length === 0 && ativos.length === 0 ? (
           <div className="mt-6">
             <EmptyState
+              icon={<ShieldCheckIcon />}
+              tone="icon-system"
               title="Nenhum acesso pedido ou ativo"
               description="Enquanto esta lista estiver vazia, nenhuma pessoa da PetShop AI consegue abrir a ficha de um cliente seu."
             />

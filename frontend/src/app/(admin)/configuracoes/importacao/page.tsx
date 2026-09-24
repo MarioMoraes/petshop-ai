@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { ShieldCheckIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { ImportacaoPanel } from './importacao-panel'
@@ -50,6 +51,8 @@ export default async function ImportacaoPage() {
       <div className="mt-10">
         {!podeImportar ? (
           <EmptyState
+            icon={<ShieldCheckIcon />}
+            tone="icon-system"
             title="Sem permissão para importar"
             description="Trazer a base de outro sistema cria clientes, animais, equipe e agenda de uma vez. A ação é do administrador do estabelecimento — peça a ele."
           />

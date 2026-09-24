@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
+import { AlertTriangleIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
@@ -40,6 +41,7 @@ export default async function TextosPage() {
       <div className="space-y-6">
         <Header canConfigure={canConfigure} />
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de mensagens está indisponível agora. Recarregue em instantes."
         />

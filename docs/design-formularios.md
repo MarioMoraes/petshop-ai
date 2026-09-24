@@ -223,6 +223,35 @@ gruda no cartão, não na tela.
 
 ---
 
+## Telas de leitura: listagem e ficha
+
+Não são formulário, mas usam as mesmas peças.
+
+- **Listagem de cadastro** (`/pets`, `/tutores`) é `components/record-list.tsx` +
+  `components/list-search.tsx`: busca com lupa e o "limpar", fila de pílulas de filtro
+  com "Todos" na frente, e grade de cartões brancos com rosto, meta e um pé separado por
+  fio. Cadastro novo com listagem usa as mesmas peças.
+- **Ficha do registro** (`/tutores/[id]`, `/pets/[id]`) abre com `<RecordHero>`
+  (`components/record-hero.tsx`): o rosto grande, o nome, os selos, a ação Editar e uma
+  **faixa de três ou quatro números** — o que se procura ao abrir a ficha (saldo, último
+  atendimento, peso). Número que sobe para o herói sai da aba, para não repetir.
+- **Aba Dados** agrupa as linhas rótulo/valor por assunto em `<DataGroup>`, numa grade
+  de duas colunas — nunca uma coluna só de dez `DataRow`.
+- **`<Tabs>` é trilho com pastilha branca**, como o `Segmented`, e rola na horizontal em
+  vez de quebrar. O número vai em `count`, e não no texto do rótulo ("Pets (3)").
+- **Cartão de leitura abre com `<CardHead>`** (`components/ui.tsx`): chip pequeno no
+  tom do domínio, título em Título 4 e um slot `action` à direita. É o `SectionHead`
+  sem olho-de-boi — nunca um `<h3 className="font-semibold">` solto. A exceção são as
+  **confirmações de perigo** (anonimizar, excluir, registrar óbito): ali o título em
+  `text-danger` é o próprio aviso, e um chip colorido o amaciaria.
+- **Estado vazio tem rosto.** `<EmptyState>` recebe `icon` e `tone`: o ícone e o tom da
+  área quando está vazio de verdade, `AlertTriangleIcon` sem tom quando o serviço não
+  respondeu, `ShieldCheckIcon` com `icon-system` quando falta acesso — um erro com o
+  mesmo rosto do "ainda não há nada" confundiria os dois. Nas telas do Admin o ícone é
+  obrigatório, e `src/lib/estados-vazios.test.ts` cobra.
+
+---
+
 ## Contraste
 
 `--color-subtle` (#86888d) rende **3,55:1 sobre branco** e reprova o AA da WCAG, que pede

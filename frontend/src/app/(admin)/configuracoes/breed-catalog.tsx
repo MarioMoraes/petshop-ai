@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import type { ManagedBreed, Species } from '@petshop/shared-types'
-import { Button, Card, Field, FormError } from '@/components/ui'
+import { Button, Card, CardHead, Field, FormError } from '@/components/ui'
+import { PawPrintIcon } from '@/components/icons'
 import {
   createBreedAction,
   deleteBreedAction,
@@ -140,9 +141,11 @@ export function BreedCatalog({ species, canManage }: Props) {
 
       <Card className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="font-semibold">
-            {visible.length} {visible.length === 1 ? 'raça' : 'raças'}
-          </h3>
+          <CardHead
+            icon={<PawPrintIcon />}
+            tone="icon-system"
+            title={`${visible.length} ${visible.length === 1 ? 'raça' : 'raças'}`}
+          />
           {hiddenCount > 0 && (
             <Button
               type="button"

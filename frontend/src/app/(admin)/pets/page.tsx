@@ -1,10 +1,9 @@
-import type { PetAlert } from '@petshop/shared-types'
 import { PetAvatar, SpeciesIcon } from '@/components/pet-avatar'
-import { AlertTriangleIcon, UsersIcon } from '@/components/icons'
+import { AlertTriangleIcon, PawPrintIcon, UsersIcon } from '@/components/icons'
 import { Badge, EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { ListSearch } from '@/components/list-search'
-import { Pagination, RecordCard, RecordFact, RecordGrid } from '@/components/record-list'
+import { Pagination, RecordCard, RecordFact, RecordGrid, topAlert } from '@/components/record-list'
 import { serverApi } from '@/lib/api'
 
 /**
@@ -68,11 +67,15 @@ export default async function PetsPage({ searchParams }: PageProps) {
       {result.data.length === 0 ? (
         isSearching ? (
           <EmptyState
+            icon={<PawPrintIcon />}
+            tone="icon-pet"
             title="Nenhum pet encontrado"
             description="Tente outro nome, raça ou cor. A busca também aceita os 15 dígitos do microchip."
           />
         ) : (
           <EmptyState
+            icon={<PawPrintIcon />}
+            tone="icon-pet"
             title="Nenhum pet cadastrado ainda"
             description="Todo pet nasce vinculado a um responsável — cadastre o tutor primeiro, se ele ainda não existir."
             action={<ButtonLink href="/pets/novo">Cadastrar o primeiro pet</ButtonLink>}
@@ -153,18 +156,4 @@ export default async function PetsPage({ searchParams }: PageProps) {
 function subtitle(total: number, isSearching: boolean): string {
   if (isSearching) return total === 1 ? '1 pet encontrado' : `${total} pets encontrados`
   return total === 1 ? '1 pet cadastrado' : `${total} pets cadastrados`
-}
-
-/**
- * O alerta que vai no cartão: o mais grave, com "+N" quando há outros. O backend já
- * entrega `alerts[]` ordenado por gravidade, do mais grave para o menos.
- */
-function topAlert(alerts: PetAlert[]): { label: string; critical: boolean } | null {
-  const first = alerts[0]
-  if (!first) return null
-  const rest = alerts.length - 1
-  return {
-    label: rest > 0 ? `${first.label} +${rest}` : first.label,
-    critical: first.severity === 'HIGH' || first.severity === 'CRITICAL',
-  }
 }

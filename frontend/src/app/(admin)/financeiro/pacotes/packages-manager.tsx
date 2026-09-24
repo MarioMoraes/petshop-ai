@@ -9,7 +9,8 @@ import {
   type ServicePackage,
   type ServiceResponse,
 } from '@petshop/shared-types'
-import { Badge, Button, Card, EmptyState, Field, FormError } from '@/components/ui'
+import { WalletIcon } from '@/components/icons'
+import { Badge, Button, Card, CardHead, EmptyState, Field, FormError } from '@/components/ui'
 import { createPackageAction, updatePackageAction } from '../actions'
 
 /**
@@ -37,6 +38,8 @@ export function PackagesManager({ packages, services, defaultValidityDays, canEd
     <div className="space-y-4">
       {packages.length === 0 && !creating ? (
         <EmptyState
+          icon={<WalletIcon />}
+          tone="icon-money"
           title="Nenhum pacote cadastrado"
           description="Um pacote é a venda de N execuções de um serviço com desconto, consumidas ao longo da validade. É o que faz o cliente voltar."
           {...(canEdit
@@ -247,7 +250,11 @@ function PackageForm({
 
   return (
     <Card>
-      <h3 className="font-semibold">{pkg ? 'Editar pacote' : 'Novo pacote'}</h3>
+      <CardHead
+        icon={<WalletIcon />}
+        tone="icon-money"
+        title={pkg ? 'Editar pacote' : 'Novo pacote'}
+      />
       {pkg && (
         <p className="hint mt-1">
           As compras já feitas não mudam: nome, serviços, créditos e preço foram congelados no ato

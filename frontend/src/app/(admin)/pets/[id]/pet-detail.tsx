@@ -18,8 +18,17 @@ import {
   type PetWeightRecord,
   type TransferReason,
 } from '@petshop/shared-types'
-import { Button, Card, DataRow, Field, FormError, Tabs } from '@/components/ui'
-import { ButtonLink } from '@/components/links'
+import { Button, Card, CardHead, DataRow, Field, FormError, Tabs } from '@/components/ui'
+import {
+  ImageIcon,
+  NoteIcon,
+  PaletteIcon,
+  PawPrintIcon,
+  ScaleIcon,
+  TrendingUpIcon,
+  UsersIcon,
+} from '@/components/icons'
+import { DataGroup } from '@/components/record-hero'
 import { SafetyRecordTab } from './safety-record'
 import { TimelineTab } from './timeline'
 import {
@@ -125,14 +134,13 @@ export function PetDetailView(props: Props) {
       <Tabs
         tabs={[
           { id: 'dados', label: 'Dados' },
-          { id: 'responsaveis', label: `Responsáveis (${pet.tutors.length})` },
-          { id: 'peso', label: `Peso (${weights.length})` },
-          { id: 'fotos', label: `Fotos (${album.photos.length})` },
+          { id: 'responsaveis', label: 'Responsáveis', count: pet.tutors.length },
+          { id: 'peso', label: 'Peso', count: weights.length },
+          { id: 'fotos', label: 'Fotos', count: album.photos.length },
           {
             id: 'prontuario',
-            label: safetyRecord.alerts.length
-              ? `Prontuário (${safetyRecord.alerts.length})`
-              : 'Prontuário',
+            label: 'Prontuário',
+            ...(safetyRecord.alerts.length ? { count: safetyRecord.alerts.length } : {}),
           },
           { id: 'historico', label: 'Histórico' },
         ]}
@@ -202,61 +210,70 @@ function DadosTab({ pet, canUpdate, canDelete, canManageLifecycle }: Props) {
     <div className="space-y-5">
       <FormError message={error} />
 
-      <Card>
-        <dl>
-          <DataRow label="Espécie">{pet.species.label}</DataRow>
-          <DataRow label="Raça">{pet.breed?.label ?? '—'}</DataRow>
-          <DataRow label="Porte">{pet.size.label}</DataRow>
-          <DataRow label="Pelagem">{pet.coat?.label ?? '—'}</DataRow>
-          <DataRow label="Sexo">{SEX_LABELS[pet.sex]}</DataRow>
-          <DataRow label="Cor">{pet.color ?? '—'}</DataRow>
-          <DataRow label="Nascimento">
-            {pet.birthDate ? formatDate(pet.birthDate) : '—'}
-            {pet.birthDatePrecision === 'ESTIMATED' && <span className="hint"> · estimada</span>}
-          </DataRow>
-          <DataRow label="Idade">{pet.ageLabel ?? 'Não informada'}</DataRow>
-          <DataRow label="Peso">{pet.weightKg === null ? '—' : `${pet.weightKg} kg`}</DataRow>
-          <DataRow label="Castrado">
-            {pet.neutered === null ? 'Não informado' : pet.neutered ? 'Sim' : 'Não'}
-          </DataRow>
-          <DataRow label="Microchip">
-            {pet.microchipMasked === null ? (
-              '—'
-            ) : microchip !== null ? (
-              <span className="font-mono">{microchip}</span>
-            ) : (
-              <span className="flex items-center gap-3">
-                <span className="font-mono">{pet.microchipMasked}</span>
-                {canUpdate && (
-                  <Button
-                    type="button"
-                    className="px-3 py-1 text-xs"
-                    busy={pending}
-                    onClick={reveal}
-                    busyLabel="Buscando…"
-                  >
-                    Ver completo
-                  </Button>
-                )}
-              </span>
-            )}
-          </DataRow>
-          <DataRow label="Último atendimento">
-            {pet.lastAttendanceAt ? formatDate(pet.lastAttendanceAt) : 'Nenhum ainda'}
-          </DataRow>
-        </dl>
-      </Card>
+      {/*
+        Idade, peso e último atendimento subiram para o herói da página: são o que se
+        procura ao abrir a ficha, e aqui ficariam repetidos.
+      */}
+      <div className="grid gap-5 md:grid-cols-2">
+        <DataGroup icon={<PawPrintIcon />} tone="icon-pet" title="Identificação">
+          <dl>
+            <DataRow label="Espécie">{pet.species.label}</DataRow>
+            <DataRow label="Raça">{pet.breed?.label ?? '—'}</DataRow>
+            <DataRow label="Sexo">{SEX_LABELS[pet.sex]}</DataRow>
+            <DataRow label="Nascimento">
+              {pet.birthDate ? formatDate(pet.birthDate) : '—'}
+              {pet.birthDatePrecision === 'ESTIMATED' && <span className="hint"> · estimada</span>}
+            </DataRow>
+            <DataRow label="Microchip">
+              {pet.microchipMasked === null ? (
+                '—'
+              ) : microchip !== null ? (
+                <span className="font-mono">{microchip}</span>
+              ) : (
+                <span className="flex items-center gap-3">
+                  <span className="font-mono">{pet.microchipMasked}</span>
+                  {canUpdate && (
+                    <Button
+                      type="button"
+                      className="px-3 py-1 text-xs"
+                      busy={pending}
+                      onClick={reveal}
+                      busyLabel="Buscando…"
+                    >
+                      Ver completo
+                    </Button>
+                  )}
+                </span>
+              )}
+            </DataRow>
+          </dl>
+        </DataGroup>
 
-      {pet.notes && (
-        <Card>
-          <h3 className="font-semibold">Observações</h3>
-          <p className="hint mt-2 whitespace-pre-wrap">{pet.notes}</p>
-        </Card>
-      )}
+        <DataGroup icon={<PaletteIcon />} tone="icon-pet" title="Porte e pelagem">
+          <dl>
+            <DataRow label="Porte">{pet.size.label}</DataRow>
+            <DataRow label="Pelagem">{pet.coat?.label ?? '—'}</DataRow>
+            <DataRow label="Cor">{pet.color ?? '—'}</DataRow>
+            <DataRow label="Castrado">
+              {pet.neutered === null ? 'Não informado' : pet.neutered ? 'Sim' : 'Não'}
+            </DataRow>
+          </dl>
+        </DataGroup>
+
+        {pet.notes && (
+          <DataGroup
+            icon={<NoteIcon />}
+            tone="icon-pet"
+            title="Observações"
+            className="md:col-span-2"
+          >
+            <p className="whitespace-pre-wrap text-sm leading-6 text-muted">{pet.notes}</p>
+          </DataGroup>
+        )}
+      </div>
 
       {!isTerminal && (
         <div className="flex flex-wrap items-center gap-3">
-          {canUpdate && <ButtonLink href={`/pets/${pet.id}/editar`}>Editar</ButtonLink>}
           {canUpdate && <DeathPanel pet={pet} />}
           {canDelete && (
             <Button
@@ -411,7 +428,7 @@ function ResponsaveisTab({ pet, transfers, canUpdate, canDelete, canManageLifecy
 
       {canUpdate && (
         <Card className="space-y-3">
-          <h3 className="font-semibold">Vincular outro responsável</h3>
+          <CardHead icon={<UsersIcon />} tone="icon-pet" title="Vincular outro responsável" />
           <p className="hint">
             Ambos passam a ver o pet no portal e podem agendar. O débito continua indo para o
             principal.
@@ -546,7 +563,7 @@ function PesoTab({
 
       {canWeigh && !isTerminal && (
         <Card className="space-y-3">
-          <h3 className="font-semibold">Registrar pesagem</h3>
+          <CardHead icon={<ScaleIcon />} tone="icon-pet" title="Registrar pesagem" />
           <p className="hint">
             Entra no histórico e vira o peso atual do pet. Se a variação for grande, o prontuário
             avisa o veterinário.
@@ -577,7 +594,7 @@ function PesoTab({
         </Card>
       ) : (
         <Card className="space-y-3">
-          <h3 className="font-semibold">Histórico</h3>
+          <CardHead icon={<TrendingUpIcon />} tone="icon-pet" title="Histórico de peso" />
           <ul className="divide-y divide-black/5">
             {weights.map((point) => (
               <li key={point.id} className="flex flex-wrap items-center gap-3 py-3">
@@ -661,8 +678,8 @@ function FotosTab({ pet, album, canUploadPhoto, canUpdate }: Props) {
 
       {canUploadPhoto && !isTerminal && (
         <Card className="space-y-3">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <h3 className="font-semibold">Adicionar fotos</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <CardHead icon={<ImageIcon />} tone="icon-pet" title="Adicionar fotos" />
             <p className="hint">
               JPG, PNG, WEBP ou HEIC de até 10 MB · até {MAX_PHOTOS_PER_UPLOAD} por vez
               {quotaLeft !== null && ` · ${quotaLeft} restantes no plano`}
@@ -821,7 +838,7 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
     return (
       <Card className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold">Transferir titularidade</h3>
+          <CardHead icon={<UsersIcon />} tone="icon-pet" title="Transferir titularidade" />
           <p className="hint">
             Adoção, venda ou falecimento do tutor. O prontuário continua com o pet.
           </p>
@@ -859,7 +876,7 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
   return (
     <Card className="space-y-4 border border-accent/20">
       <div>
-        <h3 className="font-semibold">Transferir {pet.name}</h3>
+        <CardHead icon={<UsersIcon />} tone="icon-pet" title={`Transferir ${pet.name}`} />
         <p className="hint">
           Os responsáveis atuais deixam de ver o pet e o novo tutor vira o principal. Os recibos de
           quem pagou continuam com quem pagou.
@@ -943,7 +960,7 @@ function TransferPanel({ pet }: { pet: PetResponse }) {
 function TransferHistory({ transfers }: { transfers: PetTransfer[] }) {
   return (
     <Card className="space-y-3">
-      <h3 className="font-semibold">Histórico de titularidade</h3>
+      <CardHead icon={<NoteIcon />} tone="icon-pet" title="Histórico de titularidade" />
       <ul className="divide-y divide-black/5">
         {transfers.map((transfer) => (
           <li key={transfer.id} className="py-3">

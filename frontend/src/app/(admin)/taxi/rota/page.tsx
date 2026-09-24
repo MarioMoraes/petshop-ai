@@ -1,4 +1,5 @@
 import { ApiError } from '@petshop/api-client'
+import { AlertTriangleIcon, VanIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { DriverRoute } from './driver-route'
@@ -33,7 +34,13 @@ export default async function RotaPage() {
       <div className="space-y-6">
         <PageHeader eyebrow="Taxi Dog" title="Minha rota" />
         <EmptyState
-          title={route.status === 404 ? 'Você não está cadastrado como motorista' : 'O serviço não respondeu'}
+          icon={route.status === 404 ? <VanIcon /> : <AlertTriangleIcon />}
+          tone={route.status === 404 ? 'icon-time' : undefined}
+          title={
+            route.status === 404
+              ? 'Você não está cadastrado como motorista'
+              : 'O serviço não respondeu'
+          }
           description={
             route.status === 404
               ? 'Peça a um administrador para cadastrá-lo como motorista em Agenda → Profissionais.'
@@ -62,6 +69,8 @@ export default async function RotaPage() {
 
       {route.stops.length === 0 ? (
         <EmptyState
+          icon={<VanIcon />}
+          tone="icon-time"
           title="Nenhuma corrida hoje"
           description="Quando a recepção atribuir uma corrida a você, ela aparece aqui."
         />

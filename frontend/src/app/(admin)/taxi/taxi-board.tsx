@@ -8,6 +8,7 @@ import type {
   TaxiRideResponse,
   TaxiVehicleResponse,
 } from '@petshop/shared-types'
+import { VanIcon } from '@/components/icons'
 import { Badge, Button, Card, EmptyState } from '@/components/ui'
 import { advanceRideAction, assignRideAction, cancelRideAction, failRideAction } from './actions'
 
@@ -308,6 +309,8 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
 
       {board.totals.rides === 0 ? (
         <EmptyState
+          icon={<VanIcon />}
+          tone="icon-time"
           title="Nenhuma corrida neste dia"
           description="O leva-e-traz é pedido a partir de um agendamento, na Agenda."
         />

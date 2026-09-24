@@ -69,6 +69,8 @@ export function CampaignsBoard({ campaigns, canSend }: Props) {
 
       {campaigns.length === 0 ? (
         <EmptyState
+          icon={<BellIcon />}
+          tone="icon-brand"
           title="Nenhuma campanha ainda"
           description={
             canSend

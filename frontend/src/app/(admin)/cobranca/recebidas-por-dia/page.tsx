@@ -5,6 +5,7 @@ import {
   type PaymentMethod,
   type ReceiptsByDayReport,
 } from '@petshop/shared-types'
+import { AlertTriangleIcon, WalletIcon } from '@/components/icons'
 import { Card, EmptyState, PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { BackToCobranca, ReportFilters } from '../report-filters'
@@ -88,9 +89,15 @@ export default async function RecebidasPorDiaPage({ searchParams }: PageProps) {
       </ReportFilters>
 
       {report instanceof ApiError ? (
-        <EmptyState title="O financeiro não respondeu" description={report.message} />
+        <EmptyState
+          icon={<AlertTriangleIcon />}
+          title="O financeiro não respondeu"
+          description={report.message}
+        />
       ) : report.days.length === 0 ? (
         <EmptyState
+          icon={<WalletIcon />}
+          tone="icon-money"
           title="Nenhum pagamento no período"
           description="Não há entradas registradas entre as datas escolhidas. Amplie o período para ver mais."
         />

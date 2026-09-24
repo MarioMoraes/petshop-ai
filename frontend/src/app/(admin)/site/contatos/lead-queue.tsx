@@ -9,6 +9,7 @@ import {
   type SiteLead,
   type SiteLeadStatus,
 } from '@petshop/shared-types'
+import { InboxIcon } from '@/components/icons'
 import { Badge, Button, Card, EmptyState, FormError } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { updateSiteLeadAction } from '../actions'
@@ -57,6 +58,8 @@ export function LeadQueue({ leads, status, canConvert }: Props) {
 
       {leads.length === 0 ? (
         <EmptyState
+          icon={<InboxIcon />}
+          tone="icon-metric"
           title="Nenhum contato por aqui"
           description="Quem preencher o formulário do site aparece nesta fila, com telefone e mensagem."
         />

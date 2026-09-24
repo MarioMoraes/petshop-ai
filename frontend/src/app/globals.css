@@ -461,6 +461,134 @@
     color: var(--color-muted);
   }
 
+  /*
+   * O cabeçalho da ficha (`components/record-hero.tsx`): o cartão e a faixa de números.
+   *
+   * Os fatos são separados por fio vertical a partir de `sm`; no celular viram grade
+   * 2×2 sem fio, porque um fio no meio de duas colunas estreitas corta mais do que
+   * separa. O rótulo usa o `#6b6d72` que `.card-soft` já adota: o `--color-subtle`
+   * do `:root` reprova o AA sobre branco, e um rótulo de 12px em caixa alta é
+   * justamente o texto que mais sofre com isso.
+   */
+  .record-hero {
+    padding: 1.5rem;
+  }
+
+  @media (min-width: 40rem) {
+    .record-hero {
+      padding: 1.75rem;
+    }
+  }
+
+  .hero-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 1rem;
+    column-gap: 1.25rem;
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--color-line);
+    padding-top: 1.25rem;
+  }
+
+  .hero-fact {
+    min-width: 0;
+  }
+
+  .hero-fact dt {
+    color: #6b6d72;
+  }
+
+  @media (min-width: 40rem) {
+    .hero-facts {
+      column-gap: 0;
+    }
+
+    .hero-fact + .hero-fact {
+      border-left: 1px solid var(--color-line);
+      padding-left: 1.25rem;
+    }
+
+    .hero-fact:not(:last-child) {
+      padding-right: 1.25rem;
+    }
+  }
+
+  /*
+   * Abas em trilho (`Tabs` em `components/ui.tsx`). O trilho é o do `.segment`, em véu
+   * de opacidade para funcionar sobre o shell e sobre cartão; a aba ativa é a pastilha
+   * do `.nav-item-active`.
+   */
+  .tabs-rail {
+    display: flex;
+    width: fit-content;
+    max-width: 100%;
+    gap: 0.25rem;
+    overflow-x: auto;
+    padding: 0.25rem;
+    border-radius: 9999px;
+    background-color: rgb(35 36 39 / 0.05);
+    box-shadow: 0 0 0 1px rgb(35 36 39 / 0.05) inset;
+    scrollbar-width: none;
+  }
+
+  .tabs-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    border-radius: 9999px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    color: var(--color-muted);
+    transition:
+      color 0.2s,
+      background-color 0.2s,
+      box-shadow 0.2s;
+  }
+
+  .tab:hover {
+    color: var(--color-ink);
+    background-color: rgb(255 255 255 / 0.55);
+  }
+
+  .tab:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 1px;
+  }
+
+  .tab[aria-selected='true'] {
+    background-color: var(--color-card);
+    color: var(--color-ink);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 6px 14px -8px rgb(35 36 39 / 0.45);
+  }
+
+  .tab-count {
+    min-width: 1.25rem;
+    border-radius: 9999px;
+    background-color: rgb(35 36 39 / 0.07);
+    padding: 0 0.375rem;
+    text-align: center;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.125rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+
+  .tab[aria-selected='true'] .tab-count {
+    background-color: var(--color-shell);
+    color: #ffffff;
+  }
+
   /* O glifo do pé: um chip de 24px no tom do outro domínio. */
   .record-fact-icon {
     display: inline-flex;
@@ -657,6 +785,25 @@
     background-color: var(--icon-soft, var(--color-chip));
     box-shadow: 0 0 0 1px var(--icon-ring, transparent) inset;
     color: var(--icon, var(--color-accent));
+  }
+
+  /*
+   * O chip do estado vazio (`EmptyState`): 56px e um halo de 8px na cor clara do tom.
+   * O anel de 1px por dentro continua sendo o que dá silhueta ao chip; o halo é o que o
+   * põe no centro da cena num cartão que, fora ele, só tem texto.
+   */
+  .empty-chip {
+    height: 3.5rem;
+    width: 3.5rem;
+    border-radius: 1.125rem;
+    box-shadow:
+      0 0 0 1px var(--icon-ring, rgb(35 36 39 / 0.06)) inset,
+      0 0 0 8px color-mix(in srgb, var(--icon-soft, var(--color-chip)) 70%, transparent);
+  }
+
+  .empty-chip svg {
+    height: 1.625rem;
+    width: 1.625rem;
   }
 
   /* Pílula de meta-informação no rodapé do card. */

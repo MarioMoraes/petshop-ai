@@ -7,6 +7,7 @@ import {
   todayIn,
   zonedDayRange,
 } from '@petshop/shared-types'
+import { AlertTriangleIcon, SparkleIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { FunilDeEscritas, MotivosDeHandoff, NumerosDoPeriodo, SeletorDePeriodo } from './painel'
@@ -93,11 +94,14 @@ export default async function QualidadePage({ searchParams }: PageProps) {
 
       {failed ? (
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O painel está indisponível agora. Recarregue em instantes."
         />
       ) : stats.conversations === 0 ? (
         <EmptyState
+          icon={<SparkleIcon />}
+          tone="icon-brand"
           title="Nenhuma conversa encerrada neste período"
           description="O painel conta o que já terminou. Conversa em andamento ainda não tem desfecho, e contá-la como não resolvida diria que o agente falhou no que ainda está fazendo."
         />

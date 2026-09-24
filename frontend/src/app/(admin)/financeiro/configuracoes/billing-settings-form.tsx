@@ -10,8 +10,8 @@ import {
   type BillingSettings,
   type PaymentMethod,
 } from '@petshop/shared-types'
-import { Button, Card, Field, FormError, SectionHead } from '@/components/ui'
-import { CalendarIcon, WalletIcon } from '@/components/icons'
+import { Button, Card, CardHead, Field, FormError, SectionHead } from '@/components/ui'
+import { CalendarIcon, ReceiptIcon, WalletIcon } from '@/components/icons'
 import { updateBillingSettingsAction } from '../actions'
 
 /**
@@ -53,7 +53,7 @@ function ReceivablesCard({ receivables }: { receivables: NonNullable<Props['rece
 
   return (
     <Card>
-      <h3 className="font-semibold">Contas a receber</h3>
+      <CardHead icon={<ReceiptIcon />} tone="icon-money" title="Contas a receber" />
       <dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div>
           <dt className="hint">Total em aberto</dt>

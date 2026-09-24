@@ -1,4 +1,5 @@
 import { ApiError } from '@petshop/api-client'
+import { AlertTriangleIcon, ShieldCheckIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { TaxiSettingsForm } from './settings-form'
@@ -47,6 +48,8 @@ export default async function TaxiConfigPage() {
       <div className="space-y-6">
         <PageHeader eyebrow="Taxi Dog" title="Configuração" />
         <EmptyState
+          icon={<ShieldCheckIcon />}
+          tone="icon-system"
           title="Sem acesso à configuração"
           description="Zonas, frota e preços são do administrador do estabelecimento."
         />
@@ -59,6 +62,7 @@ export default async function TaxiConfigPage() {
       <div className="space-y-6">
         <PageHeader eyebrow="Taxi Dog" title="Configuração" />
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de Taxi Dog está indisponível agora. Recarregue em instantes."
         />

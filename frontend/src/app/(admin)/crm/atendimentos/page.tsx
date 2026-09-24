@@ -6,6 +6,7 @@ import {
   minimumPlanFor,
   type AgentConversationStatus,
 } from '@petshop/shared-types'
+import { AlertTriangleIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
@@ -80,6 +81,7 @@ export default async function AtendimentosPage({ searchParams }: PageProps) {
 
       {failed ? (
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de atendimentos está indisponível agora. Recarregue em instantes."
         />

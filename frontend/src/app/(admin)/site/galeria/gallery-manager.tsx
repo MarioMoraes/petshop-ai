@@ -125,6 +125,8 @@ export function GalleryManager({ photos }: { photos: SitePhoto[] }) {
 
       {photos.length === 0 ? (
         <EmptyState
+          icon={<ImageIcon />}
+          tone="icon-metric"
           title="Nenhuma foto ainda"
           description="A página funciona sem foto, mas quem chega nela decide em segundos — e uma imagem do salão ajuda mais que qualquer texto."
         />

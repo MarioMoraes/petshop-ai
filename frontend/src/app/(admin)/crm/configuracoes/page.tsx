@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
+import { AlertTriangleIcon, ShieldCheckIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
@@ -72,6 +73,7 @@ export default async function CrmConfigPage() {
       <div className="space-y-6">
         {header}
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de mensagens está indisponível agora. Recarregue em instantes."
         />
@@ -84,6 +86,8 @@ export default async function CrmConfigPage() {
       <div className="space-y-6">
         {header}
         <EmptyState
+          icon={<ShieldCheckIcon />}
+          tone="icon-system"
           title="Sem acesso à configuração"
           description="Janela de envio, automações e bloqueios são do administrador do estabelecimento. Os textos você pode consultar."
         />

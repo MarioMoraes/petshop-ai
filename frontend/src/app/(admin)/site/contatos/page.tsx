@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
 import { SiteLeadStatusSchema, type SiteLeadStatus } from '@petshop/shared-types'
+import { AlertTriangleIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { LeadQueue } from './lead-queue'
@@ -65,7 +66,11 @@ export default async function SiteLeadsPage({ searchParams }: PageProps) {
       />
 
       {leads instanceof ApiError ? (
-        <EmptyState title="Não foi possível carregar os contatos" description={leads.message} />
+        <EmptyState
+          icon={<AlertTriangleIcon />}
+          title="Não foi possível carregar os contatos"
+          description={leads.message}
+        />
       ) : (
         <LeadQueue
           leads={leads.items}

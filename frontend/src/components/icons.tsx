@@ -699,3 +699,23 @@ export function XIcon() {
     </svg>
   )
 }
+
+/** Etiqueta — as tags do tutor. Tom: `icon-people`. */
+export function TagIcon() {
+  return (
+    <svg {...BASE}>
+      <path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z" />
+      <circle cx="7.5" cy="7.5" r="1" />
+    </svg>
+  )
+}
+
+/** Balança — a pesagem do pet. Tom: `icon-pet`. */
+export function ScaleIcon() {
+  return (
+    <svg {...BASE}>
+      <circle cx="12" cy="5" r="3" />
+      <path d="M6.5 8a2 2 0 0 0-1.9 1.5L2 20h20L19.4 9.5A2 2 0 0 0 17.5 8Z" />
+    </svg>
+  )
+}

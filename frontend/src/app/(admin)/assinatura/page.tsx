@@ -5,6 +5,7 @@ import {
   formatBRL,
   type SubscriptionView,
 } from '@petshop/shared-types'
+import { AlertTriangleIcon, ShieldCheckIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { carregarMe, serverApi } from '@/lib/api'
 import { AssinaturaForm } from './assinatura-form'
@@ -33,6 +34,8 @@ export default async function AssinaturaPage({ searchParams }: PageProps) {
       <div className="space-y-6">
         <PageHeader eyebrow="Configurações" title="Assinatura" />
         <EmptyState
+          icon={<ShieldCheckIcon />}
+          tone="icon-system"
           title="A assinatura é do administrador"
           description="Plano e pagamento ficam com quem administra o estabelecimento."
         />
@@ -52,6 +55,7 @@ export default async function AssinaturaPage({ searchParams }: PageProps) {
       <div className="space-y-6">
         <PageHeader eyebrow="Configurações" title="Assinatura" />
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="Não foi possível ler a assinatura agora. Recarregue em instantes."
         />

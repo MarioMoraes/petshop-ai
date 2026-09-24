@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { BR_UFS, type ProfessionalResponse, type ServiceResponse } from '@petshop/shared-types'
+import { UsersIcon } from '@/components/icons'
 import { Badge, Button, Card, EmptyState, Field } from '@/components/ui'
 import {
   createProfessionalAction,
@@ -78,6 +79,8 @@ export function ProfessionalsManager({ professionals, services, team }: Props) {
   if (professionals.length === 0 && !creating) {
     return (
       <EmptyState
+        icon={<UsersIcon />}
+        tone="icon-time"
         title="Ninguém cadastrado ainda"
         description="A agenda precisa saber quem atende para oferecer horários. Cada pessoa tem a própria jornada e os serviços que executa."
         action={

@@ -9,6 +9,7 @@ import {
   todayIn,
   zonedDayRange,
 } from '@petshop/shared-types'
+import { AlertTriangleIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { carregarMe, serverApi } from '@/lib/api'
@@ -107,6 +108,7 @@ export default async function CrmPage({ searchParams }: PageProps) {
 
       {failed ? (
         <EmptyState
+          icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de mensagens está indisponível agora. Recarregue em instantes."
         />

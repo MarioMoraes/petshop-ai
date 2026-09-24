@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import { ApiError } from '@petshop/api-client'
-import { Badge, PageHeader } from '@/components/ui'
+import { Badge } from '@/components/ui'
+import { ButtonLink } from '@/components/links'
+import { RecordHero } from '@/components/record-hero'
+import { InitialsAvatar } from '@/components/record-list'
 import { carregarMe, serverApi } from '@/lib/api'
 import { TutorDetailView, type CommsData, type FinanceData } from './tutor-detail'
 
@@ -43,24 +45,57 @@ export default async function TutorPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow={
-          <Link href="/tutores" className="hover:underline">
-            ← Tutores
-          </Link>
-        }
-        title={
-          <span className="flex flex-wrap items-center gap-3">
-            {tutor.displayName}
+      <RecordHero
+        back={{ href: '/tutores', label: 'Tutores' }}
+        avatar={<InitialsAvatar name={tutor.displayName} tone="icon-people" size="lg" />}
+        title={tutor.displayName}
+        badges={
+          <>
             {tutor.status === 'INACTIVE' && <Badge>Inativo</Badge>}
             {tutor.status === 'ANONYMIZED' && <Badge tone="danger">Anonimizado</Badge>}
             {tutor.status === 'MERGED' && <Badge>Unificado a outro cadastro</Badge>}
             {tutor.dataCompleteness === 'PARTIAL' && (
               <Badge tone="accent">Cadastro incompleto</Badge>
             )}
+          </>
+        }
+        meta={
+          <span className="tabular-nums">
+            {[tutor.phoneMasked, tutor.email].filter(Boolean).join(' · ')}
           </span>
         }
-        subtitle={`${tutor.phoneMasked}${tutor.email ? ` · ${tutor.email}` : ''}`}
+        chips={
+          tutor.tags.length > 0 &&
+          tutor.tags.map((tag) => (
+            <span
+              key={tag.key}
+              className="pill px-2.5 py-0.5 text-xs font-medium"
+              style={{ backgroundColor: `${tag.color}1a`, color: tag.color }}
+            >
+              {tag.label}
+            </span>
+          ))
+        }
+        actions={
+          // Anonimizado e unificado não se editam: o cadastro terminou.
+          tutor.status !== 'MERGED' &&
+          tutor.status !== 'ANONYMIZED' && (
+            <ButtonLink href={`/tutores/${tutor.id}/editar`}>Editar</ButtonLink>
+          )
+        }
+        facts={[
+          {
+            label: 'Saldo',
+            value: formatCurrency(tutor.balance),
+            tone: tutor.balance < 0 ? 'danger' : tutor.balance > 0 ? 'success' : undefined,
+          },
+          { label: 'Pets', value: pets.length },
+          {
+            label: 'Último atendimento',
+            value: tutor.lastAttendanceAt ? formatDate(tutor.lastAttendanceAt) : 'Nenhum',
+          },
+          { label: 'Cliente desde', value: formatDate(tutor.createdAt) },
+        ]}
       />
 
       <TutorDetailView
@@ -136,4 +171,12 @@ async function loadFinance(tutorId: string, permissions: string[]): Promise<Fina
       credit: permissions.includes('finance:credit'),
     },
   }
+}
+
+function formatCurrency(value: number): string {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function formatDate(value: string): string {
+  return new Date(value).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 }
