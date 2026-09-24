@@ -679,3 +679,23 @@ export function DownloadIcon() {
     </svg>
   )
 }
+
+/** Adorno da caixa de busca das listagens. Sem tom, como os outros glifos de campo. */
+export function SearchIcon() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  )
+}
+
+/** Limpar o que foi digitado. Sem tom: é gramática do controle. */
+export function XIcon() {
+  return (
+    <svg {...BASE} width={16} height={16}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  )
+}

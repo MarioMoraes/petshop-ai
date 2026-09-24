@@ -39,7 +39,33 @@ export function PageHeaderSkeleton({ eyebrow = true }: { eyebrow?: boolean }) {
 }
 
 /**
- * Lista de cartões-linha — a forma de `/tutores` e `/pets`.
+ * Grade de cartões de registro — a forma de `/pets` e `/tutores`
+ * (`components/record-list.tsx`): rosto, duas linhas e o pé separado por um fio.
+ */
+export function RecordGridSkeleton({ cards = 6 }: { cards?: number }) {
+  return (
+    <ul className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+      {Array.from({ length: cards }, (_, index) => (
+        <li key={index} className="card flex flex-col gap-4 p-5">
+          <div className="flex items-start gap-4">
+            <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-2 pt-1">
+              <SkeletonLine w="w-36 max-w-full" />
+              <SkeletonLine w="w-48 max-w-full" className="h-3" />
+            </div>
+          </div>
+          <div className="flex items-center justify-between border-t border-line pt-3.5">
+            <SkeletonLine w="w-32" className="h-3" />
+            <SkeletonLine w="w-20" className="h-3" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * Lista de cartões-linha — a forma de `/equipe`.
  *
  * Seis linhas: a página pede vinte, mas o esqueleto não precisa preencher a rolagem, e
  * uma coluna de vinte fantasmas parece congestionamento, não espera.

@@ -423,6 +423,155 @@
   }
 
   /*
+   * Cartão de registro das listagens de cadastro (`components/record-list.tsx`).
+   *
+   * `h-full` + pé com `margin-top: auto`: numa linha da grade um cartão com etiquetas
+   * e outro sem têm alturas diferentes, e sem isso os pés ficariam em alturas
+   * diferentes — a fila de pés alinhados é o que deixa varrer a grade por coluna.
+   */
+  .record-card {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+    color: var(--color-ink);
+  }
+
+  .record-card:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 3px;
+  }
+
+  .record-card:hover .menu-chevron {
+    transform: translateX(2px);
+    color: var(--color-ink);
+  }
+
+  .record-foot {
+    display: flex;
+    margin-top: auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-top: 1px solid var(--color-line);
+    padding-top: 0.875rem;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    color: var(--color-muted);
+  }
+
+  /* O glifo do pé: um chip de 24px no tom do outro domínio. */
+  .record-fact-icon {
+    display: inline-flex;
+    height: 1.5rem;
+    width: 1.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    background-color: var(--icon-soft, var(--color-chip));
+    box-shadow: 0 0 0 1px var(--icon-ring, transparent) inset;
+    color: var(--icon, var(--color-muted));
+  }
+
+  .record-fact-icon > svg {
+    height: 0.875rem;
+    width: 0.875rem;
+  }
+
+  /*
+   * Pílula de filtro das listagens.
+   *
+   * A exceção da regra 5 (`docs/design-formularios.md`): na fila de filtros o escolhido
+   * é escuro e os outros são claros, porque a cor é o próprio estado. Os claros são
+   * pastilhas brancas com a hairline do `.field` — sobre o cinza do shell, véu de
+   * opacidade lia como desabilitado, e o branco diz "pode tocar" sem gritar.
+   */
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(35 36 39 / 0.08);
+    background-color: var(--color-card);
+    padding: 0.375rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    color: var(--color-muted);
+    box-shadow: 0 4px 10px -8px rgb(35 36 39 / 0.3);
+    transition:
+      color 0.2s,
+      border-color 0.2s,
+      background-color 0.2s,
+      box-shadow 0.2s;
+  }
+
+  .filter-chip > svg {
+    height: 1rem;
+    width: 1rem;
+  }
+
+  .filter-chip:hover {
+    border-color: rgb(35 36 39 / 0.16);
+    color: var(--color-ink);
+  }
+
+  .filter-chip:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .filter-chip-active,
+  .filter-chip-active:hover {
+    border-color: var(--color-shell);
+    background-color: var(--color-shell);
+    color: #ffffff;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.12) inset,
+      0 6px 14px -8px rgb(35 36 39 / 0.6);
+  }
+
+  /*
+   * Caixa de busca das listagens: o `.field` com glifo, um pouco mais alto porque é a
+   * peça principal da tela, e sem o "x" nativo do WebKit — o nosso mora no `.field-clear`,
+   * no mesmo canto do giro de "buscando".
+   */
+  .field-search {
+    padding-top: 0.8125rem;
+    padding-bottom: 0.8125rem;
+    padding-right: 2.75rem;
+  }
+
+  .field-search::-webkit-search-cancel-button,
+  .field-search::-webkit-search-decoration {
+    appearance: none;
+  }
+
+  .field-clear {
+    position: absolute;
+    right: 0.625rem;
+    top: 50%;
+    display: flex;
+    height: 1.75rem;
+    width: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    color: var(--color-subtle);
+    transform: translateY(-50%);
+    transition:
+      color 0.2s,
+      background-color 0.2s;
+  }
+
+  .field-clear:hover {
+    background-color: rgb(35 36 39 / 0.06);
+    color: var(--color-ink);
+  }
+
+  /*
    * Tom do ícone: a família de cor do tipo que ele representa.
    *
    * A cor diz o TIPO, não o estado — azul é Agenda em repouso, em hover e ativa. Quem
@@ -736,7 +885,8 @@
     }
 
     .btn:hover:not(:disabled),
-    .card-interactive:hover {
+    .card-interactive:hover,
+    .record-card:hover .menu-chevron {
       transform: none;
     }
 

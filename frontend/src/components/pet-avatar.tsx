@@ -31,6 +31,12 @@ const SPECIES_ICONS: Record<string, () => React.JSX.Element> = {
   OTHER: PawPrintIcon,
 }
 
+/** O ícone da espécie solto, sem o círculo — o filtro de `/pets` usa. */
+export function SpeciesIcon({ speciesKey }: { speciesKey: string }) {
+  const Icon = SPECIES_ICONS[speciesKey] ?? PawPrintIcon
+  return <Icon />
+}
+
 const SIZES = {
   sm: 'h-10 w-10',
   md: 'h-12 w-12',

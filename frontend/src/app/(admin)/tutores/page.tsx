@@ -1,14 +1,21 @@
-import Link from 'next/link'
+import { PawPrintIcon, WalletIcon } from '@/components/icons'
 import { Badge, EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
+import { ListSearch } from '@/components/list-search'
+import {
+  InitialsAvatar,
+  Pagination,
+  RecordCard,
+  RecordFact,
+  RecordGrid,
+} from '@/components/record-list'
 import { serverApi } from '@/lib/api'
-import { TutorSearch } from './tutor-search'
 
 /**
  * Listagem e busca de tutores (MOD-TUTOR-06).
  *
- * A busca vai na URL, e não no estado de um componente: o atendente pode mandar o
- * link, voltar pelo histórico e recarregar a página sem perder o que digitou.
+ * A forma é a de `components/record-list.tsx`, a mesma de `/pets`: rosto, nome e
+ * contato na cabeça, etiquetas no corpo, os pets e o saldo no pé.
  */
 
 export const dynamic = 'force-dynamic'
@@ -34,11 +41,20 @@ export default async function TutoresPage({ searchParams }: PageProps) {
       <PageHeader
         eyebrow="Cadastros"
         title="Tutores"
-        subtitle={result.total === 1 ? '1 tutor cadastrado' : `${result.total} tutores cadastrados`}
+        subtitle={subtitle(result.total, isSearching)}
         actions={<ButtonLink href="/tutores/novo">Novo tutor</ButtonLink>}
       />
 
-      <TutorSearch tags={tags} initialQuery={params.q ?? ''} activeTag={params.tag ?? ''} />
+      <ListSearch
+        basePath="/tutores"
+        placeholder="Buscar por nome, telefone ou CPF"
+        ariaLabel="Buscar tutores"
+        initialQuery={params.q ?? ''}
+        filterParam="tag"
+        filterLabel="Filtrar por etiqueta"
+        filters={tags.map((tag) => ({ value: tag.key, label: tag.label, color: tag.color }))}
+        activeFilter={params.tag ?? ''}
+      />
 
       {result.data.length === 0 ? (
         isSearching ? (
@@ -54,93 +70,76 @@ export default async function TutoresPage({ searchParams }: PageProps) {
           />
         )
       ) : (
-        <ul className="space-y-2">
+        <RecordGrid>
           {result.data.map((tutor) => (
-            <li key={tutor.id}>
-              <Link
-                href={`/tutores/${tutor.id}`}
-                className="card flex flex-wrap items-center gap-4 px-5 py-4 transition-transform hover:-translate-y-0.5"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold">{tutor.displayName}</span>
+            <RecordCard
+              key={tutor.id}
+              href={`/tutores/${tutor.id}`}
+              avatar={<InitialsAvatar name={tutor.displayName} tone="icon-people" />}
+              title={tutor.displayName}
+              meta={
+                <span className="tabular-nums">
+                  {[tutor.phoneMasked, tutor.cpfMasked].filter(Boolean).join(' · ')}
+                </span>
+              }
+              badges={
+                (tutor.status === 'INACTIVE' || tutor.dataCompleteness === 'PARTIAL') && (
+                  <>
                     {tutor.status === 'INACTIVE' && <Badge>Inativo</Badge>}
                     {tutor.dataCompleteness === 'PARTIAL' && (
                       <Badge tone="accent">Cadastro incompleto</Badge>
                     )}
-                    {tutor.tags.map((tag) => (
-                      <span
-                        key={tag.key}
-                        className="pill px-2.5 py-0.5 text-xs font-medium"
-                        style={{ backgroundColor: `${tag.color}1a`, color: tag.color }}
-                      >
-                        {tag.label}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="hint mt-1">
-                    {tutor.phoneMasked}
-                    {tutor.cpfMasked ? ` · ${tutor.cpfMasked}` : ''}
-                  </p>
-                </div>
-
-                <div className="text-right">
+                  </>
+                )
+              }
+              footer={
+                <>
+                  <RecordFact icon={<PawPrintIcon />} tone="icon-pet">
+                    {tutor.petsCount === 0
+                      ? 'Nenhum pet'
+                      : tutor.petsCount === 1
+                        ? '1 pet'
+                        : `${tutor.petsCount} pets`}
+                  </RecordFact>
                   {tutor.balance !== 0 && (
-                    <p
-                      className={`text-sm font-medium ${
-                        tutor.balance < 0 ? 'text-danger' : 'text-success'
-                      }`}
-                    >
-                      {formatCurrency(tutor.balance)}
-                    </p>
+                    // Saldo só quando há: "R$ 0,00" em vinte cartões seria vinte vezes
+                    // a mesma não-informação disputando o olho com a dívida de verdade.
+                    <RecordFact icon={<WalletIcon />} tone="icon-money">
+                      <span
+                        className={`font-medium tabular-nums ${
+                          tutor.balance < 0 ? 'text-danger' : 'text-success'
+                        }`}
+                      >
+                        {formatCurrency(tutor.balance)}
+                      </span>
+                    </RecordFact>
                   )}
-                  <p className="hint">
-                    {tutor.petsCount === 1 ? '1 pet' : `${tutor.petsCount} pets`}
-                  </p>
-                </div>
-              </Link>
-            </li>
+                </>
+              }
+            >
+              {tutor.tags.length > 0 &&
+                tutor.tags.map((tag) => (
+                  <span
+                    key={tag.key}
+                    className="pill px-2.5 py-0.5 text-xs font-medium"
+                    style={{ backgroundColor: `${tag.color}1a`, color: tag.color }}
+                  >
+                    {tag.label}
+                  </span>
+                ))}
+            </RecordCard>
           ))}
-        </ul>
+        </RecordGrid>
       )}
 
-      {totalPages > 1 && (
-        <nav className="flex items-center justify-center gap-3" aria-label="Paginação">
-          <PageLink params={params} page={page - 1} disabled={page <= 1}>
-            Anterior
-          </PageLink>
-          <span className="hint">
-            Página {page} de {totalPages}
-          </span>
-          <PageLink params={params} page={page + 1} disabled={page >= totalPages}>
-            Próxima
-          </PageLink>
-        </nav>
-      )}
+      <Pagination basePath="/tutores" params={params} page={page} totalPages={totalPages} />
     </div>
   )
 }
 
-function PageLink({
-  params,
-  page,
-  disabled,
-  children,
-}: {
-  params: { q?: string; tag?: string }
-  page: number
-  disabled: boolean
-  children: React.ReactNode
-}) {
-  if (disabled) {
-    return <span className="btn btn-primary opacity-40">{children}</span>
-  }
-  const search = new URLSearchParams()
-  if (params.q) search.set('q', params.q)
-  if (params.tag) search.set('tag', params.tag)
-  search.set('page', String(page))
-
-  return <ButtonLink href={`/tutores?${search.toString()}`}>{children}</ButtonLink>
+function subtitle(total: number, isSearching: boolean): string {
+  if (isSearching) return total === 1 ? '1 tutor encontrado' : `${total} tutores encontrados`
+  return total === 1 ? '1 tutor cadastrado' : `${total} tutores cadastrados`
 }
 
 function formatCurrency(value: number): string {

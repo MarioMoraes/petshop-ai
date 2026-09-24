@@ -1,18 +1,21 @@
-import Link from 'next/link'
-import { PetAvatar } from '@/components/pet-avatar'
+import type { PetAlert } from '@petshop/shared-types'
+import { PetAvatar, SpeciesIcon } from '@/components/pet-avatar'
+import { AlertTriangleIcon, UsersIcon } from '@/components/icons'
 import { Badge, EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
+import { ListSearch } from '@/components/list-search'
+import { Pagination, RecordCard, RecordFact, RecordGrid } from '@/components/record-list'
 import { serverApi } from '@/lib/api'
-import { PetSearch } from './pet-search'
 
 /**
  * Listagem e busca de pets (MOD-PET-01).
  *
- * A busca vai na URL, e não no estado de um componente: o atendente pode mandar o
- * link, voltar pelo histórico e recarregar a página sem perder o que digitou.
+ * A forma é a de `components/record-list.tsx`, a mesma de `/tutores`. Cada cartão traz
+ * raça, porte e idade na meta e o responsável principal no pé: RN-16 diz que cinco
+ * "Mel" no mesmo tenant é normal, e sem esses dados a lista seria indistinguível.
  *
- * Cada linha traz raça, porte e o responsável principal. RN-16 diz que cinco "Mel" no
- * mesmo tenant é normal — sem esses três dados a lista seria indistinguível.
+ * O filtro por espécie fica sob a busca porque é o corte que mais rápido desfaz o
+ * empate — separar cães de gatos.
  */
 
 export const dynamic = 'force-dynamic'
@@ -43,14 +46,23 @@ export default async function PetsPage({ searchParams }: PageProps) {
       <PageHeader
         eyebrow="Cadastros"
         title="Pets"
-        subtitle={result.total === 1 ? '1 pet cadastrado' : `${result.total} pets cadastrados`}
+        subtitle={subtitle(result.total, isSearching)}
         actions={<ButtonLink href="/pets/novo">Novo pet</ButtonLink>}
       />
 
-      <PetSearch
-        species={species}
+      <ListSearch
+        basePath="/pets"
+        placeholder="Buscar por nome, raça, cor ou microchip"
+        ariaLabel="Buscar pets"
         initialQuery={params.q ?? ''}
-        activeSpeciesId={params.speciesId ?? ''}
+        filterParam="speciesId"
+        filterLabel="Filtrar por espécie"
+        filters={species.map((item) => ({
+          value: item.id,
+          label: item.label,
+          icon: <SpeciesIcon speciesKey={item.key} />,
+        }))}
+        activeFilter={params.speciesId ?? ''}
       />
 
       {result.data.length === 0 ? (
@@ -67,96 +79,92 @@ export default async function PetsPage({ searchParams }: PageProps) {
           />
         )
       ) : (
-        <ul className="space-y-2">
+        <RecordGrid>
           {result.data.map((pet) => {
             const primary = pet.tutors.find((tutor) => tutor.role === 'PRIMARY') ?? pet.tutors[0]
+            const alert = topAlert(pet.alerts)
 
             return (
-              <li key={pet.id}>
-                <Link
-                  href={`/pets/${pet.id}`}
-                  className="card flex flex-wrap items-center gap-4 px-5 py-4 transition-transform hover:-translate-y-0.5"
-                >
-                  {/*
-                    RN-16: cinco "Mel" no mesmo tenant é normal, e a foto é o que
-                    desambigua mais rápido que raça ou tutor. Sem capa, o ícone da
-                    espécie — um espaço vazio faria a lista tremer conforme os pets
-                    tivessem foto ou não.
-                  */}
+              <RecordCard
+                key={pet.id}
+                href={`/pets/${pet.id}`}
+                avatar={
+                  // RN-16: a foto desambigua mais rápido que raça ou tutor. Sem capa, o
+                  // ícone da espécie — um espaço vazio faria a grade tremer.
                   <PetAvatar
                     coverPhotoUrl={pet.coverPhotoUrl}
                     speciesKey={pet.species.key}
                     petName={pet.name}
+                    size="lg"
                   />
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{pet.name}</span>
+                }
+                title={pet.name}
+                meta={[pet.breed?.label ?? pet.species.label, pet.size.label, pet.ageLabel]
+                  .filter(Boolean)
+                  .join(' · ')}
+                badges={
+                  (pet.status !== 'ACTIVE' || alert) && (
+                    <>
                       {pet.status === 'INACTIVE' && <Badge>Inativo</Badge>}
                       {pet.status === 'DECEASED' && <Badge tone="danger">Falecido</Badge>}
                       {pet.status === 'TRANSFERRED_OUT' && <Badge>Transferido</Badge>}
-                    </div>
-                    <p className="hint mt-1">
-                      {[pet.species.label, pet.breed?.label, pet.size.label, pet.ageLabel]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    {primary ? (
-                      <>
-                        <p className="text-sm font-medium">{primary.fullName}</p>
-                        <p className="hint">{primary.phoneMasked}</p>
-                      </>
-                    ) : (
-                      // Acontece quando o único responsável foi anonimizado (LGPD):
-                      // o pet sobrevive ao cadastro da pessoa, e precisa de um novo.
-                      <p className="hint text-accent-ink">Sem responsável</p>
-                    )}
-                  </div>
-                </Link>
-              </li>
+                      {alert && (
+                        // O alerta mais grave do prontuário, antes de abrir a ficha: é o
+                        // que o banhista precisa saber ao pegar o pet no colo.
+                        <Badge tone={alert.critical ? 'danger' : 'accent'}>
+                          <span className="mr-1 [&>svg]:h-3.5 [&>svg]:w-3.5">
+                            <AlertTriangleIcon />
+                          </span>
+                          {alert.label}
+                        </Badge>
+                      )}
+                    </>
+                  )
+                }
+                footer={
+                  primary ? (
+                    <>
+                      <RecordFact icon={<UsersIcon />} tone="icon-people">
+                        <span className="font-medium text-ink">{primary.fullName}</span>
+                      </RecordFact>
+                      <span className="shrink-0 tabular-nums text-subtle">
+                        {primary.phoneMasked}
+                      </span>
+                    </>
+                  ) : (
+                    // Acontece quando o único responsável foi anonimizado (LGPD): o pet
+                    // sobrevive ao cadastro da pessoa, e precisa de um novo.
+                    <RecordFact icon={<UsersIcon />} tone="icon-people">
+                      <span className="text-accent-ink">Sem responsável</span>
+                    </RecordFact>
+                  )
+                }
+              />
             )
           })}
-        </ul>
+        </RecordGrid>
       )}
 
-      {totalPages > 1 && (
-        <nav className="flex items-center justify-center gap-3" aria-label="Paginação">
-          <PageLink params={params} page={page - 1} disabled={page <= 1}>
-            Anterior
-          </PageLink>
-          <span className="hint">
-            Página {page} de {totalPages}
-          </span>
-          <PageLink params={params} page={page + 1} disabled={page >= totalPages}>
-            Próxima
-          </PageLink>
-        </nav>
-      )}
+      <Pagination basePath="/pets" params={params} page={page} totalPages={totalPages} />
     </div>
   )
 }
 
-function PageLink({
-  params,
-  page,
-  disabled,
-  children,
-}: {
-  params: { q?: string; speciesId?: string }
-  page: number
-  disabled: boolean
-  children: React.ReactNode
-}) {
-  if (disabled) {
-    return <span className="btn btn-primary opacity-40">{children}</span>
-  }
-  const search = new URLSearchParams()
-  if (params.q) search.set('q', params.q)
-  if (params.speciesId) search.set('speciesId', params.speciesId)
-  search.set('page', String(page))
+function subtitle(total: number, isSearching: boolean): string {
+  if (isSearching) return total === 1 ? '1 pet encontrado' : `${total} pets encontrados`
+  return total === 1 ? '1 pet cadastrado' : `${total} pets cadastrados`
+}
 
-  return <ButtonLink href={`/pets?${search.toString()}`}>{children}</ButtonLink>
+/**
+ * O alerta que vai no cartão: o mais grave, com "+N" quando há outros. O backend já
+ * entrega `alerts[]` ordenado por gravidade, do mais grave para o menos.
+ */
+function topAlert(alerts: PetAlert[]): { label: string; critical: boolean } | null {
+  const first = alerts[0]
+  if (!first) return null
+  const rest = alerts.length - 1
+  return {
+    label: rest > 0 ? `${first.label} +${rest}` : first.label,
+    critical: first.severity === 'HIGH' || first.severity === 'CRITICAL',
+  }
 }
