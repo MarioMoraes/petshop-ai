@@ -211,17 +211,6 @@ class _Corpo extends StatelessWidget {
                 if (pet.notes != null && pet.notes!.isNotEmpty)
                   LinhaDeDado(rotulo: 'Observações', valor: pet.notes!),
 
-                // A frase existe porque a tela mostra quatro campos que ela não deixa
-                // editar, e um campo travado sem explicação lê como defeito. Dizer por
-                // que — e para quem reclamar — é o que separa "não posso" de "não deu".
-                const SizedBox(height: 16),
-                Divider(color: t.linha),
-                const SizedBox(height: 12),
-                Text(
-                  'Peso, porte, raça e pelagem são conferidos no balcão, porque entram '
-                  'no preço do serviço. Se algum estiver errado, avise o $nomeDoPetshop.',
-                  style: tema.textTheme.bodySmall?.copyWith(color: t.discreta),
-                ),
               ],
           ),
         ),

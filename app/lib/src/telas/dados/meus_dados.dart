@@ -161,31 +161,6 @@ class _AcaoDaSecao extends StatelessWidget {
   }
 }
 
-/// A frase de rodapé de um cartão, abaixo de um fio.
-class _Nota extends StatelessWidget {
-  const _Nota(this.texto);
-
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 14),
-        Divider(color: t.linha),
-        const SizedBox(height: 10),
-        Text(
-          texto,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: t.discreta),
-        ),
-      ],
-    );
-  }
-}
-
 class _Perfil extends StatelessWidget {
   const _Perfil({required this.perfil, required this.petshop, required this.aoEditar});
 
@@ -216,11 +191,6 @@ class _Perfil extends StatelessWidget {
           if (perfil.cnpjMasked != null)
             LinhaDeDado(rotulo: 'CNPJ', valor: perfil.cnpjMasked!),
           if (nascimento != null) LinhaDeDado(rotulo: 'Nascimento', valor: dataCurta(nascimento)),
-          // A frase explica a ausência dos campos, em vez de mostrá-los desabilitados.
-          _Nota(
-            'Nome completo e documento são conferidos no balcão. Se algum estiver errado, '
-            'avise o $petshop.',
-          ),
         ],
       ),
     );
@@ -253,7 +223,11 @@ class _Contato extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           LinhaDeDado(rotulo: 'Telefone', valor: perfil.phoneMasked),
-          LinhaDeDado(rotulo: 'E-mail', valor: perfil.email ?? 'Não cadastrado'),
+          LinhaDeDado(
+            rotulo: 'E-mail',
+            valor: perfil.email ?? 'Não cadastrado',
+            umaLinha: true,
+          ),
           // O desafio aberto é dito na tela, e não só na folha: quem fechou o app no
           // meio da troca precisa saber que há um código esperando antes de tocar.
           if (pendente != null) ...[
@@ -265,11 +239,6 @@ class _Contato extends StatelessWidget {
                   '${pendente.maskedTarget}.',
             ),
           ],
-          const _Nota(
-            'Trocar telefone ou e-mail pede um código enviado ao contato novo. É como '
-            'sabemos que é você — e é o que impede alguém de apontar o seu cadastro para '
-            'outro número.',
-          ),
         ],
       ),
     );
@@ -293,14 +262,11 @@ class _Enderecos extends StatelessWidget {
       icone: Icons.place_rounded,
       base: Tons.tempo,
       titulo: 'Endereços',
-      descricao: enderecos.isEmpty
-          ? 'Nenhum endereço cadastrado. Ele é usado no leva-e-traz e nas entregas.'
-          : null,
+      descricao: enderecos.isEmpty ? 'Nenhum endereço cadastrado.' : null,
       aDireita: _AcaoDaSecao(rotulo: 'Adicionar', aoTocar: aoAdicionar),
     );
 
-    // Sem endereço, a pilha não tem linha nenhuma: o cabeçalho vai num cartão sozinho,
-    // com a frase que diz para que ele serve.
+    // Sem endereço, a pilha não tem linha nenhuma: o cabeçalho vai num cartão sozinho.
     if (enderecos.isEmpty) {
       return Cartao(padding: const EdgeInsets.all(18), child: cabecalho);
     }
@@ -408,8 +374,6 @@ class _CopiaState extends State<_Copia> {
             icone: Icons.description_outlined,
             base: Tons.sistema,
             titulo: 'Uma cópia dos seus dados',
-            descricao: 'Tudo o que o ${widget.petshop} tem sobre você, num documento só. '
-                'É um direito seu, e não precisa de pedido nem de espera.',
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
@@ -502,14 +466,6 @@ class _Exclusao extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
-            Text(
-              'Você pode pedir a exclusão dos seus dados. O pedido vai para a equipe do '
-              '$petshop, que responde em até $diasParaResponderExclusao dias — cadastros '
-              'com conta em aberto ou documento fiscal em guarda podem não ser apagados '
-              'por inteiro.',
-              style: tema.textTheme.bodySmall?.copyWith(color: t.discreta),
-            ),
-            const SizedBox(height: 4),
             // Texto sublinhado, e não botão: ação destrutiva não vira a peça de maior
             // contraste da tela, nem fica onde o polegar está salvando outra coisa.
             Align(
@@ -578,13 +534,11 @@ class _AvisosNoCelular extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   switch (estado) {
-                    PermissaoDeAvisos.concedida =>
-                      'Ligados. Você recebe a confirmação e o lembrete do horário, a van a '
-                          'caminho e o aviso de que o pet está pronto.',
+                    PermissaoDeAvisos.concedida => 'Ligados.',
                     PermissaoDeAvisos.negada =>
                       'Desligados. Para ligar, abra as configurações do celular, toque em '
                           'Apps, depois em Meu PetShop AI e em Notificações.',
-                    _ => 'Desligados. As mensagens continuam chegando pelo WhatsApp.',
+                    _ => 'Desligados.',
                   },
                   style: tema.textTheme.bodySmall?.copyWith(color: t.discreta),
                 ),

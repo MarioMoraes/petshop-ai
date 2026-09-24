@@ -700,7 +700,7 @@ const _meusDados = {
     'cpfMasked': '***.598.588-**',
     'cnpjMasked': null,
     'phoneMasked': '(11) 9****-8801',
-    'email': 'mario@exemplo.com',
+    'email': 'mario.moraes.cadastro.antigo@exemplo.com.br',
     'birthDate': '1990-04-12',
   },
   'addresses': [

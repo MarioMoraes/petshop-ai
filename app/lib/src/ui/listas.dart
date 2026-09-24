@@ -361,10 +361,18 @@ class CabecalhoDeSecao extends StatelessWidget {
 
 /// Rótulo à esquerda, valor à direita — a linha de uma ficha de leitura.
 class LinhaDeDado extends StatelessWidget {
-  const LinhaDeDado({super.key, required this.rotulo, required this.valor});
+  const LinhaDeDado({
+    super.key,
+    required this.rotulo,
+    required this.valor,
+    this.umaLinha = false,
+  });
 
   final String rotulo;
   final String valor;
+
+  /// Valor que não quebra linha — o que não cabe termina em reticências (o e-mail).
+  final bool umaLinha;
 
   @override
   Widget build(BuildContext context) {
@@ -386,6 +394,9 @@ class LinhaDeDado extends StatelessWidget {
           Expanded(
             child: Text(
               valor,
+              maxLines: umaLinha ? 1 : null,
+              overflow: umaLinha ? TextOverflow.ellipsis : null,
+              softWrap: !umaLinha,
               style: tema.textTheme.bodyMedium?.copyWith(
                 color: t.tinta,
                 fontWeight: FontWeight.w500,
