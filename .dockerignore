@@ -28,6 +28,7 @@ coverage
 .claude
 design
 docs
+graphify-out
 *.log
 .DS_Store
 

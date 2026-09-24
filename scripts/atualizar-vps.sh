@@ -107,6 +107,12 @@ done
 # sem que nada tivesse rodado. O que se espera é uma task NOVA, não um estado.
 TASKS_ANTES=$(docker service ps -q --no-trunc "${STACK}_migrator" 2>/dev/null || true)
 
+# A versão que estava no ar, para a limpeza do fim poupá-la: é ela o destino de um
+# "voltar para a versão anterior". Vazio no primeiro deploy. A spec guarda a imagem
+# como `…/petshop-frontend:0.1.12@sha256:…`, então sai o digest e fica a tag.
+VERSAO_ANTERIOR=$(docker service inspect --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+  "${STACK}_frontend" 2>/dev/null | sed 's/@.*//; s/.*://' || true)
+
 # ── Deploy ────────────────────────────────────────────────────────────────────
 # `--with-registry-auth` propaga a credencial do ghcr.io para os nós. Num swarm de
 # um nó só ela é dispensável, mas o dia em que um segundo nó entrar é exatamente o
@@ -177,6 +183,34 @@ echo
 echo "→ convergindo os serviços (o gate de migração já liberou; leva ~1 min)"
 sleep 20
 docker stack services "$STACK"
+
+# ── Limpar as versões velhas ──────────────────────────────────────────────────
+# Nada apagava imagem, e cada deploy baixa quatro: em 24/09/2026, depois de sete
+# versões, eram 18 GB de 40 ocupados por imagens que nenhum container usava.
+#
+# Só as NOSSAS imagens (`petshop-*`), e nunca a desta versão nem a da anterior. Um
+# `docker image prune -a` resolveria em uma linha, mas levaria junto qualquer
+# imagem de terceiros parada (postgres, evolution) — que o próximo deploy teria de
+# baixar de novo, ou pior, uma de outro produto na mesma máquina.
+#
+# Os containers parados vão antes: o Swarm guarda as tasks encerradas de cada
+# serviço, e cada uma prende a imagem dela — sem isso o `rmi` recusa tudo em
+# silêncio. Apagar o container não apaga a task: o `service ps` continua mostrando
+# o histórico, e o `service rollback` não depende dele.
+echo
+echo "→ limpando imagens de versões antigas (poupando $VERSAO${VERSAO_ANTERIOR:+ e $VERSAO_ANTERIOR})"
+docker container prune -f --filter "label=com.docker.stack.namespace=$STACK" >/dev/null || true
+ANTES=$(docker system df --format '{{.Type}} {{.Size}}' | awk '$1=="Images"{print $2}')
+docker image ls --format '{{.Repository}}:{{.Tag}}' \
+  | { grep -E "^$PREFIXO-(backend|frontend|migrator|caddy):" || true; } \
+  | { grep -vE ":($VERSAO${VERSAO_ANTERIOR:+|$VERSAO_ANTERIOR})\$" || true; } \
+  | while read -r IMG; do
+      docker rmi "$IMG" >/dev/null 2>&1 && echo "  − $IMG" || echo "  (em uso, mantida: $IMG)"
+    done
+# As camadas sem tag que as versões apagadas deixaram — `prune` sem `-a` só leva essas.
+docker image prune -f >/dev/null || true
+DEPOIS=$(docker system df --format '{{.Type}} {{.Size}}' | awk '$1=="Images"{print $2}')
+echo "  imagens: $ANTES → $DEPOIS"
 
 echo
 echo "  migrator em 0/1 é o esperado: é uma tarefa de uma passada só."

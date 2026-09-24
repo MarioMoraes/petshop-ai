@@ -132,19 +132,29 @@ CMD ["sh", "-c", "set -e; \
   pnpm --filter @petshop/db exec tsx prisma/set-role-passwords.ts; \
   pnpm --filter @petshop/db exec tsx prisma/seed.ts"]
 
-# ─── backend ──────────────────────────────────────────────────────────────────
-FROM base AS backend
+# ─── backend-prune ────────────────────────────────────────────────────────────
+# A poda mora num estágio à parte, e o backend copia só o resultado. Enquanto ela
+# rodava na própria imagem, depois de um `COPY --from=build /app /app`, não podava
+# nada: cada `RUN` é uma camada POR CIMA da anterior, e o node_modules completo
+# continuava lá embaixo. Em 24/09/2026 a imagem tinha 2,4 GB, e cada versão somava
+# ~5 GB no disco da VPS com o migrator, porque a cópia não compartilha camada com ele.
+FROM build AS backend-prune
 ENV NODE_ENV=production
-
-COPY --from=build /app /app
 
 # Poda tsc, vitest, eslint, prisma CLI e tsx. `--ignore-scripts` é seguro aqui:
 # o client do Prisma tem `output` próprio (packages/db/generated) e já veio
 # gerado do estágio de build, então não há postinstall a executar.
 # `CI=true` porque a poda reinstala node_modules do zero e o pnpm, fora de CI,
 # para para pedir confirmação — o build travaria esperando um "y" que nunca vem.
+#
+# Do zero e só a árvore do `@petshop/app` (o `...` inclui os pacotes de que ele
+# depende). Um `--prod` sobre o monorepo inteiro mantinha as dependências de
+# produção do frontend — `next`, `@next/swc`, `@clerk/localizations`, uns 300 MB —
+# numa imagem que apaga a pasta `frontend` logo abaixo: saía o código, ficava o peso.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-  CI=true pnpm install --frozen-lockfile --prod --ignore-scripts --store-dir /pnpm/store
+  find /app -name node_modules -type d -prune -exec rm -rf {} + \
+  && CI=true pnpm install --frozen-lockfile --prod --ignore-scripts \
+       --filter "@petshop/app..." --store-dir /pnpm/store
 
 # O tsconfig de cada serviço inclui `tests/**` para o typecheck, então o `dist`
 # carrega os testes compilados. Nada os importa em produção; também não têm por
@@ -156,6 +166,12 @@ RUN find /app/backend -type d -name tests -path '*/dist/*' -prune -exec rm -rf {
 # `git config core.fileMode false`), e sem ele o container morre no arranque com
 # "permission denied" — depois de o Swarm já ter tirado a versão anterior do ar.
 RUN chmod +x /app/infra/swarm/*.sh
+
+# ─── backend ──────────────────────────────────────────────────────────────────
+FROM base AS backend
+ENV NODE_ENV=production
+
+COPY --from=backend-prune /app /app
 
 # A condição que faz `@petshop/*` resolver para o JavaScript compilado em vez do
 # TypeScript de origem (campo `exports` de cada pacote). Sem ela o Node tenta
