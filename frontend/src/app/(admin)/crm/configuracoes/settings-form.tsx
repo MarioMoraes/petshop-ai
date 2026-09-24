@@ -22,6 +22,7 @@ import {
   type WhatsappConnection,
 } from '@petshop/shared-types'
 import { Alert, Badge, Button, Card, Field, FormError, SectionHead } from '@/components/ui'
+import { useToast } from '@/components/toast'
 import { BellIcon, CalendarIcon, ShieldCheckIcon, SparkleIcon } from '@/components/icons'
 import {
   createSuppressionAction,
@@ -57,12 +58,18 @@ export function CrmSettingsForm({
   plan,
 }: Props) {
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState<string | null>(null)
+  const toast = useToast()
+  // O "salvo" morava no topo da página, fora de vista para quem salvou lá embaixo; o
+  // aviso no pé da tela aparece onde quer que a pessoa esteja. `null` é o "limpar"
+  // que cada bloco manda antes de gravar — com o aviso sumindo sozinho, não há o que
+  // limpar.
+  const setSaved = (message: string | null) => {
+    if (message) toast(message)
+  }
 
   return (
     <div className="space-y-6">
       <FormError message={error} />
-      {saved && <p className="text-sm text-success">{saved}</p>}
 
       {/* Antes da chave geral: ela decide **se** manda, o cartão decide **por onde** —
           e um motor ligado sem canal de WhatsApp entrega tudo por e-mail sem avisar. */}

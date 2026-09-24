@@ -20,6 +20,7 @@ import {
 } from '@petshop/shared-types'
 import { ReceiptIcon, WalletIcon } from '@/components/icons'
 import { Badge, Button, Card, CardHead, EmptyState, Field, FormError } from '@/components/ui'
+import { useToast } from '@/components/toast'
 import {
   createEntryAction,
   loadReceiptAction,
@@ -632,6 +633,7 @@ function PaymentPanel({
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
+  const toast = useToast()
 
   const amountCents = parseBRLToCents(amount)
 
@@ -652,6 +654,7 @@ function PaymentPanel({
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       })
       if (result.ok) {
+        toast('Pagamento registrado.')
         onDone()
         return
       }
@@ -753,6 +756,7 @@ function EntryPanel({
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
+  const toast = useToast()
 
   const categories = direction === 'DEBIT' ? DEBIT_CATEGORIES : CREDIT_CATEGORIES
   const amountCents = parseBRLToCents(amount)
@@ -784,6 +788,7 @@ function EntryPanel({
         ...(internalNotes.trim() ? { internalNotes: internalNotes.trim() } : {}),
       })
       if (result.ok) {
+        toast('Lançamento registrado.')
         onDone()
         return
       }
@@ -904,6 +909,7 @@ function PackagePanel({
   const [method, setMethod] = useState<PaymentMethod>('PIX_MANUAL')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const toast = useToast()
 
   const selected = catalog.find((item) => item.id === packageId)
 
@@ -917,6 +923,7 @@ function PackagePanel({
         paymentMethod: method,
       })
       if (result.ok) {
+        toast('Pacote vendido.')
         onDone()
         return
       }

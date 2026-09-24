@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Instrument_Serif } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ptBR } from '@clerk/localizations'
+import { ToastProvider } from '@/components/toast'
 import '../globals.css'
 
 /**
@@ -60,7 +61,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           um HTML que a própria aplicação nunca alterou. Só ignora divergência neste
           nó; não propaga para os filhos, então não mascara mismatch de verdade.
         */}
-        <body suppressHydrationWarning>{children}</body>
+        <body suppressHydrationWarning>
+          <ToastProvider>{children}</ToastProvider>
+        </body>
       </html>
     </ClerkProvider>
   )

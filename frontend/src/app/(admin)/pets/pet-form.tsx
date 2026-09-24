@@ -21,6 +21,7 @@ import {
   SectionHead,
   Segmented,
 } from '@/components/ui'
+import { useToast } from '@/components/toast'
 import {
   AlertTriangleIcon,
   CakeIcon,
@@ -85,6 +86,7 @@ const AGE_MODES = [
 
 export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const isEditing = pet !== undefined
   const [pending, startTransition] = useTransition()
 
@@ -260,7 +262,10 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
       setResult(response)
       // O aviso de peso do AC-04 vem no 201 e aparece na tela de detalhe, que é para
       // onde o cadastro leva — não há o que confirmar aqui.
-      if (response.ok) router.push(`/pets/${response.data.id}`)
+      if (response.ok) {
+        toast(isEditing ? 'Cadastro atualizado.' : 'Pet cadastrado.')
+        router.push(`/pets/${response.data.id}`)
+      }
     })
   }
 

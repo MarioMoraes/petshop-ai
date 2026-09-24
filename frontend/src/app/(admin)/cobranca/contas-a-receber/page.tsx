@@ -178,37 +178,29 @@ function Buckets({ report }: { report: AccountsReceivableReport }) {
 function Tabela({ report }: { report: AccountsReceivableReport }) {
   return (
     <div className="card overflow-x-auto p-0">
-      <table className="w-full min-w-[52rem] border-collapse text-sm">
+      <table className="data-table min-w-[52rem]">
         <thead>
-          <tr className="border-b border-line">
-            <th className="hint px-4 py-3 text-left font-medium">Tutor</th>
-            <th className="hint px-4 py-3 text-left font-medium">Telefone</th>
-            <th className="hint px-4 py-3 text-right font-medium">Mais antigo</th>
-            <th className="hint px-4 py-3 text-right font-medium">Dias</th>
-            <th className="hint px-4 py-3 text-right font-medium">
-              {AGING_BUCKET_LABELS['0_30d']}
-            </th>
-            <th className="hint px-4 py-3 text-right font-medium">
-              {AGING_BUCKET_LABELS['30_60d']}
-            </th>
-            <th className="hint px-4 py-3 text-right font-medium">
-              {AGING_BUCKET_LABELS['60d_plus']}
-            </th>
-            <th className="hint px-4 py-3 text-right font-medium">Total</th>
+          <tr>
+            <th>Tutor</th>
+            <th>Telefone</th>
+            <th className="text-right">Mais antigo</th>
+            <th className="text-right">Dias</th>
+            <th className="text-right">{AGING_BUCKET_LABELS['0_30d']}</th>
+            <th className="text-right">{AGING_BUCKET_LABELS['30_60d']}</th>
+            <th className="text-right">{AGING_BUCKET_LABELS['60d_plus']}</th>
+            <th className="text-right">Total</th>
           </tr>
         </thead>
         <tbody>
           {report.rows.map((row) => (
-            <tr key={row.tutorId} className="border-b border-line last:border-b-0">
-              <td className="px-4 py-3 font-medium">{row.tutorName}</td>
-              <td className="px-4 py-3 text-muted tabular-nums">
+            <tr key={row.tutorId}>
+              <td className="font-medium">{row.tutorName}</td>
+              <td className="text-muted tabular-nums">
                 {row.phone ? formatPhone(row.phone) : '—'}
               </td>
-              <td className="px-4 py-3 text-right text-muted tabular-nums">
-                {formatDate(row.oldestDueAt)}
-              </td>
+              <td className="text-right text-muted tabular-nums">{formatDate(row.oldestDueAt)}</td>
               <td
-                className={`px-4 py-3 text-right tabular-nums ${
+                className={`text-right tabular-nums ${
                   row.overdueDays >= 60 ? 'font-medium text-danger' : 'text-muted'
                 }`}
               >
@@ -217,9 +209,7 @@ function Tabela({ report }: { report: AccountsReceivableReport }) {
               <Valor cents={row.buckets['0_30d']} />
               <Valor cents={row.buckets['30_60d']} />
               <Valor cents={row.buckets['60d_plus']} />
-              <td className="px-4 py-3 text-right font-medium tabular-nums">
-                {formatBRL(row.totalCents)}
-              </td>
+              <td className="text-right font-medium tabular-nums">{formatBRL(row.totalCents)}</td>
             </tr>
           ))}
         </tbody>
@@ -236,9 +226,9 @@ function Tabela({ report }: { report: AccountsReceivableReport }) {
  */
 function Valor({ cents }: { cents: number }) {
   return cents === 0 ? (
-    <td className="px-4 py-3 text-right text-subtle">—</td>
+    <td className="text-right text-subtle">—</td>
   ) : (
-    <td className="px-4 py-3 text-right tabular-nums">{formatBRL(cents)}</td>
+    <td className="text-right tabular-nums">{formatBRL(cents)}</td>
   )
 }
 

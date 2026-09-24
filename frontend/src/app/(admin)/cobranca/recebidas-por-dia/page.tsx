@@ -155,55 +155,53 @@ function Tabela({ report }: { report: ReceiptsByDayReport }) {
 
   return (
     <div className="card overflow-x-auto p-0">
-      <table className="w-full min-w-[40rem] border-collapse text-sm">
+      <table className="data-table min-w-[40rem]">
         <thead>
-          <tr className="border-b border-line">
-            <th className="hint px-4 py-3 text-left font-medium">Dia</th>
-            <th className="hint px-4 py-3 text-right font-medium">Pagtos</th>
+          <tr>
+            <th>Dia</th>
+            <th className="text-right">Pagtos</th>
             {methods.map((method) => (
-              <th key={method} className="hint px-4 py-3 text-right font-medium">
+              <th key={method} className="text-right">
                 {PAYMENT_METHOD_LABELS[method]}
               </th>
             ))}
-            <th className="hint px-4 py-3 text-right font-medium">Total do dia</th>
+            <th className="text-right">Total do dia</th>
           </tr>
         </thead>
         <tbody>
           {report.days.map((day) => {
             const porMetodo = new Map(day.byMethod.map((item) => [item.method, item.totalCents]))
             return (
-              <tr key={day.date} className="border-b border-line">
-                <td className="px-4 py-3 font-medium">{formatDateOnly(day.date)}</td>
-                <td className="px-4 py-3 text-right text-muted tabular-nums">{day.count}</td>
+              <tr key={day.date}>
+                <td className="font-medium">{formatDateOnly(day.date)}</td>
+                <td className="text-right text-muted tabular-nums">{day.count}</td>
                 {methods.map((method) => {
                   const cents = porMetodo.get(method) ?? 0
                   return cents === 0 ? (
-                    <td key={method} className="px-4 py-3 text-right text-subtle">
+                    <td key={method} className="text-right text-subtle">
                       —
                     </td>
                   ) : (
-                    <td key={method} className="px-4 py-3 text-right tabular-nums">
+                    <td key={method} className="text-right tabular-nums">
                       {formatBRL(cents)}
                     </td>
                   )
                 })}
-                <td className="px-4 py-3 text-right font-medium tabular-nums">
-                  {formatBRL(day.totalCents)}
-                </td>
+                <td className="text-right font-medium tabular-nums">{formatBRL(day.totalCents)}</td>
               </tr>
             )
           })}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-ink font-semibold">
-            <td className="px-4 py-3">Total</td>
-            <td className="px-4 py-3 text-right tabular-nums">{report.paymentsCount}</td>
+          <tr>
+            <td>Total</td>
+            <td className="text-right tabular-nums">{report.paymentsCount}</td>
             {report.byMethod.map((item) => (
-              <td key={item.method} className="px-4 py-3 text-right tabular-nums">
+              <td key={item.method} className="text-right tabular-nums">
                 {formatBRL(item.totalCents)}
               </td>
             ))}
-            <td className="px-4 py-3 text-right tabular-nums">{formatBRL(report.totalCents)}</td>
+            <td className="text-right tabular-nums">{formatBRL(report.totalCents)}</td>
           </tr>
         </tfoot>
       </table>

@@ -527,13 +527,13 @@ function Relatorio({ report }: { report: ImportReport }) {
     <div className="space-y-3">
       <p className="label">Linha por linha</p>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
+        <table className="data-table">
           <thead>
-            <tr className="border-b border-line text-left">
-              <th className="hint px-4 py-3 font-medium">Linha</th>
-              <th className="hint px-4 py-3 font-medium">Referência</th>
-              <th className="hint px-4 py-3 font-medium">O que acontece</th>
-              <th className="hint px-4 py-3 font-medium">Observação</th>
+            <tr>
+              <th>Linha</th>
+              <th>Referência</th>
+              <th>O que acontece</th>
+              <th>Observação</th>
             </tr>
           </thead>
           <tbody>
@@ -543,16 +543,13 @@ function Relatorio({ report }: { report: ImportReport }) {
                 label: linha.outcome,
               }
               return (
-                <tr
-                  key={`${linha.lineNo}-${linha.ref ?? ''}`}
-                  className="border-b border-line last:border-b-0"
-                >
-                  <td className="px-4 py-3 tabular-nums">{linha.lineNo}</td>
-                  <td className="px-4 py-3">{linha.ref ?? '—'}</td>
-                  <td className="px-4 py-3">
+                <tr key={`${linha.lineNo}-${linha.ref ?? ''}`}>
+                  <td className="tabular-nums">{linha.lineNo}</td>
+                  <td>{linha.ref ?? '—'}</td>
+                  <td>
                     <Badge tone={resultado.tone}>{resultado.label}</Badge>
                   </td>
-                  <td className="hint px-4 py-3">{linha.message ?? '—'}</td>
+                  <td className="hint">{linha.message ?? '—'}</td>
                 </tr>
               )
             })}
@@ -581,28 +578,28 @@ function Historico({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="data-table data-table-flush">
         <thead>
-          <tr className="border-b border-line text-left">
-            <th className="hint py-2 font-medium">Arquivo</th>
-            <th className="hint py-2 font-medium">Quando</th>
-            <th className="hint py-2 text-right font-medium">Criados</th>
-            <th className="hint py-2 text-right font-medium">Atualizados</th>
-            <th className="hint py-2 text-right font-medium">Com erro</th>
+          <tr>
+            <th>Arquivo</th>
+            <th>Quando</th>
+            <th className="text-right">Criados</th>
+            <th className="text-right">Atualizados</th>
+            <th className="text-right">Com erro</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {lotes.map((lote) => (
-            <tr key={lote.id} className="border-b border-line last:border-b-0">
-              <td className="py-2.5">{lote.fileName}</td>
-              <td className="py-2.5">{new Date(lote.createdAt).toLocaleString('pt-BR')}</td>
-              <td className="py-2.5 text-right tabular-nums">{lote.createdCount}</td>
-              <td className="py-2.5 text-right tabular-nums">{lote.updatedCount}</td>
-              <td className="py-2.5 text-right tabular-nums">
+            <tr key={lote.id}>
+              <td>{lote.fileName}</td>
+              <td>{new Date(lote.createdAt).toLocaleString('pt-BR')}</td>
+              <td className="text-right tabular-nums">{lote.createdCount}</td>
+              <td className="text-right tabular-nums">{lote.updatedCount}</td>
+              <td className="text-right tabular-nums">
                 {lote.failedCount > 0 ? <Badge tone="danger">{lote.failedCount}</Badge> : '—'}
               </td>
-              <td className="py-2.5 text-right">
+              <td className="text-right">
                 {lote.status === 'DESFEITO' ? (
                   <Badge>Desfeito</Badge>
                 ) : (

@@ -9,6 +9,7 @@ import {
   type SitePublishRequirement,
 } from '@petshop/shared-types'
 import { Alert, Button, Card, Choice, Field, FormError, SectionHead } from '@/components/ui'
+import { useToast } from '@/components/toast'
 import { AlertTriangleIcon, GlobeIcon, ImageIcon, SettingsIcon } from '@/components/icons'
 import {
   publishSiteAction,
@@ -32,12 +33,18 @@ interface Props {
 
 export function SiteForm({ preview }: Props) {
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState<string | null>(null)
+  const toast = useToast()
+  // O "salvo" morava no topo da página, fora de vista para quem salvou lá embaixo; o
+  // aviso no pé da tela aparece onde quer que a pessoa esteja. `null` é o "limpar"
+  // que cada bloco manda antes de gravar — com o aviso sumindo sozinho, não há o que
+  // limpar.
+  const setSaved = (message: string | null) => {
+    if (message) toast(message)
+  }
 
   return (
     <div className="space-y-6">
       <FormError message={error} />
-      {saved && <p className="text-sm text-success">{saved}</p>}
 
       <Publication preview={preview} onError={setError} onSaved={setSaved} />
       <Texts preview={preview} onError={setError} onSaved={setSaved} />

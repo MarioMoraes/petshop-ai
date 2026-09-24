@@ -16,7 +16,18 @@
   --color-ink: #232427;
   --color-ink-soft: #2e3034;
   --color-muted: #4b4d52;
-  --color-subtle: #86888d;
+  /*
+   * Texto secundário: `.hint`, olho-de-boi, placeholder, rótulo de dado.
+   *
+   * Era #86888d, que rendia 3,55:1 sobre branco e 3,03:1 sobre o cinza da lateral —
+   * reprovava o AA da WCAG (4,5:1) no app inteiro. Por um tempo só a ficha de
+   * formulário tinha a correção (#6b6d72, no escopo de `.card-soft`), mas esse valor
+   * ainda caía para 4,42:1 sobre `--color-canvas`. Este é o primeiro degrau que passa
+   * sobre **todos** os fundos do sistema: branco 5,41 · surface 4,96 · canvas 4,62 ·
+   * pé da ficha 4,74 · chip 5,05. Continua claramente mais claro que `--color-muted`,
+   * então a hierarquia de três tons de texto não se achata.
+   */
+  --color-subtle: #686a6f;
   --color-line: #dfe0e2;
   --color-shell: #171719;
   /* Off-white morno dos chips de ícone e das pílulas de meta-informação. */
@@ -42,8 +53,7 @@
    * nítida no pé, onde o cartão escurece e precisa de aresta.
    *
    * O pé é o limite de contraste, não de gosto: um degrau abaixo dele o texto de
-   * `.hint` reprova o AA da WCAG mesmo com a correção de `--color-subtle` que
-   * `.card-soft` aplica (ver abaixo).
+   * `.hint` reprova o AA da WCAG mesmo com o `--color-subtle` corrigido.
    */
   --color-card-soft-top: #fafbfc;
   --color-card-soft-bottom: #eef0f4;
@@ -234,24 +244,6 @@
       0 1px 2px -1px rgb(35 36 39 / 0.11),
       0 8px 16px -8px rgb(35 36 39 / 0.16),
       0 26px 48px -22px rgb(35 36 39 / 0.3);
-    /*
-     * Fundo mais escuro exige texto secundário mais escuro.
-     *
-     * `--color-subtle` (#86888d) já rendia só 3,55:1 sobre branco — abaixo dos
-     * 4,5:1 que a WCAG AA pede para texto normal — e no pé do gradiente cairia
-     * para 3,11:1. Como `.hint` carrega instrução de verdade neste formulário
-     * ("não registre dados de saúde do tutor aqui"), deixar ilegível não é opção.
-     *
-     * A conta é feita contra o PÉ do gradiente, que é o pior caso: no topo sobra
-     * folga.
-     *
-     * A variável é redefinida no escopo da ficha em vez de no `:root`: assim
-     * `.hint`, `.section-eyebrow`, o placeholder e qualquer `text-subtle` dentro
-     * dela sobem juntos para 4,54:1, e as ~40 telas que não são formulário
-     * seguem exatamente como estão. **O débito global continua de pé** — o
-     * `--color-subtle` do `:root` reprova AA em todo o resto do app.
-     */
-    --color-subtle: #6b6d72;
   }
 
   /*
@@ -466,9 +458,7 @@
    *
    * Os fatos são separados por fio vertical a partir de `sm`; no celular viram grade
    * 2×2 sem fio, porque um fio no meio de duas colunas estreitas corta mais do que
-   * separa. O rótulo usa o `#6b6d72` que `.card-soft` já adota: o `--color-subtle`
-   * do `:root` reprova o AA sobre branco, e um rótulo de 12px em caixa alta é
-   * justamente o texto que mais sofre com isso.
+   * separa.
    */
   .record-hero {
     padding: 1.5rem;
@@ -492,10 +482,6 @@
 
   .hero-fact {
     min-width: 0;
-  }
-
-  .hero-fact dt {
-    color: #6b6d72;
   }
 
   @media (min-width: 40rem) {
@@ -587,6 +573,201 @@
   .tab[aria-selected='true'] .tab-count {
     background-color: var(--color-shell);
     color: #ffffff;
+  }
+
+  /*
+   * Tabela de números (`.data-table`): a Cobrança e a Importação.
+   *
+   * Cada tabela repetia `hint px-4 py-3 font-medium` em cada `th` e `border-b` em cada
+   * linha, e as três já tinham divergido — uma com fio no pé, outra sem, cabeçalho em
+   * `hint` corrido. Aqui a grade é da peça e a célula só diz o que é dela: alinhar à
+   * direita e `tabular-nums` quando é número.
+   *
+   * O cabeçalho é o olho-de-boi (caixa alta, 11px, tracking) sobre um véu de 2,5%: é o
+   * que o separa do corpo sem uma linha grossa, e o que faz a coluna ser lida pelo
+   * rótulo antes do número. A linha acende no hover com o mesmo véu, porque numa tabela
+   * de oito colunas o olho perde a linha no meio do caminho.
+   *
+   * `.data-table-flush` é a variante sem recuo nas pontas, para a tabela que mora dentro
+   * de um cartão que já tem padding (o histórico da importação).
+   */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .data-table th {
+    padding: 0.75rem 1rem;
+    background-color: rgb(35 36 39 / 0.025);
+    border-bottom: 1px solid var(--color-line);
+    text-align: left;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-subtle);
+  }
+
+  .data-table td {
+    padding: 0.875rem 1rem;
+    vertical-align: middle;
+  }
+
+  .data-table th:first-child,
+  .data-table td:first-child {
+    padding-left: 1.25rem;
+  }
+
+  .data-table th:last-child,
+  .data-table td:last-child {
+    padding-right: 1.25rem;
+  }
+
+  .data-table tbody tr + tr td {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .data-table tbody tr {
+    transition: background-color 0.15s;
+  }
+
+  .data-table tbody tr:hover {
+    background-color: rgb(35 36 39 / 0.025);
+  }
+
+  .data-table tfoot td {
+    border-top: 1px solid rgb(35 36 39 / 0.18);
+    background-color: rgb(35 36 39 / 0.035);
+    font-weight: 600;
+  }
+
+  .data-table-flush th {
+    background-color: transparent;
+  }
+
+  .data-table-flush th:first-child,
+  .data-table-flush td:first-child {
+    padding-left: 0;
+  }
+
+  .data-table-flush th:last-child,
+  .data-table-flush td:last-child {
+    padding-right: 0;
+  }
+
+  /*
+   * O aviso de gravação (`components/toast.tsx`).
+   *
+   * Pílula escura com a física do `.btn-primary` (gradiente curto e brilho de 1px no
+   * topo): é da mesma família do botão que a disparou, e o escuro sobre o shell claro
+   * se acha sem precisar de cor. O verde fica só no círculo do ícone — o mesmo "acento
+   * uma vez e pequeno" da regra 6.
+   *
+   * No celular centraliza no pé, onde o polegar não está; do `sm` em diante vai para o
+   * canto, longe da barra de ações do formulário. Acima do diálogo (z-index 70 contra
+   * 60/61), porque gravar de dentro de um `<Modal>` também avisa.
+   */
+  .toast-region {
+    position: fixed;
+    z-index: 70;
+    bottom: 1.25rem;
+    left: 50%;
+    display: flex;
+    width: max-content;
+    max-width: calc(100vw - 2rem);
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  @media (min-width: 40rem) {
+    .toast-region {
+      bottom: 1.5rem;
+      left: auto;
+      right: 1.5rem;
+      align-items: flex-end;
+      transform: none;
+    }
+  }
+
+  .toast {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.625rem;
+    border-radius: 9999px;
+    background-image: linear-gradient(180deg, #2a2b2f 0%, var(--color-shell) 100%);
+    padding: 0.5rem 1.125rem 0.5rem 0.5rem;
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.12) inset,
+      0 2px 4px -2px rgb(23 23 25 / 0.4),
+      0 18px 36px -14px rgb(23 23 25 / 0.55);
+    pointer-events: auto;
+    animation: toast-in 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .toast[data-leaving] {
+    animation: toast-out 0.2s ease-in forwards;
+  }
+
+  .toast:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .toast-icon {
+    display: inline-flex;
+    height: 1.625rem;
+    width: 1.625rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background-color: var(--color-success);
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.2) inset;
+  }
+
+  .toast[data-tone='danger'] .toast-icon {
+    background-color: var(--color-danger);
+  }
+
+  .toast-icon > svg {
+    height: 0.9375rem;
+    width: 0.9375rem;
+    stroke-width: 2.25;
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem) scale(0.97);
+    }
+  }
+
+  @keyframes toast-out {
+    to {
+      opacity: 0;
+      transform: translateY(0.375rem) scale(0.98);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast,
+    .toast[data-leaving] {
+      animation: none;
+    }
   }
 
   /* O glifo do pé: um chip de 24px no tom do outro domínio. */
@@ -1909,7 +2090,6 @@
       var(--color-card-soft-bottom) 100%
     );
     border-block: 1px solid var(--color-line);
-    --color-subtle: #6b6d72;
   }
 
   @media (min-width: 640px) {

@@ -8,6 +8,7 @@ import type {
   ServiceResponse,
 } from '@petshop/shared-types'
 import { Badge, Button, Card, Field } from '@/components/ui'
+import { useToast } from '@/components/toast'
 import {
   availabilityAction,
   createAppointmentAction,
@@ -92,6 +93,7 @@ function dayKey(iso: string, timezone: string): string {
 
 export function BookingWizard({ services, professionals, initialDate, initialPetId }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [pending, startTransition] = useTransition()
 
   const [pet, setPet] = useState<PetOption | null>(null)
@@ -181,6 +183,7 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
       })
 
       if (result.ok) {
+        toast('Horário marcado.')
         router.push(`/agenda/dia?date=${date}`)
         return
       }

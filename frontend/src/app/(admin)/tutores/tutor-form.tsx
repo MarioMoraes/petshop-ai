@@ -21,6 +21,7 @@ import {
   SectionHead,
   Segmented,
 } from '@/components/ui'
+import { useToast } from '@/components/toast'
 import {
   AlertTriangleIcon,
   CakeIcon,
@@ -93,6 +94,7 @@ const PERSON_TYPES = [
 
 export function TutorForm({ tutor, prefill }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const isEditing = tutor !== undefined
   const [pending, startTransition] = useTransition()
 
@@ -218,6 +220,7 @@ export function TutorForm({ tutor, prefill }: Props) {
         await convertSiteLeadAction(prefill.leadId, response.data.id)
       }
 
+      toast(isEditing ? 'Cadastro atualizado.' : 'Tutor cadastrado.')
       router.push(`/tutores/${response.data.id}`)
     })
   }

@@ -254,15 +254,33 @@ Não são formulário, mas usam as mesmas peças.
 
 ## Contraste
 
-`--color-subtle` (#86888d) rende **3,55:1 sobre branco** e reprova o AA da WCAG, que pede
-4,5:1 para texto normal. Isso vale para `.hint`, `.section-eyebrow`, o subtítulo do
-`PageHeader` e todo `text-subtle` — **em todo o app, desde antes deste padrão.**
+`--color-subtle` é **#686a6f** no `:root`, e vale para o app inteiro: `.hint`,
+`.section-eyebrow`, o placeholder, o subtítulo do `PageHeader` e todo `text-subtle`.
 
-`.card-soft` redefine `--color-subtle: #6b6d72` no próprio escopo, o que põe o texto
-auxiliar dos formulários em 4,71:1 sem tocar nas telas que não são formulário.
+Era #86888d, que rendia 3,55:1 sobre branco e 3,03:1 sobre a lateral — reprovava o AA da
+WCAG (4,5:1) em toda tela. Por um tempo só a ficha tinha a correção (#6b6d72 no escopo de
+`.card-soft` e do corpo do diálogo), mas esse valor ainda caía para 4,42:1 sobre
+`--color-canvas`. #686a6f é o primeiro degrau que passa sobre **todos** os fundos: branco
+5,41 · surface 4,96 · canvas 4,62 · pé da ficha 4,74 · chip 5,05.
 
-**O débito no `:root` continua aberto.** Ao mexer em texto secundário fora de formulário,
-lembre que ele reprova.
+**Não redefina `--color-subtle` num escopo.** O valor global já passa em todo fundo do
+sistema; uma cópia local só serve para os dois divergirem. Fundo novo mais escuro que
+`--color-canvas` pede recalcular o contraste antes de usar `.hint` sobre ele.
+
+---
+
+## Retorno e tabela
+
+- **Gravou, avisa.** `useToast()` (`components/toast.tsx`, montado no layout raiz do
+  Admin) mostra a pílula escura no pé da tela por três segundos. Ele sobrevive à troca de
+  rota, então o formulário que grava e navega chama `toast(...)` antes do `router.push`.
+  Frase curta no particípio: "Tutor cadastrado.", "Pagamento registrado.". Vale para o
+  que deu certo; **erro continua no `<Alert>`/`<FormError>`** ao lado do campo — erro que
+  some sozinho não se lê até o fim.
+- **Tabela de números é `.data-table`** (dentro de `card overflow-x-auto p-0`, ou
+  `.data-table-flush` quando o cartão já tem padding). A célula só diz o que é dela:
+  `text-right tabular-nums` no número, `font-medium` no que identifica a linha. Nada de
+  `px-4 py-3` nem `border-b` por célula — a grade é da peça.
 
 ---
 
