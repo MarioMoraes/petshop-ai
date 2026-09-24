@@ -41,6 +41,49 @@ function assertCrmvPair(crmv: string | null, crmvState: string | null): void {
   if (crmvState && !crmv) throw invalid('Informe o número do registro profissional')
 }
 
+/**
+ * O vínculo da ficha com um membro da equipe — quem **é** este profissional.
+ *
+ * É o que o receituário lê para saber quem assina (`loadPrescriber` procura a ficha do
+ * usuário logado), e o que as RN-06 e RN-07 do MOD-IDENT leem para espelhar o papel e
+ * barrar a remoção de quem tem agenda. O espelho só adota ficha de **mesmo nome**; este
+ * é o caminho para a ficha cadastrada à mão com outro nome.
+ *
+ * Duas recusas, e as duas são sobre ambiguidade:
+ *
+ * - **quem não é da equipe** — membership removido ou de outro estabelecimento. Não é
+ *   `notFound` porque o id existe; ele só não serve aqui;
+ * - **quem já tem ficha** — ativa ou não. Duas fichas do mesmo usuário deixariam o
+ *   receituário escolhendo uma no escuro, e o espelho reativaria a outra na próxima
+ *   troca de papel. A saída é desligar a de lá primeiro.
+ *
+ * O papel de acesso **não** é conferido: o dono do petshop que é também o veterinário é
+ * `TENANT_ADMIN`, e o que o autoriza a prescrever é o CRMV da ficha, não o papel.
+ */
+async function assertLinkable(
+  tx: TenantTransaction,
+  professionalId: string,
+  userId: string,
+): Promise<void> {
+  // A RLS de `memberships` já recorta o tenant: membro de outro estabelecimento nem
+  // aparece aqui, e cai na mesma recusa de quem foi removido.
+  const membro = await tx.membership.findFirst({
+    where: { userId, status: { not: 'REMOVED' } },
+    select: { id: true },
+  })
+  if (!membro) throw invalid('Essa pessoa não faz parte da equipe deste estabelecimento')
+
+  const outra = await tx.professional.findFirst({
+    where: { userId, deletedAt: null, id: { not: professionalId } },
+    select: { displayName: true },
+  })
+  if (outra) {
+    throw invalid(
+      `Essa pessoa já está ligada à ficha "${outra.displayName}". Desfaça aquele vínculo antes.`,
+    )
+  }
+}
+
 export async function createProfessional(actor: ActorContext, input: CreateProfessionalInput) {
   assertCrmvPair(input.crmv ?? null, input.crmvState ?? null)
 
@@ -149,6 +192,8 @@ export async function updateProfessional(
         }
       }
 
+      if (input.userId) await assertLinkable(tx, professionalId, input.userId)
+
       if (input.serviceIds) {
         await assertServicesExist(tx, input.serviceIds)
         await tx.professionalService.deleteMany({ where: { professionalId } })
@@ -178,6 +223,7 @@ export async function updateProfessional(
             : { maxConcurrentPets: input.maxConcurrentPets }),
           ...(input.color === undefined ? {} : { color: input.color }),
           ...(input.active === undefined ? {} : { active: input.active }),
+          ...(input.userId === undefined ? {} : { userId: input.userId }),
         },
         include: PROFESSIONAL_INCLUDE,
       })
@@ -196,6 +242,8 @@ export async function updateProfessional(
           // autoriza alguém a prescrever, e o receituário guarda o snapshot dele.
           crmv: before.crmv,
           crmvState: before.crmvState,
+          // Quem assina o receituário sai deste vínculo — trocá-lo é trocar a assinatura.
+          userId: before.userId,
         },
         after: {
           displayName: professional.displayName,
@@ -203,6 +251,7 @@ export async function updateProfessional(
           maxConcurrentPets: professional.maxConcurrentPets,
           crmv: professional.crmv,
           crmvState: professional.crmvState,
+          userId: professional.userId,
         },
         ipAddress: actor.ipAddress ?? null,
         userAgent: actor.userAgent ?? null,
@@ -350,15 +399,7 @@ function warnOutsideBusinessHours(windows: ScheduleWindow[], businessHours: unkn
   return warnings
 }
 
-const WEEKDAY_LABELS = [
-  'domingo',
-  'segunda',
-  'terça',
-  'quarta',
-  'quinta',
-  'sexta',
-  'sábado',
-]
+const WEEKDAY_LABELS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
 
 function toMinutes(value: string): number | null {
   const match = /^(\d{2}):(\d{2})$/.exec(value)

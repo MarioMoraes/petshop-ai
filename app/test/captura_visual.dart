@@ -47,6 +47,10 @@ void main() {
     addTearDown(tester.view.reset);
 
     Future<void> clique(String texto) async {
+      // O Início rola desde que ganhou "Meus documentos": a última linha nasce abaixo da
+      // dobra num celular com recortes.
+      await tester.ensureVisible(find.text(texto));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(texto));
       await tester.pumpAndSettle();
     }
@@ -110,11 +114,11 @@ void main() {
     await clique('Marley');
     await foto('05-ficha-do-pet');
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, -420));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -420));
     await tester.pumpAndSettle();
     await foto('06-historico');
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, 420));
+    await tester.drag(find.byType(ListView).last, const Offset(0, 420));
     await tester.pumpAndSettle();
     await clique('Editar');
     await foto('07-editar-pet');
@@ -130,7 +134,7 @@ void main() {
     await foto('08-agendamentos');
 
     // O fim da lista, que é onde o rodapé encostava na barra do sistema.
-    await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -900));
     await tester.pumpAndSettle();
     await foto('08b-agendamentos-fim');
 
@@ -154,7 +158,7 @@ void main() {
 
     // O seletor de dia desceu abaixo da dobra quando o leva-e-traz entrou entre ele e
     // os serviços — toque em widget fora da tela não acontece.
-    await tester.drag(find.byType(ListView).first, const Offset(0, -320));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -320));
     await tester.pumpAndSettle();
     await clique('Escolher o dia');
     await clique('OK');
@@ -164,7 +168,7 @@ void main() {
     // O "Tudo certo?" fecha uma coluna que cresceu de três cartões para quatro: sem
     // descer o bastante, o toque em "Confirmar horário" cai fora da tela e não
     // acontece — e as duas fotos saem iguais, que é como isso se manifesta aqui.
-    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -700));
     await tester.pumpAndSettle();
     await foto('12-confirmar');
 
@@ -173,7 +177,7 @@ void main() {
 
     // O comprovante cresceu com as duas corridas, e o total — que é o único número que
     // soma o transporte ao atendimento — passou a nascer abaixo da dobra.
-    await tester.drag(find.byType(ListView).first, const Offset(0, -420));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -420));
     await tester.pumpAndSettle();
     await foto('13b-comprovante-total');
     await aoInicio();
@@ -186,7 +190,7 @@ void main() {
     await clique('Minha conta');
     await foto('16-minha-conta');
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -700));
     await tester.pumpAndSettle();
     await foto('16b-minha-conta-como-pagar');
     await aoInicio();
@@ -199,20 +203,31 @@ void main() {
     await clique('Meus dados');
     await foto('18-meus-dados');
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -900));
     await tester.pumpAndSettle();
     await foto('18b-meus-dados-fim');
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, 900));
+    await tester.drag(find.byType(ListView).last, const Offset(0, 900));
     await tester.pumpAndSettle();
     await clique('Alterar');
     await foto('18c-trocar-contato');
     await clique('Cancelar');
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -300));
     await tester.pumpAndSettle();
     await clique('Rua das Flores, 120 — Apto 42');
     await foto('18d-endereco');
+    await clique('Cancelar');
+    await aoInicio();
+
+    // ── meus documentos ───────────────────────────────────────────────────────
+    //
+    // A lista e a folha de um termo que falta aceitar — a única escrita da tela.
+    await clique('Meus documentos');
+    await foto('20-meus-documentos');
+
+    await clique('Autorização de uso de imagem');
+    await foto('20b-termo');
     await clique('Cancelar');
     await aoInicio();
 
@@ -328,6 +343,10 @@ final _portal = MockClient((req) async {
       corpo = _extrato;
     case 'GET /portal/v1/me/data':
       corpo = _meusDados;
+    case 'GET /portal/v1/documents':
+      corpo = _documentos;
+    case 'GET /portal/v1/terms':
+      corpo = _termos;
     default:
       return http.Response('{"detail":"rota nao dublada: $rota"}', 404,
           headers: {'content-type': 'application/json; charset=utf-8'});
@@ -335,6 +354,66 @@ final _portal = MockClient((req) async {
   return http.Response(jsonEncode(corpo), 200,
       headers: {'content-type': 'application/json'});
 });
+
+const _documentos = {
+  'documents': [
+    {
+      'id': 'doc-1',
+      'kind': 'PRESCRIPTION',
+      'number': 'RX-2026/000014',
+      'issuedAt': '2026-09-18T14:30:00.000Z',
+      'petName': 'Marley',
+      'ready': true,
+    },
+    {
+      'id': 'doc-2',
+      'kind': 'RECEIPT',
+      'number': 'REC-2026/000231',
+      'issuedAt': '2026-09-18T15:02:00.000Z',
+      'petName': null,
+      'ready': true,
+    },
+    {
+      'id': 'doc-3',
+      'kind': 'RECEIPT',
+      'number': 'REC-2026/000245',
+      'issuedAt': null,
+      'petName': null,
+      'ready': false,
+    },
+    {
+      'id': 'doc-4',
+      'kind': 'TERM_ACCEPTANCE',
+      'number': 'TR-2026/000077',
+      'issuedAt': '2026-08-02T12:00:00.000Z',
+      'petName': null,
+      'ready': true,
+    },
+  ],
+};
+
+const _termos = {
+  'terms': [
+    {
+      'kind': 'SERVICE_LIABILITY',
+      'title': 'Termo de responsabilidade',
+      'version': '1.0',
+      'body': '# Do serviço\n\nO tutor declara que o animal está em condições de receber o serviço.',
+      'accepted': true,
+      'acceptedVersion': '1.0',
+    },
+    {
+      'kind': 'IMAGE_USE',
+      'title': 'Autorização de uso de imagem',
+      'version': '2.0',
+      'body': '# Uso de imagem\n\nAutorizo o estabelecimento a publicar **fotos do meu pet** '
+          'feitas durante o atendimento.\n\n- Nas redes sociais do estabelecimento\n'
+          '- No site\n\nA autorização pode ser revogada a qualquer momento.',
+      'accepted': false,
+      'acceptedVersion': '1.0',
+    },
+  ],
+};
 
 const _fuso = 'America/Sao_Paulo';
 const _prof = '3f1e0d2c-1111-4a2b-8c3d-000000000001';

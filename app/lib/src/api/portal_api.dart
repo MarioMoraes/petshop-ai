@@ -327,6 +327,34 @@ class PortalApi {
         await _cliente.post('/portal/v1/me/deletion-request', corpo: semNulos(pedido.toJson())),
       );
 
+  // ── Meus documentos (MOD-DOC-10) e os termos (MOD-DOC-07 e 08) ────────────
+
+  /// Os papéis do titular: recibo, receituário e termo aceito, na mesma lista.
+  ///
+  /// **Nenhum endereço desce aqui**: abrir a lista não é baixar dez arquivos, e a
+  /// assinatura tem vida curta — ela é pedida no toque, por [enderecoDoDocumento].
+  Future<PortalDocumentsResponse> documentos() async =>
+      PortalDocumentsResponse.fromJson(await _cliente.get('/portal/v1/documents'));
+
+  /// O endereço assinado de um documento — e pedi-lo **é** o download que a trilha do
+  /// estabelecimento registra.
+  ///
+  /// `null` é documento em preparo, e não erro: o PDF nasce fora da transação que o
+  /// emitiu. 404 é documento de outro titular, e a tela não o distingue de uma falha.
+  Future<String?> enderecoDoDocumento(String documentId) async {
+    final corpo = await _cliente.get('/portal/v1/documents/$documentId');
+    return (corpo as Map<String, dynamic>)['url'] as String?;
+  }
+
+  /// Os termos vigentes, com o texto e o estado do aceite deste titular.
+  Future<PortalTermsResponse> termos() async =>
+      PortalTermsResponse.fromJson(await _cliente.get('/portal/v1/terms'));
+
+  /// O aceite. **Sem corpo**: a versão é a vigente, conferida do lado de lá, e a origem
+  /// (`PORTAL`), o IP e o aparelho saem da requisição — nunca do que o app declara.
+  Future<void> aceitarTermo(PortalTermKind kind) =>
+      _cliente.post('/portal/v1/terms/${portalTermKindValues.reverse[kind]}/accept');
+
   // ── Aparelho (push) ────────────────────────────────────────────────────────
 
   /// Registra este aparelho para receber avisos. Repetir é inofensivo: o servidor faz

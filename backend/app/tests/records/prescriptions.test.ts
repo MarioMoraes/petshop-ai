@@ -205,6 +205,29 @@ describe('MOD-DOC-04 — emissão do receituário', () => {
 
     expect(response.statusCode).toBe(403)
     expect(response.json().code).toBe('ERR_PRONT_009')
+    // A recusa diz o que falta — o vínculo —, e não "falta CRMV": a ficha tem CRMV.
+    expect(response.json().detail).toContain('Usuário do sistema')
+  })
+
+  it('a ficha ligada pela tela da agenda destrava a emissão', async () => {
+    // O caso real: "Sônia" cadastrada à mão, com CRMV, e o usuário "Sonia Moraes" que o
+    // espelho da RN-06 não adotou porque o nome não casa.
+    const vetId = await givenVet(tenant)
+    await withTenant(tenant.tenantId, (tx) =>
+      tx.professional.update({ where: { id: vetId }, data: { userId: null } }),
+    )
+    attendanceId = await givenVetAttendance(vetId)
+    expect((await emitir()).statusCode).toBe(403)
+
+    const vinculo = await callApi({
+      ...asAdmin(tenant),
+      method: 'PATCH',
+      url: `/v1/professionals/${vetId}`,
+      payload: { userId: tenant.userId },
+    })
+    expect(vinculo.statusCode).toBe(200)
+
+    expect((await emitir()).statusCode).toBe(201)
   })
 
   it('AC-03: item sem posologia é 422 apontando o índice e o campo', async () => {

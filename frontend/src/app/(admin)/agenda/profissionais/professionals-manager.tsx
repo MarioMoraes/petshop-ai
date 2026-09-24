@@ -19,9 +19,17 @@ import {
  * que ninguém está.
  */
 
+/** Quem pode ser ligado a uma ficha. `null` é quem não tem `team:read`. */
+export interface TeamOption {
+  userId: string
+  fullName: string
+  roleLabel: string
+}
+
 interface Props {
   professionals: ProfessionalResponse[]
   services: ServiceResponse[]
+  team: TeamOption[] | null
 }
 
 const ROLES = [
@@ -47,7 +55,7 @@ function timeToMinutes(value: string): number {
   return Number(hours) * 60 + Number(minutes)
 }
 
-export function ProfessionalsManager({ professionals, services }: Props) {
+export function ProfessionalsManager({ professionals, services, team }: Props) {
   const [editing, setEditing] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [failure, setFailure] = useState<ActionFailure | null>(null)
@@ -121,6 +129,8 @@ export function ProfessionalsManager({ professionals, services }: Props) {
           key={person.id}
           person={person}
           services={services}
+          team={team}
+          professionals={professionals}
           expanded={editing === person.id}
           pending={pending}
           onToggle={() => setEditing(editing === person.id ? null : person.id)}
@@ -170,6 +180,8 @@ interface WindowDraft {
 function ProfessionalRow({
   person,
   services,
+  team,
+  professionals,
   expanded,
   pending,
   onToggle,
@@ -178,6 +190,8 @@ function ProfessionalRow({
 }: {
   person: ProfessionalResponse
   services: ServiceResponse[]
+  team: TeamOption[] | null
+  professionals: ProfessionalResponse[]
   expanded: boolean
   pending: boolean
   onToggle: () => void
@@ -191,6 +205,9 @@ function ProfessionalRow({
   const invalid = windows.filter((window) => window.endsAtMin <= window.startsAtMin)
   const activeServices = services.filter((service) => service.active)
   const roleLabel = ROLES.find((role) => role.key === person.roleKey)?.label ?? person.roleKey
+  const linkedName = person.userId
+    ? (team?.find((member) => member.userId === person.userId)?.fullName ?? null)
+    : null
 
   return (
     <Card>
@@ -216,11 +233,17 @@ function ProfessionalRow({
             {person.active && person.roleKey === 'VET' && !person.crmv && (
               <Badge tone="danger">Sem CRMV</Badge>
             )}
+            {/* O receituário procura a ficha **do usuário logado**: CRMV numa ficha sem
+                usuário é um registro que ninguém consegue usar. */}
+            {person.active && person.roleKey === 'VET' && !person.userId && (
+              <Badge tone="danger">Sem usuário</Badge>
+            )}
           </div>
           <p className="hint mt-1">
             {person.serviceIds.length === 0
               ? 'Nenhum serviço habilitado'
               : `${person.serviceIds.length} de ${activeServices.length} serviços`}
+            {linkedName && ` · Usuário: ${linkedName}`}
           </p>
         </div>
 
@@ -260,6 +283,16 @@ function ProfessionalRow({
                 }}
               />
             </Field>
+
+            {team && (
+              <UserField
+                person={person}
+                team={team}
+                professionals={professionals}
+                pending={pending}
+                onPatch={onPatch}
+              />
+            )}
           </div>
 
           {person.roleKey === 'VET' && <CrmvFields person={person} onPatch={onPatch} />}
@@ -415,6 +448,68 @@ function ProfessionalRow({
         </div>
       )}
     </Card>
+  )
+}
+
+/**
+ * Quem, da equipe, **é** esta ficha.
+ *
+ * O espelho do papel (RN-06 do MOD-IDENT) liga sozinho a ficha de mesmo nome; este campo
+ * é para o resto — "Sônia" cadastrada na agenda e "Sonia Moraes" no convite. Sem o
+ * vínculo, o veterinário não emite receituário: quem assina é quem está logado, e o
+ * sistema procura a ficha dele por aqui.
+ *
+ * Quem já está ligado a outra ficha aparece **desabilitado**, com o nome da ficha, em vez
+ * de sumir: sumido, o administrador procuraria a pessoa na lista e concluiria que ela
+ * não é da equipe. O servidor recusa o par de todo jeito.
+ */
+function UserField({
+  person,
+  team,
+  professionals,
+  pending,
+  onPatch,
+}: {
+  person: ProfessionalResponse
+  team: TeamOption[]
+  professionals: ProfessionalResponse[]
+  pending: boolean
+  onPatch: (patch: Record<string, unknown>) => void
+}) {
+  const fichaDe = new Map(
+    professionals
+      .filter((other) => other.id !== person.id && other.userId)
+      .map((other) => [other.userId as string, other.displayName]),
+  )
+
+  return (
+    <Field
+      label="Usuário do sistema"
+      htmlFor={`usuario-${person.id}`}
+      hint={
+        person.roleKey === 'VET'
+          ? 'O veterinário só emite receituário logado com o usuário escolhido aqui.'
+          : 'Quem, da equipe, é esta pessoa quando entra no sistema.'
+      }
+    >
+      <select
+        id={`usuario-${person.id}`}
+        className="field"
+        disabled={pending}
+        value={person.userId ?? ''}
+        onChange={(event) => onPatch({ userId: event.target.value || null })}
+      >
+        <option value="">Nenhum — não entra no sistema</option>
+        {team.map((member) => {
+          const outra = fichaDe.get(member.userId)
+          return (
+            <option key={member.userId} value={member.userId} disabled={Boolean(outra)}>
+              {member.fullName} ({member.roleLabel}){outra ? ` — já é "${outra}"` : ''}
+            </option>
+          )
+        })}
+      </select>
+    </Field>
   )
 }
 

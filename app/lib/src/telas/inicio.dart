@@ -9,6 +9,7 @@ import '../ui/tema.dart';
 import 'agendamentos/lista_de_agendamentos.dart';
 import 'agendar/marcar_horario.dart';
 import 'dados/meus_dados.dart';
+import 'documentos/meus_documentos.dart';
 import 'financeiro/minha_conta.dart';
 import 'pets/lista_de_pets.dart';
 
@@ -176,6 +177,21 @@ class Inicio extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => MinhaConta(sessao: sessao)),
                   ),
                   child: const TextoDaLinha(titulo: 'Minha conta'),
+                ),
+
+                /// Antes de "Meus dados", como na web: é o lugar de buscar um papel —
+                /// o recibo do mês passado, o receituário do gato —, e não o de
+                /// corrigir cadastro.
+                Linha(
+                  aoCentro: true,
+                  inicio: const ChipDeIcone(
+                    Icons.description_outlined,
+                    base: Tons.sistema,
+                  ),
+                  aoTocar: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => MeusDocumentos(sessao: sessao)),
+                  ),
+                  child: const TextoDaLinha(titulo: 'Meus documentos'),
                 ),
 
                 /// Por último, porque é o destino menos frequente — corrigir um

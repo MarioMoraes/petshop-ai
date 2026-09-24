@@ -8,6 +8,7 @@ import {
   givenTenant,
   ownerPrisma,
   resetDatabase,
+  seedMember,
   type TenantFixture,
 } from './fixtures.js'
 
@@ -129,8 +130,16 @@ describe('MOD-AGENDA-02 — profissionais e jornada', () => {
     setAppointmentsPort({
       countByService: async () => 0,
       listByProfessional: async () => [
-        { id: '11111111-1111-4111-8111-111111111111', startsAt: new Date('2026-09-01T12:00:00Z'), petName: 'Thor' },
-        { id: '22222222-2222-4222-8222-222222222222', startsAt: new Date('2026-09-02T12:00:00Z'), petName: 'Mel' },
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          startsAt: new Date('2026-09-01T12:00:00Z'),
+          petName: 'Thor',
+        },
+        {
+          id: '22222222-2222-4222-8222-222222222222',
+          startsAt: new Date('2026-09-02T12:00:00Z'),
+          petName: 'Mel',
+        },
       ],
       listInWindow: async () => [],
       cancelBatch: async () => undefined,
@@ -346,5 +355,123 @@ describe('MOD-DOC-05 — CRMV do profissional', () => {
 
     expect(response.statusCode).toBe(200)
     expect(response.json()).toMatchObject({ crmv: null, crmvState: null })
+  })
+})
+
+/**
+ * O vínculo da ficha com o membro da equipe.
+ *
+ * O espelho da RN-06 só adota ficha de mesmo nome. "Sônia" na agenda e "Sonia Moraes" no
+ * cadastro ficavam sem vínculo para sempre, e o receituário — que procura a ficha do
+ * usuário logado — recusava a veterinária com o CRMV preenchido.
+ */
+describe('vínculo da ficha com o usuário', () => {
+  async function vincular(professionalId: string, userId: string | null) {
+    return callApi({
+      ...asAdmin(tenant),
+      method: 'PATCH',
+      url: `/v1/professionals/${professionalId}`,
+      payload: { userId },
+    })
+  }
+
+  it('liga a ficha ao membro da equipe, e a troca entra na trilha', async () => {
+    const vet = await givenProfessional({ displayName: 'Sônia', roleKey: 'VET' })
+    const sonia = await seedMember(tenant.tenantId, 'VET')
+
+    const response = await vincular(vet.id, sonia.userId)
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().userId).toBe(sonia.userId)
+
+    const trilha = await ownerPrisma.auditLog.findFirstOrThrow({
+      where: { entityId: vet.id, action: 'professional.updated' },
+    })
+    expect(trilha.before).toMatchObject({ userId: null })
+    expect(trilha.after).toMatchObject({ userId: sonia.userId })
+  })
+
+  it('o dono que é também o veterinário se liga — o que autoriza é o CRMV, não o papel', async () => {
+    const vet = await givenProfessional({ roleKey: 'VET' })
+
+    const response = await vincular(vet.id, tenant.userId)
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().userId).toBe(tenant.userId)
+  })
+
+  it('null desfaz o vínculo', async () => {
+    const vet = await givenProfessional({ roleKey: 'VET' })
+    await vincular(vet.id, tenant.userId)
+
+    const response = await vincular(vet.id, null)
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().userId).toBeNull()
+  })
+
+  it('membro de outro estabelecimento é recusado', async () => {
+    const vet = await givenProfessional({ roleKey: 'VET' })
+    const outro = await givenTenant('Outro Petshop')
+
+    const response = await vincular(vet.id, outro.userId)
+
+    expect(response.statusCode).toBe(422)
+    expect(response.json().detail).toContain('não faz parte da equipe')
+  })
+
+  it('membro removido é recusado', async () => {
+    const vet = await givenProfessional({ roleKey: 'VET' })
+    const saiu = await seedMember(tenant.tenantId, 'VET')
+    await ownerPrisma.membership.update({
+      where: { id: saiu.membershipId },
+      data: { status: 'REMOVED' },
+    })
+
+    const response = await vincular(vet.id, saiu.userId)
+
+    expect(response.statusCode).toBe(422)
+  })
+
+  it('quem já tem outra ficha é recusado — duas deixariam o receituário escolhendo no escuro', async () => {
+    const primeira = await givenProfessional({ displayName: 'Sonia Moraes', roleKey: 'VET' })
+    const segunda = await givenProfessional({ displayName: 'Sônia', roleKey: 'VET' })
+    const sonia = await seedMember(tenant.tenantId, 'VET')
+    expect((await vincular(primeira.id, sonia.userId)).statusCode).toBe(200)
+
+    const response = await vincular(segunda.id, sonia.userId)
+
+    expect(response.statusCode).toBe(422)
+    expect(response.json().detail).toContain('"Sonia Moraes"')
+  })
+
+  it('o PATCH que não fala da capacidade não a toca', async () => {
+    // O `.partial()` do Zod não remove o `.default(1)` da criação, e cada PATCH —
+    // o vínculo, o CRMV, um serviço — voltava "Pets por vez" para 1.
+    const ana = await givenProfessional({ maxConcurrentPets: 3 })
+
+    const response = await vincular(ana.id, tenant.userId)
+
+    expect(response.json().maxConcurrentPets).toBe(3)
+  })
+
+  it('religar a mesma ficha à mesma pessoa não é conflito', async () => {
+    const vet = await givenProfessional({ roleKey: 'VET' })
+    await vincular(vet.id, tenant.userId)
+
+    expect((await vincular(vet.id, tenant.userId)).statusCode).toBe(200)
+  })
+
+  it('a recepção não liga ficha: é catálogo da agenda', async () => {
+    const vet = await givenProfessional({ roleKey: 'VET' })
+
+    const response = await callApi({
+      ...(await asReceptionist(tenant)),
+      method: 'PATCH',
+      url: `/v1/professionals/${vet.id}`,
+      payload: { userId: tenant.userId },
+    })
+
+    expect(response.statusCode).toBe(403)
   })
 })

@@ -234,13 +234,20 @@ async function loadPrescriber(tx: TenantTransaction, actor: ActorContext) {
     select: { id: true, displayName: true, crmv: true, crmvState: true },
   })
 
+  // As duas recusas dizem **o que falta**, e não "falta CRMV" nas duas: com a ficha
+  // desligada do usuário a pessoa lia a falta de CRMV, conferia a ficha, via o CRMV lá e
+  // não tinha para onde ir.
   if (!vet) {
     throw crmvRequired(
-      'Prescrição exige um profissional com CRMV vinculado ao seu usuário. Cadastre-o em Agenda → Profissionais.',
+      'Seu usuário não está ligado a nenhuma ficha de profissional. Em Agenda → Profissionais, ' +
+        'abra a ficha do veterinário e escolha você em "Usuário do sistema". Só o próprio ' +
+        'veterinário, logado, emite o receituário.',
     )
   }
   if (!vet.crmv || !vet.crmvState) {
-    throw crmvRequired(`${vet.displayName} não tem CRMV cadastrado`)
+    throw crmvRequired(
+      `A ficha de ${vet.displayName} não tem CRMV. Preencha o registro em Agenda → Profissionais.`,
+    )
   }
 
   return { ...vet, crmv: vet.crmv, crmvState: vet.crmvState }
@@ -594,14 +601,15 @@ interface CollectInput {
 }
 
 /** Junta o que o papel mostra. Uma consulta por relação, dentro da mesma transação. */
-async function collectData(
-  tx: TenantTransaction,
-  input: CollectInput,
-): Promise<PrescriptionData> {
+async function collectData(tx: TenantTransaction, input: CollectInput): Promise<PrescriptionData> {
   const [pet, tutor, sources] = await Promise.all([
     tx.pet.findFirstOrThrow({
       where: { id: input.petId },
-      select: { name: true, species: { select: { label: true } }, breed: { select: { label: true } } },
+      select: {
+        name: true,
+        species: { select: { label: true } },
+        breed: { select: { label: true } },
+      },
     }),
     input.tutorId
       ? tx.tutor.findFirst({

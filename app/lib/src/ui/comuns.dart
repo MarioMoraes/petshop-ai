@@ -82,9 +82,15 @@ class _BotaoPrincipalState extends State<BotaoPrincipal> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Text(
-                            widget.rotuloOcupado ?? 'Aguarde…',
-                            style: _estilo(frente),
+                          // `Flexible`, como o rótulo parado: na metade da barra de uma
+                          // folha, "Registrando…" com a rosquinha estourava a largura.
+                          Flexible(
+                            child: Text(
+                              widget.rotuloOcupado ?? 'Aguarde…',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _estilo(frente),
+                            ),
                           ),
                         ],
                       )

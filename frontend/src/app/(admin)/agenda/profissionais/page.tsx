@@ -14,9 +14,15 @@ import { ProfessionalsManager } from './professionals-manager'
 export const dynamic = 'force-dynamic'
 
 export default async function ProfissionaisPage() {
-  const [professionals, services] = await Promise.all([
+  const [professionals, services, team] = await Promise.all([
     serverApi().listProfessionals(true),
     serverApi().listServices(true),
+    // A equipe é para o campo "Usuário do sistema". Quem edita o catálogo sem
+    // `team:read` (um papel ajustado no MOD-IDENT-04) vê a tela sem o campo, e não um
+    // erro no lugar da agenda inteira.
+    serverApi()
+      .listTeam()
+      .catch(() => null),
   ])
 
   const active = professionals.filter((person) => person.active)
@@ -36,7 +42,15 @@ export default async function ProfissionaisPage() {
 
       <AgendaTabs />
 
-      <ProfessionalsManager professionals={professionals} services={services} />
+      <ProfessionalsManager
+        professionals={professionals}
+        services={services}
+        team={
+          team
+            ?.filter((member) => member.status !== 'REMOVED')
+            .map(({ userId, fullName, roleLabel }) => ({ userId, fullName, roleLabel })) ?? null
+        }
+      />
     </div>
   )
 }

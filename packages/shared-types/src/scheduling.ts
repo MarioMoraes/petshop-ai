@@ -177,6 +177,20 @@ export const UpdateProfessionalSchema = CreateProfessionalSchema.omit({
     /** AC-04: desativar com agendamento futuro exige reatribuição antes. */
     active: z.boolean().optional(),
     serviceIds: z.array(z.uuid()).optional(),
+    /**
+     * Redeclarado **sem** o `.default(1)` da criação: o `.partial()` não tira o default,
+     * e todo PATCH — salvar o CRMV, marcar um serviço — voltava a capacidade para 1.
+     */
+    maxConcurrentPets: z.number().int().min(1).max(20).optional(),
+    /**
+     * O membro da equipe que **é** esta ficha; `null` desfaz o vínculo.
+     *
+     * O espelho da RN-06 do MOD-IDENT só adota ficha de mesmo nome, e "Sônia" na agenda
+     * não casa com "Sonia Moraes" no cadastro: sem este campo a ficha com CRMV ficava
+     * sem dono para sempre, e o receituário — que procura a ficha **do usuário logado**
+     * — era recusado com o CRMV preenchido.
+     */
+    userId: z.uuid().nullable().optional(),
   })
 export type UpdateProfessionalInput = z.output<typeof UpdateProfessionalSchema>
 
