@@ -1,5 +1,6 @@
 import { Prisma, type TenantTransaction } from '@petshop/db'
 import type { StockMovementType } from '@petshop/shared-types'
+import { invalidateInventoryAlerts } from '../../shared/redis.js'
 import type { ActorContext } from './actor.js'
 import { notFound } from './errors.js'
 
@@ -154,6 +155,9 @@ export async function recordMovement(
     },
     include: { lot: { select: { batchCode: true } } },
   })
+
+  // Todo movimento pode acender ou apagar um alerta do sino (AC-03 de MOD-ESTOQUE-09).
+  await invalidateInventoryAlerts(actor.tenantId)
 
   return movement
 }

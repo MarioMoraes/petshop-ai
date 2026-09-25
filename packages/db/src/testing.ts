@@ -142,6 +142,7 @@ const BUSINESS_TABLES = [
   'stock_movements',
   'stock_lots',
   'products',
+  'inventory_settings',
   // MOD-LEDGER-08 — o recibo aponta para o pagamento, então vem antes dele.
   'receipts',
   // MOD-DOC-04 — antes de `documents`, `attendances`, `pets` e `professionals`, que a

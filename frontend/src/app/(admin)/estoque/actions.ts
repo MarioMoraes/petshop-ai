@@ -9,7 +9,9 @@ import {
   ReverseSaleSchema,
   StockAdjustmentSchema,
   StockEntrySchema,
+  UpdateInventorySettingsSchema,
   UpdateProductSchema,
+  type InventorySettings,
   type ProductDetailResponse,
   type LotTrace,
   type ProductResponse,
@@ -258,6 +260,26 @@ export async function registerInternalUseAction(
 export async function traceLotAction(lotId: string): Promise<ActionResult<LotTrace>> {
   try {
     return { ok: true, data: await serverApi().traceLot(lotId) }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * A janela do alerta de validade (MOD-ESTOQUE-09).
+ *
+ * Revalida a lista e o layout: o número do sino muda junto, e ele mora na moldura.
+ */
+export async function updateInventorySettingsAction(
+  input: unknown,
+): Promise<ActionResult<InventorySettings>> {
+  const parsed = UpdateInventorySettingsSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const settings = await serverApi().updateInventorySettings(parsed.data)
+    revalidatePath('/', 'layout')
+    return { ok: true, data: settings }
   } catch (error) {
     return toFailure(error)
   }

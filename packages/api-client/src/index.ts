@@ -300,6 +300,9 @@ import {
   SaleResponseSchema,
   SaleResultSchema,
   LotTraceSchema,
+  InventoryAlertsSchema,
+  InventorySettingsSchema,
+  InventoryPositionReportSchema,
   ProductUsedSchema,
   type CreateProductSchema,
   type InternalUseSchema,
@@ -308,6 +311,8 @@ import {
   type StockAdjustmentSchema,
   type StockEntrySchema,
   type UpdateProductSchema,
+  type UpdateInventorySettingsInput,
+  type PositionReportQuery,
 } from '@petshop/shared-types'
 import { z, type ZodType } from 'zod'
 
@@ -2775,6 +2780,37 @@ export function createApiClient(options: ApiClientOptions) {
         body: { reason },
         schema: SaleResponseSchema,
       }),
+
+    // ─── MOD-ESTOQUE — alertas, configuração e posição (fatia 4) ─────────────
+
+    /** As contagens do sino: o tamanho de cada lista filtrada de `/estoque`. */
+    getInventoryAlerts: () =>
+      request({ method: 'GET', path: '/v1/inventory/alerts', schema: InventoryAlertsSchema }),
+
+    getInventorySettings: () =>
+      request({ method: 'GET', path: '/v1/inventory/settings', schema: InventorySettingsSchema }),
+
+    updateInventorySettings: (input: UpdateInventorySettingsInput) =>
+      request({
+        method: 'PATCH',
+        path: '/v1/inventory/settings',
+        body: input,
+        schema: InventorySettingsSchema,
+      }),
+
+    getInventoryPosition: (query: Partial<PositionReportQuery> = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/inventory/reports/position${toQueryString(query)}`,
+        schema: InventoryPositionReportSchema,
+      }),
+
+    /** Bytes, como os relatórios do financeiro: o retrato de um instante não se arquiva. */
+    downloadInventoryPositionPdf: (query: Partial<PositionReportQuery> = {}) =>
+      download(
+        `/v1/inventory/reports/position/pdf${toQueryString(query)}`,
+        'posicao-do-estoque.pdf',
+      ),
   }
 }
 

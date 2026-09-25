@@ -14,6 +14,7 @@ import { ListSearch } from '@/components/list-search'
 import { InitialsAvatar, RecordCard, RecordFact, RecordGrid } from '@/components/record-list'
 import { PlanoIndisponivel, temRecurso } from '@/components/plano-indisponivel'
 import { carregarMe, serverApi } from '@/lib/api'
+import { ExpiryWindow } from './expiry-window'
 import { formatExpiry, formatQuantity } from './format'
 import { SaleButton } from './sale-dialog'
 
@@ -52,24 +53,41 @@ export default async function EstoquePage({ searchParams }: PageProps) {
     ...(alerta === 'INACTIVE' ? { includeInactive: 'true' as const } : {}),
   }
 
-  const products = await serverApi()
-    .listProducts(query)
-    .catch((error: unknown) => {
+  const api = serverApi()
+  const [products, settings] = await Promise.all([
+    api.listProducts(query).catch((error: unknown) => {
       if (error instanceof ApiError) return error
       throw error
-    })
+    }),
+    // A janela só é dita no filtro "Vencendo"; fora dele, ninguém espera por ela. Sem
+    // resposta, a faixa some — a lista continua certa, só não se explica.
+    alerta === 'EXPIRING' ? api.getInventorySettings().catch(() => null) : null,
+  ])
 
   const canWrite = me.permissions.includes('inventory:write')
   const canSell = me.permissions.includes('inventory:sell')
   const newProduct = canWrite ? <ButtonLink href="/estoque/novo">Novo produto</ButtonLink> : null
+  /*
+   * `<a download>` e não `<ButtonLink>`: o `Link` do Next busca a rota de antemão, e aqui
+   * a rota é um PDF gerado no Gotenberg a cada pedido. É o mesmo par dos relatórios de
+   * Cobrança — a rota do Next leva a sessão até o gateway e devolve os bytes.
+   */
+  const positionPdf = (
+    <a href="/estoque/posicao/pdf" download className="btn btn-primary">
+      Posição em PDF
+    </a>
+  )
   const headerActions =
     canWrite || canSell ? (
       <>
         {canSell && <ButtonLink href="/estoque/vendas">Vendas</ButtonLink>}
         {canSell && <SaleButton canOverrideCredit={me.permissions.includes('finance:credit')} />}
+        {positionPdf}
         {newProduct}
       </>
-    ) : null
+    ) : (
+      positionPdf
+    )
 
   if (products instanceof ApiError) {
     return (
@@ -107,6 +125,8 @@ export default async function EstoquePage({ searchParams }: PageProps) {
         filters={FILTERS.map((filter) => ({ value: filter.value, label: filter.label }))}
         activeFilter={alerta ?? ''}
       />
+
+      {settings && <ExpiryWindow days={settings.expiryWarningDays} canEdit={canWrite} />}
 
       {rows.length === 0 ? (
         isFiltering ? (

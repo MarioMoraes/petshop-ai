@@ -7,7 +7,7 @@
 **Módulo Backend:** `backend/app/src/modules/inventory`
 **Tabelas Principais:** products, stock_lots, stock_movements, product_sales, product_sale_items
 **Data:** 2026-09-25
-**Status:** Fatias 1 a 3 entregues (cadastro, lote, entrada, ajuste, saldo, venda, estorno, consumo no atendimento, uso interno e rastreio de lote)
+**Status:** Entregue — fatias 1 a 4 (cadastro, lote, entrada, ajuste, saldo, venda, estorno, consumo no atendimento, uso interno, rastreio de lote, alertas no sino, posição em PDF e reconciliação)
 
 ---
 
@@ -346,7 +346,10 @@ model ProductSaleItem {
 | POST | `/v1/inventory/sales` | `inventory:sell` | `{ tutorId?, items: [{ productId, quantity, lotId? }], creditOverrideReason?, idempotencyKey }` |
 | POST | `/v1/inventory/sales/:id/reverse` | `inventory:refund` | `{ reason }` |
 | GET | `/v1/inventory/alerts` | `inventory:read` | Contagens para o sino |
-| GET | `/v1/inventory/reports/position.pdf` | `inventory:read` | Posição e valorização |
+| GET | `/v1/inventory/settings` | `inventory:read` | A janela do alerta de validade |
+| PATCH | `/v1/inventory/settings` | `inventory:write` | `{ expiryWarningDays }`, de 1 a 180 |
+| GET | `/v1/inventory/reports/position` | `inventory:read` | Posição e valorização (JSON) |
+| GET | `/v1/inventory/reports/position/pdf` | `inventory:read` | O mesmo relatório em PDF |
 
 O consumo no atendimento **não tem rota própria**: entra pelo `PATCH` do atendimento, que já existe,
 e passa pela porta `modules/attendances/inventory-port.ts`.
@@ -542,3 +545,40 @@ correções de premissa:
   implícito negativo, pela RN-06.
 - **Sem o plano, a ligação com o estoque é tirada da linha**, que fica como texto (AC-05). A
   devolução da anulação roda com plano ou sem.
+
+**Fatia 4 — 2026-09-25.** Migration `20260930120000_estoque_alertas` (`inventory_settings`),
+`inventory/alerts.ts`, `settings.ts`, `position.ts` + `position-template.ts` + `pdf-port.ts`,
+`reconciliation.ts` e o job `inventory.reconciliation` (`worker/inventory-jobs.ts`, 04h10).
+Na tela: três linhas novas no sino, o botão "Posição em PDF" em `/estoque` (pela rota
+`/estoque/posicao/pdf` do Next) e, no filtro "Vencendo", a janela dita acima da lista com
+"Mudar o prazo" para o administrador. Decisões e correções de premissa:
+
+- **A janela mora em `inventory_settings`, e não em `billing_settings`** nem em
+  `tenant_settings`: é configuração deste módulo, e as outras duas têm dono. A linha ausente
+  vale 30, sem backfill. Intervalo de 1 a 180 dias, no Zod e num `CHECK`.
+- **O sino conta com as mesmas contas da lista.** `getInventoryAlerts` roda o mesmo
+  `toProductResponse` sobre os mesmos produtos (ativos, não excluídos) que o filtro mostra.
+  Uma consulta agregada à parte seria uma segunda regra de "vencendo". O número de lotes
+  vencendo inclui **os já vencidos com saldo**, como o selo da lista.
+- **Três linhas no sino**, na ordem vencendo → saldo negativo → repor, no fim do painel. O
+  produto negativo com ponto de reposição conta nas duas últimas, como aparece nas duas
+  listas. O sino só pergunta quando o plano tem `INVENTORY` e a pessoa tem `inventory:read`.
+- **O cache de 60 s é derrubado dentro da transação**, em `recordMovement` e nas escritas do
+  cadastro e da janela. O Prisma não tem gancho de pós-commit: uma leitura que caia entre o
+  `DEL` e o commit repõe o número velho por até um minuto, e o TTL limita esse caso.
+- **A rota do PDF é `/reports/position/pdf`, e não `position.pdf`**, com a irmã JSON sem o
+  sufixo: é o par que os relatórios do financeiro já usam. O erro de Gotenberg fora do ar é
+  `ERR_DOC_005`, o código novo do MOD-DOC.
+- **A valorização deixa dois casos fora do total, e a folha diz quantos:** o lote sem custo,
+  para não fingir um valor, e o lote negativo, para não abater o estoque bom por um registro
+  que falta. O lote vencido **conta**, até alguém dar a baixa por perda, e é marcado na linha.
+  O produto desativado com saldo entra: desativar tira do seletor, e não da prateleira.
+- **A divergência da reconciliação vai para `audit_logs`, e não para `security_events`.** O
+  PRD dizia "evento de segurança", mas `SecurityEventType` é um catálogo fechado de tentativas
+  de acesso, e um saldo que não fecha não é nenhuma delas. É o mesmo destino da reconciliação
+  do razão, e a trilha tem leitor (`GET /v1/audit-logs`). Métrica
+  `inventory_reconciliation_divergence_total` e log P1.
+- **A reconciliação varre todos os lotes, e não uma janela de 24 h** como a do razão: um
+  `GROUP BY` por estabelecimento dá conta de centenas de lotes, e uma janela deixaria de fora
+  justamente o lote parado editado à mão. A soma e o saldo saem do mesmo comando, então um
+  movimento confirmado no meio da varredura nunca vira falsa divergência.

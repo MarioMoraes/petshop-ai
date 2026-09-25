@@ -10,6 +10,7 @@ import type {
   UpdateProductInput,
 } from '@petshop/shared-types'
 import { recordAudit } from '../../shared/audit.js'
+import { invalidateInventoryAlerts } from '../../shared/redis.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { invalid, notFound, productHasHistory } from './errors.js'
 import {
@@ -30,7 +31,7 @@ import {
  * é por uma consulta agregada com as mesmas regras de `toProductResponse`.
  */
 
-const LOTS_FOR_TOTALS = {
+export const LOTS_FOR_TOTALS = {
   lots: {
     select: {
       id: true,
@@ -230,6 +231,8 @@ export async function createProduct(
           userAgent: actor.userAgent ?? null,
         })
 
+        // O produto novo com ponto de reposição nasce abaixo dele: é um alerta.
+        await invalidateInventoryAlerts(actor.tenantId)
         return detail(tx, product.id, await expiryWindow(tx, actor.tenantId))
       },
       tenantOptions(actor),
@@ -320,6 +323,8 @@ export async function updateProduct(
           userAgent: actor.userAgent ?? null,
         })
 
+        // Mínimo, ativo e validade mudam o que conta como alerta.
+        await invalidateInventoryAlerts(actor.tenantId)
         return detail(tx, id, await expiryWindow(tx, actor.tenantId))
       },
       tenantOptions(actor),
@@ -354,6 +359,7 @@ export async function deleteProduct(actor: ActorContext, id: string): Promise<vo
         ipAddress: actor.ipAddress ?? null,
         userAgent: actor.userAgent ?? null,
       })
+      await invalidateInventoryAlerts(actor.tenantId)
     },
     tenantOptions(actor),
   )

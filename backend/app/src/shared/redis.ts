@@ -216,6 +216,17 @@ export const CACHE_KEYS = {
   packages: (tenantId: string, tutorId: string) => `ledger:packages:${tenantId}:${tutorId}`,
   ledgerSettings: (tenantId: string) => `ledger:settings:${tenantId}`,
 
+  // ---- MOD-ESTOQUE ----
+  /**
+   * As contagens do sino (MOD-ESTOQUE-09).
+   *
+   * O sino roda em toda navegação do Admin, e cada contagem soma os lotes do catálogo
+   * inteiro. **Todo movimento derruba a chave** (`recordMovement`), e também o cadastro
+   * e a janela de validade, porque os dois mudam o que conta como alerta. O TTL cobre o
+   * que nenhuma escrita avisa: a virada do dia, que faz um lote entrar na janela.
+   */
+  inventoryAlerts: (tenantId: string) => `inventory:alerts:${tenantId}`,
+
   // ---- MOD-AGENDA ----
   /**
    * O catálogo da agenda — serviços, profissionais e a jornada de cada um.
@@ -335,6 +346,8 @@ export const CACHE_TTL_SECONDS = {
 
   agentSettings: 300,
   agentSpend: 60,
+
+  inventoryAlerts: 60,
 } as const
 
 export const { getRedis, cacheGet, cacheSet, cacheDelete, closeRedis } = createCache({
@@ -513,4 +526,15 @@ export async function invalidateTutor(
     CACHE_KEYS.tagCounts(tenantId),
     ...phoneHashes.map((hash) => CACHE_KEYS.phone(tenantId, hash)),
   )
+}
+
+/**
+ * As contagens do sino do estoque (MOD-ESTOQUE-09).
+ *
+ * Chamada **dentro** da transação do movimento, antes do commit: uma leitura que caia
+ * exatamente entre o `DEL` e o commit repõe o número velho por até um minuto. É o preço
+ * de não ter gancho de pós-commit no Prisma, e o TTL é o que o limita.
+ */
+export async function invalidateInventoryAlerts(tenantId: string): Promise<void> {
+  await cacheDelete(CACHE_KEYS.inventoryAlerts(tenantId))
 }

@@ -15,6 +15,7 @@ import { startTaxiConsumers, stopTaxiConsumers } from '../modules/taxi/consumers
 import { agentJobs } from './agent-jobs.js'
 import { crmJobs } from './crm-jobs.js'
 import { identityJobs } from './identity-jobs.js'
+import { inventoryJobs } from './inventory-jobs.js'
 import { recordJobs } from './record-jobs.js'
 import { ledgerJobs } from './ledger-jobs.js'
 import { schedulingJobs } from './scheduling-jobs.js'
@@ -58,6 +59,7 @@ export const { startJobs, stopJobs, runJobNow, describeJobs } = createJobSchedul
     ...ledgerJobs,
     ...platformJobs,
     ...subscriptionJobs,
+    ...inventoryJobs,
   ],
 })
 

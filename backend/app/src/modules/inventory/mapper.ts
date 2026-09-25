@@ -21,15 +21,24 @@ import {
 export interface ExpiryWindow {
   today: string
   warnUntil: string
+  /** A janela configurada (fatia 4), para quem precisa anunciá-la. */
+  days: number
+  timezone: string
 }
 
+/**
+ * O fuso vem de `tenant_settings`, que é do MOD-IDENT, e a janela de
+ * `inventory_settings`, que é deste módulo. A linha ausente vale o padrão.
+ */
 export async function expiryWindow(tx: TenantTransaction, tenantId: string): Promise<ExpiryWindow> {
-  const settings = await tx.tenantSettings.findFirst({
-    where: { tenantId },
-    select: { timezone: true },
-  })
-  const today = todayIn(settings?.timezone ?? DEFAULT_TIMEZONE)
-  return { today, warnUntil: addDays(today, INVENTORY_EXPIRY_WARNING_DAYS) }
+  const [settings, inventory] = await Promise.all([
+    tx.tenantSettings.findFirst({ where: { tenantId }, select: { timezone: true } }),
+    tx.inventorySettings.findFirst({ where: { tenantId }, select: { expiryWarningDays: true } }),
+  ])
+  const timezone = settings?.timezone ?? DEFAULT_TIMEZONE
+  const days = inventory?.expiryWarningDays ?? INVENTORY_EXPIRY_WARNING_DAYS
+  const today = todayIn(timezone)
+  return { today, warnUntil: addDays(today, days), days, timezone }
 }
 
 /** `2027-03-31T00:00:00.000Z` (coluna `DATE`) → `2027-03-31`. */

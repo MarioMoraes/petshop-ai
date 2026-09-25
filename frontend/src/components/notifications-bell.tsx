@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { chavesAMarcar, contarNaoVistos, type Pendencia, type PendenciaKey } from '@/lib/pendencias'
 import {
+  AlertTriangleIcon,
   BellIcon,
   CalendarIcon,
   GlobeIcon,
   InboxIcon,
+  PackageIcon,
   PhoneIcon,
   ShieldCheckIcon,
   WalletIcon,
@@ -54,6 +56,11 @@ const ICONES: Record<PendenciaKey, { icon: React.ReactNode; tone: IconTone }> = 
   leads: { icon: <GlobeIcon />, tone: 'icon-metric' },
   mensagens: { icon: <BellIcon />, tone: 'icon-brand' },
   inadimplentes: { icon: <WalletIcon />, tone: 'icon-money' },
+  // O tom do Estoque no menu, nas três. O desenho muda porque as três podem aparecer
+  // juntas, e cada uma pede uma coisa: descartar, conferir e comprar.
+  lotesVencendo: { icon: <CalendarIcon />, tone: 'icon-money' },
+  saldoNegativo: { icon: <AlertTriangleIcon />, tone: 'icon-money' },
+  produtosRepor: { icon: <PackageIcon />, tone: 'icon-money' },
 }
 
 export function NotificationsBell({

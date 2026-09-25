@@ -15,6 +15,7 @@ describe('montarPendencias', () => {
     leads: null,
     mensagens: null,
     inadimplentes: null,
+    estoque: null,
   }
 
   it('não mostra linha para contagem zero — ausência de trabalho não é aviso', () => {
@@ -40,6 +41,7 @@ describe('montarPendencias', () => {
       leads: 3,
       mensagens: 2,
       inadimplentes: 1,
+      estoque: { expiringLots: 2, lowProducts: 3, negativeProducts: 1, expiryWarningDays: 30 },
     })
     /**
      * O cliente esperando no WhatsApp abre a lista, e as duas com prazo vêm logo atrás,
@@ -63,7 +65,30 @@ describe('montarPendencias', () => {
       'leads',
       'mensagens',
       'inadimplentes',
+      'lotesVencendo',
+      'saldoNegativo',
+      'produtosRepor',
     ])
+  })
+
+  describe('estoque', () => {
+    const estoque = { expiringLots: 0, lowProducts: 0, negativeProducts: 0, expiryWarningDays: 45 }
+
+    it('uma resposta, até três linhas — e só as que têm número', () => {
+      const linhas = montarPendencias({ ...nada, estoque: { ...estoque, lowProducts: 2 } })
+      expect(linhas.map((l) => l.key)).toEqual(['produtosRepor'])
+      expect(linhas[0]?.titulo).toBe('2 produtos para repor')
+    })
+
+    it('anuncia a janela que o servidor aplicou, e não um 30 fixo', () => {
+      const [linha] = montarPendencias({ ...nada, estoque: { ...estoque, expiringLots: 1 } })
+      expect(linha?.titulo).toBe('1 lote vencendo')
+      expect(linha?.detalhe).toBe('validade em até 45 dias, ou já vencidos')
+    })
+
+    it('estoque zerado em tudo não ocupa o painel', () => {
+      expect(montarPendencias({ ...nada, estoque })).toEqual([])
+    })
   })
 
   it('leva a contagem inteira para a linha, sem novo recorte', () => {
@@ -102,6 +127,7 @@ describe('montarPendencias', () => {
       leads: 1,
       mensagens: 1,
       inadimplentes: 1,
+      estoque: { expiringLots: 1, lowProducts: 1, negativeProducts: 1, expiryWarningDays: 30 },
     })
     expect(linhas.map((l) => l.href)).toEqual([
       // A fila de atendimento abre no padrão dela, que já é quem está esperando.
@@ -114,6 +140,10 @@ describe('montarPendencias', () => {
       '/site/contatos?status=NEW',
       '/crm?status=DEAD',
       '/tutores?tag=INADIMPLENTE',
+      // O parâmetro é o do filtro da lista (`alerta`), e não o da API (`alert`).
+      '/estoque?alerta=EXPIRING',
+      '/estoque?alerta=NEGATIVE',
+      '/estoque?alerta=LOW',
     ])
   })
 
@@ -180,6 +210,7 @@ describe('o ponto vermelho e a marca de lido', () => {
     leads: 4,
     mensagens: null,
     inadimplentes: null,
+    estoque: null,
   })
 
   it('soma tudo enquanto nada foi visto', () => {
@@ -212,6 +243,7 @@ describe('o ponto vermelho e a marca de lido', () => {
       leads: 1,
       mensagens: null,
       inadimplentes: null,
+      estoque: null,
     })
     expect(chavesAMarcar(semNovidade, [])).toEqual([])
     expect(contarNaoVistos(semNovidade, [])).toBe(1)

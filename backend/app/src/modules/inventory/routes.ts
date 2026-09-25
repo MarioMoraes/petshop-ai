@@ -1,16 +1,19 @@
 import {
+  AppError,
   CreateProductSchema,
   CreateSaleSchema,
   InternalUseSchema,
   MovementListQuerySchema,
+  PositionReportQuerySchema,
   ProductListQuerySchema,
   ReverseSaleSchema,
   SaleListQuerySchema,
   StockAdjustmentSchema,
   StockEntrySchema,
+  UpdateInventorySettingsSchema,
   UpdateProductSchema,
 } from '@petshop/shared-types'
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { ActorContext } from './actor.js'
 import { hasPermission, requirePermission, requireTenantContext } from './auth.js'
@@ -22,8 +25,13 @@ import {
   listProducts,
   updateProduct,
 } from './products.js'
+import { getInventoryAlerts } from './alerts.js'
 import { registerInternalUse, traceLot } from './consumption.js'
+import { PdfUnavailableError, renderPdf } from './pdf-port.js'
+import { positionReport } from './position.js'
+import { renderPositionHtml } from './position-template.js'
 import { createSale, getSale, listSales, reverseSale } from './sales.js'
+import { getInventorySettings, updateInventorySettings } from './settings.js'
 import { adjustStock, registerEntry } from './stock.js'
 import { parseInput } from './validate.js'
 
@@ -155,4 +163,68 @@ export async function registerInventoryRoutes(app: FastifyInstance): Promise<voi
     const input = parseInput(ReverseSaleSchema, request.body)
     return reverseSale(actorFrom(request), id, input)
   })
+
+  // ─── Alertas e configuração (MOD-ESTOQUE-09) ───────────────────────────────
+  //
+  // As contagens são de quem lê o estoque: o sino mostra a linha a quem pode abrir a
+  // lista para onde ela aponta. A janela de validade é do administrador.
+
+  app.get('/v1/inventory/alerts', READ, async (request) => {
+    return getInventoryAlerts(actorFrom(request))
+  })
+
+  app.get('/v1/inventory/settings', READ, async (request) => {
+    return getInventorySettings(actorFrom(request))
+  })
+
+  app.patch('/v1/inventory/settings', WRITE, async (request) => {
+    const input = parseInput(UpdateInventorySettingsSchema, request.body)
+    return updateInventorySettings(actorFrom(request), input)
+  })
+
+  // ─── Posição e valorização (MOD-ESTOQUE-11) ────────────────────────────────
+  //
+  // O par da casa (`ledger/routes.ts`): a rota nua devolve o JSON, e a `/pdf` o mesmo
+  // objeto impresso. O PRD escrevia `position.pdf`; o sufixo `/pdf` é o que os três
+  // relatórios do financeiro já usam, e o cliente de API tem um só jeito de baixar.
+
+  app.get('/v1/inventory/reports/position', READ, async (request) => {
+    const query = parseInput(PositionReportQuerySchema, request.query)
+    return positionReport(actorFrom(request), query)
+  })
+
+  app.get('/v1/inventory/reports/position/pdf', READ, async (request, reply) => {
+    const query = parseInput(PositionReportQuerySchema, request.query)
+    const report = await positionReport(actorFrom(request), query)
+    return sendPdf(reply, renderPositionHtml(report), `posicao-do-estoque-${report.asOf}.pdf`)
+  })
+}
+
+/**
+ * O relatório vai em bytes, e não como URL de bucket: é o retrato de um instante, como
+ * os do financeiro, e arquivar cada clique encheria o bucket de folhas que ninguém
+ * reabre.
+ */
+async function sendPdf(reply: FastifyReply, html: string, filename: string): Promise<FastifyReply> {
+  let pdf: Buffer
+  try {
+    pdf = await renderPdf(html)
+  } catch (error) {
+    if (error instanceof PdfUnavailableError) {
+      throw new AppError(
+        'ERR_DOC_005',
+        'A geração de PDF está indisponível no momento. Tente novamente em instantes.',
+      )
+    }
+    throw error
+  }
+
+  return (
+    reply
+      .type('application/pdf')
+      .header('content-disposition', `attachment; filename="${filename}"`)
+      // O custo de compra é o segredo comercial do petshop: nenhum intermediário guarda.
+      .header('cache-control', 'no-store')
+      .send(pdf)
+  )
 }

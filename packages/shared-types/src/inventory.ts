@@ -57,10 +57,13 @@ export const STOCK_MOVEMENT_LABELS: Record<StockMovementType, string> = {
 export const NO_BATCH_CODE = 'SEM-LOTE'
 
 /**
- * A janela do alerta de validade (MOD-ESTOQUE-09). Fixa na fatia 1; a fatia 4 a leva
- * para a configuração do estabelecimento.
+ * A janela do alerta de validade (MOD-ESTOQUE-09): o **padrão**. Desde a fatia 4 o
+ * estabelecimento a ajusta em `inventory_settings`, e a linha ausente vale este número.
  */
 export const INVENTORY_EXPIRY_WARNING_DAYS = 30
+/** O intervalo aceito — o mesmo `CHECK` da tabela. */
+export const INVENTORY_EXPIRY_WARNING_MIN_DAYS = 1
+export const INVENTORY_EXPIRY_WARNING_MAX_DAYS = 180
 
 // ─── Quantidade ──────────────────────────────────────────────────────────────
 
@@ -465,3 +468,92 @@ export const LotTraceSchema = z.object({
   entries: z.array(LotTraceEntrySchema),
 })
 export type LotTrace = z.output<typeof LotTraceSchema>
+
+// ─── Alertas e configuração (MOD-ESTOQUE-09) ──────────────────────────────────
+
+/**
+ * As contagens do sino.
+ *
+ * Cada número é o tamanho da lista para onde a linha do sino aponta — `expiringLots` soma
+ * os lotes que o filtro "Vencendo" mostra, e os dois outros contam os produtos dos
+ * filtros "Para repor" e "Saldo negativo". Um produto negativo com ponto de reposição
+ * aparece nos dois, como aparece nas duas listas.
+ */
+export const InventoryAlertsSchema = z.object({
+  /** Lotes com saldo e validade dentro da janela, **inclusive os já vencidos**. */
+  expiringLots: z.number().int().nonnegative(),
+  lowProducts: z.number().int().nonnegative(),
+  negativeProducts: z.number().int().nonnegative(),
+  /** A janela aplicada, para a linha do sino anunciar o mesmo número que o filtro usou. */
+  expiryWarningDays: z.number().int(),
+})
+export type InventoryAlerts = z.output<typeof InventoryAlertsSchema>
+
+export const InventorySettingsSchema = z.object({
+  expiryWarningDays: z.number().int(),
+})
+export type InventorySettings = z.output<typeof InventorySettingsSchema>
+
+export const UpdateInventorySettingsSchema = z.object({
+  expiryWarningDays: z
+    .number({ message: 'Informe o número de dias' })
+    .int('Use um número inteiro de dias')
+    .min(INVENTORY_EXPIRY_WARNING_MIN_DAYS, `O mínimo é ${INVENTORY_EXPIRY_WARNING_MIN_DAYS} dia`)
+    .max(INVENTORY_EXPIRY_WARNING_MAX_DAYS, `O máximo é ${INVENTORY_EXPIRY_WARNING_MAX_DAYS} dias`),
+})
+export type UpdateInventorySettingsInput = z.output<typeof UpdateInventorySettingsSchema>
+
+// ─── Posição e valorização (MOD-ESTOQUE-11) ───────────────────────────────────
+
+export const PositionReportQuerySchema = z.object({
+  kind: ProductKindSchema.optional(),
+})
+export type PositionReportQuery = z.output<typeof PositionReportQuerySchema>
+
+export const PositionLotSchema = z.object({
+  lotId: z.uuid(),
+  batchCode: z.string(),
+  expiresAt: z.string().nullable(),
+  quantityOnHand: z.string(),
+  unitCostCents: z.number().int().nullable(),
+  /**
+   * Saldo × custo **do lote** (RN-09), arredondado ao centavo. Nulo quando o lote não
+   * tem custo ou está negativo: nenhum dos dois é um valor que se possa somar.
+   */
+  valueCents: z.number().int().nullable(),
+  expired: z.boolean(),
+})
+export type PositionLot = z.output<typeof PositionLotSchema>
+
+export const PositionProductSchema = z.object({
+  productId: z.uuid(),
+  name: z.string(),
+  sku: z.string().nullable(),
+  kind: ProductKindSchema,
+  unit: ProductUnitSchema,
+  active: z.boolean(),
+  quantityOnHand: z.string(),
+  valueCents: z.number().int(),
+  lots: z.array(PositionLotSchema),
+})
+export type PositionProduct = z.output<typeof PositionProductSchema>
+
+export const InventoryPositionReportSchema = z.object({
+  tenantName: z.string(),
+  timezone: z.string(),
+  /** O dia da posição, no fuso do estabelecimento. */
+  asOf: z.string(),
+  generatedAt: z.string(),
+  kind: ProductKindSchema.nullable(),
+  products: z.array(PositionProductSchema),
+  totals: z.object({
+    products: z.number().int(),
+    lots: z.number().int(),
+    valueCents: z.number().int(),
+    /** Lotes com saldo e sem custo: ficam fora do total, e a folha avisa. */
+    uncostedLots: z.number().int(),
+    negativeLots: z.number().int(),
+    expiredLots: z.number().int(),
+  }),
+})
+export type InventoryPositionReport = z.output<typeof InventoryPositionReportSchema>

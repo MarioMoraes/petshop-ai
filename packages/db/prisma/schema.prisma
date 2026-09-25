@@ -172,11 +172,12 @@ model Tenant {
   pushDeliveries       PushDelivery[]
 
   /// MOD-ESTOQUE: o que entra, sai e sobra, lote a lote.
-  products         Product[]
-  stockLots        StockLot[]
-  stockMovements   StockMovement[]
-  productSales     ProductSale[]
-  productSaleItems ProductSaleItem[]
+  products          Product[]
+  stockLots         StockLot[]
+  stockMovements    StockMovement[]
+  productSales      ProductSale[]
+  productSaleItems  ProductSaleItem[]
+  inventorySettings InventorySettings?
 
   documents    Document[]
   termVersions TermVersion[]
@@ -4517,4 +4518,20 @@ model ProductSaleItem {
 
   @@index([tenantId, saleId], map: "idx_product_sale_items_sale")
   @@map("product_sale_items")
+}
+
+/// A configuração do MOD-ESTOQUE (fatia 4). Linha ausente é o padrão: não há backfill.
+model InventorySettings {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  /// A janela do alerta de validade (AC-01 de MOD-ESTOQUE-09), de 1 a 180 dias.
+  expiryWarningDays Int @default(30) @map("expiry_warning_days") @db.SmallInt
+
+  updatedBy String?  @map("updated_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("inventory_settings")
 }

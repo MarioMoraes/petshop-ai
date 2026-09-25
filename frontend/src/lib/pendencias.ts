@@ -1,4 +1,4 @@
-import { AGENT_SLA_MIN } from '@petshop/shared-types'
+import { AGENT_SLA_MIN, type InventoryAlerts } from '@petshop/shared-types'
 import type { Route } from 'next'
 
 /**
@@ -31,6 +31,9 @@ export type PendenciaKey =
   | 'leads'
   | 'mensagens'
   | 'inadimplentes'
+  | 'lotesVencendo'
+  | 'saldoNegativo'
+  | 'produtosRepor'
 
 /**
  * As linhas que **não** são trabalho parado, e por isso precisam de marca de lido.
@@ -134,6 +137,14 @@ export interface ContagemPendencias {
   leads: number | null
   mensagens: number | null
   inadimplentes: number | null
+  /**
+   * As três contagens do estoque (MOD-ESTOQUE-09), numa consulta só.
+   *
+   * Leitura de estado, como quase todas as outras: a entrada que repõe o produto apaga a
+   * linha sozinha. Nulo também quando o plano não tem estoque — o sino não pergunta, em
+   * vez de colecionar 402.
+   */
+  estoque: InventoryAlerts | null
 }
 
 /**
@@ -270,6 +281,48 @@ export function montarPendencias(contagem: ContagemPendencias): Pendencia[] {
       titulo: plural(contagem.inadimplentes, 'tutor inadimplente', 'tutores inadimplentes'),
       detalhe: 'com pagamento em atraso',
       href: '/tutores?tag=INADIMPLENTE',
+    })
+  }
+
+  /**
+   * O estoque fecha a lista: nenhuma das três linhas é uma pessoa esperando nem um prazo
+   * de lei. Entre elas, a validade vem primeiro porque é a única que estraga sozinha — o
+   * lote que vence na sexta não espera a compra da semana que vem.
+   *
+   * O saldo negativo vem antes da reposição: é um registro que falta (o atendimento tirou
+   * da prateleira o que nunca entrou), e até alguém conferir, o número de "repor" também
+   * está errado.
+   */
+  if (contagem.estoque?.expiringLots) {
+    const { expiringLots, expiryWarningDays } = contagem.estoque
+    linhas.push({
+      key: 'lotesVencendo',
+      count: expiringLots,
+      titulo: plural(expiringLots, 'lote vencendo', 'lotes vencendo'),
+      detalhe: `validade em até ${expiryWarningDays} dias, ou já vencidos`,
+      href: '/estoque?alerta=EXPIRING',
+    })
+  }
+
+  if (contagem.estoque?.negativeProducts) {
+    const { negativeProducts } = contagem.estoque
+    linhas.push({
+      key: 'saldoNegativo',
+      count: negativeProducts,
+      titulo: plural(negativeProducts, 'produto com saldo negativo', 'produtos com saldo negativo'),
+      detalhe: 'saiu mais do que entrou — confira a contagem',
+      href: '/estoque?alerta=NEGATIVE',
+    })
+  }
+
+  if (contagem.estoque?.lowProducts) {
+    const { lowProducts } = contagem.estoque
+    linhas.push({
+      key: 'produtosRepor',
+      count: lowProducts,
+      titulo: plural(lowProducts, 'produto para repor', 'produtos para repor'),
+      detalhe: 'abaixo do ponto de reposição',
+      href: '/estoque?alerta=LOW',
     })
   }
 
