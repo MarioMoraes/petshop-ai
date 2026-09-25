@@ -65,6 +65,7 @@
       <symbol id="i-headset" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2" /><path d="M20 14v2a2 2 0 0 1-2 2h-2v-6h2a2 2 0 0 1 2 2Z" /><path d="M4 14v2a2 2 0 0 0 2 2h2v-6H6a2 2 0 0 0-2 2Z" /><path d="M18 18a4 4 0 0 1-4 3h-2" /></symbol>
       <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0v5" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></symbol>
       <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol>
+      <symbol id="i-box" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73Z" /><path d="M12 22V12" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="m7.5 4.27 9 5.15" /></symbol>
       <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></symbol>
     </svg>
 
@@ -115,8 +116,8 @@
               <span class="serif">num Lugar Só</span>
             </h1>
             <p class="lead reveal" style="--d: 0.16s">
-              Agenda, fichas de tutores e pets, prontuário, financeiro e WhatsApp — com um agente de IA que responde
-              seus clientes e marca horários enquanto a equipe cuida dos bichos.
+              Agenda, fichas de tutores e pets, prontuário, financeiro, estoque e WhatsApp — com um agente de IA que
+              responde seus clientes e marca horários enquanto a equipe cuida dos bichos.
             </p>
             <div class="hero-cta reveal" style="--d: 0.24s">
               <a class="btn btn-dark btn-lg" href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">
@@ -147,6 +148,8 @@
                   <div class="side-item is-active"><span class="chip tone-time"><svg class="icon"><use href="#i-cal" /></svg></span>Agenda</div>
                   <div class="side-item"><span class="chip tone-time"><svg class="icon"><use href="#i-van" /></svg></span>Taxi Dog</div>
                   <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-wallet" /></svg></span>Financeiro</div>
+                  <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-receipt" /></svg></span>Cobrança</div>
+                  <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-box" /></svg></span>Estoque</div>
                   <div class="side-item"><span class="chip tone-brand"><svg class="icon"><use href="#i-bell" /></svg></span>Mensagens</div>
                   <div class="side-item"><span class="chip tone-metric"><svg class="icon"><use href="#i-globe" /></svg></span>Site</div>
                 </aside>
@@ -307,16 +310,22 @@
                 </ul>
               </article>
 
-              <article class="card span-3 reveal tone-metric">
+              <article class="card span-2 reveal tone-metric">
                 <span class="chip"><svg class="icon"><use href="#i-van" /></svg></span>
                 <h3>Taxi Dog</h3>
                 <p>O leva e traz pedido junto com o agendamento, com frota, zonas de atendimento e taxa por região. O motorista sabe onde buscar; a recepção sabe quando chega.</p>
               </article>
 
-              <article class="card span-3 reveal tone-system" style="--d: 0.08s">
+              <article class="card span-2 reveal tone-system" style="--d: 0.08s">
                 <span class="chip"><svg class="icon"><use href="#i-monitor" /></svg></span>
                 <h3>Mural do Dia</h3>
                 <p>A agenda em tela cheia para a TV da bancada: quem está no banho, quem é o próximo e quem já pode ir embora, atualizado sozinho.</p>
+              </article>
+
+              <article class="card span-2 reveal tone-money" style="--d: 0.16s">
+                <span class="chip"><svg class="icon"><use href="#i-box" /></svg></span>
+                <h3>Estoque com Lote e Validade</h3>
+                <p>A ração vendida no balcão lança na conta do tutor, a vacina aplicada sai do lote certo, e o sino avisa o que vai vencer e o que precisa repor.</p>
               </article>
             </div>
           </div>
@@ -573,7 +582,20 @@
                 </ul>
               </article>
 
-              <article class="card card-wide reveal tone-metric">
+              <article class="card reveal tone-money">
+                <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-box" /></svg></span><h3>Estoque</h3><span class="plan-tag pro">Pro</span></div>
+                <ul class="ticks">
+                  <li><svg class="icon"><use href="#i-check" /></svg>Venda e Insumo, em Unidade, ml ou kg</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Lote e Validade: Sai Primeiro o que Vence</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Venda no Balcão na Conta do Tutor</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Baixa do Produto Usado no Atendimento</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Quais Pets Receberam Cada Lote</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Alerta de Validade e Reposição no Sino</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Posição e Valor do Estoque em PDF</li>
+                </ul>
+              </article>
+
+              <article class="card card-wide reveal tone-metric" style="--d: 0.06s">
                 <div class="catalog-head"><span class="chip"><svg class="icon"><use href="#i-db" /></svg></span><h3>Importação de Dados</h3><span class="plan-tag all">Todos</span></div>
                 <ul class="ticks">
                   <li><svg class="icon"><use href="#i-check" /></svg>Planilha do Excel ou Export do Sistema Atual (CSV)</li>

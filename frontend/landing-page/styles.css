@@ -677,11 +677,13 @@ ul {
   height: 15px;
 }
 
+/* 3px, e não 7px: são dez itens, como no menu do produto, no espaço que eram oito — e o
+   lembrete flutuante do canto esquerdo não pode cobrir nenhum. */
 .side-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 8px;
+  padding: 3px 8px;
   border-radius: 10px;
   font-size: 13px;
   color: var(--muted);
@@ -1710,17 +1712,17 @@ ul {
 }
 
 /*
-  A importação fecha a grade ocupando a linha inteira. Ela é o primeiro passo de quem
-  vem de outro sistema, e não o décimo recurso — e um décimo cartão sozinho na última
-  linha deixava a grade quebrada.
+  A importação fecha a grade ocupando duas colunas, ao lado do Estoque. São dez
+  cartões numa grade de três: com a importação em duas, a última linha fecha nas três
+  colunas e nas duas do tablet, sem cartão sozinho no fim.
 */
 .catalog .card-wide {
-  grid-column: 1 / -1;
+  grid-column: span 2;
 }
 
 .catalog .card-wide .ticks {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0 26px;
 }
 
@@ -2574,6 +2576,10 @@ ul {
   .catalog,
   .sec-grid {
     grid-template-columns: 1fr;
+  }
+
+  .catalog .card-wide {
+    grid-column: span 1;
   }
 
   .catalog .card-wide .ticks {
