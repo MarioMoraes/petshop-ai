@@ -457,8 +457,9 @@ mostra o telefone do tutor só para quem tem `tutor:read`.
 
 ## 11. Questões em Aberto
 
-1. **Venda avulsa e o caixa.** A venda sem tutor não tem onde registrar o pagamento. A v1 aceita
-   essa lacuna. O caminho é um "caixa do dia", que é o começo de um PDV e merece módulo próprio.
+1. **Venda avulsa e o caixa.** ~~A venda sem tutor não tem onde registrar o pagamento.~~ Resolvida
+   em 2026-09-25 pelo MOD-CAIXA (`docs/prd/caixa_17.md`): a venda avulsa exige caixa aberto e diz a
+   forma de pagamento.
 2. **Leitura de código de barras.** O campo `barcode` já existe. Leitor USB funciona como teclado e
    não pede nada. A câmera do celular fica para depois.
 3. **Mais de um depósito ou unidade.** O saldo é por lote. Um `location_id` em `stock_lots` resolve

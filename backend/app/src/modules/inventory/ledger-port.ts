@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@petshop/db'
+import type { CashMethod } from '@petshop/shared-types'
 import { openAccount, postEntry, type PostedEntry } from '../ledger/accounts.js'
 import { absorbLeftoverCredit } from '../ledger/allocation.js'
 import {
@@ -7,6 +8,8 @@ import {
   reverseEntryInTx,
   type ReversalResult,
 } from '../ledger/entries.js'
+import { announcePayment, writePaymentInTx, type WrittenPayment } from '../ledger/payments.js'
+import { assertMethodEnabled, loadSettings } from '../ledger/settings.js'
 import type { ActorContext } from './actor.js'
 
 /**
@@ -18,8 +21,9 @@ import type { ActorContext } from './actor.js'
  * transação, e uma falha entre as duas deixaria a ração fora da prateleira sem ninguém
  * devendo por ela. Os eventos do razão saem depois do commit, pelos dois `announce*`.
  *
- * A lista é curta de propósito: débito de venda, estorno dele e a leitura do limite. O
- * estoque não lança crédito, não registra pagamento e não mexe em pacote.
+ * A lista é curta de propósito: débito de venda, estorno dele, a leitura do limite e —
+ * desde o MOD-CAIXA — o pagamento **da própria venda** quando o tutor paga na hora. O
+ * estoque não lança crédito solto, não paga dívida antiga e não mexe em pacote.
  */
 
 export interface CreditStatus {
@@ -54,7 +58,24 @@ export interface InventoryLedgerPort {
     entryId: string,
     reason: string,
   ): Promise<ReversalResult | null>
+  /**
+   * MOD-CAIXA: o tutor pagou na hora. O pagamento quita **este** débito, e não o mais
+   * antigo pelo FIFO: quem pagou a ração no balcão pagou a ração. Paga só o que ficou em
+   * aberto depois do crédito solto que o débito já absorveu; `null` se não sobrou nada.
+   */
+  postSalePayment(
+    tx: TenantTransaction,
+    actor: ActorContext,
+    input: { tutorId: string; debitEntryId: string; method: CashMethod },
+  ): Promise<{ written: WrittenPayment; amountCents: number; receivedAt: string } | null>
+  /** A forma de pagamento está ligada nas políticas de cobrança do estabelecimento? */
+  assertMethodEnabled(tx: TenantTransaction, tenantId: string, method: CashMethod): Promise<void>
   announceDebit(actor: ActorContext, tutorId: string, entry: PostedEntry): Promise<void>
+  announcePayment(
+    actor: ActorContext,
+    input: { tutorId: string; amountCents: number; method: CashMethod; receivedAt: string },
+    written: WrittenPayment,
+  ): Promise<void>
   announceReversal(
     actor: ActorContext,
     entryId: string,
@@ -106,7 +127,31 @@ function createInProcessPort(): InventoryLedgerPort {
       return reverseEntryInTx(tx, actor, entryId, reason)
     },
 
+    async postSalePayment(tx, actor, input) {
+      const debit = await tx.ledgerEntry.findFirst({
+        where: { id: input.debitEntryId },
+        select: { amountCents: true, settledCents: true },
+      })
+      const open = debit ? Number(debit.amountCents - debit.settledCents) : 0
+      if (open <= 0) return null
+
+      const receivedAt = new Date().toISOString()
+      const written = await writePaymentInTx(tx, actor, {
+        tutorId: input.tutorId,
+        amountCents: open,
+        method: input.method,
+        receivedAt,
+        allocations: [{ debitEntryId: input.debitEntryId, amountCents: open }],
+      })
+      return { written, amountCents: open, receivedAt }
+    },
+
+    async assertMethodEnabled(tx, tenantId, method) {
+      assertMethodEnabled(await loadSettings(tx, tenantId), method)
+    },
+
     announceDebit: publishPosted,
+    announcePayment,
     announceReversal,
   }
 }

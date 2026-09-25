@@ -168,6 +168,9 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   'ProductSaleItem',
   // A janela do alerta de validade (fatia 4).
   'InventorySettings',
+  // MOD-CAIXA: o dinheiro do balcão, quem abriu e quem fechou.
+  'CashSession',
+  'CashMovement',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
   // tenants por definição, e exigir contexto dele seria negar o que ele é.

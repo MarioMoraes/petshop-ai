@@ -1,6 +1,7 @@
 import { AppError, formatBRL } from '@petshop/shared-types'
 import { Prisma, withTenant, type TenantTransaction } from '@petshop/db'
 import type {
+  CashMethod,
   CreateSaleInput,
   InsufficientStockItem,
   ReverseSaleInput,
@@ -13,6 +14,7 @@ import { recordAudit } from '../../shared/audit.js'
 import { publishEvent } from '../../shared/events.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { forbidden, idempotencyConflict, invalid, notFound, productInactive } from './errors.js'
+import { getCashPort } from './cash-port.js'
 import { getLedgerPort } from './ledger-port.js'
 import { dateOnly, expiryWindow, quantityText } from './mapper.js'
 import { fefo, lockLotsOf, type Allocation } from './lots.js'
@@ -24,6 +26,10 @@ import { recordMovement } from './movements.js'
  * A venda nasce inteira ou não nasce: a baixa de cada lote, a linha da venda e o débito
  * `PRODUCT` no razão correm numa transação só (RN-11). Por isso não há rascunho nem
  * "venda pendente" — o carrinho vive na tela.
+ *
+ * Desde o MOD-CAIXA, o dinheiro também vai junto: a venda avulsa entra no caixa aberto
+ * (e sem caixa não acontece), e a do tutor que paga na hora grava o pagamento que quita
+ * o próprio débito.
  */
 
 // ─── Leitura ─────────────────────────────────────────────────────────────────
@@ -56,6 +62,7 @@ function toSaleResponse(row: SaleRow, names: ReadonlyMap<string, string>): SaleR
     totalCents: Number(row.totalCents),
     status: row.status,
     ledgerEntryId: row.ledgerEntryId,
+    paymentMethod: (row.paymentMethod as CashMethod | null) ?? null,
     reversalReason: row.reversalReason,
     reversedAt: row.reversedAt?.toISOString() ?? null,
     createdByName: row.createdBy ? (names.get(row.createdBy) ?? null) : null,
@@ -116,6 +123,7 @@ function ledgerDescription(items: { label: string; quantity: Prisma.Decimal }[])
 /** A mesma chave com o mesmo carrinho é a mesma venda. */
 function sameSale(existing: SaleRow, input: CreateSaleInput): boolean {
   if ((existing.tutorId ?? null) !== (input.tutorId ?? null)) return false
+  if ((existing.paymentMethod ?? null) !== (input.paymentMethod ?? null)) return false
   if (existing.items.length !== input.items.length) return false
   const key = (productId: string, quantity: Prisma.Decimal | string) =>
     `${productId}:${new Prisma.Decimal(quantity).toString()}`
@@ -152,10 +160,13 @@ export async function createSale(
 ): Promise<SaleResult> {
   const ledger = getLedgerPort()
 
+  const cash = getCashPort()
+
   let outcome: {
     saleId: string
     totalCents: number
     debit: Awaited<ReturnType<typeof ledger.postSaleDebit>> | null
+    payment: Awaited<ReturnType<typeof ledger.postSalePayment>>
   }
   try {
     const run = await withTenant(
@@ -282,6 +293,12 @@ export async function createSale(
           }
         }
 
+        // A forma de pagamento desligada nas políticas de cobrança não passa pelo balcão,
+        // como não passa pelo Financeiro.
+        if (input.paymentMethod) {
+          await ledger.assertMethodEnabled(tx, actor.tenantId, input.paymentMethod)
+        }
+
         // ─── A gravação ─────────────────────────────────────────────────────
         const sale = await tx.productSale.create({
           data: {
@@ -290,6 +307,7 @@ export async function createSale(
             totalCents: BigInt(totalCents),
             idempotencyKey: input.idempotencyKey,
             creditOverrideReason: tutorId ? (input.creditOverrideReason ?? null) : null,
+            paymentMethod: input.paymentMethod ?? null,
             createdBy: actor.actorUserId ?? null,
           },
         })
@@ -333,6 +351,37 @@ export async function createSale(
           await tx.productSale.update({ where: { id: sale.id }, data: { ledgerEntryId: debit.id } })
         }
 
+        // ─── O dinheiro (MOD-CAIXA) ─────────────────────────────────────────
+        const summary = ledgerDescription(
+          lines.map((line) => ({ label: line.product.name, quantity: line.quantity })),
+        ).replace(/^Venda: /, '')
+        let payment: Awaited<ReturnType<typeof ledger.postSalePayment>> = null
+        if (!tutorId && input.paymentMethod && totalCents > 0) {
+          const { sessionId } = await cash.receiveWalkInSale(tx, actor, {
+            saleId: sale.id,
+            method: input.paymentMethod,
+            amountCents: totalCents,
+            description: summary,
+          })
+          await tx.productSale.update({
+            where: { id: sale.id },
+            data: { cashSessionId: sessionId },
+          })
+        }
+        if (tutorId && debit && input.paymentMethod) {
+          payment = await ledger.postSalePayment(tx, actor, {
+            tutorId,
+            debitEntryId: debit.id,
+            method: input.paymentMethod,
+          })
+          if (payment) {
+            await tx.productSale.update({
+              where: { id: sale.id },
+              data: { paymentId: payment.written.paymentId },
+            })
+          }
+        }
+
         await recordAudit(tx, {
           tenantId: actor.tenantId,
           actorUserId: actor.actorUserId ?? null,
@@ -348,12 +397,17 @@ export async function createSale(
               totalPriceCents: line.totalPriceCents,
             })),
             creditOverrideReason: sale.creditOverrideReason,
+            paymentMethod: input.paymentMethod ?? null,
+            paidNowCents: payment?.amountCents ?? null,
           },
           ipAddress: actor.ipAddress ?? null,
           userAgent: actor.userAgent ?? null,
         })
 
-        return { kind: 'created' as const, outcome: { saleId: sale.id, totalCents, debit } }
+        return {
+          kind: 'created' as const,
+          outcome: { saleId: sale.id, totalCents, debit, payment },
+        }
       },
       tenantOptions(actor),
     )
@@ -371,6 +425,18 @@ export async function createSale(
   // ainda podia voltar atrás.
   if (outcome.debit && input.tutorId) {
     await ledger.announceDebit(actor, input.tutorId, outcome.debit)
+  }
+  if (outcome.payment && input.tutorId && input.paymentMethod) {
+    await ledger.announcePayment(
+      actor,
+      {
+        tutorId: input.tutorId,
+        amountCents: outcome.payment.amountCents,
+        method: input.paymentMethod,
+        receivedAt: outcome.payment.receivedAt,
+      },
+      outcome.payment.written,
+    )
   }
   await publishEvent('venda.registrada', {
     tenantId: actor.tenantId,
@@ -397,9 +463,17 @@ export async function reverseSale(
     async (tx) => {
       // A trava da venda serializa dois estornos simultâneos: o segundo lê REVERSED.
       const locked = await tx.$queryRaw<
-        { status: string; tutor_id: string | null; ledger_entry_id: string | null }[]
+        {
+          status: string
+          tutor_id: string | null
+          ledger_entry_id: string | null
+          payment_method: string | null
+          cash_session_id: string | null
+          total_cents: bigint
+        }[]
       >`
-        SELECT status, tutor_id, ledger_entry_id FROM product_sales WHERE id = ${saleId}::uuid FOR UPDATE
+        SELECT status, tutor_id, ledger_entry_id, payment_method::text, cash_session_id, total_cents
+          FROM product_sales WHERE id = ${saleId}::uuid FOR UPDATE
       `
       const sale = locked[0]
       if (!sale) throw notFound('Venda não encontrada')
@@ -433,6 +507,18 @@ export async function reverseSale(
       const reversal = sale.ledger_entry_id
         ? await ledger.reverseSaleDebit(tx, actor, sale.ledger_entry_id, input.reason)
         : null
+
+      // MOD-CAIXA: a venda avulsa que entrou no caixa devolve o dinheiro pelo caixa aberto
+      // agora. A do tutor não mexe no caixa: o que ele pagou vira crédito na conta, e
+      // devolver em dinheiro é estornar o pagamento no Financeiro.
+      if (!sale.tutor_id && sale.cash_session_id && sale.payment_method) {
+        await getCashPort().refundWalkInSale(tx, actor, {
+          saleId,
+          method: sale.payment_method as CashMethod,
+          amountCents: Number(sale.total_cents),
+          description: input.reason,
+        })
+      }
 
       await tx.productSale.update({
         where: { id: saleId },

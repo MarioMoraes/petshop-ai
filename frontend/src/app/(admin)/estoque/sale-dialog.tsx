@@ -2,10 +2,17 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatBRL, type InsufficientStockItem, type ProductResponse } from '@petshop/shared-types'
+import {
+  CASH_METHODS,
+  CASH_METHOD_LABELS,
+  formatBRL,
+  type CashMethod,
+  type InsufficientStockItem,
+  type ProductResponse,
+} from '@petshop/shared-types'
 import { Modal } from '@/components/modal'
 import { useToast } from '@/components/toast'
-import { Alert, Button, Field, FormError, Segmented } from '@/components/ui'
+import { Alert, Button, Choice, Field, FormError, Segmented } from '@/components/ui'
 import { AlertTriangleIcon, PackageIcon, WalletIcon, XIcon } from '@/components/icons'
 import {
   createSaleAction,
@@ -92,6 +99,10 @@ function SaleDialog({
   const [tutor, setTutor] = useState<TutorOption | null>(fixedTutor ?? null)
   const [lines, setLines] = useState<Line[]>([])
   const [overrideReason, setOverrideReason] = useState('')
+  // MOD-CAIXA: a avulsa sempre diz como foi paga; a do tutor, só se ele pagou na hora.
+  const [method, setMethod] = useState<CashMethod>('CASH')
+  const [paidNow, setPaidNow] = useState(false)
+  const forTutor = Boolean(fixedTutor) || buyerMode === 'TUTOR'
 
   const byId = new Map((products ?? []).map((product) => [product.id, product]))
   const total = lines.reduce((sum, line) => {
@@ -136,13 +147,20 @@ function SaleDialog({
         ...(needsOverride && overrideReason.trim()
           ? { creditOverrideReason: overrideReason.trim() }
           : {}),
+        ...(!buyer || paidNow ? { paymentMethod: method } : {}),
         idempotencyKey,
       })
       if (!response.ok) {
         setFailure(response)
         return
       }
-      toast(buyer ? `Venda lançada na conta de ${buyer.name}.` : 'Venda registrada.')
+      toast(
+        !buyer
+          ? `Venda registrada no caixa — ${CASH_METHOD_LABELS[method]}.`
+          : paidNow
+            ? `Venda paga por ${buyer.name} — ${CASH_METHOD_LABELS[method]}.`
+            : `Venda lançada na conta de ${buyer.name}.`,
+      )
       onClose()
       router.refresh()
     })
@@ -232,8 +250,8 @@ function SaleDialog({
               <TutorPicker value={tutor} onChange={setTutor} />
             ) : (
               <p className="hint">
-                A venda avulsa dá baixa no estoque e não entra na conta de ninguém — o pagamento é
-                na hora.
+                A venda avulsa dá baixa no estoque e entra no caixa do dia — o pagamento é na hora,
+                e o caixa precisa estar aberto.
               </p>
             )}
           </div>
@@ -308,6 +326,34 @@ function SaleDialog({
               )
             })}
           </ul>
+        )}
+
+        {lines.length > 0 && forTutor && (
+          <Choice
+            label="Pagou agora"
+            description="Registra o pagamento junto da venda, e ele quita esta compra. Sem marcar, a venda fica na conta do tutor."
+            checked={paidNow}
+            onChange={setPaidNow}
+            disabled={pending}
+          />
+        )}
+
+        {lines.length > 0 && (!forTutor || paidNow) && (
+          <Field label="Forma de pagamento" htmlFor="sale-method">
+            <select
+              id="sale-method"
+              className="field"
+              value={method}
+              onChange={(event) => setMethod(event.target.value as CashMethod)}
+              disabled={pending}
+            >
+              {CASH_METHODS.map((option) => (
+                <option key={option} value={option}>
+                  {CASH_METHOD_LABELS[option]}
+                </option>
+              ))}
+            </select>
+          </Field>
         )}
       </form>
     </Modal>

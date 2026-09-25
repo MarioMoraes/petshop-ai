@@ -1,6 +1,7 @@
 import { getMaintenancePrisma, withTenant } from '@petshop/db'
 import { recordAudit } from '../../shared/audit.js'
 import { logger, recordMetric } from '../../shared/logger.js'
+import { getWalkInPort } from './walk-in-port.js'
 
 /**
  * Fechamento e consistência (MOD-LEDGER-11) — o job que prova que o módulo não mente.
@@ -228,6 +229,9 @@ export interface CashflowResult {
   paymentsCount: number
   /** Uma linha por forma de pagamento usada no período; as não usadas ficam de fora. */
   byMethod: { method: string; totalCents: number; count: number }[]
+  /** MOD-CAIXA: vendas avulsas do período, já somadas em `totalCents`. */
+  walkInCents: number
+  walkInCount: number
 }
 
 /**
@@ -263,7 +267,10 @@ export async function cashflowByMethod(
       count: Number(row.count),
     }))
 
-    const totalCents = byMethod.reduce((sum, row) => sum + row.totalCents, 0)
+    // A venda avulsa é dinheiro que entrou sem conta de tutor: soma no total, e vem à
+    // parte para quem quiser separar.
+    const walkIn = await getWalkInPort().between(tx, tenantId, from, to)
+    const totalCents = byMethod.reduce((sum, row) => sum + row.totalCents, 0) + walkIn.totalCents
 
     return {
       from: from.toISOString(),
@@ -271,6 +278,8 @@ export async function cashflowByMethod(
       totalCents,
       paymentsCount: byMethod.reduce((sum, row) => sum + row.count, 0),
       byMethod,
+      walkInCents: walkIn.totalCents,
+      walkInCount: walkIn.count,
     }
   })
 }

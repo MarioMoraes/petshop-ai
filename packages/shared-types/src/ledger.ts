@@ -496,8 +496,10 @@ export type CashflowQuery = z.output<typeof CashflowQuerySchema>
 export const CashflowSchema = z.object({
   from: z.iso.datetime(),
   to: z.iso.datetime(),
+  /** Pagamentos dos tutores **e** vendas avulsas: o dinheiro que entrou. */
   totalCents: z.number().int(),
   paymentsCount: z.number().int(),
+  /** Pagamentos dos tutores, por forma. As vendas avulsas vêm à parte, em `walkIn*`. */
   byMethod: z.array(
     z.object({
       method: PaymentMethodSchema,
@@ -505,6 +507,9 @@ export const CashflowSchema = z.object({
       count: z.number().int(),
     }),
   ),
+  /** MOD-CAIXA: as vendas do balcão sem tutor, que não passam pela conta de ninguém. */
+  walkInCents: z.number().int(),
+  walkInCount: z.number().int(),
 })
 export type Cashflow = z.infer<typeof CashflowSchema>
 
@@ -646,9 +651,14 @@ const MethodTotalSchema = z.object({
 export const ReceiptsByDayRowSchema = z.object({
   /** O dia **no fuso do estabelecimento**, não em UTC. */
   date: z.iso.date(),
+  /** Pagamentos e vendas avulsas do dia. */
   totalCents: z.number().int(),
+  /** Pagamentos dos tutores; as vendas avulsas contam em `walkInCount`. */
   count: z.number().int(),
   byMethod: z.array(MethodTotalSchema),
+  /** MOD-CAIXA: a venda avulsa do dia, numa coluna própria. */
+  walkInCents: z.number().int(),
+  walkInCount: z.number().int(),
 })
 export type ReceiptsByDayRow = z.infer<typeof ReceiptsByDayRowSchema>
 
@@ -660,8 +670,14 @@ export const ReceiptsByDayReportSchema = z.object({
   to: z.iso.date(),
   totalCents: z.number().int(),
   paymentsCount: z.number().int(),
-  /** Total do período por forma de pagamento — o fechamento do caixa. */
+  /** Pagamentos dos tutores no período, por forma de pagamento. */
   byMethod: z.array(MethodTotalSchema),
+  /** MOD-CAIXA: as vendas avulsas do período, por forma — a linha própria do relatório. */
+  walkIn: z.object({
+    totalCents: z.number().int(),
+    count: z.number().int(),
+    byMethod: z.array(MethodTotalSchema),
+  }),
   /** Um item por dia **com movimento**; dia sem entrada não vira linha vazia. */
   days: z.array(ReceiptsByDayRowSchema),
 })

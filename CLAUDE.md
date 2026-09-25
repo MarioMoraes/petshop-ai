@@ -115,6 +115,17 @@ movimento e mexe no saldo, sob `FOR UPDATE` no lote. Uma segunda que atualizasse
 dos lotes. A quantidade é `Decimal(12,3)` e trafega como string, porque insumo se mede
 em ml e g.
 
+**O MOD-CAIXA (`modules/cash`, PRD `docs/prd/caixa_17.md`) é uma gaveta com livro, e o
+esperado é a soma dos movimentos.** `cash_movements` é append-only por trigger, e não há coluna de
+saldo. O caixa não tem rota de venda nem de pagamento: a venda avulsa e o pagamento do tutor entram
+nele **na transação de quem os grava**, pelas portas `inventory/cash-port.ts` e `ledger/cash-port.ts`.
+A assimetria é de propósito:
+- a venda avulsa **exige** caixa aberto, porque sem tutor o dinheiro não tem outro lugar;
+- o pagamento do tutor **nunca depende** do caixa, e só entra nele quando há um aberto, o plano
+  inclui `CASH_REGISTER` e o dinheiro chegou depois da abertura.
+
+Pelo mesmo motivo, `recordPayment` virou `writePaymentInTx` + `announcePayment`.
+
 **O MOD-PORTAL é o único que lê de todos os outros e escreve por porta.** Ele agrega: as
 leituras são banco direto, porque ler é escolher um recorte; as escritas passam pelas
 cinco portas, porque gravar é aplicar regra. Cada porta **eleva permissão de propósito**

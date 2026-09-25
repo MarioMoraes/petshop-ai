@@ -28,6 +28,7 @@ import { assertFeature } from '../shared/plan.js'
 export const PLAN_GATES: ReadonlyArray<{ prefix: string; feature: PlanFeature }> = [
   { prefix: '/v1/taxi', feature: 'TAXI' },
   { prefix: '/v1/inventory', feature: 'INVENTORY' },
+  { prefix: '/v1/cash', feature: 'CASH_REGISTER' },
   { prefix: '/v1/site', feature: 'SITE' },
   { prefix: '/v1/messaging/whatsapp', feature: 'WHATSAPP' },
   { prefix: '/v1/crm/campaigns', feature: 'CAMPAIGNS' },

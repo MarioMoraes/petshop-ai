@@ -179,6 +179,10 @@ model Tenant {
   productSaleItems  ProductSaleItem[]
   inventorySettings InventorySettings?
 
+  /// MOD-CAIXA: a gaveta do balcão e o que passou por ela.
+  cashSessions  CashSession[]
+  cashMovements CashMovement[]
+
   documents    Document[]
   termVersions TermVersion[]
 
@@ -4485,10 +4489,18 @@ model ProductSale {
   reversedBy     String?   @map("reversed_by") @db.Uuid
   reversedAt     DateTime? @map("reversed_at") @db.Timestamptz(6)
 
+  /// MOD-CAIXA: como foi paga. Obrigatório na avulsa; na do tutor, só quando pagou na hora.
+  paymentMethod PaymentMethod? @map("payment_method")
+  /// O caixa onde o dinheiro da venda avulsa entrou.
+  cashSessionId String?        @map("cash_session_id") @db.Uuid
+  /// O pagamento lançado junto da venda para tutor que pagou na hora.
+  paymentId     String?        @map("payment_id") @db.Uuid
+
   createdBy String?  @map("created_by") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  items ProductSaleItem[]
+  items       ProductSaleItem[]
+  cashSession CashSession?      @relation(fields: [cashSessionId], references: [id], onDelete: NoAction)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tutor  Tutor? @relation(fields: [tutorId], references: [id], onDelete: NoAction)
@@ -4534,4 +4546,76 @@ model InventorySettings {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("inventory_settings")
+}
+
+// ─── MOD-CAIXA ────────────────────────────────────────────────────────────────
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashMovementType {
+  OPENING_FLOAT
+  WALK_IN_SALE
+  SALE_REFUND
+  TUTOR_PAYMENT
+  PAYMENT_REVERSAL
+  WITHDRAWAL
+  DEPOSIT
+}
+
+/// Uma abertura e um fechamento da gaveta. Um aberto por estabelecimento (índice parcial).
+model CashSession {
+  id       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String            @map("tenant_id") @db.Uuid
+  status   CashSessionStatus @default(OPEN)
+
+  openedBy          String?  @map("opened_by") @db.Uuid
+  openedAt          DateTime @default(now()) @map("opened_at") @db.Timestamptz(6)
+  /// O troco com que a gaveta abriu. Também é um movimento `OPENING_FLOAT`.
+  openingFloatCents BigInt   @default(0) @map("opening_float_cents")
+
+  closedBy        String?   @map("closed_by") @db.Uuid
+  closedAt        DateTime? @map("closed_at") @db.Timestamptz(6)
+  /// `[{ method, expectedCents, countedCents }]` — congelado no fechamento.
+  closingCounts   Json?     @map("closing_counts")
+  /// Contado menos esperado, somando as formas. Negativo é falta.
+  differenceCents BigInt?   @map("difference_cents")
+  closingNotes    String?   @map("closing_notes") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  movements CashMovement[]
+  sales     ProductSale[]
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, openedAt(sort: Desc)], map: "idx_cash_sessions_recent")
+  @@map("cash_sessions")
+}
+
+/// O que entrou e saiu da gaveta. Append-only por trigger; o valor tem sinal.
+model CashMovement {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String           @map("tenant_id") @db.Uuid
+  sessionId   String           @map("session_id") @db.Uuid
+  type        CashMovementType
+  method      PaymentMethod
+  /// Positivo entra, negativo sai.
+  amountCents BigInt           @map("amount_cents")
+
+  /// `PRODUCT_SALE` ou `PAYMENT`. Nulo em sangria, suprimento e troco.
+  sourceType String?  @map("source_type") @db.VarChar(30)
+  sourceId   String?  @map("source_id") @db.Uuid
+  reason     String?  @db.VarChar(200)
+  createdBy  String?  @map("created_by") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  session CashSession @relation(fields: [sessionId], references: [id], onDelete: NoAction)
+
+  @@index([tenantId, sessionId, occurredAt], map: "idx_cash_movements_session")
+  @@map("cash_movements")
 }

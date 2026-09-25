@@ -16,6 +16,7 @@ import { Atmosphere } from './atmosphere'
 import { NotificationsBell } from './notifications-bell'
 import {
   AlertTriangleIcon,
+  BanknoteIcon,
   BellIcon,
   GlobeIcon,
   CalendarIcon,
@@ -63,6 +64,7 @@ type NavKey =
   | 'mensagens'
   | 'site'
   | 'financeiro'
+  | 'caixa'
   | 'cobranca'
   | 'estoque'
   | 'equipe'
@@ -79,6 +81,7 @@ interface NavItem {
     | '/crm'
     | '/site'
     | '/financeiro/pacotes'
+    | '/caixa'
     | '/cobranca'
     | '/estoque'
     | '/equipe'
@@ -156,6 +159,19 @@ const NAV: NavItem[] = [
     icon: <WalletIcon />,
     tone: 'icon-money',
     requires: 'finance:read',
+  },
+  {
+    // O caixa do dia, colado no Financeiro: é a gaveta do balcão — abrir com troco,
+    // receber, sangrar e fechar. O gate é `cash:read`, da recepção e do administrador;
+    // quem dá banho não abre gaveta. Recurso do Pro, como o estoque cuja venda avulsa
+    // ele recebe.
+    key: 'caixa',
+    href: '/caixa',
+    label: 'Caixa',
+    icon: <BanknoteIcon />,
+    tone: 'icon-money',
+    requires: 'cash:read',
+    feature: 'CASH_REGISTER',
   },
   {
     // Logo abaixo do Financeiro, e não dentro dele, porque a pergunta é outra: lá se

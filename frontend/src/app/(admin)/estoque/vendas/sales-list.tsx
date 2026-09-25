@@ -2,7 +2,12 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatBRL, type SalePage, type SaleResponse } from '@petshop/shared-types'
+import {
+  CASH_METHOD_LABELS,
+  formatBRL,
+  type SalePage,
+  type SaleResponse,
+} from '@petshop/shared-types'
 import { Modal } from '@/components/modal'
 import { useToast } from '@/components/toast'
 import { Badge, Button, Field, FormError } from '@/components/ui'
@@ -57,6 +62,9 @@ export function SalesList({ initial, canRefund }: { initial: SalePage; canRefund
                 <p className="hint mt-0.5">
                   {formatDateTime(sale.createdAt)}
                   {sale.createdByName && ` · ${sale.createdByName}`}
+                  {/* MOD-CAIXA: a avulsa sempre tem forma; a do tutor, só quando pagou na hora. */}
+                  {sale.paymentMethod &&
+                    ` · ${sale.tutorId ? 'pago na hora, ' : ''}${CASH_METHOD_LABELS[sale.paymentMethod].toLowerCase()}`}
                 </p>
               </div>
               <div className="flex items-center gap-3">

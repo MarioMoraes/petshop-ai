@@ -11,6 +11,7 @@ import { registerCrmRoutes } from '../modules/crm/routes.js'
 import { registerIdentityRoutes } from '../modules/identity/routes.js'
 import { registerImportRoutes } from '../modules/import/routes.js'
 import { registerInventoryRoutes } from '../modules/inventory/routes.js'
+import { registerCashRoutes } from '../modules/cash/routes.js'
 import { registerClerkWebhookRoutes } from '../modules/identity/webhooks/routes.js'
 import { registerLedgerRoutes } from '../modules/ledger/routes.js'
 import { registerMedicalRecordRoutes } from '../modules/records/routes-module.js'
@@ -72,6 +73,7 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerPortalModule(app)
   await registerImportModule(app)
   await registerInventoryModule(app)
+  await registerCashModule(app)
   await registerPlatformModule(app)
   await registerSubscriptionModule(app)
 }
@@ -395,6 +397,19 @@ async function registerInventoryModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerInventoryRoutes(scope)
+  })
+}
+
+/**
+ * MOD-CAIXA — o caixa do dia.
+ *
+ * Escopo autenticado próprio, como o estoque: não há superfície do cliente final. O
+ * prefixo `/v1/cash` está em `PLAN_GATES`.
+ */
+async function registerCashModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerCashRoutes(scope)
   })
 }
 

@@ -135,6 +135,8 @@ const BUSINESS_TABLES = [
   'messaging_settings',
   'messaging_suppressions',
   'automations',
+  // MOD-CAIXA — o movimento aponta para a sessão, e a venda também.
+  'cash_movements',
   // MOD-ESTOQUE — o item aponta para a venda e o produto, o movimento para o lote, e o
   // lote para o produto.
   'product_sale_items',
@@ -143,6 +145,7 @@ const BUSINESS_TABLES = [
   'stock_lots',
   'products',
   'inventory_settings',
+  'cash_sessions',
   // MOD-LEDGER-08 — o recibo aponta para o pagamento, então vem antes dele.
   'receipts',
   // MOD-DOC-04 — antes de `documents`, `attendances`, `pets` e `professionals`, que a

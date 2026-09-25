@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CashMethodSchema } from './cash.js'
 import { MAX_MONEY_CENTS } from './money.js'
 
 /**
@@ -352,9 +353,23 @@ export const CreateSaleSchema = z
      * Só vale com `finance:credit`, que é do administrador.
      */
     creditOverrideReason: z.string().trim().min(3).max(200).optional(),
+    /**
+     * MOD-CAIXA: como o cliente pagou. **Obrigatória na venda avulsa** — o dinheiro dela
+     * não tem outro lugar para entrar senão o caixa. Na venda para tutor, presente é
+     * "pagou agora": a venda lança o débito e o pagamento juntos; ausente é "vai para a
+     * conta", como sempre foi.
+     */
+    paymentMethod: CashMethodSchema.optional(),
     idempotencyKey: IdempotencyKeySchema,
   })
   .superRefine((input, ctx) => {
+    if (!input.tutorId && !input.paymentMethod) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['paymentMethod'],
+        message: 'Diga como o cliente pagou',
+      })
+    }
     // O mesmo produto duas vezes no carrinho é o operador que clicou duas vezes: a
     // tela soma, e o servidor recusa, em vez de adivinhar se era para somar.
     const seen = new Set<string>()
@@ -403,6 +418,8 @@ export const SaleResponseSchema = z.object({
   totalCents: z.number(),
   status: SaleStatusSchema,
   ledgerEntryId: z.uuid().nullable(),
+  /** Como foi paga: sempre na avulsa, e na do tutor só quando pagou na hora. */
+  paymentMethod: CashMethodSchema.nullable(),
   reversalReason: z.string().nullable(),
   reversedAt: z.string().nullable(),
   createdByName: z.string().nullable(),

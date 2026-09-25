@@ -185,6 +185,14 @@ export const PERMISSIONS = {
    * permissão: ele vai junto da edição do atendimento, sob `record:write`.
    */
   'inventory:consume': 'Registrar uso interno de insumo',
+
+  /**
+   * MOD-CAIXA. Quem fica no balcão abre, lança sangria e suprimento e fecha — é a
+   * recepção, o mesmo corte de `inventory:sell`. Ler o histórico de fechamentos, com as
+   * diferenças de cada dia, é a mesma turma: quem fecha precisa ver o fechamento de ontem.
+   */
+  'cash:read': 'Ver o caixa do dia e os fechamentos anteriores',
+  'cash:operate': 'Abrir e fechar o caixa, e lançar sangria e suprimento',
 } as const
 
 export type PermissionKey = keyof typeof PERMISSIONS
@@ -306,6 +314,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'inventory:sell',
     'inventory:refund',
     'inventory:consume',
+    'cash:read',
+    'cash:operate',
   ],
 
   RECEPTIONIST: [
@@ -341,6 +351,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'site:read_leads',
     'inventory:read',
     'inventory:sell',
+    'cash:read',
+    'cash:operate',
   ],
 
   GROOMER: [

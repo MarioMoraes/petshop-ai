@@ -62,6 +62,12 @@ export default async function RecebidasPorDiaPage({ searchParams }: PageProps) {
             ? 'O financeiro não respondeu'
             : `${formatBRL(report.totalCents)} em ${report.paymentsCount} ${
                 report.paymentsCount === 1 ? 'pagamento' : 'pagamentos'
+              }${
+                report.walkIn.count > 0
+                  ? ` e ${report.walkIn.count} ${
+                      report.walkIn.count === 1 ? 'venda avulsa' : 'vendas avulsas'
+                    }`
+                  : ''
               }`
         }
         actions={<BackToCobranca />}
@@ -98,8 +104,8 @@ export default async function RecebidasPorDiaPage({ searchParams }: PageProps) {
         <EmptyState
           icon={<WalletIcon />}
           tone="icon-money"
-          title="Nenhum pagamento no período"
-          description="Não há entradas registradas entre as datas escolhidas. Amplie o período para ver mais."
+          title="Nenhuma entrada no período"
+          description="Não há pagamento nem venda avulsa entre as datas escolhidas. Amplie o período para ver mais."
         />
       ) : (
         <>
@@ -144,6 +150,24 @@ function Resumo({ report }: { report: ReceiptsByDayReport }) {
               <span className="font-medium tabular-nums">{formatBRL(item.totalCents)}</span>
             </li>
           ))}
+          {/*
+           * MOD-CAIXA: a venda avulsa em linha própria. Ela entra no total, mas não é
+           * pagamento de tutor — misturada às formas acima, a conferência com o extrato
+           * dos tutores deixaria de bater.
+           */}
+          {report.walkIn.count > 0 && (
+            <li className="flex items-baseline justify-between gap-3 border-t border-line pt-2 text-sm">
+              <span className="text-muted">
+                Vendas avulsas
+                <span className="hint ml-2">
+                  {report.walkIn.count} {report.walkIn.count === 1 ? 'venda' : 'vendas'}
+                </span>
+              </span>
+              <span className="font-medium tabular-nums">
+                {formatBRL(report.walkIn.totalCents)}
+              </span>
+            </li>
+          )}
         </ul>
       </Card>
     </div>
@@ -152,6 +176,7 @@ function Resumo({ report }: { report: ReceiptsByDayReport }) {
 
 function Tabela({ report }: { report: ReceiptsByDayReport }) {
   const methods: PaymentMethod[] = report.byMethod.map((item) => item.method)
+  const avulsas = report.walkIn.count > 0
 
   return (
     <div className="card overflow-x-auto p-0">
@@ -165,6 +190,7 @@ function Tabela({ report }: { report: ReceiptsByDayReport }) {
                 {PAYMENT_METHOD_LABELS[method]}
               </th>
             ))}
+            {avulsas && <th className="text-right">Vendas avulsas</th>}
             <th className="text-right">Total do dia</th>
           </tr>
         </thead>
@@ -187,6 +213,12 @@ function Tabela({ report }: { report: ReceiptsByDayReport }) {
                     </td>
                   )
                 })}
+                {avulsas &&
+                  (day.walkInCents === 0 ? (
+                    <td className="text-right text-subtle">—</td>
+                  ) : (
+                    <td className="text-right tabular-nums">{formatBRL(day.walkInCents)}</td>
+                  ))}
                 <td className="text-right font-medium tabular-nums">{formatBRL(day.totalCents)}</td>
               </tr>
             )
@@ -201,6 +233,9 @@ function Tabela({ report }: { report: ReceiptsByDayReport }) {
                 {formatBRL(item.totalCents)}
               </td>
             ))}
+            {avulsas && (
+              <td className="text-right tabular-nums">{formatBRL(report.walkIn.totalCents)}</td>
+            )}
             <td className="text-right tabular-nums">{formatBRL(report.totalCents)}</td>
           </tr>
         </tfoot>

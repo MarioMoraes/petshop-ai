@@ -301,6 +301,11 @@ import {
   SaleResultSchema,
   LotTraceSchema,
   InventoryAlertsSchema,
+  CashSessionDetailSchema,
+  CashSessionPageSchema,
+  CurrentCashSessionSchema,
+  type CashAdjustmentInput,
+  type CloseCashSessionInput,
   InventorySettingsSchema,
   InventoryPositionReportSchema,
   ProductUsedSchema,
@@ -2803,6 +2808,46 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'GET',
         path: `/v1/inventory/reports/position${toQueryString(query)}`,
         schema: InventoryPositionReportSchema,
+      }),
+
+    // ─── MOD-CAIXA — o caixa do dia ──────────────────────────────────────────
+
+    /** O caixa aberto agora, com os movimentos — `{ session: null }` quando não há. */
+    getCurrentCash: () =>
+      request({ method: 'GET', path: '/v1/cash/current', schema: CurrentCashSessionSchema }),
+
+    listCashSessions: (query: { cursor?: string; limit?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/cash/sessions${toQueryString(query)}`,
+        schema: CashSessionPageSchema,
+      }),
+
+    getCashSession: (id: string) =>
+      request({ method: 'GET', path: `/v1/cash/sessions/${id}`, schema: CashSessionDetailSchema }),
+
+    openCash: (openingFloatCents: number) =>
+      request({
+        method: 'POST',
+        path: '/v1/cash/sessions',
+        body: { openingFloatCents },
+        schema: CashSessionDetailSchema,
+      }),
+
+    adjustCash: (input: CashAdjustmentInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/cash/adjustments',
+        body: input,
+        schema: CashSessionDetailSchema,
+      }),
+
+    closeCash: (id: string, input: CloseCashSessionInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/cash/sessions/${id}/close`,
+        body: input,
+        schema: CashSessionDetailSchema,
       }),
 
     /** Bytes, como os relatórios do financeiro: o retrato de um instante não se arquiva. */

@@ -30,6 +30,10 @@ beforeEach(async () => {
   await resetDatabase()
   fixture = await givenTenant()
   admin = asAdmin(fixture)
+  // Desde o MOD-CAIXA a venda avulsa exige caixa aberto: o dinheiro dela precisa de uma
+  // gaveta. Os testes do caixa em si estão em `tests/cash`.
+  const caixa = await callApi({ ...admin, method: 'POST', url: '/v1/cash/sessions', payload: {} })
+  expect(caixa.statusCode, caixa.body).toBe(201)
 })
 
 afterAll(closeHarness)
@@ -63,7 +67,8 @@ async function vender(corpo: Record<string, unknown>, caller: Caller = admin) {
     ...caller,
     method: 'POST',
     url: '/v1/inventory/sales',
-    payload: { idempotencyKey: chave(), ...corpo },
+    // A avulsa diz como foi paga (MOD-CAIXA); a do tutor vai para a conta, como antes.
+    payload: { idempotencyKey: chave(), ...(corpo.tutorId ? {} : { paymentMethod: 'CASH' }), ...corpo },
   })
 }
 

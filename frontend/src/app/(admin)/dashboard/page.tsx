@@ -217,10 +217,7 @@ export default async function DashboardPage() {
     fluxo.push({
       label: 'Recebido hoje',
       value: formatBRL(cashflow.totalCents),
-      hint:
-        cashflow.paymentsCount === 0
-          ? 'Nenhum pagamento registrado hoje.'
-          : `${cashflow.paymentsCount} pagamento${cashflow.paymentsCount === 1 ? '' : 's'}${topMethod(cashflow.byMethod)}.`,
+      hint: recebidoHint(cashflow),
       icon: <WalletIcon />,
       iconTone: 'icon-money',
       href: '/financeiro/configuracoes',
@@ -705,6 +702,24 @@ function formatDecimal(value: number): string {
 }
 
 /** A forma de pagamento que mais entrou hoje — a "realidade do balcão" do §10. */
+/**
+ * A linha de apoio do "Recebido hoje". A venda avulsa (MOD-CAIXA) entra no número e é
+ * dita à parte: "3 pagamentos e 2 vendas avulsas".
+ */
+function recebidoHint(cashflow: {
+  paymentsCount: number
+  walkInCount: number
+  byMethod: { method: string; totalCents: number }[]
+}): string {
+  const { paymentsCount, walkInCount } = cashflow
+  if (paymentsCount === 0 && walkInCount === 0) return 'Nenhum pagamento registrado hoje.'
+  const partes = [
+    paymentsCount > 0 ? `${paymentsCount} pagamento${paymentsCount === 1 ? '' : 's'}` : null,
+    walkInCount > 0 ? `${walkInCount} venda${walkInCount === 1 ? '' : 's'} avulsa${walkInCount === 1 ? '' : 's'}` : null,
+  ].filter(Boolean)
+  return `${partes.join(' e ')}${paymentsCount > 0 ? topMethod(cashflow.byMethod) : ''}.`
+}
+
 function topMethod(byMethod: { method: string; totalCents: number }[]): string {
   const top = byMethod[0]
   if (!top || byMethod.length === 0) return ''

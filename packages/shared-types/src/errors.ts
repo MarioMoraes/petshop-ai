@@ -378,6 +378,28 @@ export const INVENTORY_ERRORS = {
 
 export type InventoryErrorCode = keyof typeof INVENTORY_ERRORS
 
+/**
+ * PRD caixa_17 §5. O 009 é o texto do trigger de imutabilidade, como o `ERR_INV_014`:
+ * não chega à API, e mora aqui para o código do log ter onde ser procurado.
+ */
+export const CASH_ERRORS = {
+  ERR_CASH_001: { status: 404, title: 'Caixa não encontrado' },
+  ERR_CASH_002: { status: 422, title: 'Dados de entrada inválidos' },
+  /** Um caixa aberto por estabelecimento. */
+  ERR_CASH_003: { status: 409, title: 'Já existe um caixa aberto' },
+  /** A venda avulsa, a sangria e o fechamento pedem um caixa aberto. */
+  ERR_CASH_004: { status: 409, title: 'Nenhum caixa aberto' },
+  ERR_CASH_005: { status: 409, title: 'Caixa já fechado' },
+  /** Fechar com diferença exige dizer por quê. */
+  ERR_CASH_006: { status: 422, title: 'Diferença sem justificativa' },
+  ERR_CASH_007: { status: 403, title: 'Permissão insuficiente' },
+  /** A sangria não tira da gaveta mais dinheiro do que ela tem. */
+  ERR_CASH_008: { status: 422, title: 'Sangria maior que o dinheiro do caixa' },
+  ERR_CASH_009: { status: 409, title: 'Movimento de caixa é imutável' },
+} as const
+
+export type CashErrorCode = keyof typeof CASH_ERRORS
+
 export const PLATFORM_ERRORS = {
   ERR_RATE_LIMITED: { status: 429, title: 'Muitas requisições' },
   /**
@@ -410,6 +432,7 @@ export const ERROR_CATALOG = {
   ...SUBSCRIPTION_ERRORS,
   ...IMPORT_ERRORS,
   ...INVENTORY_ERRORS,
+  ...CASH_ERRORS,
   ...PLATFORM_ERRORS,
 } as const
 

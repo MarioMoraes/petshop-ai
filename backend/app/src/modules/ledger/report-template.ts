@@ -217,6 +217,8 @@ export function renderAccountsReceivableHtml(report: AccountsReceivableReport): 
  */
 export function renderReceiptsByDayHtml(report: ReceiptsByDayReport): string {
   const methods: PaymentMethod[] = report.byMethod.map((item) => item.method)
+  // MOD-CAIXA: a coluna das vendas avulsas só existe quando o período teve alguma.
+  const avulsas = report.walkIn.count > 0
 
   const linhas = report.days
     .map((day) => {
@@ -226,6 +228,7 @@ export function renderReceiptsByDayHtml(report: ReceiptsByDayReport): string {
           <td>${formatDateOnly(day.date)}</td>
           <td class="num">${day.count}</td>
           ${methods.map((method) => bucketCell(porMetodo.get(method) ?? 0)).join('')}
+          ${avulsas ? bucketCell(day.walkInCents) : ''}
           <td class="valor">${formatBRL(day.totalCents)}</td>
         </tr>`
     })
@@ -233,7 +236,7 @@ export function renderReceiptsByDayHtml(report: ReceiptsByDayReport): string {
 
   const corpo =
     report.days.length === 0
-      ? `<div class="vazio">Nenhum pagamento recebido neste período.</div>`
+      ? `<div class="vazio">Nenhum pagamento nem venda avulsa neste período.</div>`
       : `
   <div class="resumo">
     <div>
@@ -244,6 +247,14 @@ export function renderReceiptsByDayHtml(report: ReceiptsByDayReport): string {
       <div class="rotulo">Pagamentos</div>
       <div class="valor">${report.paymentsCount}</div>
     </div>
+    ${
+      avulsas
+        ? `<div>
+      <div class="rotulo">Vendas avulsas</div>
+      <div class="valor">${formatBRL(report.walkIn.totalCents)}</div>
+    </div>`
+        : ''
+    }
     <div>
       <div class="rotulo">Dias com movimento</div>
       <div class="valor">${report.days.length}</div>
@@ -259,6 +270,7 @@ export function renderReceiptsByDayHtml(report: ReceiptsByDayReport): string {
         ${methods
           .map((method) => `<th class="valor">${escapeHtml(PAYMENT_METHOD_LABELS[method])}</th>`)
           .join('')}
+        ${avulsas ? '<th class="valor">Vendas avulsas</th>' : ''}
         <th class="valor">Total do dia</th>
       </tr>
     </thead>
@@ -270,6 +282,7 @@ export function renderReceiptsByDayHtml(report: ReceiptsByDayReport): string {
         ${report.byMethod
           .map((item) => `<td class="valor">${formatBRL(item.totalCents)}</td>`)
           .join('')}
+        ${avulsas ? `<td class="valor">${formatBRL(report.walkIn.totalCents)}</td>` : ''}
         <td class="valor">${formatBRL(report.totalCents)}</td>
       </tr>
     </tfoot>

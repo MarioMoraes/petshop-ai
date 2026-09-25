@@ -16,6 +16,7 @@ import {
 import { invalid } from './errors.js'
 import { logger } from '../../shared/logger.js'
 import { openCipher } from './crypto.js'
+import { getWalkInPort } from './walk-in-port.js'
 
 /**
  * Os dois relatórios do menu Cobrança.
@@ -220,34 +221,63 @@ export async function receiptsByDayReport(
        ORDER BY 1 ASC, 3 DESC
     `
 
-    const days: ReceiptsByDayRow[] = []
-    const periodTotals = new Map<PaymentMethod, { totalCents: number; count: number }>()
+    // MOD-CAIXA: a venda avulsa é dinheiro que entrou sem passar por conta nenhuma. Ela
+    // soma no total do dia, mas numa coluna própria — misturada às formas de pagamento
+    // dos tutores, a conferência do financeiro deixaria de bater com o extrato deles.
+    const walkInRows = await getWalkInPort().byDay(tx, tenantId, timezone, from, to)
 
-    for (const row of rows) {
-      const date = isoDate(row.day)
-      const method = row.method as PaymentMethod
-      const totalCents = Number(row.total)
-      const count = Number(row.count)
-
-      let day = days.at(-1)
-      if (!day || day.date !== date) {
-        day = { date, totalCents: 0, count: 0, byMethod: [] }
-        days.push(day)
+    const byDate = new Map<string, ReceiptsByDayRow>()
+    const dayOf = (date: string): ReceiptsByDayRow => {
+      let day = byDate.get(date)
+      if (!day) {
+        day = { date, totalCents: 0, count: 0, byMethod: [], walkInCents: 0, walkInCount: 0 }
+        byDate.set(date, day)
       }
-      day.totalCents += totalCents
-      day.count += count
-      day.byMethod.push({ method, totalCents, count })
-
-      const running = periodTotals.get(method) ?? { totalCents: 0, count: 0 }
-      periodTotals.set(method, {
+      return day
+    }
+    const periodTotals = new Map<PaymentMethod, { totalCents: number; count: number }>()
+    const walkInTotals = new Map<PaymentMethod, { totalCents: number; count: number }>()
+    const accumulate = (
+      map: Map<PaymentMethod, { totalCents: number; count: number }>,
+      method: PaymentMethod,
+      totalCents: number,
+      count: number,
+    ) => {
+      const running = map.get(method) ?? { totalCents: 0, count: 0 }
+      map.set(method, {
         totalCents: running.totalCents + totalCents,
         count: running.count + count,
       })
     }
 
-    const byMethod = [...periodTotals.entries()]
-      .map(([method, totals]) => ({ method, ...totals }))
-      .sort((a, b) => b.totalCents - a.totalCents)
+    for (const row of rows) {
+      const day = dayOf(isoDate(row.day))
+      const method = row.method as PaymentMethod
+      const totalCents = Number(row.total)
+      const count = Number(row.count)
+      day.totalCents += totalCents
+      day.count += count
+      day.byMethod.push({ method, totalCents, count })
+      accumulate(periodTotals, method, totalCents, count)
+    }
+
+    for (const row of walkInRows) {
+      const day = dayOf(isoDate(row.day))
+      const totalCents = Number(row.total)
+      const count = Number(row.count)
+      day.totalCents += totalCents
+      day.walkInCents += totalCents
+      day.walkInCount += count
+      accumulate(walkInTotals, row.method as PaymentMethod, totalCents, count)
+    }
+
+    const days = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+    const sorted = (map: Map<PaymentMethod, { totalCents: number; count: number }>) =>
+      [...map.entries()]
+        .map(([method, totals]) => ({ method, ...totals }))
+        .sort((a, b) => b.totalCents - a.totalCents)
+    const byMethod = sorted(periodTotals)
+    const walkInByMethod = sorted(walkInTotals)
 
     return {
       tenantName: tenant.name,
@@ -258,6 +288,11 @@ export async function receiptsByDayReport(
       totalCents: sum(days, (day) => day.totalCents),
       paymentsCount: sum(days, (day) => day.count),
       byMethod,
+      walkIn: {
+        totalCents: sum(walkInByMethod, (item) => item.totalCents),
+        count: sum(walkInByMethod, (item) => item.count),
+        byMethod: walkInByMethod,
+      },
       days,
     }
   })
