@@ -34,13 +34,7 @@ export const SEVERITY_LABELS: Record<ClinicalSeverity, string> = {
 
 // ─── Alergias e restrições (MOD-PRONT-03) ────────────────────────────────────
 
-export const AllergyTypeSchema = z.enum([
-  'FOOD',
-  'PRODUCT',
-  'MEDICATION',
-  'ENVIRONMENTAL',
-  'OTHER',
-])
+export const AllergyTypeSchema = z.enum(['FOOD', 'PRODUCT', 'MEDICATION', 'ENVIRONMENTAL', 'OTHER'])
 export type AllergyType = z.infer<typeof AllergyTypeSchema>
 
 export const ALLERGY_TYPE_LABELS: Record<AllergyType, string> = {
@@ -319,10 +313,28 @@ export type AttendanceNoteVisibility = z.infer<typeof AttendanceNoteVisibilitySc
 export const AttendancePhaseSchema = z.enum(['BEFORE', 'AFTER'])
 export type AttendancePhase = z.infer<typeof AttendancePhaseSchema>
 
-/** RN-11: o lote é o que liga uma reação de terça ao shampoo de segunda. */
+/**
+ * RN-11: o lote é o que liga uma reação de terça ao shampoo de segunda.
+ *
+ * `name` e `batch` são o **retrato** do dia e continuam obrigatórios na leitura: o
+ * prontuário não depende do cadastro de estoque. Com o MOD-ESTOQUE, a linha pode também
+ * apontar o produto e o lote de verdade (`productId`, `lotId`, `quantity`). Aí a edição
+ * do atendimento dá baixa no lote pela diferença, e a anulação devolve. A linha só de
+ * texto continua valendo e não mexe em estoque.
+ */
 export const ProductUsedSchema = z.object({
   name: z.string().min(1).max(120),
   batch: z.string().max(60).optional(),
+  productId: z.uuid().optional(),
+  lotId: z.uuid().optional(),
+  /** Quantidade em string decimal, como todo o estoque. Sem ela a linha não baixa nada. */
+  quantity: z
+    .union([z.string(), z.number()])
+    .transform((value) => String(value).trim().replace(',', '.'))
+    .refine((value) => /^\d{1,9}(\.\d{1,3})?$/.test(value) && Number(value) > 0, {
+      message: 'Informe a quantidade usada',
+    })
+    .optional(),
 })
 export type ProductUsed = z.infer<typeof ProductUsedSchema>
 

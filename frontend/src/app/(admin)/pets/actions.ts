@@ -25,6 +25,8 @@ import {
   type Allergy,
   type Attendance,
   type PrescriptionView,
+  type ProductDetailResponse,
+  type ProductUsed,
   type TimelinePage,
   type Breed,
   type MedicalAlert,
@@ -487,10 +489,7 @@ export async function updateMedicalAlertAction(
  * a falha dele é uma lista que não cresceu — não há campo onde mostrar erro, nem
  * decisão que o usuário precise tomar a partir dele.
  */
-export async function loadTimelineAction(
-  petId: string,
-  cursor: string,
-): Promise<TimelinePage> {
+export async function loadTimelineAction(petId: string, cursor: string): Promise<TimelinePage> {
   try {
     return await serverApi().getPetTimeline(petId, { cursor, limit: 20 })
   } catch {
@@ -533,6 +532,46 @@ export async function addAddendumAction(
     const attendance = await serverApi().addAttendanceAddendum(id, parsed.data)
     revalidateRecord(petId)
     return { ok: true, data: attendance }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * MOD-ESTOQUE-07: a lista de produtos usados num serviço do atendimento.
+ *
+ * O servidor dá baixa pela diferença e devolve a lista com o retrato do cadastro. Fora
+ * das 24h a edição é recusada como qualquer outra correção.
+ */
+export async function updateProductsUsedAction(
+  petId: string,
+  attendanceId: string,
+  itemId: string,
+  productsUsed: ProductUsed[],
+): Promise<ActionResult<Attendance>> {
+  try {
+    const attendance = await serverApi().updateAttendance(attendanceId, {
+      items: [{ id: itemId, productsUsed }],
+    })
+    revalidateRecord(petId)
+    revalidatePath('/estoque')
+    return { ok: true, data: attendance }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/** Os insumos que podem entrar num atendimento, com os lotes de cada um. */
+export async function listSuppliesAction(): Promise<ActionResult<ProductDetailResponse[]>> {
+  try {
+    const api = serverApi()
+    const products = (await api.listProducts()).filter((product) => product.kind !== 'RETAIL')
+    // Um detalhe por produto: o catálogo de insumos de um petshop é curto, e o lote é o
+    // que a tela precisa para a vacina.
+    return {
+      ok: true,
+      data: await Promise.all(products.map((product) => api.getProduct(product.id))),
+    }
   } catch (error) {
     return toFailure(error)
   }
@@ -603,9 +642,7 @@ export async function createPrescriptionAction(
  * O detalhe, que é o que traz a URL do PDF — e pedi-lo é o que a auditoria registra
  * como download. Só se chama quando alguém clica em abrir.
  */
-export async function getPrescriptionAction(
-  id: string,
-): Promise<ActionResult<PrescriptionView>> {
+export async function getPrescriptionAction(id: string): Promise<ActionResult<PrescriptionView>> {
   try {
     return { ok: true, data: await serverApi().getPrescription(id) }
   } catch (error) {

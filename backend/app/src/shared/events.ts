@@ -3,6 +3,7 @@ import type {
   AdminEventMap,
   AgendaEventMap,
   AgentEventMap,
+  InventoryEventMap,
   IdentityEventMap,
   LedgerEventMap,
   PortalEventMap,
@@ -43,7 +44,8 @@ export const { publishEvent, closeEvents, checkEvents } = createEventPublisher<
     LedgerEventMap &
     PortalEventMap &
     AdminEventMap &
-    AgentEventMap
+    AgentEventMap &
+    InventoryEventMap
 >({
   logger,
   getUrl: () => loadEnv().RABBITMQ_URL,

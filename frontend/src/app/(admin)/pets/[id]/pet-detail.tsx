@@ -77,6 +77,8 @@ interface Props {
   canManageRecord: boolean
   /** `record:write_notes` — quem manuseia o animal observa o comportamento. */
   canWriteNotes: boolean
+  /** Plano com estoque e `inventory:read`: os produtos do atendimento apontam o lote. */
+  hasInventory: boolean
   /** `record:void` — anular um atendimento estorna o débito do tutor. */
   canVoidAttendance: boolean
 }
@@ -159,6 +161,7 @@ export function PetDetailView(props: Props) {
           page={props.timeline}
           canVoid={props.canVoidAttendance}
           canWrite={props.canWriteNotes}
+          hasInventory={props.hasInventory}
           canPrescribe={props.canManageRecord}
           photos={album.photos}
           canUploadPhoto={props.canUploadPhoto}

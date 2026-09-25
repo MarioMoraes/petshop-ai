@@ -4,7 +4,9 @@ import { Badge } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { RecordHero } from '@/components/record-hero'
 import { InitialsAvatar } from '@/components/record-list'
+import { temRecurso } from '@/components/plano-indisponivel'
 import { carregarMe, serverApi } from '@/lib/api'
+import { SaleButton } from '../../estoque/sale-dialog'
 import { TutorDetailView, type CommsData, type FinanceData } from './tutor-detail'
 
 /** Visão 360º do tutor (MOD-TUTOR-07). */
@@ -77,10 +79,25 @@ export default async function TutorPage({ params }: PageProps) {
           ))
         }
         actions={
-          // Anonimizado e unificado não se editam: o cadastro terminou.
+          // Anonimizado e unificado não se editam nem compram: o cadastro terminou.
           tutor.status !== 'MERGED' &&
           tutor.status !== 'ANONYMIZED' && (
-            <ButtonLink href={`/tutores/${tutor.id}/editar`}>Editar</ButtonLink>
+            <>
+              <ButtonLink href={`/tutores/${tutor.id}/editar`}>Editar</ButtonLink>
+              {/* MOD-ESTOQUE-05: a venda nasce aqui já com o comprador, e cai no extrato. */}
+              {tutor.status === 'ACTIVE' &&
+                temRecurso(me, 'INVENTORY') &&
+                me.permissions.includes('inventory:sell') && (
+                  <SaleButton
+                    tutor={{
+                      id: tutor.id,
+                      name: tutor.displayName,
+                      detail: tutor.phoneMasked ?? '',
+                    }}
+                    canOverrideCredit={me.permissions.includes('finance:credit')}
+                  />
+                )}
+            </>
           )
         }
         facts={[

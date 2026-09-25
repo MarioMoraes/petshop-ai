@@ -135,6 +135,13 @@ const BUSINESS_TABLES = [
   'messaging_settings',
   'messaging_suppressions',
   'automations',
+  // MOD-ESTOQUE — o item aponta para a venda e o produto, o movimento para o lote, e o
+  // lote para o produto.
+  'product_sale_items',
+  'product_sales',
+  'stock_movements',
+  'stock_lots',
+  'products',
   // MOD-LEDGER-08 — o recibo aponta para o pagamento, então vem antes dele.
   'receipts',
   // MOD-DOC-04 — antes de `documents`, `attendances`, `pets` e `professionals`, que a

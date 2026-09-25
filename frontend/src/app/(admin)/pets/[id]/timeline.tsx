@@ -13,10 +13,12 @@ import {
   type TimelineEntry,
   type TimelineKind,
   type TimelinePage,
+  type AttendanceItem,
 } from '@petshop/shared-types'
 import { Badge, Button, EmptyState, Field, FormError } from '@/components/ui'
 import { HeartPulseIcon, NoteIcon } from '@/components/icons'
 import { Modal } from '@/components/modal'
+import { ProductsUsedDialog } from './products-used-dialog'
 import {
   addAddendumAction,
   createPrescriptionAction,
@@ -54,6 +56,11 @@ interface Props {
   canVoid: boolean
   /** `record:write_notes` — corrigir e adendar. */
   canWrite: boolean
+  /**
+   * O plano tem estoque e quem vê lê o estoque: os produtos usados passam a apontar o
+   * lote e dar baixa (MOD-ESTOQUE-07). Sem isso a linha do tempo só os mostra.
+   */
+  hasInventory: boolean
   /**
    * `record:write` — o pedido de emissão. O gate que decide de verdade é o CRMV do
    * profissional ligado ao usuário, e ele só existe no servidor: a tela oferece o
@@ -105,6 +112,7 @@ export function TimelineTab({
   page,
   canVoid,
   canWrite,
+  hasInventory,
   canPrescribe,
   photos,
   canUploadPhoto,
@@ -154,6 +162,7 @@ export function TimelineTab({
                 petName={petName}
                 canVoid={canVoid}
                 canWrite={canWrite}
+                hasInventory={hasInventory}
                 canPrescribe={canPrescribe}
                 photos={photos}
                 canUploadPhoto={canUploadPhoto}
@@ -186,6 +195,7 @@ function TimelineCard({
   petName,
   canVoid,
   canWrite,
+  hasInventory,
   canPrescribe,
   photos,
   canUploadPhoto,
@@ -197,6 +207,7 @@ function TimelineCard({
   petName: string
   canVoid: boolean
   canWrite: boolean
+  hasInventory: boolean
   canPrescribe: boolean
   photos: PetPhoto[]
   canUploadPhoto: boolean
@@ -257,6 +268,7 @@ function TimelineCard({
           petName={petName}
           canVoid={canVoid && !anulado}
           canWrite={canWrite && !anulado}
+          hasInventory={hasInventory}
           canPrescribe={canPrescribe && !anulado}
           photos={photos.filter((photo) => photo.attendanceId === entry.id)}
           canUploadPhoto={canUploadPhoto && !anulado}
@@ -280,6 +292,7 @@ function AttendanceDetail({
   petName,
   canVoid,
   canWrite,
+  hasInventory,
   canPrescribe,
   photos,
   canUploadPhoto,
@@ -289,6 +302,7 @@ function AttendanceDetail({
   petName: string
   canVoid: boolean
   canWrite: boolean
+  hasInventory: boolean
   canPrescribe: boolean
   photos: PetPhoto[]
   canUploadPhoto: boolean
@@ -300,6 +314,7 @@ function AttendanceDetail({
   const [motivo, setMotivo] = useState('')
   const [anulando, setAnulando] = useState(false)
   const [salvando, startSalvar] = useTransition()
+  const [produtosDe, setProdutosDe] = useState<AttendanceItem | null>(null)
 
   // A busca precisa nascer de um efeito, e não do corpo do componente: disparada
   // durante a renderização ela é uma atualização de estado no meio do render, que o
@@ -372,14 +387,46 @@ function AttendanceDetail({
         )}
       </dl>
 
-      <ul className="space-y-1 text-sm">
+      <ul className="space-y-2 text-sm">
         {attendance.items.map((item) => (
-          <li key={item.id} className="flex items-baseline justify-between gap-3">
-            <span>{item.label}</span>
-            {item.notes && <span className="hint">{item.notes}</span>}
+          <li key={item.id}>
+            <div className="flex items-baseline justify-between gap-3">
+              <span>{item.label}</span>
+              {item.notes && <span className="hint">{item.notes}</span>}
+            </div>
+            {/* RN-11: o lote é o que liga uma reação de terça ao produto de segunda. */}
+            {item.productsUsed.length > 0 && (
+              <ul className="hint mt-0.5 space-y-0.5">
+                {item.productsUsed.map((product, index) => (
+                  <li key={`${product.name}-${index}`}>
+                    {product.name}
+                    {product.batch && ` · lote ${product.batch}`}
+                    {product.quantity && ` · ${product.quantity.replace('.', ',')}`}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {hasInventory && canWrite && attendance.editable && (
+              <Button className="mt-2 h-9" onClick={() => setProdutosDe(item)}>
+                {item.productsUsed.length > 0 ? 'Corrigir produtos' : 'Produtos usados'}
+              </Button>
+            )}
           </li>
         ))}
       </ul>
+
+      {produtosDe && (
+        <ProductsUsedDialog
+          petId={petId}
+          attendanceId={attendance.id}
+          item={produtosDe}
+          onClose={() => setProdutosDe(null)}
+          onSaved={(next) => {
+            setAttendance(next)
+            router.refresh()
+          }}
+        />
+      )}
 
       {attendance.observations && <p className="text-sm">{attendance.observations}</p>}
 

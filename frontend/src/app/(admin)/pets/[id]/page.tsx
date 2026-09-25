@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { RecordHero } from '@/components/record-hero'
 import { topAlert } from '@/components/record-list'
+import { temRecurso } from '@/components/plano-indisponivel'
 import { carregarMe, serverApi } from '@/lib/api'
 import { PetDetailView } from './pet-detail'
 
@@ -132,6 +133,7 @@ export default async function PetPage({ params }: PageProps) {
         canWriteAlerts={me.permissions.includes('record:write_alerts')}
         canManageRecord={me.permissions.includes('record:write')}
         canWriteNotes={me.permissions.includes('record:write_notes')}
+        hasInventory={temRecurso(me, 'INVENTORY') && me.permissions.includes('inventory:read')}
         canVoidAttendance={me.permissions.includes('record:void')}
       />
     </div>

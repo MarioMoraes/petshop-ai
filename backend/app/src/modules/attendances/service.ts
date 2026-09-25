@@ -1,5 +1,6 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
+  ProductUsedSchema,
   RECORD_ROUTING_KEYS,
   type AddendumInput,
   type Attendance,
@@ -14,6 +15,7 @@ import { alreadyRegistered, forbidden, immutable, invalid, notFound } from '../r
 import { publishEvent } from '../../shared/events.js'
 import { recordMetric } from '../../shared/logger.js'
 import { tenantOptions, type ActorContext } from '../records/actor.js'
+import { getInventoryPort } from './inventory-port.js'
 import { encryptOptional, openCipher } from '../records/crypto.js'
 import { invalidateSummary } from './cache.js'
 import { isEditable, toAttendance } from './mapper.js'
@@ -129,12 +131,27 @@ export async function updateAttendance(
         const known = new Set(current.items.map((item) => item.id))
         for (const patch of input.items) {
           if (!known.has(patch.id)) throw notFound('Item não pertence a este atendimento')
+          // MOD-ESTOQUE-07: a lista de produtos leva o estoque junto, na mesma transação.
+          // O que se grava é a lista que a porta devolve, com o retrato do cadastro.
+          const productsUsed = patch.productsUsed
+            ? await getInventoryPort().syncItem(
+                tx,
+                actor,
+                {
+                  attendanceItemId: patch.id,
+                  petId: current.petId,
+                  tutorId: current.tutorId,
+                  performedAt: current.startedAt,
+                },
+                patch.productsUsed,
+              )
+            : undefined
           await tx.attendanceItem.update({
             where: { id: patch.id },
             data: {
               ...(patch.executedBy ? { executedBy: patch.executedBy } : {}),
               ...(patch.notes === undefined ? {} : { notes: patch.notes ?? null }),
-              ...(patch.productsUsed ? { productsUsed: patch.productsUsed } : {}),
+              ...(productsUsed ? { productsUsed } : {}),
             },
           })
         }
@@ -325,6 +342,14 @@ export async function voidAttendance(
         throw invalid('Este atendimento já foi anulado')
       }
 
+      // AC-04 do MOD-ESTOQUE-07: o que o atendimento tirou do estoque volta ao lote.
+      await getInventoryPort().returnAll(
+        tx,
+        actor,
+        current.items.map((item) => item.id),
+        `Atendimento anulado: ${input.reason}`.slice(0, 200),
+      )
+
       const updated = await tx.attendance.update({
         where: { id },
         data: {
@@ -470,11 +495,29 @@ export async function createAttendance(
       })
       const names = new Map(services.map((service) => [service.id, service.name]))
       for (const item of created.items) {
+        // O item sincroniza a partir do que ele mesmo gravou, e não da posição na
+        // entrada: os itens voltam ordenados por `created_at`, que empata no insert.
+        const stored = ProductUsedSchema.array().parse(item.productsUsed ?? [])
+        const productsUsed =
+          stored.length > 0
+            ? await getInventoryPort().syncItem(
+                tx,
+                actor,
+                {
+                  attendanceItemId: item.id,
+                  petId: created.petId,
+                  tutorId: created.tutorId,
+                  performedAt: created.startedAt,
+                },
+                stored,
+              )
+            : stored
         await tx.attendanceItem.update({
           where: { id: item.id },
-          data: { label: names.get(item.serviceId) ?? 'Serviço' },
+          data: { label: names.get(item.serviceId) ?? 'Serviço', productsUsed },
         })
         item.label = names.get(item.serviceId) ?? 'Serviço'
+        item.productsUsed = productsUsed
       }
 
       await recordAudit(tx, {

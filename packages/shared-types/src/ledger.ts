@@ -94,6 +94,8 @@ export const ENTRY_SOURCE_TYPES = [
   'PACKAGE',
   'MANUAL',
   'SYSTEM',
+  /** MOD-ESTOQUE-05: a venda do balcão. O `source_id` é a venda, e o índice de origem a protege de débito duplo. */
+  'PRODUCT_SALE',
 ] as const
 export const EntrySourceTypeSchema = z.enum(ENTRY_SOURCE_TYPES)
 export type EntrySourceType = z.infer<typeof EntrySourceTypeSchema>

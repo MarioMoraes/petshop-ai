@@ -158,6 +158,14 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   // que as duas entram aqui e não só na política do banco.
   'ImportBatch',
   'ImportRow',
+  // MOD-ESTOQUE: produto, lote e movimento. O custo de compra e o giro da prateleira
+  // são o segredo comercial do petshop, e o movimento carrega o pet que recebeu o lote.
+  'Product',
+  'StockLot',
+  'StockMovement',
+  // A venda do balcão: quem comprou o quê e por quanto.
+  'ProductSale',
+  'ProductSaleItem',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
   // tenants por definição, e exigir contexto dele seria negar o que ele é.

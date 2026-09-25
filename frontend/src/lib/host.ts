@@ -39,6 +39,7 @@ export const ADMIN_ROUTE_PREFIXES = [
   '/crm',
   '/dashboard',
   '/equipe',
+  '/estoque',
   '/financeiro',
   /**
    * O Mural do dia: a mesma agenda, sem a moldura do Admin, para a segunda tela.

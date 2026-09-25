@@ -171,6 +171,13 @@ model Tenant {
   pushDevices          PushDevice[]
   pushDeliveries       PushDelivery[]
 
+  /// MOD-ESTOQUE: o que entra, sai e sobra, lote a lote.
+  products         Product[]
+  stockLots        StockLot[]
+  stockMovements   StockMovement[]
+  productSales     ProductSale[]
+  productSaleItems ProductSaleItem[]
+
   documents    Document[]
   termVersions TermVersion[]
 
@@ -831,6 +838,7 @@ model Tutor {
   portalContactChanges PortalContactChange[]
   deletionRequests     DataDeletionRequest[]
   pushDevices          PushDevice[]
+  productSales         ProductSale[]
 
   agentConversations AgentConversation[]
 
@@ -2060,6 +2068,8 @@ enum EntrySourceType {
   PACKAGE
   MANUAL
   SYSTEM
+  /// MOD-ESTOQUE-05: a venda do balcão; `source_id` é a `product_sales.id`.
+  PRODUCT_SALE
 }
 
 enum EntryStatus {
@@ -4294,4 +4304,217 @@ model PushDelivery {
 
   @@unique([messageId, deviceId], map: "idx_push_deliveries_unico")
   @@map("push_deliveries")
+}
+
+// ─── MOD-ESTOQUE — controle de estoque (PRD estoque_16) ─────────────────────
+
+/// Produto de venda (ração, coleira), insumo de serviço (shampoo, vacina) ou os dois.
+enum ProductKind {
+  RETAIL
+  SUPPLY
+  BOTH
+}
+
+/// A unidade em que o saldo é contado. Insumo se mede em ml e g — daí a quantidade
+/// decimal em todo o módulo.
+enum ProductUnit {
+  UN
+  ML
+  L
+  G
+  KG
+}
+
+/// O que o petshop guarda na prateleira. **Não tem coluna de saldo**: o saldo é a soma
+/// dos lotes (RN-03), e uma segunda cópia dele aqui seria a primeira a divergir.
+model Product {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  name    String      @db.VarChar(120)
+  /// Único por tenant entre os não excluídos — índice parcial na migration.
+  sku     String?     @db.VarChar(40)
+  barcode String?     @db.VarChar(40)
+  kind    ProductKind
+  unit    ProductUnit @default(UN)
+
+  /// Obrigatório em `RETAIL` e `BOTH` (AC-02); insumo não tem preço de venda.
+  salePriceCents BigInt? @map("sale_price_cents")
+  /// O custo da **última** entrada (RN-09). A valorização usa o custo do lote.
+  costCents      BigInt? @map("cost_cents")
+
+  /// Ponto de reposição: abaixo disso o produto aparece no sino (MOD-ESTOQUE-09).
+  minQuantity  Decimal @default(0) @map("min_quantity") @db.Decimal(12, 3)
+  /// Exige validade na entrada (AC-01 de MOD-ESTOQUE-02). Vacina e medicamento, sim;
+  /// coleira, não.
+  tracksExpiry Boolean @default(false) @map("tracks_expiry")
+
+  active Boolean @default(true)
+
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Só produto sem movimento chega aqui (AC-03); o resto é desativado.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  lots      StockLot[]
+  movements StockMovement[]
+  saleItems ProductSaleItem[]
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, active], map: "idx_products_active")
+  @@map("products")
+}
+
+/// O saldo mora aqui, por lote. `quantity_on_hand` é o saldo **materializado** — muda
+/// só junto de um `stock_movements`, na mesma transação, e a reconciliação confere a
+/// igualdade (MOD-ESTOQUE-12). Pode ficar negativo: o atendimento não trava por
+/// estoque (RN-06).
+model StockLot {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+
+  /// `SEM-LOTE` é o lote implícito do produto que não tem código (AC-04).
+  batchCode      String    @map("batch_code") @db.VarChar(40)
+  /// Data, sem hora: a validade impressa na caixa é um dia.
+  expiresAt      DateTime? @map("expires_at") @db.Date
+  quantityOnHand Decimal   @default(0) @map("quantity_on_hand") @db.Decimal(12, 3)
+  unitCostCents  BigInt?   @map("unit_cost_cents")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  movements StockMovement[]
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: NoAction)
+
+  @@unique([tenantId, productId, batchCode], map: "idx_stock_lots_batch")
+  /// FEFO: vence primeiro, sai primeiro (RN-04).
+  @@index([tenantId, productId, expiresAt], map: "idx_stock_lots_fefo")
+  @@map("stock_lots")
+}
+
+enum StockMovementType {
+  PURCHASE_IN
+  SALE_OUT
+  CONSUMPTION_OUT
+  ADJUSTMENT
+  LOSS
+  RETURN_IN
+  VOID_RETURN
+}
+
+enum StockSourceType {
+  ENTRY
+  ADJUSTMENT
+  SALE_ITEM
+  ATTENDANCE_ITEM
+  INTERNAL_USE
+}
+
+/// A verdade do estoque. **Append-only por trigger** (RN-01): correção é outro
+/// movimento, com motivo. Só `recordMovement` (`modules/inventory/movements.ts`) escreve
+/// aqui (RN-02).
+model StockMovement {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  lotId     String @map("lot_id") @db.Uuid
+  /// Desnormalizado do lote: o histórico do produto não precisa passar por ele.
+  productId String @map("product_id") @db.Uuid
+
+  type          StockMovementType
+  /// Com sinal: entrada positiva, saída negativa. Nunca zero (CHECK).
+  quantity      Decimal           @db.Decimal(12, 3)
+  /// O saldo do lote logo depois deste movimento — o extrato do lote sem somar nada.
+  quantityAfter Decimal           @map("quantity_after") @db.Decimal(12, 3)
+
+  sourceType     StockSourceType @map("source_type")
+  sourceId       String?         @map("source_id") @db.Uuid
+  /// O duplo clique da tela: a mesma chave não grava duas vezes (índice parcial).
+  idempotencyKey String?         @map("idempotency_key") @db.VarChar(80)
+  reason         String?         @db.VarChar(200)
+
+  /// Rastreio de lote (MOD-ESTOQUE-10): quem recebeu o quê.
+  petId   String? @map("pet_id") @db.Uuid
+  tutorId String? @map("tutor_id") @db.Uuid
+
+  createdBy  String?  @map("created_by") @db.Uuid
+  /// A data do fato — pode ser retroativa (a contagem de ontem lançada hoje).
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  /// A data do registro — nunca retroativa.
+  postedAt   DateTime @default(now()) @map("posted_at") @db.Timestamptz(6)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lot     StockLot @relation(fields: [lotId], references: [id], onDelete: NoAction)
+  product Product  @relation(fields: [productId], references: [id], onDelete: NoAction)
+
+  @@index([tenantId, productId, occurredAt(sort: Desc)], map: "idx_stock_movements_product")
+  @@index([tenantId, lotId, occurredAt(sort: Desc)], map: "idx_stock_movements_lot")
+  @@map("stock_movements")
+}
+
+enum ProductSaleStatus {
+  COMPLETED
+  REVERSED
+}
+
+/// A venda do balcão (MOD-ESTOQUE-05). Não tem rascunho: o carrinho vive na tela, e a
+/// venda nasce gravada — baixa e débito juntos — ou não nasce (RN-11).
+model ProductSale {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String  @map("tenant_id") @db.Uuid
+  /// Nulo é venda avulsa: dá baixa e não toca o razão (RN-12).
+  tutorId  String? @map("tutor_id") @db.Uuid
+
+  totalCents    BigInt            @map("total_cents")
+  status        ProductSaleStatus @default(COMPLETED)
+  /// O débito `PRODUCT` no razão. Nulo na venda avulsa.
+  ledgerEntryId String?           @map("ledger_entry_id") @db.Uuid
+
+  /// AC-06: a justificativa de quem liberou a venda acima do limite de crédito.
+  creditOverrideReason String? @map("credit_override_reason") @db.VarChar(200)
+
+  /// O duplo clique do "Confirmar venda" (índice único parcial).
+  idempotencyKey String? @map("idempotency_key") @db.VarChar(80)
+
+  reversalReason String?   @map("reversal_reason") @db.VarChar(200)
+  reversedBy     String?   @map("reversed_by") @db.Uuid
+  reversedAt     DateTime? @map("reversed_at") @db.Timestamptz(6)
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  items ProductSaleItem[]
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tutor  Tutor? @relation(fields: [tutorId], references: [id], onDelete: NoAction)
+
+  @@index([tenantId, createdAt(sort: Desc)], map: "idx_product_sales_recent")
+  @@index([tenantId, tutorId, createdAt(sort: Desc)], map: "idx_product_sales_tutor")
+  @@map("product_sales")
+}
+
+model ProductSaleItem {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  saleId    String @map("sale_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+
+  /// Snapshot, como `AppointmentItem`: renomear o produto não reescreve a venda (RN-10).
+  label           String  @db.VarChar(120)
+  quantity        Decimal @db.Decimal(12, 3)
+  unitPriceCents  BigInt  @map("unit_price_cents")
+  totalPriceCents BigInt  @map("total_price_cents")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale    ProductSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product     @relation(fields: [productId], references: [id], onDelete: NoAction)
+
+  @@index([tenantId, saleId], map: "idx_product_sale_items_sale")
+  @@map("product_sale_items")
 }

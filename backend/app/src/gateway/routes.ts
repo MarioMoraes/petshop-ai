@@ -10,6 +10,7 @@ import { registerCatalogRoutes } from '../modules/catalog/routes.js'
 import { registerCrmRoutes } from '../modules/crm/routes.js'
 import { registerIdentityRoutes } from '../modules/identity/routes.js'
 import { registerImportRoutes } from '../modules/import/routes.js'
+import { registerInventoryRoutes } from '../modules/inventory/routes.js'
 import { registerClerkWebhookRoutes } from '../modules/identity/webhooks/routes.js'
 import { registerLedgerRoutes } from '../modules/ledger/routes.js'
 import { registerMedicalRecordRoutes } from '../modules/records/routes-module.js'
@@ -70,6 +71,7 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerLedgerModule(app)
   await registerPortalModule(app)
   await registerImportModule(app)
+  await registerInventoryModule(app)
   await registerPlatformModule(app)
   await registerSubscriptionModule(app)
 }
@@ -379,6 +381,20 @@ async function registerImportModule(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerImportRoutes(scope)
+  })
+}
+
+/**
+ * MOD-ESTOQUE — produto, lote e movimento.
+ *
+ * Escopo autenticado próprio, sem superfície anônima: o cliente final vê a venda pelo
+ * extrato do razão (RN-18), nunca o estoque. `/v1/inventory` é prefixo próprio e está em
+ * `PLAN_GATES` — o Starter recebe 402 antes da permissão.
+ */
+async function registerInventoryModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    await registerInventoryRoutes(scope)
   })
 }
 

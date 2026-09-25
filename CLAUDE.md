@@ -103,8 +103,17 @@ Os módulos: MOD-SITE (`modules/site`), MOD-TAXI (`modules/taxi`), MOD-CRM
 (`modules/identity`), MOD-PRONT (`modules/records`, `modules/attendances`,
 `modules/prescriptions`), MOD-AGENDA (`modules/scheduling`,
 `modules/schedule-catalog`), MOD-LEDGER (`modules/ledger`), MOD-SEC
-(`modules/security`), MOD-PORTAL (`modules/portal`), MOD-AI (`modules/agent`) e
-MOD-IMPORT (`modules/import`).
+(`modules/security`), MOD-PORTAL (`modules/portal`), MOD-AI (`modules/agent`),
+MOD-IMPORT (`modules/import`) e MOD-ESTOQUE (`modules/inventory`, PRD
+`docs/prd/estoque_16.md`).
+
+**O MOD-ESTOQUE guarda o saldo duas vezes, de propósito.** `stock_lots.quantity_on_hand` é
+o que as telas leem, e `stock_movements` — append-only por trigger — é a verdade.
+`recordMovement` (`modules/inventory/movements.ts`) é a **única** função que escreve
+movimento e mexe no saldo, sob `FOR UPDATE` no lote. Uma segunda que atualizasse o saldo
+"só neste caso" seria a primeira divergência. O produto não tem coluna de saldo: é a soma
+dos lotes. A quantidade é `Decimal(12,3)` e trafega como string, porque insumo se mede
+em ml e g.
 
 **O MOD-PORTAL é o único que lê de todos os outros e escreve por porta.** Ele agrega: as
 leituras são banco direto, porque ler é escolher um recorte; as escritas passam pelas

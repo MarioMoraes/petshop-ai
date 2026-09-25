@@ -163,6 +163,28 @@ export const PERMISSIONS = {
    * quatro daria a migração inteira a quem só precisa cadastrar um cliente no balcão.
    */
   'import:run': 'Importar a base de outro sistema',
+
+  /**
+   * MOD-ESTOQUE §9. A leitura é larga — quem dá banho precisa saber se tem shampoo, e o
+   * veterinário escolhe o lote da vacina —, e a escrita é do administrador: cadastro,
+   * entrada e ajuste mexem no custo e na contagem, que é onde o furto se esconde.
+   */
+  'inventory:read': 'Ver produtos, lotes e saldos do estoque',
+  'inventory:write': 'Cadastrar produtos, dar entrada e ajustar o estoque',
+  /**
+   * Vender no balcão. A recepção vende — é o mesmo corte de `finance:create`, que lança
+   * débito de produto na conta. Liberar a venda de quem passou do limite de crédito é
+   * `finance:credit`, do administrador, porque é conceder crédito.
+   */
+  'inventory:sell': 'Vender produtos no balcão',
+  /** Estornar venda. Só o administrador, pela RN-25 do MOD-LEDGER: o balcão registra, o gestor corrige. */
+  'inventory:refund': 'Estornar venda de produto',
+  /**
+   * MOD-ESTOQUE-08: a baixa de uso interno — o shampoo que acabou no banho. É de quem
+   * atende o pet, e não da recepção. O consumo **dentro** de um atendimento não usa esta
+   * permissão: ele vai junto da edição do atendimento, sob `record:write`.
+   */
+  'inventory:consume': 'Registrar uso interno de insumo',
 } as const
 
 export type PermissionKey = keyof typeof PERMISSIONS
@@ -279,6 +301,11 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'site:read_leads',
     'audit:read',
     'import:run',
+    'inventory:read',
+    'inventory:write',
+    'inventory:sell',
+    'inventory:refund',
+    'inventory:consume',
   ],
 
   RECEPTIONIST: [
@@ -312,6 +339,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     // Quem retorna o contato que chegou pelo site é a recepção. Publicar a página
     // não é dela: `site:manage` fica com o administrador.
     'site:read_leads',
+    'inventory:read',
+    'inventory:sell',
   ],
 
   GROOMER: [
@@ -325,6 +354,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'schedule:read_own',
     'schedule:write_own',
     'checkin:manage',
+    'inventory:read',
+    'inventory:consume',
   ],
 
   BATHER: [
@@ -338,6 +369,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'schedule:read_own',
     'schedule:write_own',
     'checkin:manage',
+    'inventory:read',
+    'inventory:consume',
   ],
 
   VET: [
@@ -359,6 +392,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     'schedule:read_own',
     'schedule:write_own',
     'checkin:manage',
+    'inventory:read',
+    'inventory:consume',
   ],
 
   DRIVER: [

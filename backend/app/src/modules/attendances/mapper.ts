@@ -1,9 +1,4 @@
-import type {
-  Attendance,
-  AttendanceItem,
-  AttendanceNote,
-  ProductUsed,
-} from '@petshop/shared-types'
+import type { Attendance, AttendanceItem, AttendanceNote, ProductUsed } from '@petshop/shared-types'
 import type { RecordCipher } from '../records/crypto.js'
 import { decryptOptional } from '../records/crypto.js'
 
@@ -135,8 +130,18 @@ function toProductsUsed(value: unknown): ProductUsed[] {
   if (!Array.isArray(value)) return []
   return value.flatMap((entry) => {
     if (typeof entry !== 'object' || entry === null) return []
-    const { name, batch } = entry as { name?: unknown; batch?: unknown }
+    const { name, batch, productId, lotId, quantity } = entry as Record<string, unknown>
     if (typeof name !== 'string') return []
-    return [typeof batch === 'string' ? { name, batch } : { name }]
+    // A ligação com o estoque (MOD-ESTOQUE-07) volta junto: sem ela a tela não sabe qual
+    // lote foi usado, e a próxima edição refaria a baixa sobre uma lista sem lote.
+    return [
+      {
+        name,
+        ...(typeof batch === 'string' ? { batch } : {}),
+        ...(typeof productId === 'string' ? { productId } : {}),
+        ...(typeof lotId === 'string' ? { lotId } : {}),
+        ...(typeof quantity === 'string' ? { quantity } : {}),
+      },
+    ]
   })
 }

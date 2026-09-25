@@ -38,7 +38,7 @@ export function ListSearch({
   filters,
   activeFilter,
 }: {
-  basePath: '/pets' | '/tutores'
+  basePath: '/pets' | '/tutores' | '/estoque'
   placeholder: string
   ariaLabel: string
   initialQuery: string

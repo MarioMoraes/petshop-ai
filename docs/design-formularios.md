@@ -91,6 +91,7 @@ O tom é o do domínio no menu lateral (`app-shell.tsx`):
 | Agenda, Taxi Dog | `icon-time` |
 | Mensagens | `icon-brand` |
 | Financeiro | `icon-money` |
+| Estoque | `icon-money` |
 | Equipe | `icon-people` |
 | Configurações | `icon-system` |
 
@@ -316,6 +317,7 @@ Está aqui para não voltar:
 | Configurações de relacionamento | `app/(admin)/crm/configuracoes/settings-form.tsx` |
 | Configurações do Taxi Dog | `app/(admin)/taxi/configuracoes/settings-form.tsx` |
 | Configurações de cobrança | `app/(admin)/financeiro/configuracoes/billing-settings-form.tsx` |
+| Cadastro de produto, entrada e ajuste de estoque | `app/(admin)/estoque/product-form.tsx`, `estoque/[id]/stock-panel.tsx` |
 | Site do estabelecimento | `app/(admin)/site/site-form.tsx` |
 | Ficha e check-out do atendimento | `app/(admin)/agenda/dia/appointment-dialog.tsx` |
 | Remoção de membro da equipe (só o diálogo) | `app/(admin)/equipe/team-manager.tsx` |

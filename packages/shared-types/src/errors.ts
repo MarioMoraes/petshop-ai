@@ -344,6 +344,40 @@ export const IMPORT_ERRORS = {
 
 export type ImportErrorCode = keyof typeof IMPORT_ERRORS
 
+/**
+ * MOD-ESTOQUE — PRD estoque_16 §5.
+ *
+ * A numeração segue o PRD. O 014 é o texto que o trigger levanta
+ * quando alguém tenta editar um movimento — não chega à API, mas mora aqui para que o
+ * código no log tenha onde ser procurado.
+ */
+export const INVENTORY_ERRORS = {
+  ERR_INV_001: { status: 404, title: 'Produto ou lote não encontrado' },
+  ERR_INV_002: { status: 422, title: 'Dados de entrada inválidos' },
+  /** AC-01 de MOD-ESTOQUE-02: vacina sem validade não entra. */
+  ERR_INV_003: { status: 422, title: 'Validade obrigatória' },
+  /** AC-03 de MOD-ESTOQUE-01: produto com história se desativa, não se apaga. */
+  ERR_INV_004: { status: 409, title: 'Produto com movimento não pode ser excluído' },
+  /** AC-02 de MOD-ESTOQUE-03: lote com duas validades é erro de digitação. */
+  ERR_INV_005: { status: 409, title: 'Lote já cadastrado com outra validade' },
+  ERR_INV_006: { status: 422, title: 'Ajuste sem motivo' },
+  ERR_INV_007: { status: 422, title: 'Produto inativo' },
+  /** MOD-ESTOQUE-08: produto só de venda não é insumo — ração vendida não se "usa" no banho. */
+  ERR_INV_008: { status: 422, title: 'Produto de venda não é insumo' },
+  ERR_INV_009: { status: 403, title: 'Permissão insuficiente' },
+  /** AC-02 de MOD-ESTOQUE-05: a venda inteira é recusada, com o disponível por produto. */
+  ERR_INV_010: { status: 422, title: 'Saldo insuficiente' },
+  /** RN-14: lote vencido não se vende nem se aplica. */
+  ERR_INV_011: { status: 422, title: 'Lote vencido' },
+  ERR_INV_012: { status: 409, title: 'Venda já estornada' },
+  /** AC-06: tutor acima do limite de crédito; só o administrador libera, com motivo. */
+  ERR_INV_015: { status: 422, title: 'Limite de crédito excedido' },
+  ERR_INV_013: { status: 409, title: 'Chave de idempotência já usada com outro conteúdo' },
+  ERR_INV_014: { status: 409, title: 'Movimento de estoque é imutável' },
+} as const
+
+export type InventoryErrorCode = keyof typeof INVENTORY_ERRORS
+
 export const PLATFORM_ERRORS = {
   ERR_RATE_LIMITED: { status: 429, title: 'Muitas requisições' },
   /**
@@ -375,6 +409,7 @@ export const ERROR_CATALOG = {
   ...AGENT_ERRORS,
   ...SUBSCRIPTION_ERRORS,
   ...IMPORT_ERRORS,
+  ...INVENTORY_ERRORS,
   ...PLATFORM_ERRORS,
 } as const
 

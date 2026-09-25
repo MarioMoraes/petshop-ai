@@ -179,62 +179,93 @@ export async function createManualEntry(
 export async function reverseEntry(actor: ActorContext, entryId: string, reason: string) {
   const result = await withTenant(
     actor.tenantId,
-    async (tx) => {
-      const original = await tx.ledgerEntry.findFirst({
-        where: { id: entryId },
-        select: {
-          id: true,
-          tutorId: true,
-          accountId: true,
-          direction: true,
-          amountCents: true,
-          category: true,
-          description: true,
-          status: true,
-          petId: true,
-        },
-      })
-      if (!original) throw notFound('Lançamento não encontrado')
-      if (original.status === 'REVERSED') {
-        throw alreadyReversed('Este lançamento já foi estornado')
-      }
-
-      const account = await lockAccount(tx, actor.tenantId, original.tutorId)
-
-      const reversal = await postEntry(tx, actor, account.balanceCents, {
-        accountId: original.accountId,
-        tutorId: original.tutorId,
-        direction: original.direction === 'DEBIT' ? 'CREDIT' : 'DEBIT',
-        amountCents: Number(original.amountCents),
-        category: reversalCategory(original.category),
-        description: `Estorno: ${original.description}`.slice(0, 200),
-        sourceType: 'SYSTEM',
-        petId: original.petId,
-        reversesEntryId: original.id,
-      })
-
-      await tx.ledgerEntry.update({
-        where: { id: original.id },
-        data: { status: 'REVERSED', reversedByEntryId: reversal.id },
-      })
-
-      await recordAudit(tx, {
-        tenantId: actor.tenantId,
-        actorUserId: actor.actorUserId ?? null,
-        action: 'ledger.entry_reversed',
-        entity: 'ledger_entry',
-        entityId: original.id,
-        before: { status: 'POSTED', amountCents: Number(original.amountCents) },
-        after: { status: 'REVERSED', reversalEntryId: reversal.id, reason },
-        ipAddress: actor.ipAddress ?? null,
-        userAgent: actor.userAgent ?? null,
-      })
-
-      return { tutorId: original.tutorId, reversal }
-    },
+    (tx) => reverseEntryInTx(tx, actor, entryId, reason),
     tenantOptions(actor),
   )
+  await announceReversal(actor, entryId, result, reason)
+  return { entryId, reversalEntryId: result.reversal.id }
+}
 
+export interface ReversalResult {
+  tutorId: string
+  reversal: PostedEntry
+}
+
+/**
+ * O estorno **dentro de uma transação alheia**.
+ *
+ * Existe para o estorno da venda do balcão (MOD-ESTOQUE-06): a devolução ao estoque e a
+ * contrapartida no razão precisam vingar juntas, e `reverseEntry` abriria a sua própria
+ * transação. Quem chama esta função publica depois do commit, com `announceReversal` —
+ * evento publicado de dentro da transação anunciaria um estorno que ainda pode voltar
+ * atrás.
+ */
+export async function reverseEntryInTx(
+  tx: TenantTransaction,
+  actor: ActorContext,
+  entryId: string,
+  reason: string,
+): Promise<ReversalResult> {
+  const original = await tx.ledgerEntry.findFirst({
+    where: { id: entryId },
+    select: {
+      id: true,
+      tutorId: true,
+      accountId: true,
+      direction: true,
+      amountCents: true,
+      category: true,
+      description: true,
+      status: true,
+      petId: true,
+    },
+  })
+  if (!original) throw notFound('Lançamento não encontrado')
+  if (original.status === 'REVERSED') {
+    throw alreadyReversed('Este lançamento já foi estornado')
+  }
+
+  const account = await lockAccount(tx, actor.tenantId, original.tutorId)
+
+  const reversal = await postEntry(tx, actor, account.balanceCents, {
+    accountId: original.accountId,
+    tutorId: original.tutorId,
+    direction: original.direction === 'DEBIT' ? 'CREDIT' : 'DEBIT',
+    amountCents: Number(original.amountCents),
+    category: reversalCategory(original.category),
+    description: `Estorno: ${original.description}`.slice(0, 200),
+    sourceType: 'SYSTEM',
+    petId: original.petId,
+    reversesEntryId: original.id,
+  })
+
+  await tx.ledgerEntry.update({
+    where: { id: original.id },
+    data: { status: 'REVERSED', reversedByEntryId: reversal.id },
+  })
+
+  await recordAudit(tx, {
+    tenantId: actor.tenantId,
+    actorUserId: actor.actorUserId ?? null,
+    action: 'ledger.entry_reversed',
+    entity: 'ledger_entry',
+    entityId: original.id,
+    before: { status: 'POSTED', amountCents: Number(original.amountCents) },
+    after: { status: 'REVERSED', reversalEntryId: reversal.id, reason },
+    ipAddress: actor.ipAddress ?? null,
+    userAgent: actor.userAgent ?? null,
+  })
+
+  return { tutorId: original.tutorId, reversal }
+}
+
+/** Os eventos do estorno, depois do commit. */
+export async function announceReversal(
+  actor: ActorContext,
+  entryId: string,
+  result: ReversalResult,
+  reason: string,
+): Promise<void> {
   await publishEvent('lancamento.estornado', {
     tenantId: actor.tenantId,
     entryId,
@@ -245,8 +276,6 @@ export async function reverseEntry(actor: ActorContext, entryId: string, reason:
     balanceCents: result.reversal.balanceAfterCents,
   })
   await publishPosted(actor, result.tutorId, result.reversal)
-
-  return { entryId, reversalEntryId: result.reversal.id }
 }
 
 /**
@@ -282,7 +311,9 @@ export async function getEntry(
 
     const encrypted = entry.internalNotesEncrypted
     const internalNotes =
-      includeInternal && encrypted ? (await openCipher(tx, actor.tenantId)).decrypt(encrypted) : null
+      includeInternal && encrypted
+        ? (await openCipher(tx, actor.tenantId)).decrypt(encrypted)
+        : null
 
     return toEntryResponse(entry, { includeInternal, internalNotes })
   })

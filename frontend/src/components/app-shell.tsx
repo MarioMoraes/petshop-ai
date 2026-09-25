@@ -22,6 +22,7 @@ import {
   IdCardIcon,
   HomeIcon,
   PawPrintIcon,
+  PackageIcon,
   ReceiptIcon,
   SettingsIcon,
   ShieldCheckIcon,
@@ -63,6 +64,7 @@ type NavKey =
   | 'site'
   | 'financeiro'
   | 'cobranca'
+  | 'estoque'
   | 'equipe'
   | 'configuracoes'
 
@@ -78,6 +80,7 @@ interface NavItem {
     | '/site'
     | '/financeiro/pacotes'
     | '/cobranca'
+    | '/estoque'
     | '/equipe'
     | '/configuracoes'
   label: string
@@ -169,6 +172,18 @@ const NAV: NavItem[] = [
     icon: <ReceiptIcon />,
     tone: 'icon-money',
     requires: 'finance:configure',
+  },
+  {
+    // Fecha o bloco do dinheiro: o estoque é custo parado na prateleira, e a venda do
+    // balcão cai na conta corrente do tutor. O gate é `inventory:read`, que toda a
+    // equipe que atende tem — quem dá banho precisa saber se o shampoo acabou.
+    key: 'estoque',
+    href: '/estoque',
+    label: 'Estoque',
+    icon: <PackageIcon />,
+    tone: 'icon-money',
+    requires: 'inventory:read',
+    feature: 'INVENTORY',
   },
   {
     // Mensagens e Site fecham o menu, logo antes de Configurações: são o que o petshop

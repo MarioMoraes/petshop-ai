@@ -46,8 +46,7 @@ export const IDENTITY_ROUTING_KEYS = {
   conviteAceito: 'convite.aceito',
 } as const
 
-export type IdentityRoutingKey =
-  (typeof IDENTITY_ROUTING_KEYS)[keyof typeof IDENTITY_ROUTING_KEYS]
+export type IdentityRoutingKey = (typeof IDENTITY_ROUTING_KEYS)[keyof typeof IDENTITY_ROUTING_KEYS]
 
 interface BaseEvent {
   timestamp: string
@@ -1279,4 +1278,34 @@ export interface AgentEventMap {
   'agente.handoff': AgenteHandoffEvent
   'agente.conversa.encerrada': AgenteConversaEncerradaEvent
   'agente.agendamento.criado': AgenteAgendamentoCriadoEvent
+}
+
+// ─── MOD-ESTOQUE ─────────────────────────────────────────────────────────────
+
+interface InventoryBaseEvent extends BaseEvent {
+  tenantId: string
+}
+
+/**
+ * A venda do balcão. Sem consumidor por ora: o débito já entrou no razão na mesma
+ * transação, e o evento é o registro de que a venda aconteceu — o dia em que o CRM
+ * quiser lembrar a recompra da ração, liga sem tocar no estoque.
+ */
+export interface VendaRegistradaEvent extends InventoryBaseEvent {
+  saleId: string
+  tutorId: string | null
+  totalCents: number
+  items: { productId: string; quantity: string }[]
+}
+
+export interface VendaEstornadaEvent extends InventoryBaseEvent {
+  saleId: string
+  tutorId: string | null
+  reason: string
+  reversedBy: string | null
+}
+
+export interface InventoryEventMap {
+  'venda.registrada': VendaRegistradaEvent
+  'venda.estornada': VendaEstornadaEvent
 }

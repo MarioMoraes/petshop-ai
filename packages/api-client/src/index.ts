@@ -292,6 +292,22 @@ import {
   type TenantListQuery,
   type AuditLogQuery,
   type SecurityEventQuery,
+  ProductDetailResponseSchema,
+  ProductResponseSchema,
+  StockMovementPageSchema,
+  StockMovementResultSchema,
+  SalePageSchema,
+  SaleResponseSchema,
+  SaleResultSchema,
+  LotTraceSchema,
+  ProductUsedSchema,
+  type CreateProductSchema,
+  type InternalUseSchema,
+  type CreateSaleSchema,
+  type ProductListQuerySchema,
+  type StockAdjustmentSchema,
+  type StockEntrySchema,
+  type UpdateProductSchema,
 } from '@petshop/shared-types'
 import { z, type ZodType } from 'zod'
 
@@ -1113,7 +1129,18 @@ export function createApiClient(options: ApiClientOptions) {
       }),
 
     /** Correção dentro da janela de 24h; fora dela o servidor devolve 409. */
-    updateAttendance: (id: string, patch: { observations?: string | null; type?: string }) =>
+    /**
+     * `items[].productsUsed` com `productId`, `lotId` e `quantity` dá baixa no estoque pela
+     * diferença (MOD-ESTOQUE-07); a linha só com `name` é o texto de sempre.
+     */
+    updateAttendance: (
+      id: string,
+      patch: {
+        observations?: string | null
+        type?: string
+        items?: { id: string; productsUsed?: z.input<typeof ProductUsedSchema>[] }[]
+      },
+    ) =>
       request({
         method: 'PATCH',
         path: `/v1/attendances/${id}`,
@@ -2649,6 +2676,104 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'POST',
         path: `/v1/import/batches/${id}/undo`,
         schema: ImportUndoResultSchema,
+      }),
+
+    // ─── MOD-ESTOQUE — produto, lote e movimento ───────────────────────────
+    //
+    // Os corpos são tipados pela **entrada** do schema (`z.input`): unidade, mínimo e
+    // validade têm padrão, e quem os omite recebe o padrão do servidor.
+
+    listProducts: (query: Partial<z.input<typeof ProductListQuerySchema>> = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/inventory/products${toQueryString(query)}`,
+        schema: z.array(ProductResponseSchema),
+      }),
+
+    getProduct: (id: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/inventory/products/${id}`,
+        schema: ProductDetailResponseSchema,
+      }),
+
+    createProduct: (input: z.input<typeof CreateProductSchema>) =>
+      request({
+        method: 'POST',
+        path: '/v1/inventory/products',
+        body: input,
+        schema: ProductDetailResponseSchema,
+      }),
+
+    updateProduct: (id: string, patch: z.input<typeof UpdateProductSchema>) =>
+      request({
+        method: 'PATCH',
+        path: `/v1/inventory/products/${id}`,
+        body: patch,
+        schema: ProductDetailResponseSchema,
+      }),
+
+    deleteProduct: (id: string) =>
+      request<void>({ method: 'DELETE', path: `/v1/inventory/products/${id}` }),
+
+    listProductMovements: (id: string, query: { cursor?: string; limit?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/inventory/products/${id}/movements${toQueryString(query)}`,
+        schema: StockMovementPageSchema,
+      }),
+
+    registerStockEntry: (input: z.input<typeof StockEntrySchema>) =>
+      request({
+        method: 'POST',
+        path: '/v1/inventory/entries',
+        body: input,
+        schema: StockMovementResultSchema,
+      }),
+
+    adjustStock: (input: z.input<typeof StockAdjustmentSchema>) =>
+      request({
+        method: 'POST',
+        path: '/v1/inventory/adjustments',
+        body: input,
+        schema: StockMovementResultSchema,
+      }),
+
+    listSales: (query: { tutorId?: string; cursor?: string; limit?: number } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/inventory/sales${toQueryString(query)}`,
+        schema: SalePageSchema,
+      }),
+
+    getSale: (id: string) =>
+      request({ method: 'GET', path: `/v1/inventory/sales/${id}`, schema: SaleResponseSchema }),
+
+    createSale: (input: z.input<typeof CreateSaleSchema>) =>
+      request({
+        method: 'POST',
+        path: '/v1/inventory/sales',
+        body: input,
+        schema: SaleResultSchema,
+      }),
+
+    registerInternalUse: (input: z.input<typeof InternalUseSchema>) =>
+      request({
+        method: 'POST',
+        path: '/v1/inventory/internal-use',
+        body: input,
+        schema: StockMovementResultSchema,
+      }),
+
+    traceLot: (lotId: string) =>
+      request({ method: 'GET', path: `/v1/inventory/lots/${lotId}/trace`, schema: LotTraceSchema }),
+
+    reverseSale: (id: string, reason: string) =>
+      request({
+        method: 'POST',
+        path: `/v1/inventory/sales/${id}/reverse`,
+        body: { reason },
+        schema: SaleResponseSchema,
       }),
   }
 }
