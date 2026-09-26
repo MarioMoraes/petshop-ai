@@ -160,7 +160,7 @@ export function TeamManager({
       {canInvite && (
         <Card>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold">Convidar alguém</h2>
+            <h2 className="text-lg font-semibold">Convidar Alguém</h2>
             <p className="hint">
               {limite === null
                 ? `${ocupados} ${ocupados === 1 ? 'pessoa' : 'pessoas'} · plano sem limite`
@@ -239,7 +239,7 @@ export function TeamManager({
 
       <section>
         <h2 className="text-lg font-semibold">
-          No sistema{' '}
+          No Sistema{' '}
           <span className="text-subtle">
             ({members.filter((member) => member.status !== 'REMOVED').length})
           </span>
@@ -349,7 +349,7 @@ export function TeamManager({
       {canInvite && pendentes.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold">
-            Convites pendentes <span className="text-subtle">({pendentes.length})</span>
+            Convites Pendentes <span className="text-subtle">({pendentes.length})</span>
           </h2>
 
           <div className="mt-4 space-y-3">

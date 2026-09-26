@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { titleCase } from '@petshop/shared-types'
 
 /**
  * Navegação entre as telas do catálogo da agenda.
@@ -36,7 +37,7 @@ export function AgendaTabs() {
                 : 'border-transparent text-subtle hover:text-fg'
             }`}
           >
-            {tab.label}
+            {titleCase(tab.label)}
           </Link>
         )
       })}

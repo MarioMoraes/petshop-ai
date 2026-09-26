@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { titleCase } from '@petshop/shared-types'
 import { rotuloDoDia } from '@/lib/agenda-dia'
 
 /**
@@ -22,7 +23,7 @@ export function MuralVazio({
     <div className="mural mural-centro">
       <div className="mural-aviso">
         <p className="mural-eyebrow">Mural do dia</p>
-        <h1 className="mural-aviso-titulo">{titulo}</h1>
+        <h1 className="mural-aviso-titulo">{titleCase(titulo)}</h1>
         <p className="mural-aviso-texto">{descricao}</p>
         <p className="mural-aviso-texto mural-aviso-data">{rotuloDoDia(date)}</p>
         <Link href={`/agenda/dia?date=${date}`} className="mural-acao mural-acao-forte">

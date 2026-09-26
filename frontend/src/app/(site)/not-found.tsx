@@ -10,7 +10,7 @@
 export default function SiteNotFound() {
   return (
     <main className="flex min-h-[100svh] flex-col items-center justify-center gap-4 px-6 text-center">
-      <h1 className="text-2xl font-semibold text-ink">Página não encontrada</h1>
+      <h1 className="text-2xl font-semibold text-ink">Página Não Encontrada</h1>
       <p className="text-sm text-muted">O endereço que você abriu não existe.</p>
     </main>
   )

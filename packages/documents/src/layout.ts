@@ -1,4 +1,5 @@
 import { escapeHtml } from '@petshop/pdf'
+import { titleCase } from '@petshop/shared-types'
 
 /**
  * O molde comum de todo documento formal (MOD-DOC-01).
@@ -113,7 +114,8 @@ export function renderPageHeader(): string {
  * cálculo nosso exigiria saber a altura do conteúdo antes de renderizá-lo.
  */
 export function renderPageFooter(input: { title: string; number?: string | null }): string {
-  const identificacao = escapeHtml(input.number ? `${input.title} ${input.number}` : input.title)
+  const title = titleCase(input.title)
+  const identificacao = escapeHtml(input.number ? `${title} ${input.number}` : title)
   return `<html><head><style>
     body { margin: 0; font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
     .rodape { width: 100%; padding: 0 0.6in; font-size: 8px; color: #6b6d76;
@@ -176,7 +178,7 @@ export function renderDocument(input: DocumentLayoutInput): string {
     <div>${marca}</div>
     <div class="emissor">${identificacao}</div>
   </div>
-  <h1 class="titulo">${escapeHtml(input.title)}</h1>
+  <h1 class="titulo">${escapeHtml(titleCase(input.title))}</h1>
   <div class="serie">${
     input.number ? `Nº ${escapeHtml(input.number)} · ` : ''
   }emitido em ${escapeHtml(formatDateTime(input.issuedAt, input.timezone))}</div>

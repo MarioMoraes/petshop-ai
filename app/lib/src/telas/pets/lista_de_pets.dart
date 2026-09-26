@@ -26,7 +26,7 @@ class ListaDePets extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tela(
-      appBar: AppBar(title: const Text('Meus pets')),
+      appBar: AppBar(title: const Text('Meus Pets')),
       corpo: CarregarDados<List<PortalPetSummary>>(
         buscar: sessao.api.pets,
         construir: (context, pets, _) => _Lista(sessao: sessao, pets: pets),

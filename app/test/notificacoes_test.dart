@@ -154,7 +154,7 @@ void main() {
     fake.tocar(const AvisoTocado(slug: 'petshopteste', abre: 'agendamento'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, 'Meus agendamentos'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Meus Agendamentos'), findsOneWidget);
   });
 
   testWidgets('o aviso que abriu o app frio leva à conta depois de a sessão ficar pronta',
@@ -164,7 +164,7 @@ void main() {
       inicial: const AvisoTocado(slug: 'petshopteste', abre: 'conta'),
     );
 
-    expect(find.widgetWithText(AppBar, 'Minha conta'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Minha Conta'), findsOneWidget);
   });
 
   testWidgets('o aviso de outro petshop não navega', (tester) async {
@@ -173,7 +173,7 @@ void main() {
     fake.tocar(const AvisoTocado(slug: 'outropetshop', abre: 'agendamento'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, 'Meus agendamentos'), findsNothing);
+    expect(find.widgetWithText(AppBar, 'Meus Agendamentos'), findsNothing);
     expect(find.text('Receber avisos no celular'), findsNothing);
   });
 
@@ -190,7 +190,7 @@ void main() {
     expect(find.text('A van está a caminho'), findsOneWidget);
     await tester.tap(find.text('Ver'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, 'Meus agendamentos'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Meus Agendamentos'), findsOneWidget);
   });
 }
 

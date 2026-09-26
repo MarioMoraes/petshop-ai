@@ -106,7 +106,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Meus agendamentos'));
+    await tester.tap(find.text('Meus Agendamentos'));
     await tester.pumpAndSettle();
   }
 

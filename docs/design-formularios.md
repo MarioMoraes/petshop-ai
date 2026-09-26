@@ -75,6 +75,33 @@ Escreva o título como **pergunta ou afirmação humana** e deixe o rótulo téc
 olho-de-boi: `01 · IDENTIFICAÇÃO` / "Quem é o tutor". O olho-de-boi diz o que a seção é,
 o título diz o que ela quer saber.
 
+**Todo título do sistema sai em Title Case** — "Quem É o Tutor", "Contas a Receber" —, e
+quem aplica é a peça, não a tela: `PageHeader`, `SectionHead`, `CardHead`, `Modal`,
+`EmptyState` e `RecordHero` passam o texto por `titleCase` (`shared-types/src/text.ts`).
+Escreva o título em caixa de frase, como sempre; a peça converte. Conectivos (de, a, e,
+com, para…) ficam minúsculos no meio da frase, unidades ("15 kg") também, e o resto de
+cada palavra não é tocado — "PIX" e "WhatsApp" saem como estão. Um `<h1>`–`<h3>` escrito
+à mão fora dessas peças precisa chamar `titleCase` ele mesmo.
+
+**Abas e menus** seguem a mesma regra, também na peça: `Tabs` do kit, as faixas por rota
+(`agenda-tabs.tsx`, `financeiro-tabs-nav.tsx`), o `NavLink`/`NavPill` do menu lateral e
+do console, e o menu do Início do Portal. Filtros em pílula (contatos do site, busca de
+listas) não são abas e ficam em caixa de frase. No app, o menu do Início e o título da
+tela a que cada item leva são escritos já em Title Case — os dois precisam bater.
+
+Os **PDFs** seguem a mesma regra: o molde comum (`packages/documents/src/layout.ts`) converte
+o título do documento — recibo, extrato, receita, termo — no topo e no rodapé, e os
+relatórios com template próprio (cobrança, fechamento do caixa, posição do estoque, cópia
+dos dados do titular) convertem o título e os cabeçalhos de seção. O nome do
+estabelecimento no topo sai como foi digitado.
+
+Os **títulos dentro do texto de um termo** (`# …`) também: quem converte é o parser —
+`parseTermBody` em `shared-types/src/terms.ts`, que a tela e o PDF do aceite usam, e a
+tradução dele em `app/lib/src/telas/documentos/texto_do_termo.dart`, com o `titleCase`
+de `app/lib/src/titulo.dart`. O texto guardado, que é o que o aceite prova, não muda. Os
+dois `titleCase` são a mesma regra e têm os mesmos casos de teste: mexer num é mexer no
+outro.
+
 ### 3. Um tom de ícone por formulário, repetido em todas as seções.
 
 O tom diz o **tipo do dado**, e as seções de uma mesma ficha são o mesmo tipo. Uma cor

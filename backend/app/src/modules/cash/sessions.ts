@@ -4,6 +4,7 @@ import {
   CASH_MOVEMENT_LABELS,
   DEFAULT_TIMEZONE,
   formatBRL,
+  titleCase,
   todayIn,
   type CashAdjustmentInput,
   type CashAlerts,
@@ -434,6 +435,11 @@ function summaryOf(
   }
 }
 
+/**
+ * A descrição do movimento, em Title Case (`titleCase`): "Venda Avulsa · Ração 15 kg ×2".
+ * Na **leitura**, e não na gravação: o `reason` fica como o operador digitou, e o
+ * movimento gravado antes da regra aparece igual ao de hoje.
+ */
 function describe(
   type: CashMovementType,
   reason: string | null,
@@ -443,11 +449,11 @@ function describe(
   switch (type) {
     case 'TUTOR_PAYMENT':
     case 'PAYMENT_REVERSAL':
-      return tutorName ? `${label} · ${tutorName}` : label
+      return titleCase(tutorName ? `${label} · ${tutorName}` : label)
     case 'OPENING_FLOAT':
-      return label
+      return titleCase(label)
     default:
-      return reason ? `${label} · ${reason}` : label
+      return titleCase(reason ? `${label} · ${reason}` : label)
   }
 }
 

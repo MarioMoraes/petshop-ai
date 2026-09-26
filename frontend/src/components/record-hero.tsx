@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import { titleCase } from '@petshop/shared-types'
 import type { IconTone } from './icons'
 import { CardHead } from './ui'
 
@@ -67,7 +68,9 @@ export function RecordHero<T extends string>({
           {avatar}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h1 className="text-2xl font-semibold leading-tight sm:text-3xl">{title}</h1>
+              <h1 className="text-2xl font-semibold leading-tight sm:text-3xl">
+                {titleCase(title)}
+              </h1>
               {badges}
             </div>
             {meta && <p className="hint mt-1.5">{meta}</p>}

@@ -161,7 +161,7 @@ export function EnsureActiveOrganization({
   if (ambiguo) {
     return (
       <div className="card w-full max-w-md px-6 py-8">
-        <h1 className="text-center text-xl font-semibold">Onde você quer entrar?</h1>
+        <h1 className="text-center text-xl font-semibold">Onde Você Quer Entrar?</h1>
         <p className="hint mt-2 text-center">
           Você faz parte de mais de um estabelecimento. Depois dá para trocar pelo topo da tela.
         </p>
@@ -200,7 +200,7 @@ export function EnsureActiveOrganization({
   if (desistiu && waiting) {
     return (
       <div className="card w-full max-w-md px-6 py-8 text-center">
-        <h1 className="text-xl font-semibold">Quase lá</h1>
+        <h1 className="text-xl font-semibold">Quase Lá</h1>
         <p className="hint mt-3">
           Seu estabelecimento já foi criado, mas esta aba ainda está com a sessão antiga. Recarregue
           a página para entrar.

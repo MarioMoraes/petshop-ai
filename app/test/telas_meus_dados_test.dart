@@ -144,7 +144,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Meus dados'));
+    await tester.tap(find.text('Meus Dados'));
     await tester.pumpAndSettle();
   }
 

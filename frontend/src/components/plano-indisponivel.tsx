@@ -4,6 +4,7 @@ import {
   PlanSchema,
   minimumPlanFor,
   planIncludes,
+  titleCase,
   type MeResponse,
   type Plan,
   type PlanFeature,
@@ -45,7 +46,7 @@ export function PlanoIndisponivel({ me, feature }: { me: MeResponse; feature: Pl
           <SparkleIcon />
         </span>
         <h1 className="mt-4 text-xl font-semibold">
-          {PLAN_FEATURE_LABELS[feature]} está no plano {necessario.name}
+          {titleCase(`${PLAN_FEATURE_LABELS[feature]} está no plano ${necessario.name}`)}
         </h1>
         <p className="hint mx-auto mt-2 max-w-sm">
           Seu estabelecimento está no plano {atual.name}. Para mudar de plano, fale com a equipe

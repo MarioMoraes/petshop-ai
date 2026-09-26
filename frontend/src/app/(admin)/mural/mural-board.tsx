@@ -11,6 +11,7 @@ import {
   type DayColumn,
   type DayView,
   type TaxiRideResponse,
+  titleCase,
 } from '@petshop/shared-types'
 import {
   alvoDaRolagem,
@@ -322,7 +323,7 @@ function MuralTopo({
           <span aria-hidden className={date === today ? 'mural-pulso' : 'mural-pulso-off'} />
           {tenantName}
         </p>
-        <h1 className="mural-data">{rotuloDoDia(date)}</h1>
+        <h1 className="mural-data">{titleCase(rotuloDoDia(date))}</h1>
       </div>
 
       <div className="mural-numeros">
@@ -630,7 +631,7 @@ function MuralGaveta({
           </button>
         </div>
 
-        <h2 className="mural-gaveta-pet">{appointment.petName}</h2>
+        <h2 className="mural-gaveta-pet">{titleCase(appointment.petName)}</h2>
         <p className="mural-gaveta-horario">
           {inicio}–{fim} · {professionalName}
         </p>

@@ -17,6 +17,7 @@ import {
   type PetTutorRole,
   type PetWeightRecord,
   type TransferReason,
+  titleCase,
 } from '@petshop/shared-types'
 import { Button, Card, CardHead, DataRow, Field, FormError, Tabs } from '@/components/ui'
 import {
@@ -294,7 +295,7 @@ function DadosTab({ pet, canUpdate, canDelete, canManageLifecycle }: Props) {
 
       {confirmingDelete && (
         <Card className="space-y-3 border border-danger/20">
-          <h3 className="font-semibold text-danger">Excluir {pet.name}?</h3>
+          <h3 className="font-semibold text-danger">{titleCase(`Excluir ${pet.name}?`)}</h3>
           <p className="hint">
             O cadastro sai das listas e da agenda. O microchip volta a ficar livre, então o mesmo
             animal pode ser recadastrado se isto for um engano.
@@ -1024,7 +1025,7 @@ function DeathPanel({ pet }: { pet: PetResponse }) {
   return (
     <Card className="w-full space-y-4 border border-danger/20">
       <div>
-        <h3 className="font-semibold">Registrar o óbito de {pet.name}</h3>
+        <h3 className="font-semibold">{titleCase(`Registrar o óbito de ${pet.name}`)}</h3>
         <p className="hint">
           Os agendamentos futuros são cancelados sem cobrança e nenhuma campanha volta a citar o
           pet. Um administrador pode reverter em até 30 dias.
@@ -1096,7 +1097,7 @@ function DeathReversalPanel({ pet }: { pet: PetResponse }) {
     return (
       <Card className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold">Registro feito por engano?</h3>
+          <h3 className="font-semibold">Registro Feito por Engano?</h3>
           <p className="hint">A reversão é permitida em até 30 dias, com justificativa.</p>
         </div>
         <Button type="button" onClick={() => setOpen(true)}>
@@ -1108,7 +1109,7 @@ function DeathReversalPanel({ pet }: { pet: PetResponse }) {
 
   return (
     <Card className="space-y-4">
-      <h3 className="font-semibold">Reverter o óbito de {pet.name}</h3>
+      <h3 className="font-semibold">{titleCase(`Reverter o óbito de ${pet.name}`)}</h3>
       <FormError message={error} />
 
       <Field

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../titulo.dart';
 import '../../ui/tema.dart';
 
 /// O texto do termo, desenhado a partir de blocos.
@@ -116,6 +117,18 @@ List<TrechoDoTermo> _trechos(String linha) {
   return trechos;
 }
 
+/// O título em Title Case sobre a **frase inteira**, cortado de volta nos limites dos
+/// trechos — o `titleCaseSpans` de `terms.ts`. Converter trecho a trecho subiria o "do"
+/// que abre um trecho no meio da frase.
+List<TrechoDoTermo> _tituloEmTitleCase(List<TrechoDoTermo> trechos) {
+  final convertido = titleCase(trechos.map((t) => t.texto).join());
+  var inicio = 0;
+  return [
+    for (final t in trechos)
+      TrechoDoTermo(convertido.substring(inicio, inicio += t.texto.length), negrito: t.negrito),
+  ];
+}
+
 List<BlocoDoTermo> blocosDoTermo(String corpo) {
   final blocos = <BlocoDoTermo>[];
   var paragrafo = <String>[];
@@ -149,7 +162,7 @@ List<BlocoDoTermo> blocosDoTermo(String corpo) {
     if (t != null) {
       fecharParagrafo();
       fecharLista();
-      blocos.add(BlocoDoTermo.titulo(_trechos(t.group(1) ?? '')));
+      blocos.add(BlocoDoTermo.titulo(_tituloEmTitleCase(_trechos(t.group(1) ?? ''))));
       continue;
     }
 

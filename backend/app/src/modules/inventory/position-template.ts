@@ -7,6 +7,7 @@ import {
   type PositionLot,
   type PositionProduct,
   type ProductUnit,
+  titleCase,
 } from '@petshop/shared-types'
 import { escapeHtml } from './pdf-port.js'
 
@@ -86,7 +87,7 @@ export function renderPositionHtml(report: InventoryPositionReport): string {
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>Posição do estoque</title>
+<title>Posição do Estoque</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 10pt; margin: 0; }
@@ -138,7 +139,7 @@ export function renderPositionHtml(report: InventoryPositionReport): string {
   <header>
     <div>
       <h1>${escapeHtml(report.tenantName)}</h1>
-      <p class="sub">Posição e valorização do estoque${escapeHtml(kindLabel)}</p>
+      <p class="sub">${escapeHtml(titleCase(`Posição e valorização do estoque${kindLabel}`))}</p>
     </div>
     <div class="periodo">
       <strong>Posição em ${formatDateOnly(report.asOf)}</strong>

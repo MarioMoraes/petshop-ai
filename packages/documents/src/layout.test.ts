@@ -115,7 +115,7 @@ describe('o rodapé de página', () => {
 
     expect(html).toContain('class="pageNumber"')
     expect(html).toContain('class="totalPages"')
-    expect(html).toContain('Recibo de pagamento 2026/000001')
+    expect(html).toContain('Recibo de Pagamento 2026/000001')
   })
 })
 

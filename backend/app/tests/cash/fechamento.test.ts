@@ -185,7 +185,7 @@ describe('o HTML do fechamento', () => {
         type: 'WITHDRAWAL',
         method: 'CASH',
         amountCents: -4_000,
-        description: 'Sangria · cofre',
+        description: 'Sangria · Cofre',
         createdByName: 'Bruno',
         occurredAt: '2026-09-25T20:00:00.000Z',
       },
@@ -194,7 +194,7 @@ describe('o HTML do fechamento', () => {
         type: 'OPENING_FLOAT',
         method: 'CASH',
         amountCents: 10_000,
-        description: 'Troco inicial',
+        description: 'Troco Inicial',
         createdByName: 'Ana',
         occurredAt: '2026-09-25T11:00:00.000Z',
       },
@@ -221,13 +221,13 @@ describe('o HTML do fechamento', () => {
   })
 
   it('os movimentos vêm na ordem em que aconteceram', () => {
-    expect(html.indexOf('Troco inicial</td>')).toBeLessThan(html.indexOf('Sangria · cofre'))
+    expect(html.indexOf('Troco Inicial</td>')).toBeLessThan(html.indexOf('Sangria · Cofre'))
   })
 
   it('a hora é a do petshop', () => {
     // 11h UTC é 8h em São Paulo.
     expect(html).toContain('08:00')
-    expect(html).toContain('Fechamento do caixa')
+    expect(html).toContain('Fechamento do Caixa')
   })
 
   it('o caixa aberto imprime como parcial', () => {
@@ -237,7 +237,7 @@ describe('o HTML do fechamento', () => {
       timeZone: 'America/Sao_Paulo',
       generatedAt: new Date(),
     })
-    expect(parcial).toContain('conferência parcial')
+    expect(parcial).toContain('Conferência Parcial')
     expect(parcial).not.toContain('Fechado em')
   })
 })

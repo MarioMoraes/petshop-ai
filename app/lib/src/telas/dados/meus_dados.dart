@@ -33,7 +33,7 @@ class MeusDados extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tela(
-      appBar: AppBar(title: const Text('Meus dados')),
+      appBar: AppBar(title: const Text('Meus Dados')),
       corpo: CarregarDados<PortalMeDataResponse>(
         buscar: sessao.api.meusDados,
         construir: (context, dados, _) => _Corpo(sessao: sessao, inicial: dados),

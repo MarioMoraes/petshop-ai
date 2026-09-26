@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { titleCase } from '@petshop/shared-types'
 import type { ReactNode } from 'react'
 import { CalendarIcon, UsersIcon, WalletIcon } from '@/components/icons'
 import { ButtonLink } from '@/components/links'
@@ -81,7 +82,7 @@ export default async function RelatoriosCaixaPage() {
                 {opcao.icon}
               </span>
               <p className="section-eyebrow mt-4">{opcao.eyebrow}</p>
-              <h2 className="section-title mt-1">{opcao.title}</h2>
+              <h2 className="section-title mt-1">{titleCase(opcao.title)}</h2>
               <p className="hint mt-2 flex-1">{opcao.description}</p>
               <p className="mt-5 text-sm font-medium text-accent">
                 Abrir relatório <span aria-hidden="true">→</span>

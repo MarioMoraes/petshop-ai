@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, KeyboardEvent, ReactNode } from 'react'
+import { titleCase } from '@petshop/shared-types'
 import { SpinnerIcon, type IconTone } from './icons'
 
 /**
@@ -7,6 +8,19 @@ import { SpinnerIcon, type IconTone } from './icons'
  * Deliberadamente pequeno: só o que as telas desta entrega usam. Um kit maior sem
  * telas que o exercitem envelhece antes de ser usado.
  */
+
+/**
+ * O título em Title Case (`titleCase` de `shared-types/text.ts`) — a regra de todo
+ * título do sistema.
+ *
+ * Aplicada **na peça**, e não em cada chamada: são centenas de títulos, muitos montados
+ * com dado ("Excluir Rex?"), e uma regra que dependesse de cada tela lembrar dela já
+ * nasceria com exceções. Só texto é convertido; um título em JSX — nome com selo ao lado
+ * — passa como veio, e quem o monta aplica `titleCase` no trecho de texto.
+ */
+export function titulo(node: ReactNode): ReactNode {
+  return typeof node === 'string' ? titleCase(node) : node
+}
 
 /**
  * `relative` para os blooms de `<Atmosphere />` terem a que se ancorar, e
@@ -170,7 +184,7 @@ export function PageHeader({
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
         {eyebrow && <p className="hint">{eyebrow}</p>}
-        <h1 className="mt-1 text-3xl font-semibold leading-tight sm:text-4xl">{title}</h1>
+        <h1 className="mt-1 text-3xl font-semibold leading-tight sm:text-4xl">{titulo(title)}</h1>
         {subtitle && <p className="hint mt-2">{subtitle}</p>}
       </div>
       {actions && <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div>}
@@ -212,7 +226,7 @@ export function EmptyState({
   return (
     <div className="card flex flex-col items-center px-6 py-14 text-center">
       {icon && <span className={`icon-chip empty-chip ${tone ?? ''}`}>{icon}</span>}
-      <h3 className={`text-lg font-semibold ${icon ? 'mt-6' : ''}`}>{title}</h3>
+      <h3 className={`text-lg font-semibold ${icon ? 'mt-6' : ''}`}>{titleCase(title)}</h3>
       <p className="hint mt-2 max-w-sm">{description}</p>
       {action && <div className="mt-6">{action}</div>}
     </div>
@@ -267,7 +281,7 @@ export function Tabs({
             onClick={() => onSelect(tab.id)}
             className="tab"
           >
-            {tab.label}
+            {titleCase(tab.label)}
             {tab.count !== undefined && <span className="tab-count">{tab.count}</span>}
           </button>
         )
@@ -318,7 +332,7 @@ export function SectionHead({
         <span className={`icon-chip icon-chip-sm ${tone}`}>{icon}</span>
         <div className="min-w-0">
           {eyebrow && <p className="section-eyebrow">{eyebrow}</p>}
-          <h2 className="section-title">{title}</h2>
+          <h2 className="section-title">{titleCase(title)}</h2>
         </div>
       </div>
       {description && <p className="hint mt-2">{description}</p>}
@@ -354,7 +368,7 @@ export function CardHead({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="section-head min-w-0">
           <span className={`icon-chip icon-chip-sm ${tone}`}>{icon}</span>
-          <h3 className="section-title min-w-0">{title}</h3>
+          <h3 className="section-title min-w-0">{titulo(title)}</h3>
         </div>
         {action}
       </div>

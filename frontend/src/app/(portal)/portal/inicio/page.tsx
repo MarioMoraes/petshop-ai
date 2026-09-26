@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { SignOutButton } from '@clerk/nextjs'
-import { formatBRL, portalCreditCents, portalOwesCents } from '@petshop/shared-types'
+import { formatBRL, portalCreditCents, portalOwesCents, titleCase } from '@petshop/shared-types'
 import {
   CalendarIcon,
   ChevronRightIcon,
@@ -182,7 +182,7 @@ export default async function PortalInicioPage() {
             <span className={`icon-chip icon-chip-sm shrink-0 ${item.tone}`}>{item.icon}</span>
 
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold">{item.label}</span>
+              <span className="block text-sm font-semibold">{titleCase(item.label)}</span>
               <span
                 className={`hint block truncate ${
                   deve > 0 && item.href === '/portal/financeiro' ? 'text-danger font-medium' : ''

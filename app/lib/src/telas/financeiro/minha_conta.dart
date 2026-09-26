@@ -29,7 +29,7 @@ class MinhaConta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tela(
-      appBar: AppBar(title: const Text('Minha conta')),
+      appBar: AppBar(title: const Text('Minha Conta')),
       corpo: CarregarDados<_Conta>(
         // As duas chamadas saem **juntas**: o saldo e a primeira página do extrato são a
         // mesma tela, e pedi-las em sequência somaria duas idas de rede antes do

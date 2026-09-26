@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { titleCase } from '@petshop/shared-types'
 
 /**
  * A faixa de abas do Financeiro, do lado do navegador: só ela precisa saber em que
@@ -34,7 +35,7 @@ export function FinanceiroTabsNav({ tabs }: { tabs: FinanceiroTab[] }) {
                 : 'border-transparent text-subtle hover:text-fg'
             }`}
           >
-            {tab.label}
+            {titleCase(tab.label)}
           </Link>
         )
       })}

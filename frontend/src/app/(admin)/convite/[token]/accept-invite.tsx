@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { SignOutButton, useUser } from '@clerk/nextjs'
-import { maskEmail } from '@petshop/shared-types'
+import { maskEmail, titleCase } from '@petshop/shared-types'
 import type { AcceptInvitationResult, InvitationPreview } from '@petshop/shared-types'
 import { EnsureActiveOrganization } from '@/components/ensure-active-organization'
 import { Button, FormError } from '@/components/ui'
@@ -50,7 +50,7 @@ export function AcceptInvite({ token, preview }: { token: string; preview: Invit
     return (
       <div className="card px-6 py-10 text-center">
         <EnsureActiveOrganization slug={aceito.tenantSlug} redirectTo="/dashboard" />
-        <h1 className="text-xl font-semibold">Tudo certo, bem-vindo!</h1>
+        <h1 className="text-xl font-semibold">Tudo Certo, Bem-vindo!</h1>
         <p className="hint mt-3">
           Você agora faz parte do {aceito.tenantName} como {aceito.roleLabel}. Entrando…
         </p>
@@ -62,7 +62,7 @@ export function AcceptInvite({ token, preview }: { token: string; preview: Invit
     <div className="card px-6 py-10">
       <p className="hint text-center">Convite de equipe</p>
       <h1 className="mt-2 text-center text-2xl font-semibold leading-tight">
-        Você foi convidado para trabalhar no {preview.tenantName}
+        {titleCase(`Você foi convidado para trabalhar no ${preview.tenantName}`)}
       </h1>
 
       <dl className="mt-8 space-y-3 text-sm">

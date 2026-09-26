@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { titleCase } from '@petshop/shared-types'
 import type { ReactNode } from 'react'
 import type { PermissionKey } from '@petshop/shared-types'
 import { BanknoteIcon, ReceiptIcon, ShieldCheckIcon, WalletIcon } from '@/components/icons'
@@ -98,7 +99,7 @@ export default async function RelatoriosPage() {
                   {relatorio.icon}
                 </span>
                 <p className="section-eyebrow mt-4">{relatorio.eyebrow}</p>
-                <h2 className="section-title mt-1">{relatorio.title}</h2>
+                <h2 className="section-title mt-1">{titleCase(relatorio.title)}</h2>
                 <p className="hint mt-2 flex-1">{relatorio.description}</p>
                 <p className="mt-5 text-sm font-medium text-accent">
                   {relatorio.cta} <span aria-hidden="true">→</span>

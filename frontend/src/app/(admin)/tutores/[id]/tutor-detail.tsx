@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   TERM_KIND_LABELS,
+  titleCase,
   type ConsentChannel,
   type ConsentsResponse,
   type PetResponse,
@@ -229,7 +230,7 @@ function DadosTab({ overview }: { overview: TutorOverview }) {
 
       {anonymizing && (
         <Card className="space-y-3 border border-danger/20">
-          <h3 className="font-semibold text-danger">Anonimização irreversível</h3>
+          <h3 className="font-semibold text-danger">Anonimização Irreversível</h3>
           <p className="hint">
             Nome, documento, contato e endereço são apagados — não mascarados. O histórico
             financeiro permanece, referenciando este cadastro. Não há como desfazer.
@@ -278,7 +279,7 @@ function EnderecosTab({ overview }: { overview: TutorOverview }) {
       {addresses.map((address) => (
         <Card key={address.id}>
           <div className="flex items-center justify-between gap-3">
-            <h3 className="font-semibold">{address.label}</h3>
+            <h3 className="font-semibold">{titleCase(address.label)}</h3>
             {address.isPrimary && (
               <span className="pill bg-black/5 px-2.5 py-0.5 text-xs">Principal</span>
             )}

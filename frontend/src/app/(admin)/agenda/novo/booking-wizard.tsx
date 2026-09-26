@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { titleCase } from '@petshop/shared-types'
 import type {
   CreditCheckResponse,
   ProfessionalResponse,
@@ -534,7 +535,7 @@ function StepTitle({ n, title, done }: { n: number; title: string; done: boolean
       >
         {done ? '✓' : n}
       </span>
-      <h2 className="font-semibold">{title}</h2>
+      <h2 className="font-semibold">{titleCase(title)}</h2>
     </div>
   )
 }

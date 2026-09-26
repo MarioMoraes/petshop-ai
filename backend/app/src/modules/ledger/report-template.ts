@@ -5,6 +5,7 @@ import {
   type AccountsReceivableReport,
   type PaymentMethod,
   type ReceiptsByDayReport,
+  titleCase,
 } from '@petshop/shared-types'
 import { escapeHtml } from './pdf-port.js'
 
@@ -35,7 +36,7 @@ function page(options: {
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>${escapeHtml(options.title)}</title>
+<title>${escapeHtml(titleCase(options.title))}</title>
 <style>
   /* Sem fonte externa: o Gotenberg roda isolado e uma fonte que não carrega vira
      tempo de espera e depois um fallback qualquer. */
@@ -99,7 +100,7 @@ function page(options: {
   <header>
     <div>
       <h1>${escapeHtml(options.tenantName)}</h1>
-      <p class="sub">${escapeHtml(options.title)}</p>
+      <p class="sub">${escapeHtml(titleCase(options.title))}</p>
     </div>
     <div class="periodo">
       <strong>${escapeHtml(options.periodLabel)}</strong>
@@ -172,7 +173,7 @@ export function renderAccountsReceivableHtml(report: AccountsReceivableReport): 
       : ''
   }
 
-  <h2>${report.tutorsCount} ${report.tutorsCount === 1 ? 'tutor' : 'tutores'} com débito em aberto</h2>
+  <h2>${report.tutorsCount} ${report.tutorsCount === 1 ? 'Tutor' : 'Tutores'} com Débito em Aberto</h2>
   <table>
     <thead>
       <tr>
@@ -261,7 +262,7 @@ export function renderReceiptsByDayHtml(report: ReceiptsByDayReport): string {
     </div>
   </div>
 
-  <h2>Entradas dia a dia</h2>
+  <h2>Entradas Dia a Dia</h2>
   <table>
     <thead>
       <tr>

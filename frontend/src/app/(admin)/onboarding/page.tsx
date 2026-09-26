@@ -90,8 +90,8 @@ export default async function OnboardingPage({
           <Card className="max-w-lg text-center">
             <h1 className="text-2xl font-semibold">
               {tenant.status === 'TRIAL_EXPIRED'
-                ? 'Seu período de teste terminou'
-                : 'Sua assinatura está suspensa'}
+                ? 'Seu Período de Teste Terminou'
+                : 'Sua Assinatura Está Suspensa'}
             </h1>
             <p className="hint mt-3">
               A configuração do estabelecimento continua salva do jeito que você deixou. Assine um

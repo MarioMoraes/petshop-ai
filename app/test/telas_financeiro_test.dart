@@ -145,7 +145,7 @@ void main() {
 
   Future<void> entrarNaConta(WidgetTester tester) async {
     await abrirApp(tester);
-    await tester.tap(find.text('Minha conta'));
+    await tester.tap(find.text('Minha Conta'));
     await tester.pumpAndSettle();
   }
 
@@ -191,7 +191,7 @@ void main() {
     conta['openDebitsCents'] = 0;
     conta['oldestOpenDebitAt'] = null;
 
-    await tester.tap(find.text('Minha conta'));
+    await tester.tap(find.text('Minha Conta'));
     await tester.pumpAndSettle();
 
     expect(find.text('EM ABERTO'), findsNothing);
@@ -213,7 +213,7 @@ void main() {
     conta['openDebitsCents'] = 0;
     conta['oldestOpenDebitAt'] = null;
 
-    await tester.tap(find.text('Minha conta'));
+    await tester.tap(find.text('Minha Conta'));
     await tester.pumpAndSettle();
 
     expect(find.text('Em dia'), findsOneWidget);

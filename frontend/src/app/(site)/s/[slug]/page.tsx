@@ -1,6 +1,11 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { formatBRL, formatPhoneBR, type PublicSiteResponse } from '@petshop/shared-types'
+import {
+  formatBRL,
+  formatPhoneBR,
+  titleCase,
+  type PublicSiteResponse,
+} from '@petshop/shared-types'
 import { fetchPublicSite, SiteNotFoundError } from '@/lib/site-api'
 import { paletteOf, rgba, type SitePalette } from './branding'
 import { groupBusinessHours } from './hours'
@@ -299,7 +304,7 @@ function Services({ site, palette }: { site: PublicSiteResponse; palette: SitePa
   return (
     <section style={{ backgroundColor: palette.tint }}>
       <div className={`${SECTION} py-14`}>
-        <h2 className="text-2xl font-semibold text-ink">O que fazemos</h2>
+        <h2 className="text-2xl font-semibold text-ink">O Que Fazemos</h2>
 
         {/*
           `auto-fit` em vez de um número fixo de colunas: o petshop que anuncia dois
@@ -314,7 +319,7 @@ function Services({ site, palette }: { site: PublicSiteResponse; palette: SitePa
               className="rounded-3xl border bg-white p-6"
               style={{ borderColor: palette.line }}
             >
-              <h3 className="text-base font-semibold text-ink">{service.name}</h3>
+              <h3 className="text-base font-semibold text-ink">{titleCase(service.name)}</h3>
               {service.description ? (
                 <p className="mt-2 text-sm leading-relaxed text-muted">{service.description}</p>
               ) : null}
@@ -366,7 +371,7 @@ function TaxiHighlight({
         style={{ borderColor: palette.line, backgroundColor: palette.tint }}
       >
         <div className="max-w-prose">
-          <h2 className="text-xl font-semibold text-ink">Buscamos e levamos seu pet</h2>
+          <h2 className="text-xl font-semibold text-ink">Buscamos e Levamos Seu Pet</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             A gente passa aí, leva para o banho e devolve em casa. Combine o leva-e-traz
             junto com o horário.
@@ -418,7 +423,7 @@ function HoursAndPlace({ site, palette }: { site: PublicSiteResponse; palette: S
 
       {address ? (
         <div>
-          <h2 className="text-2xl font-semibold text-ink">Onde estamos</h2>
+          <h2 className="text-2xl font-semibold text-ink">Onde Estamos</h2>
           <address className="mt-6 not-italic text-sm leading-relaxed text-muted">
             {address.street}, {address.number}
             {address.complement ? ` — ${address.complement}` : ''}
@@ -451,7 +456,7 @@ function Gallery({ site, palette }: { site: PublicSiteResponse; palette: SitePal
 
   return (
     <section className={`${SECTION} pb-14`}>
-      <h2 className="text-2xl font-semibold text-ink">Por dentro</h2>
+      <h2 className="text-2xl font-semibold text-ink">Por Dentro</h2>
       <ul className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
         {photos.map((photo) => (
           <li key={photo.id}>
@@ -474,7 +479,7 @@ function Contact({ site, palette }: { site: PublicSiteResponse; palette: SitePal
   return (
     <section style={{ backgroundColor: palette.tint }}>
       <div className={`${SECTION} py-14`}>
-        <h2 className="text-2xl font-semibold text-ink">Fale com a gente</h2>
+        <h2 className="text-2xl font-semibold text-ink">Fale com a Gente</h2>
         <p className="mt-2 text-sm text-muted">
           Deixe seu contato que a gente retorna — ou chame no WhatsApp, se preferir.
         </p>

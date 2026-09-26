@@ -103,7 +103,7 @@ void main() {
     // Início: a saudação vem de `/me`, não de uma constante.
     expect(find.text('Olá, Mário Moraes'), findsOneWidget);
 
-    await tester.tap(find.text('Meus pets'));
+    await tester.tap(find.text('Meus Pets'));
     await tester.pumpAndSettle();
 
     expect(find.text('Marley'), findsOneWidget);
@@ -140,7 +140,7 @@ void main() {
   testWidgets('o campo limpo na folha de edição chega ao servidor como null',
       (tester) async {
     await abrirApp(tester);
-    await tester.tap(find.text('Meus pets'));
+    await tester.tap(find.text('Meus Pets'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Marley'));
     await tester.pumpAndSettle();
@@ -175,7 +175,7 @@ void main() {
   testWidgets('a folha de edição mostra "Cancelar" sem precisar rolar',
       (tester) async {
     await abrirApp(tester);
-    await tester.tap(find.text('Meus pets'));
+    await tester.tap(find.text('Meus Pets'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Marley'));
     await tester.pumpAndSettle();
@@ -201,7 +201,7 @@ void main() {
 
   testWidgets('a ficha do falecido não oferece o botão de editar', (tester) async {
     await abrirApp(tester);
-    await tester.tap(find.text('Meus pets'));
+    await tester.tap(find.text('Meus Pets'));
     await tester.pumpAndSettle();
 
     expect(find.text('Editar'), findsNothing);
@@ -210,7 +210,7 @@ void main() {
   testWidgets('"ver mais" acrescenta a página seguinte, e a falha tem saída',
       (tester) async {
     await abrirApp(tester);
-    await tester.tap(find.text('Meus pets'));
+    await tester.tap(find.text('Meus Pets'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Marley'));
     await tester.pumpAndSettle();

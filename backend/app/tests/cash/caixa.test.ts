@@ -309,7 +309,7 @@ describe('a venda avulsa', () => {
     expect(sessao.receivedCents).toBe(50_000)
     expect(sessao.movements[0]).toMatchObject({
       type: 'WALK_IN_SALE',
-      description: 'Venda avulsa · Ração 15 kg ×2',
+      description: 'Venda Avulsa · Ração 15 kg ×2',
     })
   })
 
@@ -391,7 +391,7 @@ describe('o pagamento do tutor', () => {
     expect(esperado(sessao)).toBe(8_000)
     expect(sessao.movements[0]).toMatchObject({
       type: 'TUTOR_PAYMENT',
-      description: 'Pagamento de tutor · Maria Silva',
+      description: 'Pagamento de Tutor · Maria Silva',
     })
 
     const estorno = await callApi({

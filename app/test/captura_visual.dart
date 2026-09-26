@@ -108,7 +108,7 @@ void main() {
     await tester.pumpAndSettle();
     await foto('03-inicio');
 
-    await clique('Meus pets');
+    await clique('Meus Pets');
     await foto('04-meus-pets');
 
     await clique('Marley');
@@ -130,7 +130,7 @@ void main() {
     await aoInicio();
 
     // ── agendamentos ──────────────────────────────────────────────────────────
-    await clique('Meus agendamentos');
+    await clique('Meus Agendamentos');
     await foto('08-agendamentos');
 
     // O fim da lista, que é onde o rodapé encostava na barra do sistema.
@@ -187,7 +187,7 @@ void main() {
     // A tela é longa e desce em três assuntos — o saldo, os pacotes e os lançamentos —,
     // com o "Como pagar" no pé. Duas fotos, porque a dobra do celular corta no meio do
     // extrato e é justamente o pé que ninguém olha.
-    await clique('Minha conta');
+    await clique('Minha Conta');
     await foto('16-minha-conta');
 
     await tester.drag(find.byType(ListView).last, const Offset(0, -700));
@@ -200,7 +200,7 @@ void main() {
     // A tela e três das quatro folhas: a do contato nos dois passos, porque o segundo é
     // o que a pessoa encontra ao voltar do WhatsApp, e a do endereço, que é a mais
     // longa do app e a que mais sofre com o teclado.
-    await clique('Meus dados');
+    await clique('Meus Dados');
     await foto('18-meus-dados');
 
     await tester.drag(find.byType(ListView).last, const Offset(0, -900));
@@ -223,7 +223,7 @@ void main() {
     // ── meus documentos ───────────────────────────────────────────────────────
     //
     // A lista e a folha de um termo que falta aceitar — a única escrita da tela.
-    await clique('Meus documentos');
+    await clique('Meus Documentos');
     await foto('20-meus-documentos');
 
     await clique('Autorização de uso de imagem');
@@ -242,17 +242,17 @@ void main() {
     await aoInicio();
     await foto('14-inicio-escuro');
 
-    await clique('Meus agendamentos');
+    await clique('Meus Agendamentos');
     await foto('15-agendamentos-escuro');
     await aoInicio();
 
     // O verde do crédito e o vermelho da dívida são as duas cores que o escuro mais
     // maltrata: um pastel de tema claro sobre grafite vira adesivo aceso.
-    await clique('Minha conta');
+    await clique('Minha Conta');
     await foto('17-minha-conta-escuro');
     await aoInicio();
 
-    await clique('Meus dados');
+    await clique('Meus Dados');
     await foto('19-meus-dados-escuro');
   });
 }

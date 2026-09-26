@@ -9,6 +9,7 @@ import {
   templateLabelOf,
   type ResolvedTemplate,
   type TemplatePreview,
+  titleCase,
 } from '@petshop/shared-types'
 import { Badge, Button, Card, Field, FormError } from '@/components/ui'
 import { previewTemplateAction, resetTemplateAction, saveTemplateAction } from '../config-actions'
@@ -41,7 +42,7 @@ export function TemplatesEditor({ templates, canConfigure }: Props) {
       {groups.map(([key, variants]) => (
         <Card key={key} className="space-y-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-medium">{templateLabelOf(key)}</h2>
+            <h2 className="font-medium">{titleCase(templateLabelOf(key))}</h2>
             <Badge>{MESSAGE_CATEGORY_LABELS[variants[0]!.category]}</Badge>
           </div>
 

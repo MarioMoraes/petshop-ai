@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { DocumentKind } from './document.js'
+import { titleCase } from './text.js'
 import type { ConsentChannel } from './tutor.js'
 
 /**
@@ -117,6 +118,27 @@ function parseSpans(line: string): TermSpan[] {
   return spans
 }
 
+/**
+ * O título do termo em Title Case, como todo título do sistema (`text.ts`).
+ *
+ * Sobre a **frase inteira**, e não trecho a trecho: "Da **guarda** do pet" tem três
+ * trechos, e converter cada um sozinho subiria o "do" que abre o terceiro. A conversão
+ * não muda o tamanho do texto — só troca a caixa de letras —, então o resultado volta a
+ * ser cortado nos mesmos limites e o negrito fica onde o petshop o pôs.
+ *
+ * Aplicado aqui, no parser, porque ele é o único caminho entre o texto e a tela ou o
+ * PDF. O texto guardado — o que o aceite prova — não é tocado.
+ */
+function titleCaseSpans(spans: TermSpan[]): TermSpan[] {
+  const titled = titleCase(spans.map((span) => span.text).join(''))
+  let offset = 0
+  return spans.map((span) => {
+    const text = titled.slice(offset, offset + span.text.length)
+    offset += span.text.length
+    return { ...span, text }
+  })
+}
+
 export function parseTermBody(body: string): TermBlock[] {
   const blocks: TermBlock[] = []
   let paragraph: string[] = []
@@ -146,7 +168,7 @@ export function parseTermBody(body: string): TermBlock[] {
     if (heading) {
       flushParagraph()
       flushList()
-      blocks.push({ type: 'heading', spans: parseSpans(heading[1] ?? '') })
+      blocks.push({ type: 'heading', spans: titleCaseSpans(parseSpans(heading[1] ?? '')) })
       continue
     }
 

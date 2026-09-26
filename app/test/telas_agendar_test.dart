@@ -339,7 +339,7 @@ void main() {
 
   testWidgets('sem agendamento online, a porta não aparece no Início', (tester) async {
     await abrirApp(tester, agendamentoLigado: false);
-    expect(find.text('Meus pets'), findsOneWidget);
+    expect(find.text('Meus Pets'), findsOneWidget);
     expect(find.text('Marcar horário'), findsNothing);
   });
 

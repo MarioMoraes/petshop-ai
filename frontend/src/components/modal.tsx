@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { titleCase } from '@petshop/shared-types'
 import type { IconTone } from './icons'
 
 /**
@@ -167,7 +168,7 @@ export function Modal({
           <div className="min-w-0 flex-1">
             {eyebrow && <p className="section-eyebrow">{eyebrow}</p>}
             <h2 id={tituloId} className="section-title truncate">
-              {title}
+              {titleCase(title)}
             </h2>
             {subtitle && <div className="hint mt-1">{subtitle}</div>}
           </div>

@@ -5,6 +5,7 @@ import {
   formatPhoneBR,
   type ConsentRecord,
   type TutorExport,
+  titleCase,
 } from '@petshop/shared-types'
 import { escapeHtml } from './pdf-port.js'
 
@@ -80,7 +81,7 @@ export function renderTutorExportHtml(
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>Meus dados — ${escapeHtml(options.tenantName)}</title>
+<title>Meus Dados — ${escapeHtml(options.tenantName)}</title>
 <style>
   /* Sem fonte externa: o Gotenberg roda isolado e uma fonte que não carrega vira
      tempo de espera e depois um fallback qualquer. */
@@ -137,7 +138,7 @@ export function renderTutorExportHtml(
 <body>
   <header>
     <h1>${escapeHtml(options.tenantName)}</h1>
-    <p class="sub">Cópia dos seus dados · ${escapeHtml(nome)}</p>
+    <p class="sub">Cópia dos Seus Dados · ${escapeHtml(nome)}</p>
   </header>
 
   <p class="intro">
@@ -147,7 +148,7 @@ export function renderTutorExportHtml(
   </p>
 
   <section>
-    <h2>Seus dados de cadastro</h2>
+    <h2>Seus Dados de Cadastro</h2>
     <dl>
       ${linha('Nome', texto(tutor, 'fullName'))}
       ${linha('Nome social', texto(tutor, 'socialName'))}
@@ -173,17 +174,17 @@ export function renderTutorExportHtml(
   </section>
 
   <section>
-    <h2>Autorizações de contato</h2>
+    <h2>Autorizações de Contato</h2>
     ${consentimentos(data.consents, options.timezone)}
   </section>
 
   <section>
-    <h2>Marcadores do cadastro</h2>
+    <h2>Marcadores do Cadastro</h2>
     ${etiquetas(data.tags)}
   </section>
 
   <section>
-    <h2>Anotações do estabelecimento</h2>
+    <h2>Anotações do Estabelecimento</h2>
     ${anotacoes(texto(tutor, 'notes'))}
   </section>
 
@@ -221,7 +222,7 @@ function enderecos(lista: TutorExport['addresses']): string {
       const acesso = texto(endereco, 'accessNotes')
 
       return `<div class="bloco">
-      <h3>${escapeHtml(texto(endereco, 'label') ?? 'Endereço')}${
+      <h3>${escapeHtml(titleCase(texto(endereco, 'label') ?? 'Endereço'))}${
         endereco.isPrimary === true ? ' <span class="marca">principal</span>' : ''
       }</h3>
       <p>${escapeHtml(rua || 'Endereço sem logradouro')}${

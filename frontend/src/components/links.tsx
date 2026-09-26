@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import Link, { useLinkStatus } from 'next/link'
+import { titleCase } from '@petshop/shared-types'
 import { SpinnerIcon, type IconTone } from './icons'
 
 /**
@@ -75,7 +76,7 @@ export function NavLink<T extends string>({
       className={`nav-item ${active ? 'nav-item-active' : ''}`}
     >
       <LinkSpinner className={`icon-tint ${tone}`}>{icon}</LinkSpinner>
-      {label}
+      {titleCase(label)}
       {tag && <span className="ml-auto text-xs font-medium text-subtle">{tag}</span>}
     </Link>
   )
@@ -104,7 +105,7 @@ export function NavPill<T extends string>({
       className={`btn btn-ghost shrink-0 px-3 py-1.5 ${active ? 'bg-card text-ink' : ''}`}
     >
       <LinkSpinnerVazio />
-      {label}
+      {titleCase(label)}
     </Link>
   )
 }

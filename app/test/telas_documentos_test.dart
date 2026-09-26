@@ -86,9 +86,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Meus documentos'));
+    await tester.ensureVisible(find.text('Meus Documentos'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Meus documentos'));
+    await tester.tap(find.text('Meus Documentos'));
     await tester.pumpAndSettle();
   }
 
@@ -184,6 +184,14 @@ void main() {
     test('o que não é negrito passa inteiro, inclusive < e &', () {
       final blocos = blocosDoTermo('a < b & **c');
       expect(blocos.single.trechos.single.texto, 'a < b & **c');
+    });
+
+    test('o título sai em Title Case, com o negrito nos mesmos limites', () {
+      final titulo = blocosDoTermo('## Das **condições de** pagamento').single;
+      expect(
+        titulo.trechos.map((t) => (t.texto, t.negrito)),
+        [('Das ', false), ('Condições de', true), (' Pagamento', false)],
+      );
     });
   });
 }

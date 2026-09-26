@@ -4,6 +4,7 @@ import {
   type CashMethodTotal,
   type CashMovementResponse,
   type CashSessionDetail,
+  titleCase,
 } from '@petshop/shared-types'
 import { escapeHtml } from './pdf-port.js'
 
@@ -55,7 +56,7 @@ export function renderClosingHtml(report: ClosingReport): string {
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>${escapeHtml(titulo)}</title>
+<title>${escapeHtml(titleCase(titulo))}</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 10pt; margin: 0; }
@@ -106,7 +107,7 @@ export function renderClosingHtml(report: ClosingReport): string {
   <header>
     <div>
       <h1>${escapeHtml(report.tenantName)}</h1>
-      <p class="sub">${escapeHtml(titulo)}</p>
+      <p class="sub">${escapeHtml(titleCase(titulo))}</p>
     </div>
     <div class="periodo">
       <strong>${formatDay(session.openedAt, timeZone)}</strong>
@@ -129,7 +130,7 @@ export function renderClosingHtml(report: ClosingReport): string {
     </div>
   </div>
 
-  <h2>Contagem por forma de pagamento</h2>
+  <h2>Contagem por Forma de Pagamento</h2>
   <table>
     <thead>
       <tr>

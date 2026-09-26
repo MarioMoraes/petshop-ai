@@ -33,7 +33,7 @@ class ListaDeAgendamentos extends StatelessWidget {
     final contexto = sessao.contexto!;
 
     return Tela(
-      appBar: AppBar(title: const Text('Meus agendamentos')),
+      appBar: AppBar(title: const Text('Meus Agendamentos')),
       // Marcar é a ação principal desta tela, e ela **flutua** sobre a lista. Na barra
       // do topo dividia a linha com o título, num alvo pequeno e no canto que o polegar
       // só alcança trocando a mão de posição — e é o toque que o tutor vem dar aqui.

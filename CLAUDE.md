@@ -11,6 +11,8 @@ O resumo que mais importa:
   continua branco;
 - toda seção abre com `<SectionHead>`, nunca um `<h2>` solto — título no *Título 4*
   (Inter 18px/600), **nunca serifa**;
+- todo título sai em **Title Case** — as peças (`PageHeader`, `SectionHead`, `CardHead`,
+  `Modal`, `EmptyState`) aplicam `titleCase` sozinhas; `<h1>`–`<h3>` à mão chama a função;
 - um tom de ícone por formulário, o do domínio no menu lateral, repetido em todas as
   seções;
 - nenhum controle nativo sem estilo: `<Choice>`, `<Segmented>`, `.check`, `.field`;

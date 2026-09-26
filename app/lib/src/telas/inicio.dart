@@ -140,7 +140,7 @@ class Inicio extends StatelessWidget {
                   aoTocar: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => ListaDePets(sessao: sessao)),
                   ),
-                  child: const TextoDaLinha(titulo: 'Meus pets'),
+                  child: const TextoDaLinha(titulo: 'Meus Pets'),
                 ),
 
                 /// Esta não depende de `features`: ver o que já está marcado vale
@@ -157,7 +157,7 @@ class Inicio extends StatelessWidget {
                       builder: (_) => ListaDeAgendamentos(sessao: sessao),
                     ),
                   ),
-                  child: const TextoDaLinha(titulo: 'Meus agendamentos'),
+                  child: const TextoDaLinha(titulo: 'Meus Agendamentos'),
                 ),
 
                 /// "Minha conta", e não "Financeiro": o nome do módulo é vocabulário de
@@ -176,7 +176,7 @@ class Inicio extends StatelessWidget {
                   aoTocar: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => MinhaConta(sessao: sessao)),
                   ),
-                  child: const TextoDaLinha(titulo: 'Minha conta'),
+                  child: const TextoDaLinha(titulo: 'Minha Conta'),
                 ),
 
                 /// Antes de "Meus dados", como na web: é o lugar de buscar um papel —
@@ -191,7 +191,7 @@ class Inicio extends StatelessWidget {
                   aoTocar: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => MeusDocumentos(sessao: sessao)),
                   ),
-                  child: const TextoDaLinha(titulo: 'Meus documentos'),
+                  child: const TextoDaLinha(titulo: 'Meus Documentos'),
                 ),
 
                 /// Por último, porque é o destino menos frequente — corrigir um
@@ -204,7 +204,7 @@ class Inicio extends StatelessWidget {
                   aoTocar: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => MeusDados(sessao: sessao)),
                   ),
-                  child: const TextoDaLinha(titulo: 'Meus dados'),
+                  child: const TextoDaLinha(titulo: 'Meus Dados'),
                 ),
               ],
             ),

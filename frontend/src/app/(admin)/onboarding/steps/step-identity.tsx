@@ -82,7 +82,7 @@ export function StepIdentity({
 
   return (
     <Card>
-      <h1 className="text-2xl font-semibold sm:text-3xl">Vamos conhecer seu petshop</h1>
+      <h1 className="text-2xl font-semibold sm:text-3xl">Vamos Conhecer Seu Petshop</h1>
       <p className="hint mt-2">
         Esses dados aparecem para seus tutores no portal e nos documentos que o sistema emite.
       </p>

@@ -134,7 +134,7 @@ export function ZonesEditor({ zones, defaultPriceCents, blockOutsideZones }: Pro
   return (
     <Card className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-medium text-fg">Zonas de preço</h2>
+        <h2 className="font-medium text-fg">Zonas de Preço</h2>
         {!criando && (
           <Button type="button" className="h-9" disabled={pending} onClick={() => setCriando(true)}>
             Nova zona

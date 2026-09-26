@@ -65,7 +65,7 @@ export function TaxiSettingsForm({ settings, zones, vehicles, taxiServices }: Pr
 
       {taxiServices.length === 0 && (
         <Card className="border-danger/40">
-          <h2 className="font-medium text-fg">Falta o serviço de cobrança</h2>
+          <h2 className="font-medium text-fg">Falta o Serviço de Cobrança</h2>
           <p className="mt-1 text-sm text-subtle">
             A corrida é cobrada como um item do agendamento. Crie um serviço da categoria
             &quot;Taxi Dog&quot; em Agenda → Serviços antes de ligar o módulo.

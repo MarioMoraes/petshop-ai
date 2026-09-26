@@ -80,7 +80,7 @@ export function renderPrescriptionHtml(data: PrescriptionData): string {
       : ''
 
   const orientacoes = data.instructions
-    ? `<h2>Orientações ao tutor</h2>
+    ? `<h2>Orientações ao Tutor</h2>
        <p class="orientacoes">${escapeHtml(data.instructions)}</p>`
     : ''
 

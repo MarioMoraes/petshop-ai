@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
+import { titleCase } from '@petshop/shared-types'
 import type {
   AvailableTaxiDriver,
   TaxiBoard as TaxiBoardData,
@@ -319,7 +320,7 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           {board.unassigned.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-sm font-medium text-danger">
-                Sem motorista ({board.unassigned.length})
+                Sem Motorista ({board.unassigned.length})
               </h2>
               {board.unassigned.map((ride) => (
                 <RideCard key={ride.id} ride={ride} showDriver />
@@ -330,7 +331,7 @@ export function TaxiBoard({ board, drivers, vehicles, canConfigure }: Props) {
           {board.lanes.map((lane) => (
             <section key={lane.driverId} className="space-y-3">
               <h2 className="flex items-center gap-2 text-sm font-medium text-fg">
-                {lane.displayName}
+                {titleCase(lane.displayName)}
                 <span className="text-subtle">({lane.rides.length})</span>
                 {lane.overdue > 0 && <Badge tone="danger">{lane.overdue} atrasada(s)</Badge>}
               </h2>

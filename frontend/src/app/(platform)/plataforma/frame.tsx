@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import { auth } from '@clerk/nextjs/server'
+import { titleCase } from '@petshop/shared-types'
 import {
   AlertTriangleIcon,
   HeartPulseIcon,
@@ -205,7 +206,7 @@ export async function SemAcesso() {
         <span className="icon-chip icon-chip-sm icon-system mx-auto">
           <ShieldCheckIcon />
         </span>
-        <h1 className="mt-4 text-xl font-semibold">Área da equipe PetShop AI</h1>
+        <h1 className="mt-4 text-xl font-semibold">Área da Equipe PetShop AI</h1>
 
         {orgId ? (
           <>
@@ -252,7 +253,7 @@ export function Falha({ titulo, mensagem }: { titulo: string; mensagem: string }
       <span className="icon-chip icon-chip-sm icon-pet">
         <AlertTriangleIcon />
       </span>
-      <h3 className="mt-4 text-lg font-semibold">{titulo}</h3>
+      <h3 className="mt-4 text-lg font-semibold">{titleCase(titulo)}</h3>
       <p className="hint mt-2 max-w-md">{mensagem}</p>
     </div>
   )

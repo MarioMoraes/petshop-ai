@@ -35,7 +35,7 @@ export function StepBranding({
   return (
     <Card>
       <h1 className="text-2xl font-semibold sm:text-3xl">
-        Quase lá. Escolha a <span className="font-serif italic">sua cor</span>.
+        Quase Lá. Escolha a <span className="font-serif italic">Sua Cor</span>.
       </h1>
       <p className="hint mt-2">
         Ela aparece no portal do tutor e no site do seu petshop. Dá para mudar quando quiser.

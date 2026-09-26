@@ -7,6 +7,7 @@ import {
   type ServiceCategory,
   type ServiceResponse,
   type Size,
+  titleCase,
 } from '@petshop/shared-types'
 import { CalendarIcon } from '@/components/icons'
 import { Badge, Button, Card, EmptyState, Field } from '@/components/ui'
@@ -184,7 +185,7 @@ function ServiceRow({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{service.name}</h2>
+            <h2 className="text-lg font-semibold">{titleCase(service.name)}</h2>
             <Badge tone="neutral">{SERVICE_CATEGORY_LABELS[service.category]}</Badge>
             {service.requiresVet && <Badge tone="accent">Exige veterinário</Badge>}
             {!service.active && <Badge tone="neutral">Desativado</Badge>}
@@ -339,7 +340,7 @@ function NewServiceForm({
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold">Novo serviço</h2>
+      <h2 className="text-lg font-semibold">Novo Serviço</h2>
       <p className="hint mt-1">
         Ele nasce com a duração base em todos os portes e sem preço. Preencha os valores logo depois
         — porte sem preço não pode ser agendado.

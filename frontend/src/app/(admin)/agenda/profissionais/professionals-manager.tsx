@@ -1,7 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { BR_UFS, type ProfessionalResponse, type ServiceResponse } from '@petshop/shared-types'
+import {
+  BR_UFS,
+  type ProfessionalResponse,
+  type ServiceResponse,
+  titleCase,
+} from '@petshop/shared-types'
 import { UsersIcon } from '@/components/icons'
 import { Badge, Button, Card, EmptyState, Field } from '@/components/ui'
 import {
@@ -217,7 +222,7 @@ function ProfessionalRow({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{person.displayName}</h2>
+            <h2 className="text-lg font-semibold">{titleCase(person.displayName)}</h2>
             <Badge tone="neutral">{roleLabel}</Badge>
             {person.maxConcurrentPets > 1 && (
               <Badge tone="accent">{person.maxConcurrentPets} pets por vez</Badge>
@@ -615,7 +620,7 @@ function NewProfessionalForm({
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold">Novo profissional</h2>
+      <h2 className="text-lg font-semibold">Novo Profissional</h2>
       <p className="hint mt-1">
         A jornada e os serviços são definidos depois de criar, na própria linha.
       </p>

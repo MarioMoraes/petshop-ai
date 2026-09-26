@@ -26,7 +26,7 @@ class MeusDocumentos extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tela(
-      appBar: AppBar(title: const Text('Meus documentos')),
+      appBar: AppBar(title: const Text('Meus Documentos')),
       corpo: CarregarDados<(PortalDocumentsResponse, PortalTermsResponse)>(
         buscar: () async {
           final (documentos, termos) = await (
