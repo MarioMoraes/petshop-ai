@@ -2,8 +2,11 @@ import { Prisma, withTenant, type TenantTransaction } from '@petshop/db'
 import {
   CASH_METHODS,
   CASH_MOVEMENT_LABELS,
+  DEFAULT_TIMEZONE,
   formatBRL,
+  todayIn,
   type CashAdjustmentInput,
+  type CashAlerts,
   type CashMethod,
   type CashMethodTotal,
   type CashMovementResponse,
@@ -214,7 +217,8 @@ export async function closeSession(
         countedCents: counted.get(method) ?? null,
       }))
       const differenceCents = counts.reduce(
-        (sum, row) => (row.countedCents === null ? sum : sum + row.countedCents - row.expectedCents),
+        (sum, row) =>
+          row.countedCents === null ? sum : sum + row.countedCents - row.expectedCents,
         0,
       )
 
@@ -277,6 +281,56 @@ export async function getSession(actor: ActorContext, id: string): Promise<CashS
   return withTenant(actor.tenantId, (tx) => detail(tx, id))
 }
 
+/**
+ * O caixa esquecido aberto, para o sino.
+ *
+ * Esquecido é o que foi aberto num dia que já passou, no fuso do estabelecimento — e não
+ * "aberto há mais de N horas": o petshop que abre às 7h e fecha às 21h tem catorze horas
+ * de caixa legítimo, e o que abriu às 22h para uma venda tardia não está esquecido às
+ * 23h. Um caixa só por estabelecimento faz desse esquecimento um bloqueio real: a venda
+ * de hoje cai no fechamento de ontem.
+ */
+export async function cashAlerts(actor: ActorContext, now: Date = new Date()): Promise<CashAlerts> {
+  return withTenant(actor.tenantId, async (tx) => {
+    const open = await tx.cashSession.findFirst({
+      where: { status: 'OPEN' },
+      select: { id: true, openedAt: true },
+    })
+    if (!open) return { staleSession: null }
+
+    const timeZone = await tenantTimeZone(tx, actor.tenantId)
+    const openedOn = todayIn(timeZone, open.openedAt)
+    if (openedOn >= todayIn(timeZone, now)) return { staleSession: null }
+
+    return {
+      staleSession: { id: open.id, openedAt: open.openedAt.toISOString(), openedOn },
+    }
+  })
+}
+
+/** O fechamento impresso: a sessão, e o nome e o fuso de quem a imprime. */
+export async function closingReport(
+  actor: ActorContext,
+  id: string,
+): Promise<{ session: CashSessionDetail; tenantName: string; timeZone: string }> {
+  return withTenant(actor.tenantId, async (tx) => {
+    const session = await detail(tx, id)
+    const [tenant, timeZone] = await Promise.all([
+      tx.tenant.findUniqueOrThrow({ where: { id: actor.tenantId }, select: { name: true } }),
+      tenantTimeZone(tx, actor.tenantId),
+    ])
+    return { session, tenantName: tenant.name, timeZone }
+  })
+}
+
+async function tenantTimeZone(tx: TenantTransaction, tenantId: string): Promise<string> {
+  const settings = await tx.tenantSettings.findFirst({
+    where: { tenantId },
+    select: { timezone: true },
+  })
+  return settings?.timezone ?? DEFAULT_TIMEZONE
+}
+
 export async function listSessions(
   actor: ActorContext,
   query: CashSessionListQuery,
@@ -289,8 +343,14 @@ export async function listSessions(
     })
     const page = rows.slice(0, query.limit)
     const [groups, names] = await Promise.all([
-      groupsOf(tx, page.map((row) => row.id)),
-      namesOf(tx, page.flatMap((row) => [row.openedBy, row.closedBy])),
+      groupsOf(
+        tx,
+        page.map((row) => row.id),
+      ),
+      namesOf(
+        tx,
+        page.flatMap((row) => [row.openedBy, row.closedBy]),
+      ),
     ])
 
     return {
@@ -321,17 +381,15 @@ async function detail(tx: TenantTransaction, id: string): Promise<CashSessionDet
 
   return {
     ...summaryOf(session, groups.get(id) ?? [], names),
-    movements: movements.map(
-      (row): CashMovementResponse => ({
-        id: row.id,
-        type: row.type,
-        method: row.method as CashMethod,
-        amountCents: Number(row.amountCents),
-        description: describe(row.type, row.reason, row.sourceId ? tutors.get(row.sourceId) : null),
-        createdByName: row.createdBy ? (names.get(row.createdBy) ?? null) : null,
-        occurredAt: row.occurredAt.toISOString(),
-      }),
-    ),
+    movements: movements.map((row): CashMovementResponse => ({
+      id: row.id,
+      type: row.type,
+      method: row.method as CashMethod,
+      amountCents: Number(row.amountCents),
+      description: describe(row.type, row.reason, row.sourceId ? tutors.get(row.sourceId) : null),
+      createdByName: row.createdBy ? (names.get(row.createdBy) ?? null) : null,
+      occurredAt: row.occurredAt.toISOString(),
+    })),
   }
 }
 

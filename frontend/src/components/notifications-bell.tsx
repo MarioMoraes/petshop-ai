@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { chavesAMarcar, contarNaoVistos, type Pendencia, type PendenciaKey } from '@/lib/pendencias'
 import {
   AlertTriangleIcon,
+  BanknoteIcon,
   BellIcon,
   CalendarIcon,
   GlobeIcon,
@@ -53,6 +54,8 @@ const ICONES: Record<PendenciaKey, { icon: React.ReactNode; tone: IconTone }> = 
   // `icon-system`, o tom de Configurações: é para lá que a linha aponta, e o pedido de
   // exclusão é decisão sobre a base de cadastro — não atendimento de um tutor.
   exclusoes: { icon: <ShieldCheckIcon />, tone: 'icon-system' },
+  // O tom e o ícone da tela do caixa, que é para onde a linha leva.
+  caixaAberto: { icon: <BanknoteIcon />, tone: 'icon-money' },
   leads: { icon: <GlobeIcon />, tone: 'icon-metric' },
   mensagens: { icon: <BellIcon />, tone: 'icon-brand' },
   inadimplentes: { icon: <WalletIcon />, tone: 'icon-money' },

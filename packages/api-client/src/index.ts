@@ -301,6 +301,7 @@ import {
   SaleResultSchema,
   LotTraceSchema,
   InventoryAlertsSchema,
+  CashAlertsSchema,
   CashSessionDetailSchema,
   CashSessionPageSchema,
   CurrentCashSessionSchema,
@@ -2815,6 +2816,14 @@ export function createApiClient(options: ApiClientOptions) {
     /** O caixa aberto agora, com os movimentos — `{ session: null }` quando não há. */
     getCurrentCash: () =>
       request({ method: 'GET', path: '/v1/cash/current', schema: CurrentCashSessionSchema }),
+
+    /** Só o caixa esquecido aberto, para o sino: leve de propósito, roda em toda navegação. */
+    getCashAlerts: () =>
+      request({ method: 'GET', path: '/v1/cash/alerts', schema: CashAlertsSchema }),
+
+    /** O fechamento impresso — ou a conferência parcial do caixa ainda aberto. */
+    downloadCashSessionPdf: (id: string) =>
+      download(`/v1/cash/sessions/${id}/pdf`, 'fechamento-do-caixa.pdf'),
 
     listCashSessions: (query: { cursor?: string; limit?: number } = {}) =>
       request({

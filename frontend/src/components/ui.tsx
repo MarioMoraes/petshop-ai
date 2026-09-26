@@ -173,7 +173,7 @@ export function PageHeader({
         <h1 className="mt-1 text-3xl font-semibold leading-tight sm:text-4xl">{title}</h1>
         {subtitle && <p className="hint mt-2">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   )
 }

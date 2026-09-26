@@ -1,6 +1,7 @@
 import { ApiError } from '@petshop/api-client'
 import { AlertTriangleIcon, BanknoteIcon, ShieldCheckIcon } from '@/components/icons'
-import { EmptyState, PageHeader } from '@/components/ui'
+import { todayIn } from '@petshop/shared-types'
+import { Alert, EmptyState, PageHeader } from '@/components/ui'
 import { PlanoIndisponivel, temRecurso } from '@/components/plano-indisponivel'
 import { carregarMe, serverApi } from '@/lib/api'
 import { AdjustCashButton, CloseCashButton, OpenCashButton } from './cash-dialogs'
@@ -92,6 +93,10 @@ export default async function CaixaPage() {
     )
   }
 
+  // O mesmo critério do sino (`cashAlerts`): aberto num dia que já passou, no fuso do
+  // petshop. Com um caixa só, a venda de hoje entraria no fechamento de ontem.
+  const esquecido = todayIn(timeZone, new Date(session.openedAt)) < todayIn(timeZone)
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -107,8 +112,18 @@ export default async function CaixaPage() {
           ) : null
         }
       />
+      {esquecido && (
+        <Alert
+          tone="accent"
+          icon={<AlertTriangleIcon />}
+          title={`Este caixa está aberto desde ${formatDay(session.openedAt, timeZone)}`}
+        >
+          Feche e confira a gaveta antes da primeira venda de hoje — o que entrar agora soma no
+          fechamento daquele dia.
+        </Alert>
+      )}
       <SessionNumbers session={session} timeZone={timeZone} />
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <MethodCard session={session} />
         <MovementsCard movements={session.movements} timeZone={timeZone} />
       </div>

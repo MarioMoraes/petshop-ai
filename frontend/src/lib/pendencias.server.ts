@@ -5,7 +5,7 @@ import { serverApi } from './api'
 import { AGENT_SLA_MIN, JANELA_HORAS, type ContagemPendencias } from './pendencias'
 
 /**
- * Consulta as oito fontes — a do estoque traz três linhas numa resposta só.
+ * Consulta as nove fontes — a do estoque traz três linhas numa resposta só.
  *
  * Todo `catch` devolve `null`, nunca lança: o sino é enfeite da moldura, e um serviço
  * fora do ar não pode derrubar **toda** tela do Admin junto com ele. A tela de destino
@@ -27,6 +27,7 @@ export async function carregarPendencias(me: MeResponse): Promise<ContagemPenden
     mensagens,
     inadimplentes,
     estoque,
+    caixa,
   ] = await Promise.all([
     /*
      * `crm:read` — a mesma permissão da tela para onde a linha aponta. Quem lê o
@@ -123,6 +124,14 @@ export async function carregarPendencias(me: MeResponse): Promise<ContagemPenden
     temRecurso(me, 'INVENTORY') && pode('inventory:read')
       ? api.getInventoryAlerts().catch(() => null)
       : Promise.resolve(null),
+
+    /*
+     * `cash:operate` e não `cash:read`: o aviso pede um fechamento, e mostrá-lo a quem
+     * só lê o caixa seria a pendência que a pessoa vê e não resolve.
+     */
+    temRecurso(me, 'CASH_REGISTER') && pode('cash:operate')
+      ? api.getCashAlerts().catch(() => null)
+      : Promise.resolve(null),
   ])
 
   return {
@@ -134,5 +143,6 @@ export async function carregarPendencias(me: MeResponse): Promise<ContagemPenden
     mensagens,
     inadimplentes,
     estoque,
+    caixa,
   }
 }

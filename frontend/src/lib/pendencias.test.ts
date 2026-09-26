@@ -6,6 +6,12 @@ import { chavesAMarcar, contarNaoVistos, montarPendencias, type Pendencia } from
  * de **não sei**: uma pessoa sem permissão para Financeiro não pode ver o sino jurar
  * que não há inadimplente nenhum.
  */
+const CAIXA_DE_ONTEM = {
+  id: '00000000-0000-4000-8000-000000000001',
+  openedAt: '2026-09-25T11:00:00.000Z',
+  openedOn: '2026-09-25',
+}
+
 describe('montarPendencias', () => {
   const nada = {
     atendimentos: null,
@@ -16,6 +22,7 @@ describe('montarPendencias', () => {
     mensagens: null,
     inadimplentes: null,
     estoque: null,
+    caixa: null,
   }
 
   it('não mostra linha para contagem zero — ausência de trabalho não é aviso', () => {
@@ -42,6 +49,7 @@ describe('montarPendencias', () => {
       mensagens: 2,
       inadimplentes: 1,
       estoque: { expiringLots: 2, lowProducts: 3, negativeProducts: 1, expiryWarningDays: 30 },
+      caixa: { staleSession: CAIXA_DE_ONTEM },
     })
     /**
      * O cliente esperando no WhatsApp abre a lista, e as duas com prazo vêm logo atrás,
@@ -62,6 +70,7 @@ describe('montarPendencias', () => {
       'aprovacoes',
       'novosAgendamentos',
       'exclusoes',
+      'caixaAberto',
       'leads',
       'mensagens',
       'inadimplentes',
@@ -88,6 +97,18 @@ describe('montarPendencias', () => {
 
     it('estoque zerado em tudo não ocupa o painel', () => {
       expect(montarPendencias({ ...nada, estoque })).toEqual([])
+    })
+  })
+
+  describe('caixa', () => {
+    it('o caixa esquecido aberto é uma linha, com o dia da abertura', () => {
+      const [linha] = montarPendencias({ ...nada, caixa: { staleSession: CAIXA_DE_ONTEM } })
+      expect(linha).toMatchObject({ key: 'caixaAberto', count: 1, href: '/caixa' })
+      expect(linha?.titulo).toBe('Caixa aberto desde 25/09')
+    })
+
+    it('sem caixa esquecido, nada', () => {
+      expect(montarPendencias({ ...nada, caixa: { staleSession: null } })).toEqual([])
     })
   })
 
@@ -128,6 +149,7 @@ describe('montarPendencias', () => {
       mensagens: 1,
       inadimplentes: 1,
       estoque: { expiringLots: 1, lowProducts: 1, negativeProducts: 1, expiryWarningDays: 30 },
+      caixa: { staleSession: CAIXA_DE_ONTEM },
     })
     expect(linhas.map((l) => l.href)).toEqual([
       // A fila de atendimento abre no padrão dela, que já é quem está esperando.
@@ -137,6 +159,7 @@ describe('montarPendencias', () => {
       // A aba já selecionada: sem o `?aba=`, o clique cairia em "Dados" e o contador
       // teria prometido um destino para entregar outro.
       '/configuracoes/estabelecimento?aba=privacidade',
+      '/caixa',
       '/site/contatos?status=NEW',
       '/crm?status=DEAD',
       '/tutores?tag=INADIMPLENTE',
@@ -211,6 +234,7 @@ describe('o ponto vermelho e a marca de lido', () => {
     mensagens: null,
     inadimplentes: null,
     estoque: null,
+    caixa: null,
   })
 
   it('soma tudo enquanto nada foi visto', () => {
@@ -244,6 +268,7 @@ describe('o ponto vermelho e a marca de lido', () => {
       mensagens: null,
       inadimplentes: null,
       estoque: null,
+      caixa: null,
     })
     expect(chavesAMarcar(semNovidade, [])).toEqual([])
     expect(contarNaoVistos(semNovidade, [])).toBe(1)

@@ -92,3 +92,12 @@ Duas decisões do caminho:
 - **A trava do caixa serializa o movimento contra o fechamento.** A venda, a sangria e o pagamento
   travam a sessão aberta (`FOR UPDATE`), e o fechamento também. Uma venda que chega no instante do
   fechamento ou entra antes e é somada, ou não acha caixa aberto.
+
+**2026-09-26 — o caixa esquecido e o fechamento impresso.**
+- `GET /v1/cash/alerts` e a linha "Caixa aberto desde dd/mm" no sino, para quem tem `cash:operate`.
+  Esquecido é o caixa **aberto num dia que já passou, no fuso do petshop**, e não "aberto há N
+  horas": a venda das 22h não é esquecimento às 23h. A tela `/caixa` mostra o mesmo aviso.
+- `GET /v1/cash/sessions/:id/pdf` e o botão em `/caixa/[id]`: contagem por forma, a diferença em
+  palavras ("Faltam R$ 20,00"), a justificativa, os movimentos em ordem cronológica e as linhas de
+  assinatura. O caixa ainda aberto imprime como "conferência parcial".
+- Testes: 14 em `tests/cash/fechamento.test.ts`.

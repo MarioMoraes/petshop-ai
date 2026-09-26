@@ -170,3 +170,21 @@ export const CashSessionPageSchema = z.object({
   nextCursor: z.uuid().nullable(),
 })
 export type CashSessionPage = z.output<typeof CashSessionPageSchema>
+
+/**
+ * O que o sino pergunta ao caixa: se há um aberto desde um dia que já passou.
+ *
+ * `openedOn` é o dia da abertura **no fuso do estabelecimento**, e é o servidor quem o
+ * calcula: o caixa aberto às 22h de ontem em São Paulo já é "hoje" em UTC, e a moldura
+ * não deveria precisar saber disso para acender a linha.
+ */
+export const CashAlertsSchema = z.object({
+  staleSession: z
+    .object({
+      id: z.uuid(),
+      openedAt: z.string(),
+      openedOn: z.iso.date(),
+    })
+    .nullable(),
+})
+export type CashAlerts = z.output<typeof CashAlertsSchema>

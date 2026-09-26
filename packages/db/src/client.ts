@@ -171,6 +171,11 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   // MOD-CAIXA: o dinheiro do balcão, quem abriu e quem fechou.
   'CashSession',
   'CashMovement',
+  // O push do app do tutor. **Ficaram fora do guard quando as tabelas entraram**, como
+  // `AgentToolCall`: a política e o `FORCE ROW LEVEL SECURITY` estão na migration, e o
+  // token do aparelho escreve na tela bloqueada do tutor — é dado dele.
+  'PushDevice',
+  'PushDelivery',
   // `JobLease` e `JobRun` ficam **fora** de propósito, como `User`, `Role` e
   // `Permission`: são tabelas de plataforma, sem dono de tenant. Um job varre todos os
   // tenants por definição, e exigir contexto dele seria negar o que ele é.

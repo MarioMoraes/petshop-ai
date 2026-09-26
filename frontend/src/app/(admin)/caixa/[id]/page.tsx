@@ -14,11 +14,7 @@ import { MethodCard, MovementsCard, SessionNumbers, formatDay } from '../session
 
 export const dynamic = 'force-dynamic'
 
-export default async function CaixaFechamentoPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+export default async function CaixaFechamentoPage({ params }: { params: Promise<{ id: string }> }) {
   const me = await carregarMe()
   if (!temRecurso(me, 'CASH_REGISTER')) {
     return <PlanoIndisponivel me={me} feature="CASH_REGISTER" />
@@ -55,10 +51,19 @@ export default async function CaixaFechamentoPage({
         eyebrow="Caixa do dia"
         title={session.status === 'OPEN' ? 'Caixa aberto' : 'Fechamento'}
         subtitle={formatDay(session.openedAt, timeZone)}
-        actions={<ButtonLink href="/caixa">Voltar</ButtonLink>}
+        actions={
+          <>
+            <ButtonLink href="/caixa">Voltar</ButtonLink>
+            {/* Um `<a>` e não um botão: o PDF é um arquivo, e a rota do Next leva a
+                sessão até o gateway e devolve os bytes. */}
+            <a href={`/caixa/${session.id}/pdf`} download className="btn btn-primary">
+              {session.status === 'OPEN' ? 'Conferência em PDF' : 'Fechamento em PDF'}
+            </a>
+          </>
+        }
       />
       <SessionNumbers session={session} timeZone={timeZone} />
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <MethodCard session={session} />
         <MovementsCard movements={session.movements} timeZone={timeZone} />
       </div>

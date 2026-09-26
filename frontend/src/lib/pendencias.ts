@@ -1,4 +1,4 @@
-import { AGENT_SLA_MIN, type InventoryAlerts } from '@petshop/shared-types'
+import { AGENT_SLA_MIN, type CashAlerts, type InventoryAlerts } from '@petshop/shared-types'
 import type { Route } from 'next'
 
 /**
@@ -28,6 +28,7 @@ export type PendenciaKey =
   | 'aprovacoes'
   | 'novosAgendamentos'
   | 'exclusoes'
+  | 'caixaAberto'
   | 'leads'
   | 'mensagens'
   | 'inadimplentes'
@@ -145,6 +146,11 @@ export interface ContagemPendencias {
    * vez de colecionar 402.
    */
   estoque: InventoryAlerts | null
+  /**
+   * O caixa aberto num dia que já passou (MOD-CAIXA). O servidor decide o que é "dia que
+   * passou", no fuso do petshop; aqui só se lê se veio.
+   */
+  caixa: CashAlerts | null
 }
 
 /**
@@ -164,6 +170,12 @@ export const JANELA_HORAS = 24
  * diferentes, e é assim que um deles começa a mentir sobre o outro.
  */
 export { AGENT_SLA_MIN }
+
+/** `2026-09-25` → `25/09`: o ano sobra num aviso que só existe por dias. */
+function diaMes(isoDate: string): string {
+  const [, month, day] = isoDate.split('-')
+  return `${day}/${month}`
+}
 
 function plural(n: number, singular: string, plural_: string): string {
   return `${n} ${n === 1 ? singular : plural_}`
@@ -251,6 +263,21 @@ export function montarPendencias(contagem: ContagemPendencias): Pendencia[] {
       ),
       detalhe: 'aguardando resposta da equipe',
       href: '/configuracoes/estabelecimento?aba=privacidade',
+    })
+  }
+
+  /**
+   * Depois dos prazos, e antes de tudo o que espera sem estragar: com um caixa só por
+   * estabelecimento, o de ontem aberto recebe a venda de hoje, e o fechamento dos dois
+   * dias vira uma conta que ninguém mais confere. Cai sozinho quando alguém fecha.
+   */
+  if (contagem.caixa?.staleSession) {
+    linhas.push({
+      key: 'caixaAberto',
+      count: 1,
+      titulo: `Caixa aberto desde ${diaMes(contagem.caixa.staleSession.openedOn)}`,
+      detalhe: 'feche e confira antes de vender hoje',
+      href: '/caixa',
     })
   }
 

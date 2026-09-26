@@ -11,8 +11,10 @@ import { openCipher } from './crypto.js'
  * **Um aparelho tem um dono só, em todos os tenants.** O token é do app instalado, e o
  * celular que passa para outra conta — outro tutor, ou o mesmo tutor noutro petshop —
  * muda a linha de dono. É o índice único global em `token_hash` que obriga isso, e é
- * por ele ser global que a troca passa pelo cliente de manutenção: a linha antiga pode
- * estar noutro tenant, onde a RLS desta transação não enxerga.
+ * por ele ser global que a troca começa pelo cliente de manutenção: a linha antiga pode
+ * estar noutro tenant, onde a RLS desta transação não enxerga. O cliente de manutenção
+ * só **acha** a linha; quem a apaga é um `withTenant` do tenant dela — a regra de
+ * `maintenance-client-usage.test.ts`, que deixa o pior caso de um erro aqui num tenant.
  */
 
 export function hashPushToken(token: string): string {
@@ -34,12 +36,16 @@ export async function registerDevice(
   // O aparelho que era de outra ficha deixa de ser. Apagar, e não transferir: o
   // histórico de entregas daquela linha é da ficha anterior, e não pode aparecer como
   // se tivesse ido a este tutor.
-  await getMaintenancePrisma().pushDevice.deleteMany({
-    where: {
-      tokenHash,
-      NOT: { tenantId: owner.tenantId, tutorId: owner.tutorId },
-    },
-  })
+  const anteriores = await getMaintenancePrisma().$queryRaw<{ id: string; tenant_id: string }[]>`
+    SELECT "id", "tenant_id"::text FROM "push_devices"
+    WHERE "token_hash" = ${tokenHash}
+      AND NOT ("tenant_id" = ${owner.tenantId}::uuid AND "tutor_id" = ${owner.tutorId}::uuid)
+  `
+  for (const anterior of anteriores) {
+    await withTenant(anterior.tenant_id, (tx) =>
+      tx.pushDevice.deleteMany({ where: { id: anterior.id, tokenHash } }),
+    )
+  }
 
   await withTenant(owner.tenantId, async (tx) => {
     const cipher = await openCipher(tx, owner.tenantId)
@@ -70,4 +76,3 @@ export async function forgetDevice(owner: DeviceOwner, token: string): Promise<v
     }),
   )
 }
-
