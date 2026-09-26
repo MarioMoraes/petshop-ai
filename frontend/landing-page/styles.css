@@ -677,8 +677,9 @@ ul {
   height: 15px;
 }
 
-/* 3px, e não 7px: são dez itens, como no menu do produto, no espaço que eram oito — e o
-   lembrete flutuante do canto esquerdo não pode cobrir nenhum. */
+/* 3px, e não 7px: são os treze itens do menu do produto, na ordem dele. O lembrete
+   flutuante saiu de cima desta coluna e pende sob a grade da agenda, para não cobrir
+   nenhum. */
 .side-item {
   display: flex;
   align-items: center;
@@ -955,8 +956,8 @@ ul {
 }
 
 .float-notif {
-  left: -26px;
-  bottom: 70px;
+  left: 232px;
+  bottom: -30px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1146,6 +1147,22 @@ ul {
 }
 .span-4 {
   grid-column: span 4;
+}
+.span-6 {
+  grid-column: span 6;
+}
+
+/* Cartão da largura toda: o texto à esquerda e a miniatura à direita, para não sobrar
+   meia faixa em branco. No tablet e no celular volta a empilhar. */
+.card.split {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 36px;
+  align-items: center;
+}
+
+.card.split .mini {
+  margin-top: 0;
 }
 
 .card .chip {
@@ -2380,7 +2397,7 @@ ul {
     right: 8px;
   }
   .float-notif {
-    left: 8px;
+    left: 212px;
   }
   .float-chat {
     right: 8px;
@@ -2455,8 +2472,17 @@ ul {
 
   .span-2,
   .span-3,
-  .span-4 {
+  .span-4,
+  .span-6 {
     grid-column: span 1;
+  }
+
+  .card.split {
+    display: block;
+  }
+
+  .card.split .mini {
+    margin-top: 22px;
   }
 
   .bento .wide {

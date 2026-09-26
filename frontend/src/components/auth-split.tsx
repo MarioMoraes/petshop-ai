@@ -4,10 +4,10 @@ import { Logo } from '@/components/ui'
 import {
   BellIcon,
   CalendarIcon,
-  DocumentIcon,
   GlobeIcon,
   HeartPulseIcon,
   InstagramIcon,
+  PackageIcon,
   SmartphoneIcon,
   SparkleIcon,
   UsersIcon,
@@ -65,6 +65,11 @@ interface Recurso {
  * WhatsApp, propõe horário e confirma na agenda. O Início segue a mesma regra: um
  * indicador só aparece lá depois de existir dado que o responda.
  *
+ * Estoque e caixa foram os primeiros a entrar com a lista cheia, e pagaram a regra
+ * abaixo: o caixa se fundiu à conta corrente ("Financeiro e Caixa"), o aplicativo ao
+ * Portal, e "Documentos e PDFs" saiu — o PDF é o que o financeiro e o prontuário
+ * entregam, e não uma área que alguém procure pelo nome.
+ *
  * **Dez itens e não mais.** O teto não é o número, é o que ele protege: a coluna divide
  * a tela com o formulário, e uma lista que precisa de rolagem para terminar deixa de ser
  * um resumo do produto e vira catálogo. Sem as descrições sobra folga, mas ela é para o
@@ -95,7 +100,12 @@ const RECURSOS: Recurso[] = [
   {
     icone: <WalletIcon />,
     tom: 'icon-money',
-    titulo: 'Conta Corrente',
+    titulo: 'Financeiro e Caixa',
+  },
+  {
+    icone: <PackageIcon />,
+    tom: 'icon-money',
+    titulo: 'Estoque com Lote e Validade',
   },
   {
     icone: <BellIcon />,
@@ -110,7 +120,7 @@ const RECURSOS: Recurso[] = [
   {
     icone: <SmartphoneIcon />,
     tom: 'icon-people',
-    titulo: 'Portal do Tutor',
+    titulo: 'Portal e App do Tutor',
   },
   {
     /*
@@ -122,11 +132,6 @@ const RECURSOS: Recurso[] = [
     icone: <GlobeIcon />,
     tom: 'icon-metric',
     titulo: 'Site do Petshop',
-  },
-  {
-    icone: <DocumentIcon />,
-    tom: 'icon-system',
-    titulo: 'Documentos e PDFs',
   },
 ]
 

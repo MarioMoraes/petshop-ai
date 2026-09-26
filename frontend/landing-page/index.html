@@ -6,7 +6,7 @@
     <title>PetShop AI — gestão e atendimento com IA para Petshops</title>
     <meta
       name="description"
-      content="Agenda, fichas de tutores e pets, prontuário, financeiro, WhatsApp, Portal e aplicativo do tutor, site próprio, Taxi Dog e um agente de IA que marca horários. Traga sua planilha ou o sistema atual. Teste grátis por 14 dias."
+      content="Agenda, fichas de tutores e pets, prontuário, financeiro, caixa do dia, estoque, WhatsApp, Portal e aplicativo do tutor, site próprio, Taxi Dog e um agente de IA que marca horários. Traga sua planilha ou o sistema atual. Teste grátis por 14 dias."
     />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="PetShop AI — o Petshop inteiro num lugar só" />
@@ -66,6 +66,9 @@
       <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0v5" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></symbol>
       <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol>
       <symbol id="i-box" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73Z" /><path d="M12 22V12" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="m7.5 4.27 9 5.15" /></symbol>
+      <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></symbol>
+      <symbol id="i-idcard" viewBox="0 0 24 24"><path d="M16 10h2" /><path d="M16 14h2" /><path d="M6.17 15a3 3 0 0 1 5.66 0" /><circle cx="9" cy="11" r="2" /><rect x="2" y="5" width="20" height="14" rx="2" /></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.9 3h-1.8a1.6 1.6 0 0 0-1.6 1.4l-.1.9a7 7 0 0 0-1.3.8l-.9-.4a1.6 1.6 0 0 0-2 .7l-.9 1.5a1.6 1.6 0 0 0 .4 2l.7.6a7 7 0 0 0 0 1.5l-.7.6a1.6 1.6 0 0 0-.4 2l.9 1.5a1.6 1.6 0 0 0 2 .7l.9-.4q.6.5 1.3.8l.1.9a1.6 1.6 0 0 0 1.6 1.4h1.8a1.6 1.6 0 0 0 1.6-1.4l.1-.9a7 7 0 0 0 1.3-.8l.9.4a1.6 1.6 0 0 0 2-.7l.9-1.5a1.6 1.6 0 0 0-.4-2l-.7-.6a7 7 0 0 0 0-1.5l.7-.6a1.6 1.6 0 0 0 .4-2l-.9-1.5a1.6 1.6 0 0 0-2-.7l-.9.4a7 7 0 0 0-1.3-.8l-.1-.9A1.6 1.6 0 0 0 12.9 3" /><circle cx="12" cy="12" r="2.6" /></symbol>
       <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></symbol>
     </svg>
 
@@ -116,8 +119,8 @@
               <span class="serif">num Lugar Só</span>
             </h1>
             <p class="lead reveal" style="--d: 0.16s">
-              Agenda, fichas de tutores e pets, prontuário, financeiro, estoque e WhatsApp — com um agente de IA que
-              responde seus clientes e marca horários enquanto a equipe cuida dos bichos.
+              Agenda, fichas de tutores e pets, prontuário, financeiro, caixa, estoque e WhatsApp — com um agente de IA
+              que responde seus clientes e marca horários enquanto a equipe cuida dos bichos.
             </p>
             <div class="hero-cta reveal" style="--d: 0.24s">
               <a class="btn btn-dark btn-lg" href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">
@@ -145,13 +148,16 @@
                   <div class="side-item"><span class="chip tone-brand"><svg class="icon"><use href="#i-home" /></svg></span>Início</div>
                   <div class="side-item"><span class="chip tone-people"><svg class="icon"><use href="#i-users" /></svg></span>Tutores</div>
                   <div class="side-item"><span class="chip tone-pet"><svg class="icon"><use href="#i-paw" /></svg></span>Pets</div>
+                  <div class="side-item"><span class="chip tone-people"><svg class="icon"><use href="#i-idcard" /></svg></span>Equipe</div>
                   <div class="side-item is-active"><span class="chip tone-time"><svg class="icon"><use href="#i-cal" /></svg></span>Agenda</div>
                   <div class="side-item"><span class="chip tone-time"><svg class="icon"><use href="#i-van" /></svg></span>Taxi Dog</div>
                   <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-wallet" /></svg></span>Financeiro</div>
+                  <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-cash" /></svg></span>Caixa</div>
                   <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-receipt" /></svg></span>Cobrança</div>
                   <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-box" /></svg></span>Estoque</div>
                   <div class="side-item"><span class="chip tone-brand"><svg class="icon"><use href="#i-bell" /></svg></span>Mensagens</div>
                   <div class="side-item"><span class="chip tone-metric"><svg class="icon"><use href="#i-globe" /></svg></span>Site</div>
+                  <div class="side-item"><span class="chip tone-system"><svg class="icon"><use href="#i-gear" /></svg></span>Configurações</div>
                 </aside>
                 <div class="app-main">
                   <div class="app-head">
@@ -322,10 +328,29 @@
                 <p>A agenda em tela cheia para a TV da bancada: quem está no banho, quem é o próximo e quem já pode ir embora, atualizado sozinho.</p>
               </article>
 
-              <article class="card span-2 reveal tone-money" style="--d: 0.16s">
+              <article class="card span-2 wide reveal tone-money" style="--d: 0.16s">
                 <span class="chip"><svg class="icon"><use href="#i-box" /></svg></span>
                 <h3>Estoque com Lote e Validade</h3>
                 <p>A ração vendida no balcão lança na conta do tutor, a vacina aplicada sai do lote certo, e o sino avisa o que vai vencer e o que precisa repor.</p>
+              </article>
+
+              <article class="card span-6 wide split reveal tone-money">
+                <div>
+                  <span class="chip"><svg class="icon"><use href="#i-cash" /></svg></span>
+                  <h3>Caixa do Dia</h3>
+                  <p>A gaveta do balcão com um livro: abre com o troco, recebe a venda avulsa e o pagamento dos tutores, registra sangria e suprimento, e fecha com a contagem contra o esperado — forma por forma.</p>
+                  <ul class="ticks">
+                    <li><svg class="icon"><use href="#i-check" /></svg>Dinheiro, PIX e Cartão Separados no Fechamento</li>
+                    <li><svg class="icon"><use href="#i-check" /></svg>Diferença Só Fecha com Justificativa</li>
+                  </ul>
+                </div>
+                <div class="mini" aria-hidden="true">
+                  <div class="mini-row"><span><b>08:02</b> Abertura · troco</span><span>R$ 200,00</span></div>
+                  <div class="mini-row"><span><b>09:40</b> Ração 3 kg · venda avulsa</span><span class="pill pill-ok">+ R$ 89,90 · PIX</span></div>
+                  <div class="mini-row"><span><b>11:15</b> Banho do Thor · Rafael</span><span class="pill pill-ok">+ R$ 70,00 · Dinheiro</span></div>
+                  <div class="mini-row"><span><b>13:30</b> Sangria · depósito</span><span class="pill pill-warn">− R$ 150,00</span></div>
+                  <div class="mini-row"><span><b>Esperado em dinheiro</b></span><b>R$ 120,00</b></div>
+                </div>
               </article>
             </div>
           </div>
@@ -588,7 +613,7 @@
                 <ul class="ticks">
                   <li><svg class="icon"><use href="#i-check" /></svg>Venda e Insumo, em Unidade, ml ou kg</li>
                   <li><svg class="icon"><use href="#i-check" /></svg>Lote e Validade: Sai Primeiro o que Vence</li>
-                  <li><svg class="icon"><use href="#i-check" /></svg>Venda no Balcão na Conta do Tutor</li>
+                  <li><svg class="icon"><use href="#i-check" /></svg>Venda no Balcão: na Conta do Tutor ou Avulsa, no Caixa</li>
                   <li><svg class="icon"><use href="#i-check" /></svg>Baixa do Produto Usado no Atendimento</li>
                   <li><svg class="icon"><use href="#i-check" /></svg>Quais Pets Receberam Cada Lote</li>
                   <li><svg class="icon"><use href="#i-check" /></svg>Alerta de Validade e Reposição no Sino</li>
@@ -800,7 +825,7 @@
             </details>
             <details class="faq-item reveal" style="--d: 0.24s">
               <summary>O sistema recebe os pagamentos dos clientes?<span class="faq-plus" aria-hidden="true"></span></summary>
-              <div class="faq-body">O dinheiro continua entrando do jeito que você já recebe — dinheiro, PIX na sua chave ou maquininha. O PetShop AI registra o pagamento, abate da conta do tutor e emite o recibo em PDF.</div>
+              <div class="faq-body">O dinheiro continua entrando do jeito que você já recebe — dinheiro, PIX na sua chave ou maquininha. O PetShop AI registra o pagamento, abate da conta do tutor e emite o recibo em PDF. No plano Pro, o caixa do dia junta a venda avulsa e os pagamentos do balcão e fecha com a contagem da gaveta.</div>
             </details>
             <details class="faq-item reveal" style="--d: 0.28s">
               <summary>Serve para clínica veterinária?<span class="faq-plus" aria-hidden="true"></span></summary>
