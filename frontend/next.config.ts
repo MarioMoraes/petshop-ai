@@ -24,6 +24,24 @@ const config: NextConfig = {
   // Os pacotes do monorepo são consumidos como TypeScript, sem passo de build.
   transpilePackages: ['@petshop/shared-types', '@petshop/api-client'],
   typedRoutes: true,
+  /**
+   * Os endereços que mudaram quando o Financeiro juntou o dinheiro num lugar só
+   * (2026-09-26): a Cobrança era um item próprio do menu, e os Pacotes, uma aba do
+   * Financeiro. Favorito, link colado numa conversa e aba aberta de ontem
+   * continuam chegando. O redirect roda antes do middleware, então o roteamento por
+   * host vale no destino.
+   */
+  async redirects() {
+    return [
+      { source: '/cobranca', destination: '/financeiro/relatorios', permanent: true },
+      {
+        source: '/cobranca/:path*',
+        destination: '/financeiro/relatorios/:path*',
+        permanent: true,
+      },
+      { source: '/financeiro/pacotes', destination: '/configuracoes/pacotes', permanent: true },
+    ]
+  },
   experimental: {
     serverActions: {
       // `uploadPhotosAction` (MOD-PET-04) recebe o FormData inteiro na Server Action

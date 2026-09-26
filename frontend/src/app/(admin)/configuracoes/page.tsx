@@ -1,6 +1,12 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ChevronRightIcon, SettingsIcon, UploadIcon, WalletIcon } from '@/components/icons'
+import {
+  ChevronRightIcon,
+  PackageIcon,
+  SettingsIcon,
+  UploadIcon,
+  WalletIcon,
+} from '@/components/icons'
 import type { IconTone } from '@/components/icons'
 import { PageHeader } from '@/components/ui'
 import { carregarMe } from '@/lib/api'
@@ -10,7 +16,7 @@ import type { ReactNode } from 'react'
 /**
  * A porta das Configurações.
  *
- * Três destinos, e não três abas: o que o menu chamava de "Configurações" abria direto
+ * Quatro destinos, e não quatro abas: o que o menu chamava de "Configurações" abria direto
  * na ficha do estabelecimento, e Assinatura vivia num botão no canto do cabeçalho — um
  * lugar que só se encontra depois de já estar na tela errada. A importação da base seria
  * a décima aba de uma faixa que já quebrava em duas linhas com nove.
@@ -28,7 +34,11 @@ import type { ReactNode } from 'react'
 export const dynamic = 'force-dynamic'
 
 interface Destino {
-  href: '/configuracoes/estabelecimento' | '/assinatura' | '/configuracoes/importacao'
+  href:
+    | '/configuracoes/estabelecimento'
+    | '/configuracoes/pacotes'
+    | '/assinatura'
+    | '/configuracoes/importacao'
   icon: ReactNode
   tone: IconTone
   eyebrow: string
@@ -47,6 +57,18 @@ const DESTINOS: Destino[] = [
     description:
       'Dados do petshop, horário de funcionamento, políticas de agendamento, identidade visual, catálogo de raças, privacidade e trilha de auditoria.',
     requires: 'tenant:read_settings',
+  },
+  {
+    // Veio do Financeiro: um pacote é catálogo de serviço, que se ajusta de vez em
+    // quando, e não o dinheiro do dia. `finance:read` para ver; a tela decide quem salva.
+    href: '/configuracoes/pacotes',
+    icon: <PackageIcon />,
+    tone: 'icon-money',
+    eyebrow: 'Catálogo',
+    title: 'Pacotes pré-pagos',
+    description:
+      'Os pacotes que o tutor compra adiantado — quantos banhos, de qual serviço, por quanto e por quanto tempo valem.',
+    requires: 'finance:read',
   },
   {
     href: '/assinatura',

@@ -88,7 +88,7 @@ interface Stat {
     | '/pets'
     | '/agenda/dia'
     | '/financeiro/configuracoes'
-    | '/financeiro/pacotes'
+    | '/configuracoes/pacotes'
     | '/taxi'
   /** Destaca o número quando ele pede ação — dívida vencida, dia lotado. */
   tone?: 'danger'
@@ -636,7 +636,7 @@ function financeCards(
           : `${plural(credits, 'crédito perdido', 'créditos perdidos')} em ${plural(purchases, 'pacote', 'pacotes')} — cliente que pagou e não usou.`,
       icon: <WalletIcon />,
       iconTone: 'icon-money',
-      href: '/financeiro/pacotes',
+      href: '/configuracoes/pacotes',
     })
   }
 
@@ -676,7 +676,7 @@ function packagesCard(finance: FinanceIndicators): Stat {
         : `${format(tutorsWithActive)} de ${format(activeTutors)} tutores ativos com pacote vigente.`,
     icon: <WalletIcon />,
     iconTone: 'icon-money',
-    href: '/financeiro/pacotes',
+    href: '/configuracoes/pacotes',
   }
 }
 

@@ -11,7 +11,7 @@ import {
 } from '@petshop/shared-types'
 import { WalletIcon } from '@/components/icons'
 import { Badge, Button, Card, CardHead, EmptyState, Field, FormError } from '@/components/ui'
-import { createPackageAction, updatePackageAction } from '../actions'
+import { createPackageAction, updatePackageAction } from './actions'
 
 /**
  * Catálogo de pacotes (MOD-LEDGER-07).

@@ -18,14 +18,22 @@ import { Button } from '@/components/ui'
  * marcaria como formulário o que é filtro.
  */
 
-/** As duas telas que usam esta barra. Literal por causa de `typedRoutes`. */
-type CobrancaPath = '/cobranca/contas-a-receber' | '/cobranca/recebidas-por-dia'
+/**
+ * As telas que usam esta barra — contas a receber, recebidas por dia e os três do
+ * caixa. Literal por causa de `typedRoutes`.
+ */
+type ReportPath =
+  | '/financeiro/relatorios/contas-a-receber'
+  | '/financeiro/relatorios/recebidas-por-dia'
+  | '/financeiro/relatorios/caixa/periodo'
+  | '/financeiro/relatorios/caixa/forma-de-pagamento'
+  | '/financeiro/relatorios/caixa/tutor'
 
 interface Props {
   /** Para onde o `router.push` vai. Os campos montam a query. */
-  basePath: CobrancaPath
-  /** Endereço do PDF **com os filtros correntes já aplicados**. */
-  pdfHref: string
+  basePath: ReportPath
+  /** Endereço do PDF **com os filtros correntes já aplicados**. Sem ele, sem botão. */
+  pdfHref?: string
   children: ReactNode
   /** Sobe o `submit` do formulário; os campos são `name`d e o browser monta a query. */
   onSubmitLabel?: string
@@ -61,15 +69,17 @@ export function ReportFilters({ basePath, pdfHref, children, onSubmitLabel = 'Ap
          * estava lendo — o `content-disposition` da rota já diz o mesmo, e os dois
          * juntos cobrem os navegadores que ignoram um ou outro.
          */}
-        <a href={pdfHref} download className="btn btn-primary">
-          Baixar PDF
-        </a>
+        {pdfHref && (
+          <a href={pdfHref} download className="btn btn-primary">
+            Baixar PDF
+          </a>
+        )}
       </div>
     </form>
   )
 }
 
-/** Volta ao menu. Sempre no mesmo canto, nos dois relatórios. */
-export function BackToCobranca() {
-  return <ButtonLink href="/cobranca">Voltar</ButtonLink>
+/** Volta à aba de relatórios. Sempre no mesmo canto. */
+export function BackToRelatorios() {
+  return <ButtonLink href="/financeiro/relatorios">Voltar</ButtonLink>
 }

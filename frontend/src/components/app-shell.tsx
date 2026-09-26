@@ -24,7 +24,6 @@ import {
   HomeIcon,
   PawPrintIcon,
   PackageIcon,
-  ReceiptIcon,
   SettingsIcon,
   ShieldCheckIcon,
   UsersIcon,
@@ -65,7 +64,6 @@ type NavKey =
   | 'site'
   | 'financeiro'
   | 'caixa'
-  | 'cobranca'
   | 'estoque'
   | 'equipe'
   | 'configuracoes'
@@ -80,9 +78,8 @@ interface NavItem {
     | '/taxi'
     | '/crm'
     | '/site'
-    | '/financeiro/pacotes'
+    | '/financeiro'
     | '/caixa'
-    | '/cobranca'
     | '/estoque'
     | '/equipe'
     | '/configuracoes'
@@ -151,10 +148,16 @@ const NAV: NavItem[] = [
     feature: 'TAXI',
   },
   {
-    // Pacotes e políticas. O extrato de um tutor mora na ficha dele, que é onde o
-    // balcão trabalha — aqui fica o que é do estabelecimento.
+    // A gestão do dinheiro: os Relatórios (o que falta entrar, o que já entrou e o que
+    // passou pela gaveta) e as Políticas de crédito. A Cobrança era um item à parte, e o
+    // Financeiro abria nos Pacotes — que são catálogo de serviço e foram para
+    // Configurações.
+    //
+    // O gate é `finance:read`, que a recepção e o administrador têm; cada aba lá dentro
+    // pede a sua (`finance:configure` nos relatórios de cobrança, `cash:read` nos do
+    // caixa).
     key: 'financeiro',
-    href: '/financeiro/pacotes',
+    href: '/financeiro',
     label: 'Financeiro',
     icon: <WalletIcon />,
     tone: 'icon-money',
@@ -162,9 +165,10 @@ const NAV: NavItem[] = [
   },
   {
     // O caixa do dia, colado no Financeiro: é a gaveta do balcão — abrir com troco,
-    // receber, sangrar e fechar. O gate é `cash:read`, da recepção e do administrador;
-    // quem dá banho não abre gaveta. Recurso do Pro, como o estoque cuja venda avulsa
-    // ele recebe.
+    // receber, sangrar e fechar. Item próprio, e não aba do Financeiro, porque é a tela
+    // que a recepção mantém aberta o dia todo: um clique a mais nela é um clique a mais
+    // em cada venda. O gate é `cash:read`, da recepção e do administrador; quem dá banho
+    // não abre gaveta. Recurso do Pro, como o estoque cuja venda avulsa ele recebe.
     key: 'caixa',
     href: '/caixa',
     label: 'Caixa',
@@ -172,22 +176,6 @@ const NAV: NavItem[] = [
     tone: 'icon-money',
     requires: 'cash:read',
     feature: 'CASH_REGISTER',
-  },
-  {
-    // Logo abaixo do Financeiro, e não dentro dele, porque a pergunta é outra: lá se
-    // configura o estabelecimento — pacotes, políticas —, aqui se olha o dinheiro que
-    // falta entrar e o que já entrou. Quem abre isto não vem ajustar nada; vem
-    // imprimir uma folha e pegar o telefone.
-    //
-    // O gate é `finance:configure`, o mesmo das rotas `/v1/ledger/reports/*`: os dois
-    // relatórios são leitura de gestão — um deles lista nome e telefone de todo mundo
-    // que está devendo —, e não material de balcão.
-    key: 'cobranca',
-    href: '/cobranca',
-    label: 'Cobrança',
-    icon: <ReceiptIcon />,
-    tone: 'icon-money',
-    requires: 'finance:configure',
   },
   {
     // Fecha o bloco do dinheiro: o estoque é custo parado na prateleira, e a venda do

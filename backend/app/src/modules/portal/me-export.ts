@@ -14,7 +14,7 @@ import { getTutorPort, type TutorCaller } from './tutor-port.js'
  * na trilha. Baixar em PDF exerce o direito de acesso exatamente como baixar em JSON, e a
  * prova disso fica registrada do mesmo jeito.
  *
- * **O documento não é guardado.** Como os relatórios do menu Cobrança, e ao contrário do
+ * **O documento não é guardado.** Como os relatórios de cobrança, e ao contrário do
  * recibo, ele desce em bytes e morre. Arquivar a folha criaria uma segunda cópia dos
  * dados pessoais do titular — dentro de um bucket — só para poder entregá-la a ele, que é
  * o oposto do que o pedido significa.

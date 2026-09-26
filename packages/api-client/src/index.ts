@@ -302,6 +302,7 @@ import {
   LotTraceSchema,
   InventoryAlertsSchema,
   CashAlertsSchema,
+  CashReportSchema,
   CashSessionDetailSchema,
   CashSessionPageSchema,
   CurrentCashSessionSchema,
@@ -2830,6 +2831,14 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'GET',
         path: `/v1/cash/sessions${toQueryString(query)}`,
         schema: CashSessionPageSchema,
+      }),
+
+    /** Os relatórios do caixa. Sem `from`/`to`, o mês corrente até hoje. */
+    getCashReport: (query: { from?: string; to?: string } = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/cash/reports${toQueryString(query)}`,
+        schema: CashReportSchema,
       }),
 
     getCashSession: (id: string) =>

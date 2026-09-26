@@ -19,7 +19,7 @@ import { openCipher } from './crypto.js'
 import { getWalkInPort } from './walk-in-port.js'
 
 /**
- * Os dois relatórios do menu Cobrança.
+ * Os dois relatórios da aba Relatórios do Financeiro (a antiga Cobrança).
  *
  * A diferença para `reconciliation.ts` é de propósito, não de dado: lá ficam os
  * **indicadores** — um total por faixa, um total por método —, que o painel mostra e o

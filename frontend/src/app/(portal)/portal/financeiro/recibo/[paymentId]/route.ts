@@ -7,7 +7,7 @@ import { PortalError, readOwnReceipt } from '@/lib/portal-api'
  * Precisa ser uma rota do Next, e não um `<a href>` para o gateway: o token do Clerk
  * mora no servidor deste processo, e um link direto chegaria lá sem `Authorization` e
  * voltaria 401. Mesma razão pela qual os relatórios do MOD-COBRANCA ganharam
- * `/cobranca/pdf/[relatorio]`.
+ * `/financeiro/relatorios/pdf/[relatorio]`.
  *
  * A diferença para aqueles é o que desce: lá, os bytes do PDF; aqui, um **302 para a
  * URL assinada** do bucket. O recibo é peça contábil já arquivada, com retenção de

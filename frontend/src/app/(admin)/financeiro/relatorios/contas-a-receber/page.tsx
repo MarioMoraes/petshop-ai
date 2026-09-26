@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { ApiError } from '@petshop/api-client'
 import {
   AGING_BUCKET_LABELS,
@@ -6,8 +7,8 @@ import {
 } from '@petshop/shared-types'
 import { AlertTriangleIcon, ReceiptIcon } from '@/components/icons'
 import { Card, EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
-import { BackToCobranca, ReportFilters } from '../report-filters'
+import { carregarMe, serverApi } from '@/lib/api'
+import { BackToRelatorios, ReportFilters } from '../report-filters'
 
 /**
  * Relatório de contas a receber.
@@ -37,6 +38,12 @@ const ATRASOS = [
 ] as const
 
 export default async function ContasAReceberPage({ searchParams }: PageProps) {
+  // O gate que era do layout da Cobrança: `finance:configure`, o mesmo das rotas
+  // `/v1/ledger/reports/*`. A lista traz nome e telefone de quem deve — é material de
+  // quem responde pelo caixa, e não do balcão.
+  const me = await carregarMe()
+  if (!me.permissions.includes('finance:configure')) redirect('/financeiro/relatorios')
+
   const params = await searchParams
   const asOf = asDate(params.asOf)
   const minOverdueDays = asAtraso(params.minOverdueDays)
@@ -56,12 +63,12 @@ export default async function ContasAReceberPage({ searchParams }: PageProps) {
   const search = new URLSearchParams(
     Object.entries(query).map(([key, value]) => [key, String(value)]),
   )
-  const pdfHref = `/cobranca/pdf/contas-a-receber${search.size > 0 ? `?${search}` : ''}`
+  const pdfHref = `/financeiro/relatorios/pdf/contas-a-receber${search.size > 0 ? `?${search}` : ''}`
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Cobrança"
+        eyebrow="Relatórios"
         title="Contas a receber"
         subtitle={
           report instanceof ApiError
@@ -70,10 +77,10 @@ export default async function ContasAReceberPage({ searchParams }: PageProps) {
                 report.tutorsCount === 1 ? 'tutor' : 'tutores'
               }`
         }
-        actions={<BackToCobranca />}
+        actions={<BackToRelatorios />}
       />
 
-      <ReportFilters basePath="/cobranca/contas-a-receber" pdfHref={pdfHref}>
+      <ReportFilters basePath="/financeiro/relatorios/contas-a-receber" pdfHref={pdfHref}>
         <label className="block">
           <span className="hint">Posição em</span>
           <input

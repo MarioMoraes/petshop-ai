@@ -563,7 +563,7 @@ export type FinanceIndicators = z.infer<typeof FinanceIndicatorsSchema>
 // ─── Cobrança — os dois relatórios imprimíveis ───────────────────────────────
 
 /**
- * Os relatórios do menu Cobrança.
+ * Os relatórios da aba Relatórios do Financeiro (a antiga Cobrança).
  *
  * Não substituem `ReceivablesSchema`/`CashflowSchema`, que continuam sendo os números
  * do painel: aquilo é um total por faixa, isto é a lista de quem deve e a de quanto

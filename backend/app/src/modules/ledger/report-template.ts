@@ -9,7 +9,7 @@ import {
 import { escapeHtml } from './pdf-port.js'
 
 /**
- * O HTML dos dois relatórios do menu Cobrança.
+ * O HTML dos dois relatórios da aba Relatórios do Financeiro (a antiga Cobrança).
  *
  * Mesma decisão de `receipt-template.ts`, pelas mesmas razões: função pura, sem engine
  * de template, e **todo campo livre passa por `escapeHtml`** — o Gotenberg roda um

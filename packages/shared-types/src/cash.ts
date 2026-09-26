@@ -188,3 +188,80 @@ export const CashAlertsSchema = z.object({
     .nullable(),
 })
 export type CashAlerts = z.output<typeof CashAlertsSchema>
+
+// ─── Relatórios do caixa ─────────────────────────────────────────────────────
+
+/**
+ * Os três relatórios do caixa — por período, por forma de pagamento e por tutor — são
+ * três recortes da **mesma** consulta sobre `cash_movements`, e por isso descem numa
+ * resposta só: um recorte que somasse diferente do outro seria o relatório que desmente
+ * o vizinho. Sem `from`/`to`, o mês corrente até hoje no fuso do estabelecimento.
+ */
+export const CashReportQuerySchema = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+})
+export type CashReportQuery = z.output<typeof CashReportQuerySchema>
+
+/** Janela máxima: um ano, como o relatório de recebidas por dia. */
+export const CASH_REPORT_MAX_DAYS = 366
+
+/**
+ * O que entrou, separado pela origem. Os valores são **líquidos**: a venda avulsa já
+ * desconta o estorno de venda, e o pagamento de tutor, o estorno de pagamento.
+ */
+const CashReceiptsSchema = z.object({
+  walkInCents: z.number().int(),
+  tutorPaymentsCents: z.number().int(),
+  /** `walkInCents + tutorPaymentsCents`: a venda, sem troco, sangria nem suprimento. */
+  receivedCents: z.number().int(),
+  /** Vendas avulsas e pagamentos de tutor lançados; estorno não conta como lançamento. */
+  count: z.number().int(),
+})
+
+export const CashReportDaySchema = CashReceiptsSchema.extend({
+  /** O dia **no fuso do estabelecimento**. */
+  date: z.iso.date(),
+  /** A sangria do dia, em valor positivo. */
+  withdrawalsCents: z.number().int(),
+  depositsCents: z.number().int(),
+})
+export type CashReportDay = z.output<typeof CashReportDaySchema>
+
+export const CashReportMethodSchema = CashReceiptsSchema.extend({
+  method: CashMethodSchema,
+})
+export type CashReportMethod = z.output<typeof CashReportMethodSchema>
+
+export const CashReportTutorSchema = z.object({
+  tutorId: z.uuid(),
+  tutorName: z.string(),
+  /** Pagamentos lançados no caixa; o estorno desconta do valor, não da contagem. */
+  count: z.number().int(),
+  receivedCents: z.number().int(),
+  /** As formas com que o tutor pagou no período, da mais usada para a menos. */
+  methods: z.array(CashMethodSchema),
+  lastPaymentAt: z.string(),
+})
+export type CashReportTutor = z.output<typeof CashReportTutorSchema>
+
+export const CashReportSchema = z.object({
+  tenantName: z.string(),
+  generatedAt: z.iso.datetime(),
+  timezone: z.string(),
+  from: z.iso.date(),
+  to: z.iso.date(),
+  totals: CashReceiptsSchema.extend({
+    withdrawalsCents: z.number().int(),
+    depositsCents: z.number().int(),
+    /** Caixas abertos no período. */
+    sessionsCount: z.number().int(),
+  }),
+  /** Um item por dia **com movimento**; dia sem caixa não vira linha vazia. */
+  days: z.array(CashReportDaySchema),
+  /** Só as formas que o período usou, da maior para a menor. */
+  byMethod: z.array(CashReportMethodSchema),
+  /** Só quem pagou pelo caixa no período, do maior valor para o menor. */
+  byTutor: z.array(CashReportTutorSchema),
+})
+export type CashReport = z.output<typeof CashReportSchema>

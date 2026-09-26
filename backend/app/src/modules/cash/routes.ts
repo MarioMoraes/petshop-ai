@@ -1,6 +1,7 @@
 import {
   AppError,
   CashAdjustmentSchema,
+  CashReportQuerySchema,
   CashSessionListQuerySchema,
   CloseCashSessionSchema,
   OpenCashSessionSchema,
@@ -12,6 +13,7 @@ import type { ActorContext } from './actor.js'
 import { requirePermission, requireTenantContext } from './auth.js'
 import { renderClosingHtml } from './closing-template.js'
 import { PdfUnavailableError, renderPdf } from './pdf-port.js'
+import { cashReport } from './reports.js'
 import {
   adjustSession,
   cashAlerts,
@@ -60,6 +62,16 @@ export async function registerCashRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get('/v1/cash/alerts', READ, async (request) => {
     return cashAlerts(actorFrom(request))
+  })
+
+  /**
+   * Os relatórios do caixa — por período, por forma de pagamento e por tutor. Uma rota
+   * só, porque são três recortes da mesma soma; `cash:read`, o mesmo de quem vê os
+   * fechamentos, que já trazem o nome de cada tutor que pagou.
+   */
+  app.get('/v1/cash/reports', READ, async (request) => {
+    const query = parseInput(CashReportQuerySchema, request.query)
+    return cashReport(actorFrom(request), query)
   })
 
   app.get('/v1/cash/sessions', READ, async (request) => {

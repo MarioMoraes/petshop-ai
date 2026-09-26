@@ -2,15 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { ApiError } from '@petshop/api-client'
-import type {
-  BillingSettings,
-  CreateServicePackageInput,
-  UpdateBillingSettingsInput,
-  UpdateServicePackageInput,
-} from '@petshop/shared-types'
+import type { BillingSettings, UpdateBillingSettingsInput } from '@petshop/shared-types'
 import { serverApi } from '@/lib/api'
 
-/** Ações do catálogo de pacotes e das políticas financeiras (MOD-LEDGER). */
+/** Ações das políticas financeiras (MOD-LEDGER). */
 
 export interface ActionFailure {
   ok: false
@@ -28,31 +23,6 @@ function toFailure(error: unknown): ActionFailure {
     ok: false,
     message: 'Não conseguimos falar com o servidor. Tente novamente em instantes.',
     fieldErrors: {},
-  }
-}
-
-export async function createPackageAction(
-  input: CreateServicePackageInput,
-): Promise<ActionResult<{ id: string }>> {
-  try {
-    const created = await serverApi().createServicePackage(input)
-    revalidatePath('/financeiro/pacotes')
-    return { ok: true, data: created }
-  } catch (error) {
-    return toFailure(error)
-  }
-}
-
-export async function updatePackageAction(
-  id: string,
-  input: UpdateServicePackageInput,
-): Promise<ActionResult<{ id: string }>> {
-  try {
-    const updated = await serverApi().updateServicePackage(id, input)
-    revalidatePath('/financeiro/pacotes')
-    return { ok: true, data: updated }
-  } catch (error) {
-    return toFailure(error)
   }
 }
 

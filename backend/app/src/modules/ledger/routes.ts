@@ -302,7 +302,7 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
   })
 
   /**
-   * MOD-COBRANCA — os dois relatórios imprimíveis do menu Cobrança.
+   * MOD-COBRANCA — os dois relatórios imprimíveis da aba Relatórios do Financeiro.
    *
    * Cada um responde em duas formas, e a diferença está só no `/pdf` do fim: a rota
    * nua devolve JSON, que é o que a tela desenha, e a `/pdf` devolve o documento. O

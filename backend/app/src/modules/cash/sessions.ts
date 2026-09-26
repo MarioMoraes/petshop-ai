@@ -323,7 +323,7 @@ export async function closingReport(
   })
 }
 
-async function tenantTimeZone(tx: TenantTransaction, tenantId: string): Promise<string> {
+export async function tenantTimeZone(tx: TenantTransaction, tenantId: string): Promise<string> {
   const settings = await tx.tenantSettings.findFirst({
     where: { tenantId },
     select: { timezone: true },

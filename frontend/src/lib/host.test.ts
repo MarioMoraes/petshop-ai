@@ -93,7 +93,7 @@ describe('exigeEstabelecimento', () => {
     '/mural',
     '/configuracoes',
     // Rota de arquivo também consulta a API com o tenant da sessão.
-    '/cobranca/pdf/contas-a-receber',
+    '/financeiro/relatorios/pdf/contas-a-receber',
   ])('%s exige estabelecimento ativo', (path) => {
     expect(exigeEstabelecimento(path)).toBe(true)
   })

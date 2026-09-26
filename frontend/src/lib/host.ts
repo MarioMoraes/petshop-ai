@@ -34,7 +34,6 @@ export const ADMIN_ROUTE_PREFIXES = [
   '/assinatura',
   '/agenda',
   '/caixa',
-  '/cobranca',
   '/configuracoes',
   '/convite',
   '/crm',

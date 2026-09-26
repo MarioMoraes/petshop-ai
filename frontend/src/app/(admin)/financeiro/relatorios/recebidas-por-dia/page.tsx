@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { ApiError } from '@petshop/api-client'
 import {
   PAYMENT_METHOD_LABELS,
@@ -7,8 +8,8 @@ import {
 } from '@petshop/shared-types'
 import { AlertTriangleIcon, WalletIcon } from '@/components/icons'
 import { Card, EmptyState, PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
-import { BackToCobranca, ReportFilters } from '../report-filters'
+import { carregarMe, serverApi } from '@/lib/api'
+import { BackToRelatorios, ReportFilters } from '../report-filters'
 
 /**
  * Relatório de contas recebidas por dia.
@@ -30,6 +31,12 @@ interface PageProps {
 }
 
 export default async function RecebidasPorDiaPage({ searchParams }: PageProps) {
+  // O gate que era do layout da Cobrança: `finance:configure`, o mesmo das rotas
+  // `/v1/ledger/reports/*`. A lista traz nome e telefone de quem deve — é material de
+  // quem responde pelo caixa, e não do balcão.
+  const me = await carregarMe()
+  if (!me.permissions.includes('finance:configure')) redirect('/financeiro/relatorios')
+
   const params = await searchParams
   const query = {
     ...(asDate(params.from) ? { from: asDate(params.from) as string } : {}),
@@ -50,12 +57,12 @@ export default async function RecebidasPorDiaPage({ searchParams }: PageProps) {
     report instanceof ApiError
       ? new URLSearchParams(query)
       : new URLSearchParams({ from: report.from, to: report.to })
-  const pdfHref = `/cobranca/pdf/recebidas-por-dia?${search}`
+  const pdfHref = `/financeiro/relatorios/pdf/recebidas-por-dia?${search}`
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Cobrança"
+        eyebrow="Relatórios"
         title="Contas recebidas por dia"
         subtitle={
           report instanceof ApiError
@@ -70,10 +77,10 @@ export default async function RecebidasPorDiaPage({ searchParams }: PageProps) {
                   : ''
               }`
         }
-        actions={<BackToCobranca />}
+        actions={<BackToRelatorios />}
       />
 
-      <ReportFilters basePath="/cobranca/recebidas-por-dia" pdfHref={pdfHref}>
+      <ReportFilters basePath="/financeiro/relatorios/recebidas-por-dia" pdfHref={pdfHref}>
         <label className="block">
           <span className="hint">De</span>
           <input
