@@ -1,15 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { withTenant } from '@petshop/db'
-import type { PaymentMethod } from '@petshop/shared-types'
+import type { ManualPaymentMethod } from '@petshop/shared-types'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PdfUnavailableError, setPdfPort } from '../../src/modules/ledger/pdf-port.js'
 import { openCipher } from '../../src/modules/ledger/crypto.js'
 import { createManualEntry } from '../../src/modules/ledger/entries.js'
 import { recordPayment } from '../../src/modules/ledger/payments.js'
-import {
-  accountsReceivableReport,
-  receiptsByDayReport,
-} from '../../src/modules/ledger/reports.js'
+import { accountsReceivableReport, receiptsByDayReport } from '../../src/modules/ledger/reports.js'
 import {
   actorOf,
   asAdmin,
@@ -61,11 +58,7 @@ async function debitar(amountCents: number, daysAgo: number, tutor = tutorId) {
   )
 }
 
-async function pagar(
-  amountCents: number,
-  receivedAt: Date,
-  method: PaymentMethod = 'CASH',
-) {
+async function pagar(amountCents: number, receivedAt: Date, method: ManualPaymentMethod = 'CASH') {
   return recordPayment(actorOf(tenant), {
     tutorId,
     amountCents,
@@ -274,7 +267,11 @@ describe('as rotas', () => {
   })
 
   it('devolve o PDF como anexo, com nome que traz a data-base', async () => {
-    setPdfPort({ async render() { return Buffer.from('%PDF-1.4 dublê') } })
+    setPdfPort({
+      async render() {
+        return Buffer.from('%PDF-1.4 dublê')
+      },
+    })
     await debitar(10_000, 3)
 
     const response = await callApi({

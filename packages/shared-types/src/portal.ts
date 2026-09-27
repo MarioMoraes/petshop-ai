@@ -390,9 +390,7 @@ export const PortalBookingServicesResponseSchema = z.object({
   petName: z.string(),
   services: z.array(PortalBookableServiceSchema),
 })
-export type PortalBookingServicesResponse = z.infer<
-  typeof PortalBookingServicesResponseSchema
->
+export type PortalBookingServicesResponse = z.infer<typeof PortalBookingServicesResponseSchema>
 
 /**
  * A consulta de horários.
@@ -406,7 +404,12 @@ export const PortalAvailabilityQuerySchema = z
     petId: z.uuid(),
     serviceIds: z
       .string()
-      .transform((raw) => raw.split(',').map((id) => id.trim()).filter(Boolean))
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean),
+      )
       .pipe(z.array(z.uuid()).min(1).max(10)),
     /** Dia no fuso do petshop (`YYYY-MM-DD`), e não um instante: quem escolhe é o dia. */
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -730,8 +733,26 @@ export const PortalPaymentInstructionsSchema = z.object({
   whatsapp: z.string().nullable(),
   /** Grade de funcionamento, já resolvida em linhas prontas para exibição. */
   hours: z.array(z.object({ label: z.string(), value: z.string() })),
+  /**
+   * Se o petshop cobra online (Asaas conectado). Com ela, a tela oferece "Pagar agora" a
+   * quem tem valor em aberto; a chave PIX continua como alternativa.
+   */
+  onlinePayment: z.boolean(),
 })
 export type PortalPaymentInstructions = z.infer<typeof PortalPaymentInstructionsSchema>
+
+/**
+ * O link de pagamento que o tutor abre (Pagar agora).
+ *
+ * O valor é o que ele deve no momento, decidido no servidor — o corpo não traz valor
+ * nenhum, e um tutor não escolhe quanto a própria dívida vale.
+ */
+export const PortalChargeResponseSchema = z.object({
+  url: z.string(),
+  amountCents: z.number().int(),
+  expiresAt: z.iso.datetime(),
+})
+export type PortalChargeResponse = z.infer<typeof PortalChargeResponseSchema>
 
 export const PortalFinanceResponseSchema = z.object({
   /** Negativo = deve; positivo = tem crédito. Ver `portalOwesCents`. */

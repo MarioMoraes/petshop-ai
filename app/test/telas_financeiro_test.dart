@@ -46,7 +46,8 @@ void main() {
   Future<void> abrirApp(WidgetTester tester) async {
     telaDeCelular(tester);
     chamadas = [];
-    conta = Map<String, dynamic>.from(_conta);
+    conta = Map<String, dynamic>.from(_conta)
+      ..['howToPay'] = Map<String, dynamic>.from(_conta['howToPay']! as Map);
     recibo = Map<String, dynamic>.from(_recibo);
     recusaDoRecibo = null;
     recusaDoPdf = false;
@@ -107,6 +108,12 @@ void main() {
               'content-disposition': 'attachment; filename="extrato-2026-09-21.pdf"',
             },
           );
+        case 'POST /portal/v1/finance/charges':
+          corpo = {
+            'url': 'https://www.asaas.com/checkoutSession/show?id=chk_1',
+            'amountCents': 18000,
+            'expiresAt': '2026-09-24T13:00:00.000Z',
+          };
         case 'GET /portal/v1/finance/receipts/pay-1':
           if (recusaDoRecibo != null) {
             return http.Response('{"detail":"não foi possível abrir o recibo"}',
@@ -181,6 +188,32 @@ void main() {
     expect(find.text('Chave PIX'), findsOneWidget);
     expect(find.text('petshopteste@exemplo.com.br'), findsOneWidget);
     expect(find.text('Seg a Sex: 08:00 às 18:00'), findsOneWidget);
+  });
+
+  testWidgets('com o Asaas do petshop conectado, pagar agora abre o link no navegador',
+      (tester) async {
+    await abrirApp(tester);
+    (conta['howToPay'] as Map<String, dynamic>)['onlinePayment'] = true;
+
+    await tester.tap(find.text('Minha Conta'));
+    await tester.pumpAndSettle();
+
+    await aVista(tester, find.text('Pagar ${r('180,00')} agora'));
+    // A chave PIX continua como alternativa.
+    expect(find.text('petshopteste@exemplo.com.br'), findsOneWidget);
+
+    await tester.tap(find.text('Pagar ${r('180,00')} agora'));
+    await tester.pumpAndSettle();
+
+    // Sem corpo: o valor é decidido no servidor.
+    expect(chamadas, contains('POST /portal/v1/finance/charges'));
+    expect(abertos.single.toString(), contains('chk_1'));
+  });
+
+  testWidgets('sem o Asaas conectado, não há botão de pagar', (tester) async {
+    await entrarNaConta(tester);
+    await aVista(tester, find.text('Como pagar'));
+    expect(find.textContaining('agora'), findsNothing);
   });
 
   testWidgets('crédito não vira dívida, e quem está em dia não vê como pagar',
@@ -416,6 +449,7 @@ const _conta = {
     'hours': [
       {'label': 'Seg a Sex', 'value': '08:00 às 18:00'},
     ],
+    'onlinePayment': false,
   },
   'timezone': 'America/Sao_Paulo',
 };

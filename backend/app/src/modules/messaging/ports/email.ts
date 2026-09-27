@@ -43,8 +43,14 @@ function createResendPort(apiKey: string, from: string): ChannelPort {
         // (`PetShop AI <contato@dominio>`), que é o formato do `.env` deste projeto.
         // Prefixar o segundo caso produziria `Nome <PetShop AI <contato@…>>`, que o
         // Resend recusa — e a recusa só apareceria em produção, no primeiro envio.
+        //
+        // O domínio próprio do petshop, quando verificado, substitui o da plataforma — e
+        // chega sempre como endereço puro, então o nome do remetente se aplica.
+        const address = request.from ?? from
         const sender =
-          request.senderName && !from.includes('<') ? `${request.senderName} <${from}>` : from
+          request.senderName && !address.includes('<')
+            ? `${request.senderName} <${address}>`
+            : address
         const response = await fetch(RESEND_ENDPOINT, {
           method: 'POST',
           headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },

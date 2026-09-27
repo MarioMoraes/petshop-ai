@@ -10,6 +10,7 @@ import { Alert, Badge, Card, SectionHead } from '@/components/ui'
 import { AlertTriangleIcon, PhoneIcon, ReceiptIcon, WalletIcon } from '@/components/icons'
 import { PortalFrame } from '../frame'
 import { RowChip, RowItem, RowMeta, RowStack, RowText } from '../list'
+import { PayNow } from './pay-now'
 import { Statement } from './statement'
 import { PortalError, readOwnFinance, readOwnStatement, readPortalContext } from '@/lib/portal-api'
 
@@ -20,9 +21,10 @@ import { PortalError, readOwnFinance, readOwnStatement, readPortalContext } from
  * **quanto eu devo**, **o que eu já paguei** e **como eu pago**. Pacote com crédito
  * entra entre a primeira e a segunda, porque é dinheiro que já saiu do bolso dele.
  *
- * **Não há botão de pagar, e a ausência é deliberada** (AC-05). A v1 não tem meio de
- * pagamento integrado; um "pagar agora" que abrisse um diálogo pedindo para procurar o
- * petshop seria pior que o bloco honesto com a chave PIX e o horário de atendimento.
+ * **O botão de pagar só existe quando o petshop conectou o Asaas** (Configurações ›
+ * Integrações). Sem isso, a tela mostra o bloco honesto com a chave PIX e o horário de
+ * atendimento — um "pagar agora" que abrisse um diálogo pedindo para procurar o petshop
+ * seria pior que a ausência dele.
  */
 
 export const dynamic = 'force-dynamic'
@@ -210,16 +212,18 @@ function HowToPayCard({
   finance: PortalFinanceResponse
   tenantName: string
 }) {
-  const { pixKey, phone, whatsapp, hours } = finance.howToPay
-  const semNada = !pixKey && !phone && !whatsapp
+  const { pixKey, phone, whatsapp, hours, onlinePayment } = finance.howToPay
+  const semNada = !pixKey && !phone && !whatsapp && !onlinePayment
 
   return (
     <Card>
       <SectionHead icon={<PhoneIcon />} tone="icon-brand" title="Como pagar" />
 
+      {onlinePayment && <PayNow valor={formatBRL(portalOwesCents(finance.balanceCents))} />}
+
       {pixKey && (
         <div className="mt-4">
-          <p className="hint">Chave PIX</p>
+          <p className="hint">{onlinePayment ? 'Ou pelo PIX do petshop' : 'Chave PIX'}</p>
           {/*
             `break-all` porque chave aleatória tem 36 caracteres sem espaço e estoura a
             largura de qualquer celular. Texto selecionável, e não um botão de copiar:

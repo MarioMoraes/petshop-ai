@@ -47,7 +47,6 @@ export default async function CrmConfigPage() {
   ])
 
   const canConfigure = me.permissions.includes('crm:configure')
-  const canConnectChannel = me.permissions.includes('crm:connect_channel')
 
   const header = (
     <PageHeader
@@ -103,7 +102,6 @@ export default async function CrmConfigPage() {
         automations={automations}
         suppressions={suppressions}
         whatsapp={whatsapp}
-        canConnectChannel={canConnectChannel}
         plan={planoDe(me)}
       />
     </div>

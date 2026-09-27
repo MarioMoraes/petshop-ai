@@ -551,3 +551,33 @@ describe('GET /portal/v1/finance/receipts/:paymentId', () => {
     expect(response.json().code).toBe('ERR_LEDGER_001')
   })
 })
+
+describe('POST /portal/v1/finance/charges — Pagar agora', () => {
+  it('abre o link da cobrança do próprio tutor, sem valor vindo do corpo', async () => {
+    const tutorId = await givenTutor(fixture)
+
+    const response = await callApi({
+      method: 'POST',
+      url: '/portal/v1/finance/charges',
+      ...asTutor(fixture, tutorId),
+      payload: { amountCents: 1, tutorId: '00000000-0000-4000-8000-000000000000' },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().url).toContain('asaas')
+    // O titular sai do `ownScope`, e não do corpo.
+    expect(ledger.calls).toEqual([tutorId])
+  })
+
+  it('o painel diz que não há pagamento online sem Asaas conectado', async () => {
+    const tutorId = await givenTutor(fixture)
+
+    const response = await callApi({
+      method: 'GET',
+      url: '/portal/v1/finance',
+      ...asTutor(fixture, tutorId),
+    })
+
+    expect(response.json().howToPay.onlinePayment).toBe(false)
+  })
+})

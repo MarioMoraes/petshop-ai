@@ -39,6 +39,11 @@ export interface ResolvedSettings {
   replyToEmail: string | null
   /** Do `tenant_settings`, não da configuração de mensagens: o fuso é do petshop. */
   timezone: string
+  /**
+   * O endereço do domínio próprio, **só quando verificado** — `null` é "sai pelo
+   * `MAIL_FROM` da plataforma". Ver `email-domain.ts`.
+   */
+  fromAddress: string | null
 }
 
 function minutesFromTime(value: string): number {
@@ -55,12 +60,18 @@ export async function loadSettings(
   tx: TenantTransaction,
   tenantId: string,
 ): Promise<ResolvedSettings> {
-  const [row, tenantSettings] = await Promise.all([
+  const [row, tenantSettings, emailDomain] = await Promise.all([
     tx.messagingSettings.findUnique({ where: { tenantId } }),
     tx.tenantSettings.findFirst({ select: { timezone: true } }),
+    tx.emailDomain.findUnique({
+      where: { tenantId },
+      select: { status: true, localPart: true, domain: true },
+    }),
   ])
 
   const timezone = tenantSettings?.timezone ?? DEFAULT_TIMEZONE
+  const fromAddress =
+    emailDomain?.status === 'VERIFIED' ? `${emailDomain.localPart}@${emailDomain.domain}` : null
 
   if (!row) {
     return {
@@ -76,6 +87,7 @@ export async function loadSettings(
       senderName: null,
       replyToEmail: null,
       timezone,
+      fromAddress,
     }
   }
 
@@ -92,6 +104,7 @@ export async function loadSettings(
     senderName: row.senderName,
     replyToEmail: row.replyToEmail,
     timezone,
+    fromAddress,
   }
 }
 
@@ -101,7 +114,11 @@ export async function getSettings(tenantId: string): Promise<ResolvedSettings> {
   if (cached) return cached
 
   const settings = await withTenant(tenantId, (tx) => loadSettings(tx, tenantId))
-  await cacheSet(CACHE_KEYS.messagingSettings(tenantId), settings, CACHE_TTL_SECONDS.messagingSettings)
+  await cacheSet(
+    CACHE_KEYS.messagingSettings(tenantId),
+    settings,
+    CACHE_TTL_SECONDS.messagingSettings,
+  )
   return settings
 }
 

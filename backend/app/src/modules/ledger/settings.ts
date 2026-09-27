@@ -2,6 +2,8 @@ import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
   DEFAULT_BILLING_SETTINGS,
   type BillingSettings,
+  PAYMENT_METHODS,
+  type ManualPaymentMethod,
   type PaymentMethod,
   type UpdateBillingSettingsInput,
 } from '@petshop/shared-types'
@@ -41,9 +43,11 @@ export async function loadSettings(
     overdueDays: row.overdueDays,
     // Coluna vazia é tenant que nunca configurou: cair no padrão é mais útil que
     // recusar todo pagamento por "nenhuma forma habilitada".
+    //
+    // Os meios online nunca estão na lista: só nascem do webhook da cobrança do Asaas.
     enabledPaymentMethods:
       row.enabledPaymentMethods.length > 0
-        ? row.enabledPaymentMethods
+        ? row.enabledPaymentMethods.filter(isManualPaymentMethod)
         : DEFAULT_BILLING_SETTINGS.enabledPaymentMethods,
     defaultPackageValidityDays: row.defaultPackageValidityDays,
     packageExpiryWarningDays: row.packageExpiryWarningDays,
@@ -83,7 +87,10 @@ export async function updateSettings(
 
       const data = {
         ...(input.creditLimitCents !== undefined
-          ? { creditLimitCents: input.creditLimitCents === null ? null : BigInt(input.creditLimitCents) }
+          ? {
+              creditLimitCents:
+                input.creditLimitCents === null ? null : BigInt(input.creditLimitCents),
+            }
           : {}),
         ...(input.overdueDays !== undefined ? { overdueDays: input.overdueDays } : {}),
         ...(input.enabledPaymentMethods !== undefined
@@ -146,10 +153,17 @@ export async function updateSettings(
  * e para que "recebi no cartão" não seja registrado onde cartão nunca entrou.
  */
 export function assertMethodEnabled(settings: BillingSettings, method: PaymentMethod): void {
+  // O pagamento online não passa pelo balcão: quem o habilita é a conexão com o Asaas, e
+  // a cobrança só nasce com ela de pé.
+  if (!isManualPaymentMethod(method)) return
   if (settings.enabledPaymentMethods.includes(method)) return
 
   throw methodNotEnabled('Forma de pagamento não habilitada para este estabelecimento', {
     method,
     enabledPaymentMethods: settings.enabledPaymentMethods,
   })
+}
+
+function isManualPaymentMethod(method: PaymentMethod): method is ManualPaymentMethod {
+  return (PAYMENT_METHODS as readonly string[]).includes(method)
 }

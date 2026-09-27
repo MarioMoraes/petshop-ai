@@ -15,15 +15,15 @@ import {
   getWhatsappConnectionAction,
   recreateWhatsappAction,
   refreshWhatsappQrCodeAction,
-} from '../config-actions'
+} from './actions'
 
 /**
  * A conexão do WhatsApp do estabelecimento (MOD-CRM-01).
  *
- * Fica **acima** da chave geral, e a ordem é a das perguntas: a chave decide *se* o
- * petshop manda mensagem, este cartão decide *por onde*. Com ele desconectado, tudo
- * abaixo continua funcionando — só sai por e-mail —, e a tela precisa dizer isso em vez
- * de deixar o dono descobrir pelo cliente que não recebeu no WhatsApp.
+ * Mora em Integrações, e não mais nas configurações do relacionamento: a chave geral de
+ * lá decide *se* o petshop manda mensagem, este cartão decide *por onde*. Com ele
+ * desconectado, tudo continua funcionando — só sai por e-mail —, e a tela precisa dizer
+ * isso em vez de deixar o dono descobrir pelo cliente que não recebeu no WhatsApp.
  *
  * O QR **não** é guardado em lugar nenhum: ele vence em cerca de um minuto do lado do
  * provedor. Por isso o cartão pede um novo quando o tempo acaba, em vez de deixar na
@@ -131,8 +131,8 @@ export function WhatsappCard({ initial, canConnect }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <SectionHead
           icon={<PhoneIcon />}
-          tone="icon-brand"
-          eyebrow="Relacionamento"
+          tone="icon-system"
+          eyebrow="WhatsApp"
           title="WhatsApp do estabelecimento"
           description={describe(connection)}
         />

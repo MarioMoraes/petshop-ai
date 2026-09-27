@@ -21,22 +21,22 @@ import {
   type SuppressionResponse,
   type WhatsappConnection,
 } from '@petshop/shared-types'
-import { Alert, Badge, Button, Card, Field, FormError, SectionHead } from '@/components/ui'
+import { Badge, Button, Card, Field, FormError, SectionHead } from '@/components/ui'
 import { useToast } from '@/components/toast'
-import { BellIcon, CalendarIcon, ShieldCheckIcon, SparkleIcon } from '@/components/icons'
+import { BellIcon, CalendarIcon, ShieldCheckIcon } from '@/components/icons'
 import {
   createSuppressionAction,
   deleteSuppressionAction,
   updateAutomationAction,
   updateMessagingSettingsAction,
 } from '../config-actions'
-import { WhatsappCard } from './whatsapp-card'
+import { ButtonLink } from '@/components/links'
 
 /**
  * Cada bloco salva sozinho, como em `/configuracoes` e no Taxi Dog.
  *
  * Um "salvar tudo" faria quem só queria mudar a janela de silêncio reenviar também o
- * teto diário e o remetente — e um erro em qualquer campo derrubaria a edição inteira.
+ * teto diário e o canal preferido — e um erro em qualquer campo derrubaria a edição inteira.
  */
 
 interface Props {
@@ -44,19 +44,11 @@ interface Props {
   automations: AutomationResponse[]
   suppressions: SuppressionResponse[]
   whatsapp: WhatsappConnection | null
-  canConnectChannel: boolean
   /** O plano do estabelecimento: o WhatsApp e as campanhas automáticas são do Pro. */
   plan: Plan
 }
 
-export function CrmSettingsForm({
-  settings,
-  automations,
-  suppressions,
-  whatsapp,
-  canConnectChannel,
-  plan,
-}: Props) {
+export function CrmSettingsForm({ settings, automations, suppressions, whatsapp, plan }: Props) {
   const [error, setError] = useState<string | null>(null)
   const toast = useToast()
   // O "salvo" morava no topo da página, fora de vista para quem salvou lá embaixo; o
@@ -71,25 +63,37 @@ export function CrmSettingsForm({
     <div className="space-y-6">
       <FormError message={error} />
 
-      {/* Antes da chave geral: ela decide **se** manda, o cartão decide **por onde** —
-          e um motor ligado sem canal de WhatsApp entrega tudo por e-mail sem avisar. */}
-      {planIncludes(plan, 'WHATSAPP') ? (
-        whatsapp && <WhatsappCard initial={whatsapp} canConnect={canConnectChannel} />
-      ) : (
-        <Alert
-          tone="accent"
-          role="status"
-          icon={<SparkleIcon />}
-          title={`WhatsApp está no plano ${PLAN_CATALOG[minimumPlanFor('WHATSAPP')].name}`}
-        >
-          No plano {PLAN_CATALOG[plan].name}, as mensagens automáticas saem por e-mail.
-        </Alert>
-      )}
+      <ChannelNote plan={plan} whatsapp={whatsapp} />
       <MasterSwitch settings={settings} onError={setError} onSaved={setSaved} />
       <Automations automations={automations} plan={plan} onError={setError} onSaved={setSaved} />
       <EngineSettings settings={settings} onError={setError} onSaved={setSaved} />
       <Suppressions suppressions={suppressions} onError={setError} onSaved={setSaved} />
     </div>
+  )
+}
+
+/**
+ * Por onde as mensagens saem, numa linha.
+ *
+ * A conexão do WhatsApp e o remetente do e-mail moraram aqui até irem para
+ * Configurações › Integrações, junto das outras credenciais do petshop. O estado continua
+ * visível, porque é daqui que se entende por que uma automação saiu por e-mail — mudar,
+ * só lá.
+ */
+function ChannelNote({ plan, whatsapp }: { plan: Plan; whatsapp: WhatsappConnection | null }) {
+  const canal = !planIncludes(plan, 'WHATSAPP')
+    ? `WhatsApp está no plano ${PLAN_CATALOG[minimumPlanFor('WHATSAPP')].name}; as mensagens saem por e-mail.`
+    : whatsapp?.status === 'CONNECTED'
+      ? 'WhatsApp conectado.'
+      : 'Sem WhatsApp conectado — as mensagens saem por e-mail.'
+
+  return (
+    <p className="hint flex flex-wrap items-center gap-x-2">
+      <span>{canal} A conexão e o remetente do e-mail ficam em</span>
+      <ButtonLink href="/configuracoes/integracoes" variant="link">
+        Configurações › Integrações
+      </ButtonLink>
+    </p>
   )
 }
 
@@ -616,46 +620,6 @@ function EngineSettings({
         />
         Marketing só em dia útil
       </label>
-
-      <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
-        <Field
-          label="Nome do remetente"
-          htmlFor="senderName"
-          hint="Como o e-mail se apresenta"
-          error={fieldErrors.senderName}
-        >
-          <input
-            id="senderName"
-            className="field"
-            maxLength={60}
-            defaultValue={settings.senderName ?? ''}
-            disabled={pending}
-            onBlur={(event) =>
-              event.target.value !== (settings.senderName ?? '') &&
-              save({ senderName: event.target.value || null }, 'Remetente')
-            }
-          />
-        </Field>
-
-        <Field
-          label="Responder para"
-          htmlFor="replyToEmail"
-          hint="Para onde vai a resposta do cliente"
-          error={fieldErrors.replyToEmail}
-        >
-          <input
-            id="replyToEmail"
-            type="email"
-            className="field"
-            defaultValue={settings.replyToEmail ?? ''}
-            disabled={pending}
-            onBlur={(event) =>
-              event.target.value !== (settings.replyToEmail ?? '') &&
-              save({ replyToEmail: event.target.value || null }, 'Resposta')
-            }
-          />
-        </Field>
-      </div>
     </Card>
   )
 }

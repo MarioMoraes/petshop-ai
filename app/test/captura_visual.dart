@@ -727,6 +727,7 @@ const _conta = {
       {'label': 'Seg a Sex', 'value': '08:00 às 18:00'},
       {'label': 'Sábado', 'value': '08:00 às 13:00'},
     ],
+    'onlinePayment': true,
   },
   'timezone': _fuso,
 };

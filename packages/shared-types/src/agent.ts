@@ -354,7 +354,10 @@ export const AGENT_PERSONA_NAME_MAX = 24
  * entra **dentro** do aviso, nunca no lugar dele — um campo que substituísse a frase
  * seria a forma de apagá-la sem parecer que se apagou.
  */
-export function agentDisclosure(input: { tenantName: string; personaName?: string | null }): string {
+export function agentDisclosure(input: {
+  tenantName: string
+  personaName?: string | null
+}): string {
   const nome = input.personaName?.trim()
   const quem = nome
     ? `Sou ${nome}, do atendimento automático do ${input.tenantName}`
@@ -480,8 +483,43 @@ export const AgentSettingsSchema = z.object({
   spentCents: z.number().int(),
   /** `false` quando o motor de mensagens está desligado: o agente não teria como falar. */
   canEnable: z.boolean(),
+  /**
+   * A chave da Anthropic do estabelecimento — só o que a tela pode ver dela.
+   *
+   * `null` é "não cadastrada". O valor nunca volta: quem esqueceu a chave gera outra no
+   * painel da Anthropic, como faria com qualquer segredo.
+   */
+  apiKey: z
+    .object({
+      last4: z.string(),
+      verifiedAt: z.iso.datetime(),
+      /** A recusa do provedor no meio de uma conversa: revogada, sem crédito. */
+      error: z.string().nullable(),
+    })
+    .nullable(),
+  /**
+   * Se há provedor para responder agora. Em produção é o mesmo que ter chave; fora dela,
+   * a chave de desenvolvimento do ambiente também conta.
+   */
+  providerConfigured: z.boolean(),
 })
 export type AgentSettings = z.infer<typeof AgentSettingsSchema>
+
+/**
+ * O cadastro da chave (Configurações › Integrações).
+ *
+ * O prefixo confere a colagem, e não a validade: quem responde se a chave serve é a
+ * própria Anthropic, numa chamada feita antes de gravar.
+ */
+export const SetAgentApiKeySchema = z.strictObject({
+  apiKey: z
+    .string()
+    .trim()
+    .min(20, 'Cole a chave inteira')
+    .max(300)
+    .regex(/^sk-ant-/, 'A chave da Anthropic começa com sk-ant-'),
+})
+export type SetAgentApiKeyInput = z.output<typeof SetAgentApiKeySchema>
 
 /**
  * O PATCH da configuração.

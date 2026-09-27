@@ -108,6 +108,10 @@ export const LEDGER_ERRORS = {
    * não erro de quem pediu — daí 503, e não 500: o cliente pode tentar de novo.
    */
   ERR_LEDGER_013: { status: 503, title: 'Geração de documento indisponível' },
+  /** A conta do Asaas do petshop não respondeu, ou recusou. */
+  ERR_LEDGER_014: { status: 502, title: 'Provedor de cobrança indisponível' },
+  /** Pediram link de pagamento sem Asaas conectado, ou sem valor a cobrar. */
+  ERR_LEDGER_015: { status: 409, title: 'Cobrança online indisponível' },
 } as const
 
 export type LedgerErrorCode = keyof typeof LEDGER_ERRORS
@@ -157,6 +161,7 @@ export const CRM_ERRORS = {
   ERR_CRM_014: { status: 401, title: 'Webhook com assinatura inválida' },
   ERR_CRM_015: { status: 502, title: 'Provedor de mensagens indisponível' },
   ERR_CRM_016: { status: 422, title: 'Destinatário suprimido' },
+  ERR_CRM_017: { status: 409, title: 'Domínio de e-mail já cadastrado' },
 } as const
 
 export type CrmErrorCode = keyof typeof CRM_ERRORS

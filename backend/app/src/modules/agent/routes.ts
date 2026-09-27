@@ -2,6 +2,7 @@ import {
   AgentConversationListQuerySchema,
   AgentReplySchema,
   AgentStatsQuerySchema,
+  SetAgentApiKeySchema,
   UpdateAgentSettingsSchema,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
@@ -11,6 +12,7 @@ import { parseInput } from './validate.js'
 import type { ActorContext } from './actor.js'
 import { findConversation, listConversations } from './queries.js'
 import { assignConversation, closeConversation, replyToConversation } from './service.js'
+import { removeApiKey, setApiKey } from './api-key.js'
 import { getSettings, updateSettings } from './settings.js'
 import { readStats } from './stats.js'
 
@@ -126,6 +128,45 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
     async (request) => {
       const input = parseInput(UpdateAgentSettingsSchema, request.body)
       return updateSettings(actorOf(request), input)
+    },
+  )
+
+  /**
+   * A chave da Anthropic do estabelecimento (Configurações › Integrações).
+   *
+   * `tenant:configure`, e não `crm:configure`: a chave é um contrato de pagamento com um
+   * terceiro, do mesmo peso da assinatura — quem configura o atendimento não é
+   * necessariamente quem responde pela conta. Devolve a configuração inteira, porque a
+   * tela precisa do estado novo (`providerConfigured`) e não só do "deu certo".
+   */
+  app.put(
+    '/v1/agent/api-key',
+    {
+      preHandler: requirePermission(
+        'tenant:configure',
+        'Cadastrar a chave da Anthropic é uma ação do administrador do estabelecimento',
+      ),
+    },
+    async (request) => {
+      const input = parseInput(SetAgentApiKeySchema, request.body)
+      const actor = actorOf(request)
+      await setApiKey(actor, input)
+      return getSettings(actor.tenantId)
+    },
+  )
+
+  app.delete(
+    '/v1/agent/api-key',
+    {
+      preHandler: requirePermission(
+        'tenant:configure',
+        'Remover a chave da Anthropic é uma ação do administrador do estabelecimento',
+      ),
+    },
+    async (request) => {
+      const actor = actorOf(request)
+      await removeApiKey(actor)
+      return getSettings(actor.tenantId)
     },
   )
 

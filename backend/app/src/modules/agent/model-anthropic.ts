@@ -1,8 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { AGENT_TURN_OUTPUT_JSON_SCHEMA } from '@petshop/shared-types'
-import { loadEnv } from '../../config/env.js'
 import { providerUnavailable } from './errors.js'
-import { ratesFor, type ModelPort } from './model-contract.js'
+import { ModelKeyRejectedError, ratesFor, type ModelPort } from './model-contract.js'
 
 /**
  * O provedor de produção: Anthropic.
@@ -33,11 +32,15 @@ export const AGENT_MODEL = 'claude-opus-5'
  */
 const USD_PER_MTOK = { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 } as const
 
-export function createAnthropicPort(): ModelPort | null {
-  const env = loadEnv()
-  if (!env.ANTHROPIC_API_KEY) return null
-
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+/**
+ * A porta, com a chave de quem paga.
+ *
+ * A chave chega por parâmetro, e não do ambiente: desde que cada petshop cadastra a sua,
+ * o mesmo processo fala com a Anthropic em nome de vários clientes, e quem escolhe qual
+ * chave usar é `model-port.ts`.
+ */
+export function createAnthropicPort(apiKey: string): ModelPort {
+  const client = new Anthropic({ apiKey })
 
   return {
     configured: true,
@@ -104,8 +107,13 @@ export function createAnthropicPort(): ModelPort | null {
         if (error instanceof Anthropic.RateLimitError) {
           throw providerUnavailable('O provedor do modelo recusou por excesso de chamadas')
         }
-        if (error instanceof Anthropic.AuthenticationError) {
-          throw providerUnavailable('A chave do provedor do modelo foi recusada')
+        // Chave revogada, ou conta sem permissão/crédito: não passa com o tempo, e quem
+        // resolve é o dono da chave. O runner grava a recusa para a tela dizer por quê.
+        if (
+          error instanceof Anthropic.AuthenticationError ||
+          error instanceof Anthropic.PermissionDeniedError
+        ) {
+          throw new ModelKeyRejectedError(`A Anthropic recusou a chave (${error.status})`)
         }
         if (error instanceof Anthropic.APIError) {
           throw providerUnavailable(`O provedor do modelo respondeu ${error.status}`)
@@ -113,5 +121,29 @@ export function createAnthropicPort(): ModelPort | null {
         throw providerUnavailable('O provedor do modelo não respondeu')
       }
     },
+  }
+}
+
+/**
+ * Confere uma chave antes de gravá-la.
+ *
+ * Listar modelos é a chamada mais barata que exige autenticação: não gasta token, e a
+ * recusa chega com o mesmo status que chegaria no meio de uma conversa. `true` é "serve",
+ * `false` é "a Anthropic recusou"; qualquer outra falha (rede, 5xx) sobe, porque não diz
+ * nada sobre a chave.
+ */
+export async function verifyAnthropicKey(apiKey: string): Promise<boolean> {
+  const client = new Anthropic({ apiKey, timeout: 10_000, maxRetries: 1 })
+  try {
+    await client.models.list({ limit: 1 })
+    return true
+  } catch (error) {
+    if (
+      error instanceof Anthropic.AuthenticationError ||
+      error instanceof Anthropic.PermissionDeniedError
+    ) {
+      return false
+    }
+    throw providerUnavailable('Não foi possível falar com a Anthropic agora')
   }
 }

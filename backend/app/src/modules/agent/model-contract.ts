@@ -79,3 +79,17 @@ export interface ModelPort {
   rates?: TokenRates
   complete(request: ModelRequest): Promise<ModelResponse>
 }
+
+/**
+ * O provedor recusou a **chave** — revogada, sem permissão, sem crédito.
+ *
+ * Separada das outras falhas porque não passa sozinha: o provedor fora do ar volta no
+ * minuto seguinte, a chave revogada não. O runner a grava em `agent_settings.api_key_error`
+ * para a tela do petshop dizer o que fazer, em vez de o agente simplesmente parar.
+ */
+export class ModelKeyRejectedError extends Error {
+  constructor(detail: string) {
+    super(detail)
+    this.name = 'ModelKeyRejectedError'
+  }
+}

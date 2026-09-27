@@ -10,6 +10,7 @@ import {
 } from '@petshop/shared-types'
 import { Alert, Button, Card, Field, SectionHead, Segmented } from '@/components/ui'
 import { AlertTriangleIcon, BellIcon } from '@/components/icons'
+import { ButtonLink } from '@/components/links'
 import { salvarConfiguracaoAction } from './actions'
 
 /**
@@ -81,6 +82,46 @@ function ReguaDoMes({ gastoCents, tetoCents }: { gastoCents: number; tetoCents: 
   )
 }
 
+/**
+ * A chave da Anthropic, dita onde o efeito dela aparece.
+ *
+ * O cadastro mora em Configurações › Integrações, com as outras credenciais do petshop;
+ * aqui fica só o aviso, porque é nesta tela que se percebe que o agente parou. Sem chave
+ * ele não liga, e a chave recusada no meio de uma conversa — revogada, sem crédito — não
+ * passa sozinha.
+ */
+function ChaveDaIa({ settings }: { settings: AgentSettings }) {
+  const link = (
+    <ButtonLink href="/configuracoes/integracoes" variant="link">
+      Configurações › Integrações
+    </ButtonLink>
+  )
+
+  if (settings.apiKey?.error) {
+    return (
+      <Alert tone="danger" icon={<AlertTriangleIcon />} title="A Anthropic recusou a chave">
+        As conversas estão indo para a fila. Confira no painel da Anthropic se a chave está ativa e
+        se a conta tem crédito, e cadastre-a de novo em {link}.
+      </Alert>
+    )
+  }
+
+  if (!settings.providerConfigured) {
+    return (
+      <Alert
+        tone="accent"
+        role="status"
+        icon={<AlertTriangleIcon />}
+        title="O agente precisa da chave da Anthropic"
+      >
+        O consumo do modelo é cobrado direto na conta do petshop. Cadastre a chave em {link}.
+      </Alert>
+    )
+  }
+
+  return null
+}
+
 export function AgentCard({ settings, podeConfigurar, personaNoPlano }: Props) {
   const [atual, setAtual] = useState(settings)
   const [opensAt, setOpensAt] = useState(settings.opensAt)
@@ -125,6 +166,7 @@ export function AgentCard({ settings, podeConfigurar, personaNoPlano }: Props) {
           title={atual.enabled ? 'O agente está respondendo' : 'O agente está desligado'}
           description={descricao}
         />
+        <ChaveDaIa settings={atual} />
         <ReguaDoMes gastoCents={atual.spentCents} tetoCents={atual.monthlyCapCents} />
       </Card>
     )
@@ -154,7 +196,7 @@ export function AgentCard({ settings, podeConfigurar, personaNoPlano }: Props) {
            * Sem motor de mensagens **não se liga**, mas sempre se desliga: travar os dois
            * sentidos deixaria preso no ar um agente que já não consegue responder.
            */
-          disabled={salvando || (!atual.canEnable && !atual.enabled)}
+          disabled={salvando || ((!atual.canEnable || !atual.providerConfigured) && !atual.enabled)}
           onClick={() => salvar({ enabled: !atual.enabled }, true)}
         >
           {atual.enabled ? 'Desligar' : 'Ligar'}
@@ -166,6 +208,8 @@ export function AgentCard({ settings, podeConfigurar, personaNoPlano }: Props) {
           {erro}
         </Alert>
       )}
+
+      <ChaveDaIa settings={atual} />
 
       {!atual.canEnable && (
         <Alert

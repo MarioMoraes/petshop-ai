@@ -187,6 +187,23 @@ describe('configuração', () => {
     expect(response.statusCode).toBe(422)
   })
 
+  it('o PATCH de um campo não regrava os outros com o padrão', async () => {
+    const patch = (payload: Record<string, unknown>) =>
+      callApi({ ...asAdmin(fixture), method: 'PATCH', url: '/v1/messaging/settings', payload })
+
+    await patch({ quietStart: '09:30', quietEnd: '18:00', dailyCap: 120, retentionMonths: 12 })
+    const response = await patch({ senderName: 'Pet da Ana' })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({
+      senderName: 'Pet da Ana',
+      quietStart: '09:30',
+      quietEnd: '18:00',
+      dailyCap: 120,
+      retentionMonths: 12,
+    })
+  })
+
   it('devolve os padrões antes de qualquer edição', async () => {
     const response = await callApi({
       ...asAdmin(fixture),

@@ -202,7 +202,10 @@ async function readPaymentInstructions(
   tenantId: string,
 ): Promise<PortalPaymentInstructions> {
   const [billing, settings] = await Promise.all([
-    tx.billingSettings.findUnique({ where: { tenantId }, select: { pixKey: true } }),
+    tx.billingSettings.findUnique({
+      where: { tenantId },
+      select: { pixKey: true, asaasApiKeyEncrypted: true, asaasError: true },
+    }),
     tx.tenantSettings.findUnique({
       where: { tenantId },
       select: { publicPhone: true, publicWhatsapp: true, businessHours: true },
@@ -214,6 +217,9 @@ async function readPaymentInstructions(
     phone: settings?.publicPhone ?? null,
     whatsapp: settings?.publicWhatsapp ?? null,
     hours: summarizeHours(parseHours(settings?.businessHours)),
+    // A chave recusada tira o botão: um "Pagar agora" que termina em erro é pior do que a
+    // chave PIX sozinha.
+    onlinePayment: Boolean(billing?.asaasApiKeyEncrypted) && !billing?.asaasError,
   }
 }
 
@@ -311,7 +317,14 @@ export async function readOwnStatement(
     // Tutor sem movimentação: lista vazia e saldo zero, nunca 404 (AC-04 de
     // MOD-LEDGER-06). A conta nasce no primeiro lançamento, não na primeira consulta.
     if (!account) {
-      return { entries: [], page: query.page, limit: query.limit, total: 0, balanceCents: 0, timezone }
+      return {
+        entries: [],
+        page: query.page,
+        limit: query.limit,
+        total: 0,
+        balanceCents: 0,
+        timezone,
+      }
     }
 
     const offset = (query.page - 1) * query.limit
@@ -352,10 +365,7 @@ export async function readOwnStatement(
   })
 }
 
-function toStatementEntry(
-  row: StatementRow,
-  petNames: Map<string, string>,
-): PortalStatementEntry {
+function toStatementEntry(row: StatementRow, petNames: Map<string, string>): PortalStatementEntry {
   return {
     id: row.id,
     occurredAt: row.occurred_at.toISOString(),
@@ -390,7 +400,11 @@ function toStatementEntry(
  */
 export async function readOwnReceipt(
   caller: LedgerCaller,
-  actor: { actorUserId?: string | null; ipAddress?: string | undefined; userAgent?: string | undefined },
+  actor: {
+    actorUserId?: string | null
+    ipAddress?: string | undefined
+    userAgent?: string | undefined
+  },
   tutorId: string,
   paymentId: string,
 ): Promise<PortalReceiptResponse> {
@@ -431,7 +445,11 @@ export async function readOwnReceipt(
  */
 export async function downloadOwnStatementPdf(
   caller: LedgerCaller,
-  actor: { actorUserId?: string | null; ipAddress?: string | undefined; userAgent?: string | undefined },
+  actor: {
+    actorUserId?: string | null
+    ipAddress?: string | undefined
+    userAgent?: string | undefined
+  },
   tutorId: string,
 ): Promise<{ bytes: Buffer; filename: string }> {
   const documento = await getLedgerPort().statementPdf(caller, tutorId)
@@ -463,11 +481,7 @@ export async function downloadOwnStatementPdf(
  * negativa é 404 (RN-03) — o pagamento de outra pessoa responde exatamente como o
  * pagamento que não existe.
  */
-async function ownsPayment(
-  tenantId: string,
-  tutorId: string,
-  paymentId: string,
-): Promise<boolean> {
+async function ownsPayment(tenantId: string, tutorId: string, paymentId: string): Promise<boolean> {
   return withTenant(tenantId, async (tx) => {
     const payment = await tx.payment.findFirst({
       where: { id: paymentId, tutorId },

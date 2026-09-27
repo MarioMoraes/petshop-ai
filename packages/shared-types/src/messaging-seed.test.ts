@@ -108,6 +108,8 @@ describe('texto de push', () => {
         'taxi_delivered',
         'taxi_en_route',
         'taxi_failed',
+        // A cobrança online: é cobrança, e a decisão do push incluiu cobrança.
+        'tutor_charge_link',
       ].sort(),
     )
   })

@@ -163,7 +163,7 @@ async function loadFinance(tutorId: string, permissions: string[]): Promise<Fina
   if (!permissions.includes('finance:read')) return null
 
   const api = serverApi()
-  const [account, statement, packages, catalog] = await Promise.all([
+  const [account, statement, packages, catalog, online, charges] = await Promise.all([
     api.getLedgerAccount(tutorId),
     api.getStatement(tutorId, { limit: 20 }),
     api
@@ -174,6 +174,15 @@ async function loadFinance(tutorId: string, permissions: string[]): Promise<Fina
       .listServicePackages()
       .then((result) => result.data.filter((item) => item.active))
       .catch(() => []),
+    // A cobrança online é moldura: sem ela a aba continua inteira, só sem o link.
+    api
+      .getOnlineBilling()
+      .then((result) => result.connection)
+      .catch(() => null),
+    api
+      .listTutorCharges(tutorId)
+      .then((result) => result.data)
+      .catch(() => []),
   ])
 
   return {
@@ -181,6 +190,9 @@ async function loadFinance(tutorId: string, permissions: string[]): Promise<Fina
     statement,
     packages,
     catalog,
+    // Chave recusada conta como desconectado: gerar o link daria erro na cara do balcão.
+    online: online !== null && online.error === null,
+    charges,
     can: {
       read: true,
       create: permissions.includes('finance:create'),

@@ -39,7 +39,9 @@ export function alreadyReversed(detail: string): AppError {
 }
 
 /** RN-01: alguém tentou editar o que é imutável. Espelha o `RAISE` do trigger. */
-export function immutable(detail = 'Lançamento é imutável — use estorno por contrapartida'): AppError {
+export function immutable(
+  detail = 'Lançamento é imutável — use estorno por contrapartida',
+): AppError {
   return new AppError('ERR_LEDGER_005', detail)
 }
 
@@ -93,4 +95,21 @@ export function documentUnavailable(
   detail = 'A geração de PDF está indisponível no momento. Tente novamente em instantes.',
 ): AppError {
   return new AppError('ERR_LEDGER_013', detail)
+}
+
+/**
+ * A conta do Asaas do petshop não respondeu, ou recusou a chamada.
+ *
+ * 502, porque o defeito não é deste servidor nem de quem pediu. O corpo do erro do Asaas
+ * fica no log: ele fala de campos da API dele, que ninguém na tela tem como corrigir.
+ */
+export function billingProviderFailed(
+  detail = 'O Asaas não respondeu agora. Tente de novo em instantes.',
+): AppError {
+  return new AppError('ERR_LEDGER_014', detail)
+}
+
+/** Não há como cobrar online: Asaas desconectado, chave recusada ou nada em aberto. */
+export function onlineChargeUnavailable(detail: string): AppError {
+  return new AppError('ERR_LEDGER_015', detail)
 }

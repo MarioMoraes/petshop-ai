@@ -22,6 +22,7 @@ import type {
   PortalPetDetail,
   PortalPreferencesResponse,
   PortalPetSummary,
+  PortalChargeResponse,
   PortalReceiptResponse,
   PortalTermsResponse,
   TermKind,
@@ -50,8 +51,7 @@ import type {
  * gateway.
  */
 
-const baseUrl =
-  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000'
+const baseUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000'
 
 const TENANT_SLUG_HEADER = 'x-petshop-tenant-slug'
 const REQUEST_TIMEOUT_MS = 15_000
@@ -151,8 +151,7 @@ async function request<T>(options: RequestOptions): Promise<T> {
     })
 
     const payload = (await response.json().catch(() => null)) as
-      | ({ code?: string; detail?: string } & Record<string, unknown>)
-      | null
+      ({ code?: string; detail?: string } & Record<string, unknown>) | null
 
     if (!response.ok) {
       // A moldura do problem+json fica de fora; o que interessa é o contexto do erro.
@@ -211,10 +210,7 @@ export function readOwnPet(petId: string): Promise<PortalPetDetail> {
   return request({ path: `/portal/v1/pets/${petId}` })
 }
 
-export function updateOwnPet(
-  petId: string,
-  body: UpdateOwnPetInput,
-): Promise<PortalPetDetail> {
+export function updateOwnPet(petId: string, body: UpdateOwnPetInput): Promise<PortalPetDetail> {
   return request({ method: 'PATCH', path: `/portal/v1/pets/${petId}`, body })
 }
 
@@ -360,6 +356,16 @@ export function readOwnReceipt(paymentId: string): Promise<PortalReceiptResponse
   return request({ path: `/portal/v1/finance/receipts/${paymentId}` })
 }
 
+/**
+ * Pagar agora: o link da cobrança online, pelo Asaas do petshop.
+ *
+ * Sem corpo — o valor é o saldo devedor, decidido no servidor. Tocar de novo devolve o
+ * mesmo link, então a tela pode chamar a cada clique sem medo de duplicar.
+ */
+export function payOwnBalance(): Promise<PortalChargeResponse> {
+  return request({ method: 'POST', path: '/portal/v1/finance/charges' })
+}
+
 // ─── MOD-PORTAL-10 — Central de Comunicação ──────────────────────────────────
 
 /**
@@ -425,9 +431,7 @@ export function requestContactChange(
   return request({ method: 'POST', path: '/portal/v1/me/contact', body })
 }
 
-export function verifyContactChange(
-  body: PortalContactVerifyInput,
-): Promise<PortalMeDataResponse> {
+export function verifyContactChange(body: PortalContactVerifyInput): Promise<PortalMeDataResponse> {
   return request({ method: 'POST', path: '/portal/v1/me/contact/verify', body })
 }
 
@@ -545,7 +549,9 @@ export function listOwnDocuments(): Promise<PortalDocumentsResponse> {
  * O endereço assinado de um documento — e pedi-lo **é** o download, que a trilha do
  * estabelecimento registra. Por isso ele é buscado no clique, e não com a lista.
  */
-export function readOwnDocument(documentId: string): Promise<{ url: string | null; number: string }> {
+export function readOwnDocument(
+  documentId: string,
+): Promise<{ url: string | null; number: string }> {
   return request({ path: `/portal/v1/documents/${documentId}` })
 }
 

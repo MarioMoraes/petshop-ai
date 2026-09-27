@@ -230,7 +230,13 @@ describe('MOD-AI-03 — o agente responde lendo', () => {
           openDebitsCents: 34000,
           oldestOpenDebitAt: '2026-08-01T00:00:00.000Z',
           packages: [],
-          howToPay: { pixKey: 'chave@pix', phone: '(11) 4002-8922', whatsapp: null, hours: [] },
+          howToPay: {
+            pixKey: 'chave@pix',
+            phone: '(11) 4002-8922',
+            whatsapp: null,
+            hours: [],
+            onlinePayment: false,
+          },
           timezone: 'America/Sao_Paulo',
         }
       },

@@ -1,5 +1,5 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
-import type { CreatePaymentInput, ListPaymentsQuery } from '@petshop/shared-types'
+import type { CreatePaymentInput, ListPaymentsQuery, PaymentMethod } from '@petshop/shared-types'
 import { PAYMENT_METHOD_LABELS, formatBRL } from '@petshop/shared-types'
 import { recordAudit } from '../../shared/audit.js'
 import { alreadyReversed, invalidAllocation, notFound } from './errors.js'
@@ -38,7 +38,12 @@ import { assertMethodEnabled, loadSettings } from './settings.js'
 const ENDPOINT = 'POST /v1/payments'
 
 /** O pagamento sem a idempotência da rota: é o que a venda "pago agora" também grava. */
-export type PaymentWrite = Omit<CreatePaymentInput, 'idempotencyKey'>
+export type PaymentWrite = Omit<CreatePaymentInput, 'idempotencyKey' | 'method'> & {
+  /** Qualquer meio: o online chega pelo webhook da cobrança, e não pela rota. */
+  method: PaymentMethod
+  /** O id do pagamento no provedor, quando ele existe (cobrança online). */
+  externalRef?: string
+}
 
 export interface WrittenPayment {
   paymentId: string
@@ -65,7 +70,13 @@ export async function recordPayment(actor: ActorContext, input: CreatePaymentInp
       }
 
       const written = await writePaymentInTx(tx, actor, input)
-      await confirmIdempotency(tx, actor.tenantId, ENDPOINT, input.idempotencyKey, written.paymentId)
+      await confirmIdempotency(
+        tx,
+        actor.tenantId,
+        ENDPOINT,
+        input.idempotencyKey,
+        written.paymentId,
+      )
       return { repeated: false as const, ...written }
     },
     tenantOptions(actor),
@@ -124,6 +135,7 @@ export async function writePaymentInTx(
       entryId: entry.id,
       notesEncrypted: cipher && input.notes ? cipher.encrypt(input.notes) : null,
       proofUrlEncrypted: cipher && input.proofUrl ? cipher.encrypt(input.proofUrl) : null,
+      externalRef: input.externalRef ?? null,
     },
     select: { id: true },
   })
@@ -389,10 +401,7 @@ export async function reversePayment(actor: ActorContext, paymentId: string, rea
  * nomear o tipo gerado do Prisma pelo caminho dentro de `node_modules` e recusa emitir
  * (TS2742).
  */
-export async function getPayment(
-  actor: ActorContext,
-  paymentId: string,
-): Promise<PaymentResponse> {
+export async function getPayment(actor: ActorContext, paymentId: string): Promise<PaymentResponse> {
   return withTenant(actor.tenantId, async (tx) => {
     const payment = await tx.payment.findFirst({
       where: { id: paymentId },

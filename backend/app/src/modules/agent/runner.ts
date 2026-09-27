@@ -17,7 +17,8 @@ import { publishEvent } from '../../shared/events.js'
 import { logger, recordMetric } from '../../shared/logger.js'
 import { openCipher, decryptOrPlaceholder } from './crypto.js'
 import { getAgentMessagingPort } from './messaging-port.js'
-import { costOf, getModelPort, type ModelUsage } from './model-port.js'
+import { recordKeyRejection } from './api-key.js'
+import { ModelKeyRejectedError, costOf, getModelPort, type ModelUsage } from './model-port.js'
 import {
   briefingLine,
   contextLine,
@@ -135,6 +136,9 @@ export async function answer(
     await respond(tenantId, conversationId)
   } catch (error) {
     logger.error({ err: error, tenantId, conversationId }, 'turno do agente falhou')
+    // A chave recusada não passa sozinha: a tela do petshop precisa dizer por que o
+    // agente parou, e é esta linha que ela lê.
+    if (error instanceof ModelKeyRejectedError) await recordKeyRejection(tenantId, error.message)
     // RN-09: o provedor fora do ar não chega ao tutor como erro — chega como "vou chamar
     // alguém". O que o cliente vê é uma frase; o que o log guarda é a causa.
     await handoff(tenantId, conversationId, 'ERROR', {
@@ -172,7 +176,9 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
 
   // ─── As portas fechadas, em ordem de custo ────────────────────────────────
 
-  if (!settings.enabled || !getModelPort().configured) {
+  // A porta do estabelecimento: a chave dele, lida uma vez para o turno inteiro.
+  const model = await getModelPort(tenantId)
+  if (!settings.enabled || !model.configured) {
     await handoff(tenantId, conversationId, 'DISABLED')
     return
   }
@@ -268,7 +274,7 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
   let writeFailed = false
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-    const response = await getModelPort().complete({
+    const response = await model.complete({
       system: systemPrompt(settings),
       tools: AGENT_TOOLS,
       messages,
@@ -318,7 +324,7 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
     messages.push({ role: 'user', content: results })
   }
 
-  const cost = costOf(usage)
+  const cost = costOf(usage, model)
   recordMetric({ metric: 'agent_turn_cost_millicents', tenantId, value: cost, unit: 'millicents' })
   /**
    * O que denuncia prefixo quebrado **antes de a fatura chegar** (§10).

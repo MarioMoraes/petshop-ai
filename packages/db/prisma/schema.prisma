@@ -148,6 +148,7 @@ model Tenant {
   taxiSettings      TaxiSettings?
   messagingSettings MessagingSettings?
   whatsappInstance  WhatsappInstance?
+  emailDomain       EmailDomain?
   siteSettings      SiteSettings?
   memberships       Membership[]
   invitations       Invitation[]
@@ -182,6 +183,8 @@ model Tenant {
   /// MOD-CAIXA: a gaveta do balcão e o que passou por ela.
   cashSessions  CashSession[]
   cashMovements CashMovement[]
+
+  tutorCharges TutorCharge[]
 
   documents    Document[]
   termVersions TermVersion[]
@@ -845,6 +848,7 @@ model Tutor {
   pushDevices          PushDevice[]
   productSales         ProductSale[]
 
+  tutorCharges       TutorCharge[]
   agentConversations AgentConversation[]
 
   mergedInto Tutor?  @relation("TutorMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
@@ -2090,6 +2094,26 @@ enum PaymentMethod {
   BANK_TRANSFER
   PACKAGE_CREDIT
   OTHER
+  /// Só nascem do webhook da cobrança online (Asaas do estabelecimento).
+  PIX_ONLINE
+  CARD_ONLINE
+}
+
+enum AsaasEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
+enum TutorChargeStatus {
+  PENDING
+  PAID
+  EXPIRED
+  CANCELLED
+}
+
+enum TutorChargeOrigin {
+  PORTAL
+  ADMIN
 }
 
 enum PaymentStatus {
@@ -2255,8 +2279,40 @@ model Payment {
   allocations PaymentAllocation[]
   purchases   PackagePurchase[]
   receipt     Receipt?
+  tutorCharge TutorCharge?
 
   @@map("payments")
+}
+
+/// Uma cobrança online do tutor: o link de checkout do Asaas do estabelecimento.
+/// Paga tem pagamento (`payment_id`), e só o webhook a paga.
+model TutorCharge {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  tutorId  String @map("tutor_id") @db.Uuid
+
+  amountCents BigInt            @map("amount_cents")
+  origin      TutorChargeOrigin
+  status      TutorChargeStatus @default(PENDING)
+
+  checkoutId  String   @unique @map("checkout_id") @db.VarChar(64)
+  checkoutUrl String   @map("checkout_url") @db.VarChar(500)
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
+
+  asaasPaymentId String?   @unique @map("asaas_payment_id") @db.VarChar(64)
+  paymentId      String?   @unique @map("payment_id") @db.Uuid
+  paidAt         DateTime? @map("paid_at") @db.Timestamptz(6)
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tutor   Tutor    @relation(fields: [tutorId], references: [id], onDelete: Restrict)
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, tutorId, createdAt(sort: Desc)], map: "idx_tutor_charges_tutor")
+  @@map("tutor_charges")
 }
 
 /// Quitação N:N entre pagamento e débito (MOD-LEDGER-04).
@@ -2418,6 +2474,16 @@ model BillingSettings {
   /// o pagamento continua sendo registrado à mão por quem recebeu. A chave é
   /// instrução, não checkout.
   pixKey String? @map("pix_key") @db.VarChar(140)
+
+  /// A conta do Asaas do estabelecimento, para cobrar o tutor online. Chave cifrada com a DEK.
+  asaasApiKeyEncrypted  String?           @map("asaas_api_key_encrypted")
+  asaasApiKeyLast4      String?           @map("asaas_api_key_last4") @db.VarChar(4)
+  asaasEnvironment      AsaasEnvironment? @map("asaas_environment")
+  asaasWebhookId        String?           @map("asaas_webhook_id") @db.VarChar(64)
+  /// Só o hash: o token cru vive no Asaas, que o manda em `asaas-access-token`.
+  asaasWebhookTokenHash String?           @unique @map("asaas_webhook_token_hash") @db.Char(64)
+  asaasVerifiedAt       DateTime?         @map("asaas_verified_at") @db.Timestamptz(6)
+  asaasError            String?           @map("asaas_error") @db.VarChar(300)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -3322,6 +3388,35 @@ model WhatsappInstance {
   @@map("whatsapp_instances")
 }
 
+enum EmailDomainStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+/// O domínio de e-mail próprio do estabelecimento, registrado na conta Resend da plataforma.
+/// Só `VERIFIED` muda o remetente; até lá o e-mail sai pelo `MAIL_FROM`.
+model EmailDomain {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  domain         String            @unique @db.VarChar(253)
+  localPart      String            @default("contato") @map("local_part") @db.VarChar(64)
+  resendDomainId String            @map("resend_domain_id") @db.VarChar(64)
+  status         EmailDomainStatus @default(PENDING)
+  /// Os registros de DNS que o Resend pediu, para a tela desenhar sem consultá-lo.
+  records        Json              @default("[]")
+
+  verifiedAt    DateTime? @map("verified_at") @db.Timestamptz(6)
+  lastCheckedAt DateTime? @map("last_checked_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("email_domains")
+}
+
 // ---------------------------------------------------------------------------
 // MOD-SITE — o site do estabelecimento
 // ---------------------------------------------------------------------------
@@ -3980,6 +4075,13 @@ model AgentSettings {
   /// exatamente a forma de apagá-lo sem parecer que se apagou.
   personaName String?   @map("persona_name") @db.VarChar(24)
   tone        AgentTone @default(CORDIAL)
+
+  /// A chave da Anthropic do estabelecimento, cifrada com a DEK. Sem ela o agente não fala.
+  apiKeyEncrypted  String?   @map("api_key_encrypted")
+  apiKeyLast4      String?   @map("api_key_last4") @db.VarChar(4)
+  apiKeyVerifiedAt DateTime? @map("api_key_verified_at") @db.Timestamptz(6)
+  /// A recusa do provedor no meio de uma conversa (chave revogada, sem crédito).
+  apiKeyError      String?   @map("api_key_error") @db.VarChar(300)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

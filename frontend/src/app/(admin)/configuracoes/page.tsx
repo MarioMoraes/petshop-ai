@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import {
   ChevronRightIcon,
   PackageIcon,
+  PlugIcon,
   SettingsIcon,
   UploadIcon,
   WalletIcon,
@@ -16,7 +17,7 @@ import type { ReactNode } from 'react'
 /**
  * A porta das Configurações.
  *
- * Quatro destinos, e não quatro abas: o que o menu chamava de "Configurações" abria direto
+ * Cinco destinos, e não cinco abas: o que o menu chamava de "Configurações" abria direto
  * na ficha do estabelecimento, e Assinatura vivia num botão no canto do cabeçalho — um
  * lugar que só se encontra depois de já estar na tela errada. A importação da base seria
  * a décima aba de uma faixa que já quebrava em duas linhas com nove.
@@ -39,12 +40,14 @@ interface Destino {
     | '/configuracoes/pacotes'
     | '/assinatura'
     | '/configuracoes/importacao'
+    | '/configuracoes/integracoes'
   icon: ReactNode
   tone: IconTone
   eyebrow: string
   title: string
   description: string
-  requires: PermissionKey
+  /** Basta uma: o cartão que reúne assuntos de donos diferentes abre para qualquer um deles. */
+  requires: PermissionKey[]
 }
 
 const DESTINOS: Destino[] = [
@@ -56,7 +59,7 @@ const DESTINOS: Destino[] = [
     title: 'Configurações',
     description:
       'Dados do petshop, horário de funcionamento, políticas de agendamento, identidade visual, catálogo de raças, privacidade e trilha de auditoria.',
-    requires: 'tenant:read_settings',
+    requires: ['tenant:read_settings'],
   },
   {
     // Veio do Financeiro: um pacote é catálogo de serviço, que se ajusta de vez em
@@ -68,7 +71,17 @@ const DESTINOS: Destino[] = [
     title: 'Pacotes pré-pagos',
     description:
       'Os pacotes que o tutor compra adiantado — quantos banhos, de qual serviço, por quanto e por quanto tempo valem.',
-    requires: 'finance:read',
+    requires: ['finance:read'],
+  },
+  {
+    href: '/configuracoes/integracoes',
+    icon: <PlugIcon />,
+    tone: 'icon-system',
+    eyebrow: 'Conexões',
+    title: 'Integrações',
+    description:
+      'O WhatsApp da empresa, o e-mail que chega ao tutor, a chave PIX do Portal e a conta da IA que atende no WhatsApp.',
+    requires: ['crm:read', 'finance:read'],
   },
   {
     href: '/assinatura',
@@ -77,7 +90,7 @@ const DESTINOS: Destino[] = [
     eyebrow: 'Plano',
     title: 'Assinatura',
     description: 'O plano contratado, o que ele inclui, a forma de pagamento e a próxima cobrança.',
-    requires: 'tenant:configure',
+    requires: ['tenant:configure'],
   },
   {
     href: '/configuracoes/importacao',
@@ -87,7 +100,7 @@ const DESTINOS: Destino[] = [
     title: 'Importar dados',
     description:
       'Traga tutores, pets, profissionais e agendamentos do sistema anterior, a partir das planilhas que ele exporta.',
-    requires: 'import:run',
+    requires: ['import:run'],
   },
 ]
 
@@ -98,7 +111,9 @@ export default async function ConfiguracoesPage() {
   // honesto que um 403 numa rota que o menu nem deveria ter oferecido.
   if (!me.permissions.includes('tenant:read_settings')) redirect('/dashboard')
 
-  const destinos = DESTINOS.filter((destino) => me.permissions.includes(destino.requires))
+  const destinos = DESTINOS.filter((destino) =>
+    destino.requires.some((permission) => me.permissions.includes(permission)),
+  )
 
   return (
     <>

@@ -13,7 +13,10 @@ import { registerImportRoutes } from '../modules/import/routes.js'
 import { registerInventoryRoutes } from '../modules/inventory/routes.js'
 import { registerCashRoutes } from '../modules/cash/routes.js'
 import { registerClerkWebhookRoutes } from '../modules/identity/webhooks/routes.js'
-import { registerLedgerRoutes } from '../modules/ledger/routes.js'
+import {
+  registerLedgerRoutes,
+  registerTutorBillingWebhookRoutes,
+} from '../modules/ledger/routes.js'
 import { registerMedicalRecordRoutes } from '../modules/records/routes-module.js'
 import {
   registerEmailWebhookRoutes,
@@ -426,6 +429,9 @@ async function registerCashModule(app: FastifyInstance): Promise<void> {
  * MOD-PET: quem pendura rota no espaço de outro vem depois de quem define o espaço.
  */
 async function registerLedgerModule(app: FastifyInstance): Promise<void> {
+  // A baixa da cobrança online chega da conta do Asaas do petshop, fora da sessão.
+  await app.register(registerTutorBillingWebhookRoutes)
+
   await app.register(async (scope) => {
     registerModuleAuth(scope)
     await registerLedgerRoutes(scope)

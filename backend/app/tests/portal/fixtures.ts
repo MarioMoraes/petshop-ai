@@ -7,12 +7,7 @@ import {
   type TaxiRideResponse,
 } from '@petshop/shared-types'
 import { AppError } from '@petshop/shared-types'
-import {
-  callApi as callCore,
-  getApp,
-  ownerPrisma,
-  resetDatabase as resetCore,
-} from '../harness.js'
+import { callApi as callCore, getApp, ownerPrisma, resetDatabase as resetCore } from '../harness.js'
 
 /**
  * Cenário do MOD-PORTAL — a superfície do cliente final.
@@ -561,7 +556,10 @@ export async function setSettings(
   await ownerPrisma.tenantSettings.update({ where: { tenantId: fixture.tenantId }, data })
 }
 
-export async function givenProfessional(fixture: TenantFixture, name = 'Ana Banhista'): Promise<string> {
+export async function givenProfessional(
+  fixture: TenantFixture,
+  name = 'Ana Banhista',
+): Promise<string> {
   return withTenant(fixture.tenantId, async (tx) => {
     const professional = await tx.professional.create({
       data: { tenantId: fixture.tenantId, displayName: name, roleKey: 'GROOMER' },
@@ -574,13 +572,7 @@ export async function givenProfessional(fixture: TenantFixture, name = 'Ana Banh
 export interface AppointmentOptions {
   startsAt: Date
   status?:
-    | 'PENDING'
-    | 'CONFIRMED'
-    | 'CHECKED_IN'
-    | 'IN_PROGRESS'
-    | 'COMPLETED'
-    | 'CANCELLED'
-    | 'NO_SHOW'
+    'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
   serviceLabel?: string
 }
 
@@ -1178,8 +1170,10 @@ export async function givenPayment(
   // O `source_id` do lançamento é o que liga a linha do extrato ao recibo, e
   // `ledger_entries` é append-only por RULE: a atualização vai em SQL cru, como o
   // próprio serviço faria se precisasse.
-  await withTenant(fixture.tenantId, (tx) =>
-    tx.$executeRaw`UPDATE ledger_entries SET source_id = ${paymentId}::uuid WHERE id = ${entryId}::uuid`,
+  await withTenant(
+    fixture.tenantId,
+    (tx) =>
+      tx.$executeRaw`UPDATE ledger_entries SET source_id = ${paymentId}::uuid WHERE id = ${entryId}::uuid`,
   )
 
   return { paymentId, entryId }
@@ -1286,6 +1280,15 @@ export async function fakeLedger(): Promise<LedgerDouble> {
       double.calls.push(tutorId)
       if (double.failWith) throw double.failWith
       return double.statement
+    },
+    async payNow(_caller, tutorId) {
+      double.calls.push(tutorId)
+      if (double.failWith) throw double.failWith
+      return {
+        url: 'https://sandbox.asaas.com/checkout/fake',
+        amountCents: 1000,
+        expiresAt: '2026-09-10T12:00:00.000Z',
+      }
     },
   })
 

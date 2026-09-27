@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ENTRY_CATEGORY_LABELS,
   PAYMENT_METHOD_LABELS,
+  PAYMENT_METHODS,
   PURCHASE_STATUS_LABELS,
   formatBRL,
   formatCentsInput,
@@ -13,15 +14,28 @@ import {
   type LedgerEntry,
   type ManualEntryCategory,
   type PackagePurchase,
-  type PaymentMethod,
+  type ManualPaymentMethod,
   type PetResponse,
   type ServicePackage,
   type Statement,
+  type TutorCharge,
+  type TutorChargeCreated,
 } from '@petshop/shared-types'
 import { ReceiptIcon, WalletIcon } from '@/components/icons'
-import { Badge, Button, Card, CardHead, EmptyState, Field, FormError } from '@/components/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  CardHead,
+  Choice,
+  EmptyState,
+  Field,
+  FormError,
+} from '@/components/ui'
+import { Modal } from '@/components/modal'
 import { useToast } from '@/components/toast'
 import {
+  createChargeAction,
   createEntryAction,
   loadReceiptAction,
   loadStatementAction,
@@ -38,9 +52,9 @@ import {
  * que "quem é ele". Uma tela de financeiro separada obrigaria a procurar o mesmo
  * cadastro duas vezes.
  *
- * As três ações — receber, lançar, vender pacote — abrem **em painel na própria
- * página**, não em modal. Não existe diálogo em lugar nenhum deste produto, e o
- * balcão precisa poder olhar o extrato enquanto digita o valor.
+ * As três ações de balcão — receber, lançar, vender pacote — abrem **em painel na
+ * própria página**: o balcão precisa poder olhar o extrato enquanto digita o valor. O
+ * link de pagamento abre em diálogo, porque termina num endereço para copiar.
  */
 
 interface Props {
@@ -50,6 +64,9 @@ interface Props {
   packages: PackagePurchase[]
   catalog: ServicePackage[]
   pets: PetResponse[]
+  /** O Asaas do petshop está conectado: a recepção pode gerar link de pagamento. */
+  online: boolean
+  charges: TutorCharge[]
   can: { create: boolean; refund: boolean; credit: boolean }
 }
 
@@ -71,9 +88,12 @@ export function FinanceiroTab({
   packages,
   catalog,
   pets,
+  online,
+  charges,
   can,
 }: Props) {
   const [panel, setPanel] = useState<Panel>(null)
+  const [charging, setCharging] = useState(false)
   const [entries, setEntries] = useState(statement.data)
   const [summary, setSummary] = useState(statement.summary)
   const [total, setTotal] = useState(statement.total)
@@ -132,7 +152,26 @@ export function FinanceiroTab({
               Vender pacote
             </Button>
           )}
+          {online && (
+            <Button type="button" onClick={() => setCharging(true)}>
+              Gerar link de pagamento
+            </Button>
+          )}
         </div>
+      )}
+
+      {online && can.create && (
+        <ChargeDialog
+          open={charging}
+          tutorId={tutorId}
+          owesCents={Math.max(0, -account.balanceCents)}
+          onClose={() => setCharging(false)}
+          onDone={() => router.refresh()}
+        />
+      )}
+
+      {charges.some((charge) => charge.status === 'PENDING') && (
+        <ChargesCard charges={charges.filter((charge) => charge.status === 'PENDING')} />
       )}
 
       {panel === 'payment' && (
@@ -291,6 +330,204 @@ export function FinanceiroTab({
  * convenção do RN-02 é negativo = dívida, e a tela diz isso em palavras em vez de
  * confiar no sinal.
  */
+/**
+ * O link de pagamento (cobrança online, pelo Asaas do petshop).
+ *
+ * Diálogo, e não painel na página como as outras três ações: o link é uma decisão curta
+ * — quanto e se manda — que termina num endereço para copiar, e o resultado precisa de
+ * foco para não ser perdido no meio do extrato.
+ *
+ * O valor começa no saldo devedor; o que passar dele vira crédito na conta, pelo FIFO de
+ * sempre. Gerar de novo o mesmo valor devolve o mesmo link, e não um segundo.
+ */
+function ChargeDialog({
+  open,
+  tutorId,
+  owesCents,
+  onClose,
+  onDone,
+}: {
+  open: boolean
+  tutorId: string
+  owesCents: number
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [amount, setAmount] = useState(owesCents > 0 ? formatCentsInput(owesCents) : '')
+  const [send, setSend] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<TutorChargeCreated | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [pending, startTransition] = useTransition()
+
+  const cents = parseBRLToCents(amount)
+
+  function close() {
+    setResult(null)
+    setError(null)
+    setCopied(false)
+    onClose()
+  }
+
+  function generate() {
+    setError(null)
+    startTransition(async () => {
+      const response = await createChargeAction(tutorId, {
+        ...(cents !== null && cents !== owesCents ? { amountCents: cents } : {}),
+        send,
+      })
+      if (!response.ok) {
+        setError(response.message)
+        return
+      }
+      setResult(response.data)
+      onDone()
+    })
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={close}
+      busy={pending}
+      icon={<WalletIcon />}
+      tone="icon-money"
+      eyebrow="Cobrança online"
+      title={result ? 'Link de pagamento pronto' : 'Gerar link de pagamento'}
+      subtitle={
+        owesCents > 0 ? `Em aberto: ${formatBRL(owesCents)}` : 'O tutor não tem valor em aberto'
+      }
+      footer={
+        result ? (
+          <Button type="button" onClick={close}>
+            Fechar
+          </Button>
+        ) : (
+          <>
+            <Button type="button" variant="ghost" disabled={pending} onClick={close}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              busy={pending}
+              disabled={cents === null || cents <= 0}
+              onClick={generate}
+              busyLabel="Gerando…"
+            >
+              Gerar link
+            </Button>
+          </>
+        )
+      }
+    >
+      {result ? (
+        <div className="space-y-4">
+          <p className="text-sm">
+            {formatBRL(result.charge.amountCents)} por PIX ou cartão, até{' '}
+            {new Date(result.charge.expiresAt).toLocaleString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+            . A baixa na conta é automática.
+          </p>
+          {!result.created && (
+            <p className="hint">Já havia um link vivo com este valor — é o mesmo.</p>
+          )}
+          {result.sent === true && <p className="hint">O link foi enviado ao tutor.</p>}
+          {result.sent === false && (
+            <p className="hint">
+              Não deu para enviar ao tutor (mensagens desligadas ou sem contato). Copie o link
+              abaixo.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              readOnly
+              className="field field-inline min-w-0 flex-1 font-mono text-xs"
+              value={result.charge.url}
+              onFocus={(event) => event.target.select()}
+              aria-label="Link de pagamento"
+            />
+            <Button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard?.writeText(result.charge.url).then(() => setCopied(true))
+              }}
+            >
+              {copied ? 'Copiado' : 'Copiar'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <FormError message={error} />
+          <Field
+            label="Valor"
+            htmlFor="cobranca-valor"
+            hint="O que passar do valor em aberto vira crédito na conta do tutor."
+          >
+            <input
+              id="cobranca-valor"
+              className="field"
+              inputMode="decimal"
+              value={amount}
+              disabled={pending}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="0,00"
+            />
+          </Field>
+          <Choice
+            checked={send}
+            disabled={pending}
+            onChange={setSend}
+            label="Enviar o link ao tutor"
+            description="Pelo WhatsApp ou e-mail, como as outras mensagens do petshop."
+          />
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+/** Os links em aberto, para a recepção reenviar ou conferir antes de gerar outro. */
+function ChargesCard({ charges }: { charges: TutorCharge[] }) {
+  return (
+    <Card>
+      <CardHead icon={<WalletIcon />} tone="icon-money" title="Links de pagamento em aberto" />
+      <ul className="mt-3 divide-y divide-line">
+        {charges.map((charge) => (
+          <li key={charge.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+            <span className="text-sm">
+              <span className="font-medium tabular-nums">{formatBRL(charge.amountCents)}</span>
+              <span className="text-subtle">
+                {' '}
+                · vale até{' '}
+                {new Date(charge.expiresAt).toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                {charge.origin === 'PORTAL' ? ' · aberto pelo tutor' : ''}
+              </span>
+            </span>
+            <a
+              href={charge.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm underline underline-offset-2"
+            >
+              Abrir
+            </a>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
 function BalanceCard({ account }: { account: LedgerAccount }) {
   const inDebt = account.balanceCents < 0
   const hasCredit = account.balanceCents > 0
@@ -628,7 +865,7 @@ function PaymentPanel({
   // O valor vem preenchido com o que está em aberto: é o pagamento que acontece em
   // nove de cada dez vezes, e digitá-lo de novo só cria oportunidade de errar.
   const [amount, setAmount] = useState(suggestedCents > 0 ? formatCentsInput(suggestedCents) : '')
-  const [method, setMethod] = useState<PaymentMethod>('PIX_MANUAL')
+  const [method, setMethod] = useState<ManualPaymentMethod>('PIX_MANUAL')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -690,9 +927,9 @@ function PaymentPanel({
             id="pagamento-forma"
             className="field"
             value={method}
-            onChange={(event) => setMethod(event.target.value as PaymentMethod)}
+            onChange={(event) => setMethod(event.target.value as ManualPaymentMethod)}
           >
-            {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[])
+            {PAYMENT_METHODS
               // Crédito de pacote não é forma de recebimento no balcão: ele é
               // consumido pelo atendimento, não digitado por alguém.
               .filter((key) => key !== 'PACKAGE_CREDIT')
@@ -906,7 +1143,7 @@ function PackagePanel({
   // Um pet só: já vem escolhido. O vínculo é opcional no modelo, mas na prática o
   // pacote é sempre de um animal, e perguntar o óbvio é atrito.
   const [petId, setPetId] = useState(pets.length === 1 ? (pets[0]?.id ?? '') : '')
-  const [method, setMethod] = useState<PaymentMethod>('PIX_MANUAL')
+  const [method, setMethod] = useState<ManualPaymentMethod>('PIX_MANUAL')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const toast = useToast()
@@ -976,15 +1213,13 @@ function PackagePanel({
             id="pacote-forma"
             className="field"
             value={method}
-            onChange={(event) => setMethod(event.target.value as PaymentMethod)}
+            onChange={(event) => setMethod(event.target.value as ManualPaymentMethod)}
           >
-            {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[])
-              .filter((key) => key !== 'PACKAGE_CREDIT')
-              .map((key) => (
-                <option key={key} value={key}>
-                  {PAYMENT_METHOD_LABELS[key]}
-                </option>
-              ))}
+            {PAYMENT_METHODS.filter((key) => key !== 'PACKAGE_CREDIT').map((key) => (
+              <option key={key} value={key}>
+                {PAYMENT_METHOD_LABELS[key]}
+              </option>
+            ))}
           </select>
         </Field>
       </div>

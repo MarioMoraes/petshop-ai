@@ -308,14 +308,22 @@ export type PreviewTemplateInput = z.output<typeof PreviewTemplateSchema>
 
 const TIME_OF_DAY = /^([01]\d|2[0-3]):[0-5]\d$/
 
-const messagingSettingsShape = {
+/**
+ * Os campos **sem padrão**, que o PATCH usa.
+ *
+ * Separados do schema completo por causa da armadilha do `.partial()`: ele torna a chave
+ * opcional mas **mantém o `.default()`**, e o `updateSettings` grava tudo o que não é
+ * `undefined`. Com um schema só, salvar o nome do remetente regravava a janela, os tetos,
+ * o canal e a retenção com os valores de fábrica — e o CRM salva campo a campo.
+ */
+const messagingSettingsFields = {
   enabled: z.boolean(),
   /** Decisão 16: 08:00–20:00 no fuso do tenant, configurável. */
-  quietStart: z.string().regex(TIME_OF_DAY).default('08:00'),
-  quietEnd: z.string().regex(TIME_OF_DAY).default('20:00'),
-  marketingWeekdaysOnly: z.boolean().default(true),
-  dailyCap: z.number().int().min(0).max(10_000).default(500),
-  perMinuteCap: z.number().int().min(1).max(60).default(20),
+  quietStart: z.string().regex(TIME_OF_DAY),
+  quietEnd: z.string().regex(TIME_OF_DAY),
+  marketingWeekdaysOnly: z.boolean(),
+  dailyCap: z.number().int().min(0).max(10_000),
+  perMinuteCap: z.number().int().min(1).max(60),
   /**
    * Quantas mensagens de MARKETING um mesmo tutor pode receber em sete dias.
    *
@@ -329,11 +337,24 @@ const messagingSettingsShape = {
    * taxi são execução de contrato, e represar um deles por causa de uma oferta seria
    * inverter exatamente a prioridade que o módulo defende.
    */
-  marketingWeeklyCap: z.number().int().min(0).max(20).default(1),
-  defaultChannel: MessageChannelPrefSchema.default('AUTO'),
-  retentionMonths: z.number().int().min(6).max(60).default(24),
+  marketingWeeklyCap: z.number().int().min(0).max(20),
+  defaultChannel: MessageChannelPrefSchema,
+  retentionMonths: z.number().int().min(6).max(60),
   senderName: z.string().max(60).nullish(),
   replyToEmail: z.email().nullish(),
+}
+
+/** O schema completo, com os padrões de fábrica — a configuração de quem nunca mexeu. */
+const messagingSettingsShape = {
+  ...messagingSettingsFields,
+  quietStart: messagingSettingsFields.quietStart.default('08:00'),
+  quietEnd: messagingSettingsFields.quietEnd.default('20:00'),
+  marketingWeekdaysOnly: messagingSettingsFields.marketingWeekdaysOnly.default(true),
+  dailyCap: messagingSettingsFields.dailyCap.default(500),
+  perMinuteCap: messagingSettingsFields.perMinuteCap.default(20),
+  marketingWeeklyCap: messagingSettingsFields.marketingWeeklyCap.default(1),
+  defaultChannel: messagingSettingsFields.defaultChannel.default('AUTO'),
+  retentionMonths: messagingSettingsFields.retentionMonths.default(24),
 }
 
 /**
@@ -359,7 +380,7 @@ export type MessagingSettingsInput = z.output<typeof MessagingSettingsSchema>
  * mandar só `quietEnd` é válido, e quem valida o resultado final é o CHECK do banco.
  */
 export const UpdateMessagingSettingsSchema = z
-  .object(messagingSettingsShape)
+  .object(messagingSettingsFields)
   .partial()
   .refine(
     (value) =>
@@ -862,3 +883,93 @@ export function whatsappWarmupCap(
     daysLeft: WHATSAPP_WARMUP_DAYS - day + 1,
   }
 }
+
+// ─── Domínio de e-mail próprio (Configurações › Integrações) ─────────────────
+
+export const EMAIL_DOMAIN_STATUSES = ['PENDING', 'VERIFIED', 'FAILED'] as const
+export const EmailDomainStatusSchema = z.enum(EMAIL_DOMAIN_STATUSES)
+export type EmailDomainStatus = z.infer<typeof EmailDomainStatusSchema>
+
+export const EMAIL_DOMAIN_STATUS_LABELS: Record<EmailDomainStatus, string> = {
+  PENDING: 'Aguardando o DNS',
+  VERIFIED: 'Verificado',
+  FAILED: 'Não verificou',
+}
+
+/**
+ * Quanto tempo a varredura continua conferindo um domínio pendente.
+ *
+ * Setenta e duas horas é o teto da propagação de DNS que os registradores prometem; o
+ * que não verificou até lá quase sempre tem registro errado, e continuar perguntando só
+ * gastaria chamada. O botão "Verificar agora" continua valendo depois disso.
+ */
+export const EMAIL_DOMAIN_CHECK_WINDOW_HOURS = 72
+
+export const EmailDomainRecordSchema = z.object({
+  record: z.string(),
+  type: z.string(),
+  name: z.string(),
+  value: z.string(),
+  priority: z.number().nullable(),
+  verified: z.boolean(),
+})
+export type EmailDomainRecord = z.infer<typeof EmailDomainRecordSchema>
+
+export const EmailDomainSchema = z.object({
+  domain: z.string(),
+  localPart: z.string(),
+  /** O endereço que passa a assinar o e-mail quando o domínio verifica. */
+  fromAddress: z.string(),
+  status: EmailDomainStatusSchema,
+  records: z.array(EmailDomainRecordSchema),
+  verifiedAt: z.iso.datetime().nullable(),
+  lastCheckedAt: z.iso.datetime().nullable(),
+})
+export type EmailDomain = z.infer<typeof EmailDomainSchema>
+
+export const EmailDomainResponseSchema = z.object({
+  /** `false` quando a instalação não tem chave do Resend com acesso a domínios. */
+  available: z.boolean(),
+  domain: EmailDomainSchema.nullable(),
+})
+export type EmailDomainResponse = z.infer<typeof EmailDomainResponseSchema>
+
+/**
+ * O cadastro do domínio.
+ *
+ * O domínio chega como o petshop o digitaria — com `https://`, `www.` ou maiúsculas — e
+ * sai normalizado: o índice único do banco compara texto, e `MeuPet.com.br` e
+ * `meupet.com.br` são o mesmo remetente.
+ */
+export const SetEmailDomainSchema = z.strictObject({
+  domain: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .transform((value) =>
+      value
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/.*$/, ''),
+    )
+    .pipe(
+      z
+        .string()
+        .max(253)
+        .regex(
+          /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/,
+          'Digite só o domínio, como meupetshop.com.br',
+        ),
+    ),
+  localPart: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(64)
+    .regex(
+      /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/,
+      'Use só letras, números, ponto, hífen ou sublinhado',
+    )
+    .optional(),
+})
+export type SetEmailDomainInput = z.output<typeof SetEmailDomainSchema>

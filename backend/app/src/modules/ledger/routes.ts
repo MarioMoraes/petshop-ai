@@ -4,6 +4,8 @@ import {
   CreatePackagePurchaseSchema,
   CreatePaymentSchema,
   CreateServicePackageSchema,
+  CreateTutorChargeSchema,
+  SetOnlineBillingSchema,
   AccountsReceivableQuerySchema,
   CashflowQuerySchema,
   CreditCheckQuerySchema,
@@ -44,6 +46,19 @@ import { cashflowByMethod, receivablesByBucket } from './reconciliation.js'
 import { accountsReceivableReport, receiptsByDayReport } from './reports.js'
 import { renderAccountsReceivableHtml, renderReceiptsByDayHtml } from './report-template.js'
 import { getSettings, updateSettings } from './settings.js'
+import {
+  connectOnlineBilling,
+  disconnectOnlineBilling,
+  getOnlineBilling,
+} from './online-billing.js'
+import {
+  applyTutorWebhook,
+  createCharge,
+  listCharges,
+  type AsaasTutorWebhookPayload,
+} from './tutor-charges.js'
+import { recordSecurityEvent } from '../../shared/security-events.js'
+import { unauthorized } from './errors.js'
 import { getStatement, statementDocument, statementFilename } from './statement.js'
 import { renderStatementHtml } from './statement-template.js'
 
@@ -86,6 +101,12 @@ function actorFrom(request: FastifyRequest): ActorContext {
 
 const READ = { preHandler: requirePermission('finance:read') }
 const WRITE = { preHandler: requirePermission('finance:create') }
+const TENANT_CONFIGURE = {
+  preHandler: requirePermission(
+    'tenant:configure',
+    'Conectar o Asaas do estabelecimento é uma ação do administrador',
+  ),
+}
 const REFUND = { preHandler: requirePermission('finance:refund') }
 const CONFIGURE = { preHandler: requirePermission('finance:configure') }
 
@@ -122,7 +143,9 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
       // O extrato **nunca** decifra `internal_notes`, nem para o staff: decifrar N
       // linhas por página custaria uma operação de cripto por lançamento para um campo
       // que a tela não mostra. Quem quiser lê no detalhe do lançamento.
-      data: result.rows.map((row) => toEntryResponse(row, { includeInternal, internalNotes: null })),
+      data: result.rows.map((row) =>
+        toEntryResponse(row, { includeInternal, internalNotes: null }),
+      ),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -260,7 +283,9 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
       canOverridePrice: hasPermission(request, 'finance:credit'),
     })
 
-    return reply.status(result.repeated ? 200 : 201).send(await findPurchase(actor, result.purchaseId))
+    return reply
+      .status(result.repeated ? 200 : 201)
+      .send(await findPurchase(actor, result.purchaseId))
   })
 
   app.get('/v1/tutors/:tutorId/packages', READ, async (request) => {
@@ -324,7 +349,11 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
     const query = parseInput(AccountsReceivableQuerySchema, request.query)
     const report = await accountsReceivableReport(actorFrom(request).tenantId, query)
 
-    return sendPdf(reply, renderAccountsReceivableHtml(report), `contas-a-receber-${report.asOf}.pdf`)
+    return sendPdf(
+      reply,
+      renderAccountsReceivableHtml(report),
+      `contas-a-receber-${report.asOf}.pdf`,
+    )
   })
 
   app.get('/v1/ledger/reports/receipts-by-day', CONFIGURE, async (request) => {
@@ -351,8 +380,79 @@ export async function registerLedgerRoutes(app: FastifyInstance): Promise<void> 
     const input = parseInput(UpdateBillingSettingsSchema, request.body)
     return updateSettings(actorFrom(request), input)
   })
+
+  // ─── Cobrança online do tutor (Asaas do estabelecimento) ─────────────────
+
+  /**
+   * A conexão com o Asaas do petshop. Ler é `finance:read` — a recepção precisa saber se
+   * pode gerar link —; **conectar é `tenant:configure`**, porque a chave move o dinheiro
+   * do estabelecimento, e isso é decisão de quem responde pela conta.
+   */
+  app.get('/v1/billing-settings/asaas', READ, async (request) => {
+    return { connection: await getOnlineBilling(requireTenantContext(request).tenantId) }
+  })
+
+  app.put('/v1/billing-settings/asaas', TENANT_CONFIGURE, async (request) => {
+    const input = parseInput(SetOnlineBillingSchema, request.body)
+    return { connection: await connectOnlineBilling(actorFrom(request), input) }
+  })
+
+  app.delete('/v1/billing-settings/asaas', TENANT_CONFIGURE, async (request) => {
+    return { connection: await disconnectOnlineBilling(actorFrom(request)) }
+  })
+
+  /**
+   * O link de pagamento que a recepção gera. `finance:create`, a mesma de registrar um
+   * pagamento no balcão: gerar a cobrança é o começo do mesmo ato.
+   */
+  app.get('/v1/ledger/accounts/:tutorId/charges', READ, async (request) => {
+    const { tutorId } = parseInput(TutorParamSchema, request.params)
+    return { data: await listCharges(requireTenantContext(request).tenantId, tutorId) }
+  })
+
+  app.post('/v1/ledger/accounts/:tutorId/charges', WRITE, async (request, reply) => {
+    const { tutorId } = parseInput(TutorParamSchema, request.params)
+    const input = parseInput(CreateTutorChargeSchema, request.body ?? {})
+    const result = await createCharge(actorFrom(request), tutorId, {
+      origin: 'ADMIN',
+      amountCents: input.amountCents,
+      send: input.send,
+    })
+    return reply.status(result.created ? 201 : 200).send(result)
+  })
 }
 
+/**
+ * O webhook da conta do Asaas **de cada petshop** — fora do escopo autenticado.
+ *
+ * Quem o autentica é o token que a conexão cadastrou na conta do petshop, e o hash dele é
+ * também o que diz de qual estabelecimento é o evento. Sob `/internal/`, publicado pela
+ * borda (`infra/Caddyfile`), como o webhook da assinatura.
+ *
+ * 200 também para o que se ignora: o Asaas pausa a fila depois de 15 falhas seguidas, e
+ * um pagamento do petshop que não nasceu de cobrança nossa não pode travar os que
+ * nasceram.
+ */
+export async function registerTutorBillingWebhookRoutes(app: FastifyInstance): Promise<void> {
+  app.post('/internal/v1/asaas/tutor-webhook', async (request, reply) => {
+    const header = request.headers['asaas-access-token']
+    const token = Array.isArray(header) ? header[0] : header
+    const outcome = await applyTutorWebhook(token, (request.body ?? {}) as AsaasTutorWebhookPayload)
+
+    if (outcome === 'UNAUTHORIZED') {
+      await recordSecurityEvent({
+        tenantId: null,
+        type: 'WEBHOOK_SIGNATURE_INVALID',
+        targetEntity: 'asaas_tutor_webhook',
+        targetId: null,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'] ?? null,
+      })
+      throw unauthorized('Token do webhook inválido')
+    }
+    return reply.status(200).send({ received: true })
+  })
+}
 
 /**
  * O período pedido, ou o dia de hoje — sempre **no fuso do estabelecimento**.
@@ -384,7 +484,6 @@ async function resolvePeriod(
   return zonedDayRange(todayIn(timezone), timezone)
 }
 
-
 /**
  * HTML vira PDF e desce como anexo.
  *
@@ -404,11 +503,13 @@ async function sendPdf(reply: FastifyReply, html: string, filename: string): Pro
     throw error
   }
 
-  return reply
-    .type('application/pdf')
-    .header('content-disposition', `attachment; filename="${filename}"`)
-    // O relatório é o retrato de um instante e leva o telefone de quem deve: nem o
-    // navegador nem nenhum intermediário tem por que guardar uma cópia.
-    .header('cache-control', 'no-store')
-    .send(pdf)
+  return (
+    reply
+      .type('application/pdf')
+      .header('content-disposition', `attachment; filename="${filename}"`)
+      // O relatório é o retrato de um instante e leva o telefone de quem deve: nem o
+      // navegador nem nenhum intermediário tem por que guardar uma cópia.
+      .header('cache-control', 'no-store')
+      .send(pdf)
+  )
 }

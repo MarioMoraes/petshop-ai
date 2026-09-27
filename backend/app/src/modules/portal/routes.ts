@@ -34,6 +34,7 @@ import { forbidden, invalid, unauthorized } from './errors.js'
 import { logger } from '../../shared/logger.js'
 import { parseInput } from './validate.js'
 import { getDevicesPort } from './devices-port.js'
+import { getLedgerPort } from './ledger-port.js'
 import type { ActorContext } from './actor.js'
 import type { SchedulingCaller } from './scheduling-port.js'
 import { requestChallenge } from './challenge.js'
@@ -276,15 +277,11 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
 
   // ─── MOD-PORTAL-03 — Meus Pets ─────────────────────────────────────────────
 
-  app.get(
-    '/portal/v1/pets',
-    { preHandler: requirePermission('pet:read_own') },
-    async (request) => {
-      const { tenantId } = requireTenantContext(request)
-      const { tutorId } = requireOwnScope(request)
-      return { pets: await listOwnPets(tenantId, tutorId) }
-    },
-  )
+  app.get('/portal/v1/pets', { preHandler: requirePermission('pet:read_own') }, async (request) => {
+    const { tenantId } = requireTenantContext(request)
+    const { tutorId } = requireOwnScope(request)
+    return { pets: await listOwnPets(tenantId, tutorId) }
+  })
 
   app.get(
     '/portal/v1/pets/:petId',
@@ -484,6 +481,29 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     },
   )
 
+  /**
+   * Pagar agora: o link da cobrança online, pelo Asaas do petshop.
+   *
+   * `finance:read_own`, e sem corpo: o valor é o saldo devedor, decidido no ledger, e o
+   * titular sai do `ownScope`. Tocar duas vezes devolve o mesmo link.
+   */
+  app.post(
+    '/portal/v1/finance/charges',
+    { preHandler: requirePermission('finance:read_own') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      return getLedgerPort().payNow(
+        {
+          tenantId: auth.tenantId,
+          clerkUserId: auth.clerkUserId,
+          userId: auth.userId ?? undefined,
+        },
+        tutorId,
+      )
+    },
+  )
+
   app.get(
     '/portal/v1/finance/statement',
     { preHandler: requirePermission('finance:read_own') },
@@ -513,7 +533,11 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       const { tutorId } = requireOwnScope(request)
 
       const documento = await downloadOwnStatementPdf(
-        { tenantId: auth.tenantId, clerkUserId: auth.clerkUserId, userId: auth.userId ?? undefined },
+        {
+          tenantId: auth.tenantId,
+          clerkUserId: auth.clerkUserId,
+          userId: auth.userId ?? undefined,
+        },
         {
           actorUserId: auth.userId,
           ipAddress: request.ip,
@@ -522,13 +546,15 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
         tutorId,
       )
 
-      return reply
-        .type('application/pdf')
-        .header('content-disposition', `attachment; filename="${documento.filename}"`)
-        // O extrato lista o que o titular deve e a quem: nem o navegador nem nenhum
-        // intermediário tem por que guardar uma cópia.
-        .header('cache-control', 'no-store')
-        .send(documento.bytes)
+      return (
+        reply
+          .type('application/pdf')
+          .header('content-disposition', `attachment; filename="${documento.filename}"`)
+          // O extrato lista o que o titular deve e a quem: nem o navegador nem nenhum
+          // intermediário tem por que guardar uma cópia.
+          .header('cache-control', 'no-store')
+          .send(documento.bytes)
+      )
     },
   )
 
@@ -549,7 +575,11 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       const auth = requireTenantContext(request)
 
       return readOwnReceipt(
-        { tenantId: auth.tenantId, clerkUserId: auth.clerkUserId, userId: auth.userId ?? undefined },
+        {
+          tenantId: auth.tenantId,
+          clerkUserId: auth.clerkUserId,
+          userId: auth.userId ?? undefined,
+        },
         {
           actorUserId: auth.userId,
           ipAddress: request.ip,
@@ -702,13 +732,15 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       const { tutorId } = requireOwnScope(request)
       const documento = await exportOwnDataPdf(tutorCallerOf(request), tutorId)
 
-      return reply
-        .type('application/pdf')
-        .header('content-disposition', `attachment; filename="${documento.filename}"`)
-        // A folha é o cadastro inteiro do titular, com documento e endereço em claro.
-        // Nem o navegador nem nenhum intermediário tem por que guardar uma cópia.
-        .header('cache-control', 'no-store')
-        .send(documento.pdf)
+      return (
+        reply
+          .type('application/pdf')
+          .header('content-disposition', `attachment; filename="${documento.filename}"`)
+          // A folha é o cadastro inteiro do titular, com documento e endereço em claro.
+          // Nem o navegador nem nenhum intermediário tem por que guardar uma cópia.
+          .header('cache-control', 'no-store')
+          .send(documento.pdf)
+      )
     },
   )
 

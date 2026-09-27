@@ -92,6 +92,19 @@ const DUNNING_VARIABLES = [
 ] as const
 
 /**
+ * As do link de pagamento (cobrança online do tutor).
+ *
+ * `financeiro.valor_cobrado` já vem formatado em reais, pela mesma razão da régua; e
+ * `cobranca.validade` é a data em que o link deixa de valer, no fuso do petshop.
+ */
+const CHARGE_LINK_VARIABLES = [
+  ...BASE_VARIABLES,
+  'financeiro.valor_cobrado',
+  'cobranca.link',
+  'cobranca.validade',
+] as const
+
+/**
  * As do documento entregue por e-mail (MOD-NOTIF-06 e 07).
  *
  * `documento.link` é a página "Meus Documentos" do Portal, **nunca** a URL assinada do
@@ -649,6 +662,41 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
     push: {
       title: 'Sua conta no {{petshop.nome}}',
       body: 'Há um valor em aberto. Toque para ver.',
+      abre: 'conta',
+    },
+  },
+
+  /**
+   * O link de pagamento que a recepção manda (cobrança online do tutor).
+   *
+   * Só existe quando o petshop conectou a conta dele no Asaas, e só sai quando alguém
+   * na recepção pede — nunca de uma automação. A régua de cobrança continua sem link: um
+   * link que chega sozinho, de madrugada, é o formato exato do golpe.
+   */
+  {
+    key: 'tutor_charge_link',
+    label: 'Link de pagamento',
+    category: 'TRANSACTIONAL',
+    variables: CHARGE_LINK_VARIABLES,
+    subject: 'Link de pagamento do {{petshop.nome}}',
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, segue o link para pagar {{financeiro.valor_cobrado}} ' +
+        'no {{petshop.nome}}, por PIX ou cartão:\n\n' +
+        '{{cobranca.link}}\n\n' +
+        'O link vale até {{cobranca.validade}}. Qualquer dúvida, fale com a gente pelo ' +
+        '{{petshop.telefone}}.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'Segue o link para pagar {{financeiro.valor_cobrado}} no {{petshop.nome}}, por PIX ' +
+        'ou cartão:\n\n' +
+        '{{cobranca.link}}\n\n' +
+        'O link vale até {{cobranca.validade}}. A baixa na sua conta é automática. ' +
+        'Qualquer dúvida, fale com a gente pelo {{petshop.telefone}}.',
+    },
+    push: {
+      title: 'Pagamento no {{petshop.nome}}',
+      body: 'Seu link de pagamento chegou. Toque para ver sua conta.',
       abre: 'conta',
     },
   },

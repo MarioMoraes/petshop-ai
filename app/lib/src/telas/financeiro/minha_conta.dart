@@ -18,9 +18,9 @@ import 'extrato.dart';
 /// **quanto eu devo**, **o que eu já paguei** e **como eu pago**. Pacote com crédito
 /// entra entre a primeira e a segunda, porque é dinheiro que já saiu do bolso dele.
 ///
-/// **Não há botão de pagar, e a ausência é deliberada** (AC-05). Não existe meio de
-/// pagamento integrado; um "pagar agora" que abrisse um diálogo pedindo para procurar o
-/// petshop seria pior que o bloco honesto com a chave PIX e o horário de atendimento.
+/// **O botão de pagar só existe quando o petshop conectou o Asaas** (Configurações ›
+/// Integrações, no Admin). Sem isso, o bloco honesto com a chave PIX e o horário de
+/// atendimento — um "pagar agora" que pedisse para procurar o petshop seria pior.
 class MinhaConta extends StatelessWidget {
   const MinhaConta({super.key, required this.sessao});
 
@@ -61,6 +61,8 @@ class MinhaConta extends StatelessWidget {
               _ComoPagar(
                 instrucoes: conta.financeiro.howToPay,
                 petshop: sessao.contexto!.tenant.name,
+                deve: deveEmCentavos(conta.financeiro.balanceCents),
+                sessao: sessao,
               ),
             ],
           ],
@@ -290,10 +292,17 @@ class _BotaoDoExtratoEmPdfState extends State<_BotaoDoExtratoEmPdf> {
 /// Só aparece para quem deve: oferecer a chave PIX a quem está em dia é convidar a um
 /// pagamento sem destino, que depois alguém do balcão tem de conciliar à mão.
 class _ComoPagar extends StatelessWidget {
-  const _ComoPagar({required this.instrucoes, required this.petshop});
+  const _ComoPagar({
+    required this.instrucoes,
+    required this.petshop,
+    required this.deve,
+    required this.sessao,
+  });
 
   final PortalPaymentInstructions instrucoes;
   final String petshop;
+  final int deve;
+  final Sessao sessao;
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +310,8 @@ class _ComoPagar extends StatelessWidget {
     final t = context.tokens;
     final pix = instrucoes.pixKey;
     final contato = instrucoes.whatsapp ?? instrucoes.phone;
-    final semNada = pix == null && contato == null;
+    final online = instrucoes.onlinePayment;
+    final semNada = pix == null && contato == null && !online;
 
     return Cartao(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
@@ -312,6 +322,10 @@ class _ComoPagar extends StatelessWidget {
             icone: Icons.payments_rounded,
             titulo: 'Como pagar',
           ),
+          if (online) ...[
+            const SizedBox(height: 18),
+            _PagarAgora(sessao: sessao, deve: deve),
+          ],
           if (pix != null) ...[
             const SizedBox(height: 18),
             _ChavePix(chave: pix),
@@ -344,6 +358,70 @@ class _ComoPagar extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Pagar agora — o link do Asaas do petshop, por PIX ou cartão.
+///
+/// Abre no navegador do aparelho, pelo mesmo ponto de troca do recibo (`abrirEndereco`):
+/// a página do Asaas é onde o cartão é digitado, e ela não pode morar numa WebView do
+/// app. A baixa chega sozinha; ao voltar, puxar a tela para baixo mostra o saldo novo.
+class _PagarAgora extends StatefulWidget {
+  const _PagarAgora({required this.sessao, required this.deve});
+
+  final Sessao sessao;
+  final int deve;
+
+  @override
+  State<_PagarAgora> createState() => _PagarAgoraState();
+}
+
+class _PagarAgoraState extends State<_PagarAgora> {
+  bool _abrindo = false;
+
+  Future<void> _pagar() async {
+    if (_abrindo) return;
+    setState(() => _abrindo = true);
+    try {
+      final cobranca = await widget.sessao.api.pagarAgora();
+      final abriu = await abrirEndereco(Uri.parse(cobranca.url));
+      if (!abriu && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não há navegador para abrir o pagamento.')),
+        );
+      }
+    } catch (erro) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mensagemDoErro(erro))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _abrindo = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BotaoPrincipal(
+          rotulo: 'Pagar ${reais(widget.deve)} agora',
+          rotuloOcupado: 'Abrindo…',
+          ocupado: _abrindo,
+          icone: Icons.lock_rounded,
+          onPressed: _pagar,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'PIX ou cartão. A baixa na sua conta é automática.',
+          textAlign: TextAlign.center,
+          style: tema.textTheme.bodySmall,
+        ),
+      ],
     );
   }
 }

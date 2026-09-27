@@ -96,3 +96,14 @@ export function badWebhook(detail = 'Assinatura inválida'): AppError {
 export function providerUnavailable(detail: string): AppError {
   return new AppError('ERR_CRM_015', detail)
 }
+
+/**
+ * O domínio de e-mail já é de outro estabelecimento — ou já está na conta do Resend por
+ * outro caminho. Dois petshops assinando pelo mesmo endereço seria um se passando pelo
+ * outro, e o Resend não aceita o mesmo domínio duas vezes na conta.
+ */
+export function emailDomainTaken(
+  detail = 'Este domínio já está cadastrado por outro estabelecimento',
+): AppError {
+  return new AppError('ERR_CRM_017', detail)
+}

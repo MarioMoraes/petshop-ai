@@ -32,21 +32,16 @@ export * from '../harness.js'
 process.env.EVOLUTION_API_URL = 'http://evolution.invalido'
 process.env.EVOLUTION_API_KEY = 'chave-de-teste'
 process.env.EVOLUTION_WEBHOOK_URL = 'http://messaging.invalido/internal/v1/whatsapp/webhook'
-process.env.RESEND_WEBHOOK_SECRET =
-  'whsec_' + Buffer.from('segredo-de-teste').toString('base64')
+process.env.RESEND_WEBHOOK_SECRET = 'whsec_' + Buffer.from('segredo-de-teste').toString('base64')
 
-const {
-  createTenantKey,
-  encryptForTenant,
-  encryptPlatform,
-  withTenant,
-} = await import('@petshop/db')
+const { createTenantKey, encryptForTenant, encryptPlatform, withTenant } =
+  await import('@petshop/db')
 const { setEmailPort } = await import('../../src/modules/messaging/ports/email.js')
+const { setResendDomainsPort } = await import('../../src/modules/messaging/ports/resend-domains.js')
 const { setStoragePort } = await import('../../src/shared/document-storage.js')
 const { setWhatsAppPort } = await import('../../src/modules/messaging/ports/whatsapp.js')
-const { setEvolutionPort, EvolutionRequestError } = await import(
-  '../../src/modules/messaging/ports/evolution.js'
-)
+const { setEvolutionPort, EvolutionRequestError } =
+  await import('../../src/modules/messaging/ports/evolution.js')
 type EvolutionPort = import('../../src/modules/messaging/ports/evolution.js').EvolutionPort
 
 export interface SentMessage {
@@ -60,6 +55,8 @@ export interface SentMessage {
   /** Como o remetente foi montado (MOD-NOTIF-03). */
   senderName: string | null
   replyTo: string | null
+  /** O domínio próprio do petshop, quando verificado; `null` é o `MAIL_FROM`. */
+  from: string | null
 }
 
 export interface FakePort {
@@ -77,6 +74,7 @@ export interface FakePort {
  * pelo teste seguinte, que é exatamente o tipo de falha que se persegue por horas.
  */
 export function resetPorts(): void {
+  setResendDomainsPort(null)
   setEmailPort(null)
   setWhatsAppPort(null)
   setEvolutionPort(null)
@@ -145,6 +143,7 @@ export function installFakeEmailPort(options: { available?: boolean } = {}): Fak
         html: request.html ?? null,
         senderName: request.senderName,
         replyTo: request.replyTo,
+        from: request.from ?? null,
       })
       return { ok: true, providerMessageId: `fake-${sent.length}`, provider: 'fake' }
     },
@@ -197,6 +196,7 @@ export function installFakeWhatsAppPort(
         html: request.html ?? null,
         senderName: request.senderName,
         replyTo: request.replyTo,
+        from: null,
       })
       return { ok: true, providerMessageId: `wa-${sent.length}`, provider: 'fake-wa' }
     },
@@ -581,9 +581,7 @@ export async function givenTutor(
         // placeholder faria o teste exercitar o caminho de erro sem querer.
         phoneEncrypted: await enc(options.phone ?? '+5511987654321'),
         phoneHash: `phone-${suffix}`,
-        ...(email
-          ? { emailEncrypted: await enc(email), emailHash: `email-${suffix}` }
-          : {}),
+        ...(email ? { emailEncrypted: await enc(email), emailHash: `email-${suffix}` } : {}),
       },
     })
 
@@ -637,10 +635,13 @@ export async function asReceptionist(fixture: TenantFixture): Promise<Caller> {
  * Quem enfileira sem ser gente — as automações do MOD-CRM, o Portal — chama
  * `enqueueMessage` direto, por porta de módulo, e não passa por esta rota.
  */
-export async function callAsStaff(fixture: TenantFixture, options: {
-  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
-  url: string
-  payload?: unknown
-}) {
+export async function callAsStaff(
+  fixture: TenantFixture,
+  options: {
+    method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
+    url: string
+    payload?: unknown
+  },
+) {
   return callApi({ ...asAdmin(fixture), ...options })
 }

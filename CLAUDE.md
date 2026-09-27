@@ -27,11 +27,13 @@ antes de propor uma alternativa visual.
 
 A referência viva é `frontend/src/app/(admin)/tutores/tutor-form.tsx`.
 
-`/configuracoes` é uma **porta com três cartões** — o estabelecimento, a assinatura e a
-importação da base anterior —, e não mais a ficha do estabelecimento direto: ela mudou-se
-para `/configuracoes/estabelecimento` quando a faixa de abas chegou a nove e a décima
-teria quebrado em duas linhas. Quem aponta para uma aba (`?aba=privacidade`, do sino)
-aponta para a sub-rota.
+`/configuracoes` é uma **porta de cartões** — o estabelecimento, os pacotes, as
+integrações, a assinatura e a importação da base anterior —, e não mais a ficha do
+estabelecimento direto: ela mudou-se para `/configuracoes/estabelecimento` quando a faixa
+de abas chegou a nove e a décima teria quebrado em duas linhas. **Integrações**
+(`/configuracoes/integracoes`) é o lugar único do que o petshop conecta — WhatsApp,
+remetente do e-mail, chave PIX —, e cada seção grava pelo endpoint do módulo dono. Quem
+aponta para uma aba (`?aba=privacidade`, do sino) aponta para a sub-rota.
 
 `src/app` tem **quatro** raízes: `(admin)`, com o `ClerkProvider` e as telas de equipe;
 `(site)`, que serve a página pública do petshop sem carregar identidade nenhuma;
@@ -128,6 +130,18 @@ A assimetria é de propósito:
 
 Pelo mesmo motivo, `recordPayment` virou `writePaymentInTx` + `announcePayment`.
 
+**A cobrança online do tutor usa a conta do Asaas do petshop, e não a da plataforma.** O
+petshop conecta a chave dele em Integrações (`ledger/online-billing.ts`), e conectar
+confere a chave, **cadastra na conta dele o webhook de baixa** com um token por tenant e só
+então grava — sem webhook, o tutor pagaria e o livro nunca saberia. O link é um Checkout
+(PIX e cartão, sem boleto) nascido do "Pagar agora" do Portal/app — sempre o saldo
+devedor, decidido no servidor — ou da recepção, no Admin. A baixa chega em
+`/internal/v1/asaas/tutor-webhook`: o hash do token acha o tenant, e o pagamento entra
+por `writePaymentInTx`, com os meios `PIX_ONLINE`/`CARD_ONLINE`, que **não** estão em
+`PAYMENT_METHODS` (o balcão não os registra) nem na gaveta. O dinheiro manda, e não o
+estado da linha: cobrança vencida ou cancelada que o tutor pagou mesmo assim é registrada.
+O HTTP do Asaas é um só para os dois módulos (`shared/asaas-http.ts`).
+
 **O MOD-PORTAL é o único que lê de todos os outros e escreve por porta.** Ele agrega: as
 leituras são banco direto, porque ler é escolher um recorte; as escritas passam pelas
 cinco portas, porque gravar é aplicar regra. Cada porta **eleva permissão de propósito**
@@ -158,8 +172,10 @@ muda.
 `agent_conversations.pending_at`; quem responde é `modules/agent/runner.ts`, disparado
 logo depois do 204 — e `pending_at` é ao mesmo tempo o "desde quando espera" e a **posse**
 de quem está respondendo, então o job `agent.sweep-pending` recolhe o que um processo
-derrubado deixou pela metade. O provedor fica atrás de `model-port.ts`, e as sete leituras
-mais as três escritas atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o
+derrubado deixou pela metade. O provedor fica atrás de `model-port.ts` — **uma porta por
+estabelecimento**, com a chave da Anthropic que ele cadastra em Integrações
+(`agent/api-key.ts`, cifrada com a DEK); sem ela o agente responde como desligado, e a
+chave do ambiente só vale fora de produção —, e as sete leituras mais as três escritas atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o
 agente e a tela do tutor respondem a mesma pergunta com a mesma função.
 
 **Nenhum instante chega ao modelo em UTC.** Um modelo repassa ao cliente o número que leu,
@@ -351,6 +367,14 @@ soltos no minuto do pagamento chegam como mentira. O aviso da véspera não nasc
 transição nenhuma: é o job `identity.trial-warnings`, uma vez por dia, e quem garante um
 aviso só é o `dedupeKey` da mensagem, não uma coluna de estado.
 
+**O domínio de e-mail próprio muda o remetente só depois do DNS verificado.** O petshop o
+cadastra em Integrações, e ele é registrado na conta Resend **da plataforma** pela API de
+Domains (`messaging/email-domain.ts`, que exige `RESEND_API_KEY` de acesso total). O
+`from` sai de `ResolvedSettings.fromAddress`, que só existe com `email_domains.status =
+VERIFIED`; até lá o e-mail ao tutor sai pelo `MAIL_FROM`, e os e-mails da plataforma
+(convite, alerta) nunca mudam. O domínio é único entre tenants, e a varredura
+`messaging.email-domain-check` desiste em 72 horas.
+
 **Um terceiro prefixo anônimo entrou com o MOD-NOTIF:** `/internal/`, onde moram os
 webhooks dos provedores (Evolution no pareamento do WhatsApp, Resend no retorno de
 entrega). O nome diz de onde a chamada nasce, não que ela seja privada — o `/internal/`
@@ -390,3 +414,6 @@ plano só a parte estrutural (AST, sem custo de modelo), com log em
 alterado — PRD, `SPEC.md`, este arquivo — e aceitar um grafo menor que o anterior. Mudança
 em documento ou refatoração que apaga código pede `/graphify . --update` à mão. Na dúvida
 sobre o frescor, a data do `graph.json` diz.
+
+
+Ao rodar comandos com saída longa (testes, builds, logs), use | tail -n 50 ou grep para filtrar. Não use cat em arquivos grandes.

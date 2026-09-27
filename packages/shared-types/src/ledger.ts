@@ -31,7 +31,22 @@ export const PAYMENT_METHODS = [
   'PACKAGE_CREDIT',
   'OTHER',
 ] as const
-export const PaymentMethodSchema = z.enum(PAYMENT_METHODS)
+/**
+ * O que o tutor pagou pela cobrança online do petshop (Asaas do estabelecimento).
+ *
+ * **Fora de `PAYMENT_METHODS` de propósito**: aquela lista é o que o balcão escolhe ao
+ * registrar à mão, e um "PIX online" registrado à mão seria um pagamento que o Asaas
+ * nunca viu. Estes dois só nascem do webhook, com a cobrança por trás.
+ */
+export const ONLINE_PAYMENT_METHODS = ['PIX_ONLINE', 'CARD_ONLINE'] as const
+export const ALL_PAYMENT_METHODS = [...PAYMENT_METHODS, ...ONLINE_PAYMENT_METHODS] as const
+
+/** O que o balcão pode registrar, habilitar e escolher numa venda. */
+export const ManualPaymentMethodSchema = z.enum(PAYMENT_METHODS)
+export type ManualPaymentMethod = z.infer<typeof ManualPaymentMethodSchema>
+
+/** Todo meio que um pagamento gravado pode ter — o de leitura e de filtro. */
+export const PaymentMethodSchema = z.enum(ALL_PAYMENT_METHODS)
 export type PaymentMethod = z.infer<typeof PaymentMethodSchema>
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -42,6 +57,8 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   BANK_TRANSFER: 'Transferência',
   PACKAGE_CREDIT: 'Crédito de pacote',
   OTHER: 'Outro',
+  PIX_ONLINE: 'PIX online',
+  CARD_ONLINE: 'Cartão online',
 }
 
 export const ENTRY_CATEGORIES = [
@@ -233,7 +250,7 @@ export const CreatePaymentSchema = z
   .object({
     tutorId: z.uuid(),
     amountCents: MoneyCentsSchema,
-    method: PaymentMethodSchema,
+    method: ManualPaymentMethodSchema,
     receivedAt: z.iso.datetime(),
     notes: z.string().trim().max(1000).optional(),
     proofUrl: z.url().optional(),
@@ -343,7 +360,7 @@ export type ServicePackage = z.infer<typeof ServicePackageSchema>
 export const CreatePackagePurchaseSchema = z.object({
   tutorId: z.uuid(),
   petId: z.uuid().optional(),
-  paymentMethod: PaymentMethodSchema,
+  paymentMethod: ManualPaymentMethodSchema,
   /** Desconto na venda; exige `finance:credit`. */
   priceOverrideCents: MoneyCentsSchema.optional(),
   idempotencyKey: z.uuid(),
@@ -402,7 +419,7 @@ export const BillingSettingsSchema = z.object({
   /** Nulo = sem bloqueio. A política é opt-in por tenant (RN-15). */
   creditLimitCents: z.number().int().nullable(),
   overdueDays: z.number().int(),
-  enabledPaymentMethods: z.array(PaymentMethodSchema),
+  enabledPaymentMethods: z.array(ManualPaymentMethodSchema),
   defaultPackageValidityDays: z.number().int(),
   /** Avisos prévios de expiração, em dias. RN-09: expirar sem avisar é falha nossa. */
   packageExpiryWarningDays: z.array(z.number().int()),
@@ -422,7 +439,7 @@ export type BillingSettings = z.infer<typeof BillingSettingsSchema>
 export const UpdateBillingSettingsSchema = z.object({
   creditLimitCents: z.number().int().min(0).max(MAX_MONEY_CENTS).nullable().optional(),
   overdueDays: z.number().int().min(1).max(365).optional(),
-  enabledPaymentMethods: z.array(PaymentMethodSchema).min(1).optional(),
+  enabledPaymentMethods: z.array(ManualPaymentMethodSchema).min(1).optional(),
   defaultPackageValidityDays: z.number().int().min(1).max(730).optional(),
   packageExpiryWarningDays: z.array(z.number().int().min(0).max(365)).max(5).optional(),
   noShowConsumesPackageCredit: z.boolean().optional(),
@@ -685,3 +702,101 @@ export type ReceiptsByDayReport = z.infer<typeof ReceiptsByDayReportSchema>
 
 /** Janela máxima do relatório diário. Um ano de linhas ainda cabe num PDF. */
 export const RECEIPTS_BY_DAY_MAX_DAYS = 366
+
+// ─── Cobrança online do tutor (Asaas do estabelecimento) ─────────────────────
+
+export const ASAAS_ENVIRONMENTS = ['SANDBOX', 'PRODUCTION'] as const
+export const AsaasEnvironmentSchema = z.enum(ASAAS_ENVIRONMENTS)
+export type AsaasEnvironment = z.infer<typeof AsaasEnvironmentSchema>
+
+export const ASAAS_ENVIRONMENT_LABELS: Record<AsaasEnvironment, string> = {
+  SANDBOX: 'Teste (sandbox)',
+  PRODUCTION: 'Produção',
+}
+
+/**
+ * A conta do Asaas do petshop — só o que a tela pode ver dela.
+ *
+ * `null` é "não conectada": o tutor não vê botão de pagar, e a recepção não gera link.
+ */
+export const OnlineBillingSchema = z
+  .object({
+    environment: AsaasEnvironmentSchema,
+    last4: z.string(),
+    verifiedAt: z.iso.datetime(),
+    /** A recusa do Asaas ao usar a chave depois de conectada: revogada, conta bloqueada. */
+    error: z.string().nullable(),
+  })
+  .nullable()
+export type OnlineBilling = z.infer<typeof OnlineBillingSchema>
+
+/**
+ * A conexão.
+ *
+ * O ambiente vai junto porque a chave do sandbox e a de produção são de servidores
+ * diferentes, e mandar a de um para o outro dá 401 — a mensagem certa é "confira o
+ * ambiente", e não "chave inválida".
+ */
+export const SetOnlineBillingSchema = z.strictObject({
+  apiKey: z.string().trim().min(20, 'Cole a chave inteira').max(300),
+  environment: AsaasEnvironmentSchema,
+})
+export type SetOnlineBillingInput = z.output<typeof SetOnlineBillingSchema>
+
+export const TUTOR_CHARGE_STATUSES = ['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'] as const
+export const TutorChargeStatusSchema = z.enum(TUTOR_CHARGE_STATUSES)
+export type TutorChargeStatus = z.infer<typeof TutorChargeStatusSchema>
+
+export const TUTOR_CHARGE_STATUS_LABELS: Record<TutorChargeStatus, string> = {
+  PENDING: 'Aguardando pagamento',
+  PAID: 'Paga',
+  EXPIRED: 'Vencida',
+  CANCELLED: 'Cancelada',
+}
+
+export const TUTOR_CHARGE_ORIGINS = ['PORTAL', 'ADMIN'] as const
+export const TutorChargeOriginSchema = z.enum(TUTOR_CHARGE_ORIGINS)
+export type TutorChargeOrigin = z.infer<typeof TutorChargeOriginSchema>
+
+/**
+ * Quanto tempo o link de pagamento vale.
+ *
+ * Três dias: o bastante para o tutor que recebeu no WhatsApp à noite pagar no dia
+ * seguinte, e curto o bastante para um link esquecido não cobrar um valor que já mudou.
+ */
+export const TUTOR_CHARGE_TTL_HOURS = 72
+
+export const TutorChargeSchema = z.object({
+  id: z.uuid(),
+  amountCents: z.number().int(),
+  status: TutorChargeStatusSchema,
+  origin: TutorChargeOriginSchema,
+  url: z.string(),
+  expiresAt: z.iso.datetime(),
+  paidAt: z.iso.datetime().nullable(),
+  paymentId: z.uuid().nullable(),
+  createdAt: z.iso.datetime(),
+})
+export type TutorCharge = z.infer<typeof TutorChargeSchema>
+
+/**
+ * A recepção gera o link (Admin).
+ *
+ * Sem valor, cobra o saldo devedor inteiro. Com valor, cobra o que foi digitado — o que
+ * passar da dívida vira crédito, pelo FIFO de sempre. `send` manda o link ao tutor pelo
+ * motor de mensagens; sem ele, a tela só mostra o link para copiar.
+ */
+export const CreateTutorChargeSchema = z.strictObject({
+  amountCents: MoneyCentsSchema.optional(),
+  send: z.boolean().default(false),
+})
+export type CreateTutorChargeInput = z.output<typeof CreateTutorChargeSchema>
+
+export const TutorChargeCreatedSchema = z.object({
+  charge: TutorChargeSchema,
+  /** `false` quando a cobrança viva já existia e foi devolvida no lugar de uma nova. */
+  created: z.boolean(),
+  /** Se o link saiu para o tutor. `null` quando não foi pedido. */
+  sent: z.boolean().nullable(),
+})
+export type TutorChargeCreated = z.infer<typeof TutorChargeCreatedSchema>

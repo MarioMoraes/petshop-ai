@@ -1,8 +1,9 @@
-import type { PortalReceiptResponse } from '@petshop/shared-types'
+import type { PortalChargeResponse, PortalReceiptResponse } from '@petshop/shared-types'
 import { documentUnavailable } from '../ledger/errors.js'
 import { PdfUnavailableError, renderPdf } from '../ledger/pdf-port.js'
 import { getReceiptForPayment } from '../ledger/receipts.js'
 import { statementDocument, statementFilename } from '../ledger/statement.js'
+import { createCharge } from '../ledger/tutor-charges.js'
 import { renderStatementHtml } from '../ledger/statement-template.js'
 import type { ActorContext } from '../ledger/actor.js'
 
@@ -63,6 +64,15 @@ export interface LedgerPort {
    * tutor segurando o papel.
    */
   statementPdf(caller: LedgerCaller, tutorId: string): Promise<LedgerDownload>
+  /**
+   * O "Pagar agora" (cobrança online do tutor).
+   *
+   * **A única escrita desta porta**, e ela eleva de propósito: o tutor não tem
+   * `finance:create`. O que a contém é o mesmo de sempre — o `tutorId` vem do
+   * `requireOwnScope`, e o valor **não vem de lugar nenhum**: é o saldo devedor, decidido
+   * no ledger. O tutor abre o link da própria dívida; não escolhe quanto ela vale.
+   */
+  payNow(caller: LedgerCaller, tutorId: string): Promise<PortalChargeResponse>
 }
 
 /** O ator que o MOD-LEDGER recebe, montado do chamador do Portal. */
@@ -102,6 +112,11 @@ function createInProcessPort(): LedgerPort {
         if (error instanceof PdfUnavailableError) throw documentUnavailable()
         throw error
       }
+    },
+
+    async payNow(caller, tutorId) {
+      const { charge } = await createCharge(actorOf(caller), tutorId, { origin: 'PORTAL' })
+      return { url: charge.url, amountCents: charge.amountCents, expiresAt: charge.expiresAt }
     },
   }
 }

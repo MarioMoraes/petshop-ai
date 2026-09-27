@@ -304,7 +304,11 @@ async function dispatchOne(
      * dono dele ser da casa.
      */
     if (!to || (await isSuppressed(tx, message.channel, to))) {
-      return { kind: 'block' as const, block: to ? ('SUPPRESSED' as const) : ('NO_CHANNEL' as const), message }
+      return {
+        kind: 'block' as const,
+        block: to ? ('SUPPRESSED' as const) : ('NO_CHANNEL' as const),
+        message,
+      }
     }
 
     /**
@@ -521,6 +525,9 @@ async function dispatchOne(
     body: prepared.body,
     senderName: settings.senderName,
     replyTo: settings.replyToEmail,
+    // O domínio próprio é do petshop falando com o cliente dele. Os avisos da conta e os
+    // textos da equipe são a PetShop AI falando com o petshop, e saem pelo `MAIL_FROM`.
+    from: prepared.message.recipientKind === 'TUTOR' ? settings.fromAddress : null,
     attachment: prepared.attachment.kind === 'file' ? prepared.attachment.attachment : null,
     html: prepared.html,
   })
@@ -870,9 +877,7 @@ async function brandedHtml(
   }
 }
 
-function attachmentRaw(
-  plan: AttachmentPlan,
-): { attachment: string; reason?: string } | undefined {
+function attachmentRaw(plan: AttachmentPlan): { attachment: string; reason?: string } | undefined {
   if (plan.kind !== 'file' && plan.kind !== 'link') return undefined
   return plan.kind === 'file' ? { attachment: 'file' } : { attachment: 'link', reason: plan.reason }
 }

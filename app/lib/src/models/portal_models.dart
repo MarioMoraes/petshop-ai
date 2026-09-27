@@ -34,6 +34,7 @@ class PortalSchema {
     final PortalChallengeResponse portalChallengeResponse;
     final PortalChannel portalChannel;
     final PortalChannelPreference portalChannelPreference;
+    final PortalChargeResponse portalChargeResponse;
     final PortalContactChange portalContactChange;
     final PortalContactChangeResponse portalContactChangeResponse;
     final PortalContactField portalContactField;
@@ -97,6 +98,7 @@ class PortalSchema {
         required this.portalChallengeResponse,
         required this.portalChannel,
         required this.portalChannelPreference,
+        required this.portalChargeResponse,
         required this.portalContactChange,
         required this.portalContactChangeResponse,
         required this.portalContactField,
@@ -161,6 +163,7 @@ class PortalSchema {
         portalChallengeResponse: PortalChallengeResponse.fromJson(json["PortalChallengeResponse"]),
         portalChannel: portalChannelValues.map[json["PortalChannel"]]!,
         portalChannelPreference: PortalChannelPreference.fromJson(json["PortalChannelPreference"]),
+        portalChargeResponse: PortalChargeResponse.fromJson(json["PortalChargeResponse"]),
         portalContactChange: PortalContactChange.fromJson(json["PortalContactChange"]),
         portalContactChangeResponse: PortalContactChangeResponse.fromJson(json["PortalContactChangeResponse"]),
         portalContactField: portalContactFieldValues.map[json["PortalContactField"]]!,
@@ -225,6 +228,7 @@ class PortalSchema {
         "PortalChallengeResponse": portalChallengeResponse.toJson(),
         "PortalChannel": portalChannelValues.reverse[portalChannel],
         "PortalChannelPreference": portalChannelPreference.toJson(),
+        "PortalChargeResponse": portalChargeResponse.toJson(),
         "PortalContactChange": portalContactChange.toJson(),
         "PortalContactChangeResponse": portalContactChangeResponse.toJson(),
         "PortalContactField": portalContactFieldValues.reverse[portalContactField],
@@ -987,6 +991,30 @@ class PortalChannelPreference {
     };
 }
 
+class PortalChargeResponse {
+    final int amountCents;
+    final DateTime expiresAt;
+    final String url;
+
+    PortalChargeResponse({
+        required this.amountCents,
+        required this.expiresAt,
+        required this.url,
+    });
+
+    factory PortalChargeResponse.fromJson(Map<String, dynamic> json) => PortalChargeResponse(
+        amountCents: json["amountCents"],
+        expiresAt: DateTime.parse(json["expiresAt"]),
+        url: json["url"],
+    );
+
+    Map<String, dynamic> toJson() => {
+        "amountCents": amountCents,
+        "expiresAt": expiresAt.toIso8601String(),
+        "url": url,
+    };
+}
+
 class PortalContactChange {
     final PortalContactField field;
     final String value;
@@ -1435,12 +1463,14 @@ class PortalFinanceResponse {
 
 class PortalPaymentInstructions {
     final List<Hour> hours;
+    final bool onlinePayment;
     final String? phone;
     final String? pixKey;
     final String? whatsapp;
 
     PortalPaymentInstructions({
         required this.hours,
+        required this.onlinePayment,
         required this.phone,
         required this.pixKey,
         required this.whatsapp,
@@ -1448,6 +1478,7 @@ class PortalPaymentInstructions {
 
     factory PortalPaymentInstructions.fromJson(Map<String, dynamic> json) => PortalPaymentInstructions(
         hours: List<Hour>.from(json["hours"].map((x) => Hour.fromJson(x))),
+        onlinePayment: json["onlinePayment"],
         phone: json["phone"],
         pixKey: json["pixKey"],
         whatsapp: json["whatsapp"],
@@ -1455,6 +1486,7 @@ class PortalPaymentInstructions {
 
     Map<String, dynamic> toJson() => {
         "hours": List<dynamic>.from(hours.map((x) => x.toJson())),
+        "onlinePayment": onlinePayment,
         "phone": phone,
         "pixKey": pixKey,
         "whatsapp": whatsapp,

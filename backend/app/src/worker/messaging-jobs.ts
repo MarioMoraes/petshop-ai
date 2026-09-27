@@ -5,6 +5,7 @@ import {
   reapLeases,
   runDispatch,
 } from '../modules/messaging/jobs.js'
+import { checkPendingDomains } from '../modules/messaging/email-domain.js'
 import { reaffirmWebhooks } from '../modules/messaging/whatsapp.js'
 
 /**
@@ -52,6 +53,16 @@ export const messagingJobs: JobDefinition[] = [
     name: 'messaging.reaffirm-webhook',
     schedule: '40 3 * * *',
     run: () => reaffirmWebhooks(),
+  },
+  {
+    /**
+     * O domínio de e-mail próprio verifica sozinho quando o DNS propaga: quem publicou os
+     * registros não precisa voltar à tela. Meia hora é o ritmo de um DNS que propaga em
+     * minutos ou horas — conferir de minuto em minuto só gastaria chamada ao Resend.
+     */
+    name: 'messaging.email-domain-check',
+    schedule: '*/30 * * * *',
+    run: (now) => checkPendingDomains(now),
   },
   {
     name: 'messaging.retention',

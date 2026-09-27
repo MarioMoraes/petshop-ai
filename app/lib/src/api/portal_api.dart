@@ -199,6 +199,13 @@ class PortalApi {
   Future<PortalFinanceResponse> financeiro() async =>
       PortalFinanceResponse.fromJson(await _cliente.get('/portal/v1/finance'));
 
+  /// Pagar agora: o link da cobrança online, pelo Asaas do petshop.
+  ///
+  /// Sem corpo — o valor é o saldo devedor, decidido no servidor. Tocar de novo devolve o
+  /// mesmo link.
+  Future<PortalChargeResponse> pagarAgora() async =>
+      PortalChargeResponse.fromJson(await _cliente.post('/portal/v1/finance/charges'));
+
   /// O extrato, paginado **por página** e não por cursor.
   ///
   /// É a única lista do app assim, e a razão está no dado: o extrato ordena por

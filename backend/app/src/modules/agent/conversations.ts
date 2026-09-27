@@ -61,7 +61,8 @@ async function blockedReason(message: InboundMessage): Promise<AgentHandoffReaso
    * causa de uma configuração que já era conhecida.
    */
   const settings = await loadSettings(message.tenantId)
-  if (!settings.enabled || !getModelPort().configured) return 'DISABLED'
+  if (!settings.enabled) return 'DISABLED'
+  if (!(await getModelPort(message.tenantId)).configured) return 'DISABLED'
 
   return null
 }

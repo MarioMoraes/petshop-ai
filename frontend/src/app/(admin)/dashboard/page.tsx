@@ -715,7 +715,9 @@ function recebidoHint(cashflow: {
   if (paymentsCount === 0 && walkInCount === 0) return 'Nenhum pagamento registrado hoje.'
   const partes = [
     paymentsCount > 0 ? `${paymentsCount} pagamento${paymentsCount === 1 ? '' : 's'}` : null,
-    walkInCount > 0 ? `${walkInCount} venda${walkInCount === 1 ? '' : 's'} avulsa${walkInCount === 1 ? '' : 's'}` : null,
+    walkInCount > 0
+      ? `${walkInCount} venda${walkInCount === 1 ? '' : 's'} avulsa${walkInCount === 1 ? '' : 's'}`
+      : null,
   ].filter(Boolean)
   return `${partes.join(' e ')}${paymentsCount > 0 ? topMethod(cashflow.byMethod) : ''}.`
 }
@@ -732,6 +734,8 @@ function topMethod(byMethod: { method: string; totalCents: number }[]): string {
     BANK_TRANSFER: 'transferência',
     PACKAGE_CREDIT: 'crédito de pacote',
     OTHER: 'outros',
+    PIX_ONLINE: 'PIX online',
+    CARD_ONLINE: 'cartão online',
   }
   return `, a maior parte em ${labels[top.method] ?? 'outros'}`
 }

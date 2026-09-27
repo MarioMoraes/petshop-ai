@@ -427,7 +427,7 @@ export function installFakePortal(overrides: Partial<AgentPortalPort> = {}): {
         openDebitsCents: 0,
         oldestOpenDebitAt: null,
         packages: [],
-        howToPay: { pixKey: null, phone: null, whatsapp: null, hours: [] },
+        howToPay: { pixKey: null, phone: null, whatsapp: null, hours: [], onlinePayment: false },
         timezone: TEST_TIMEZONE,
       }
     },

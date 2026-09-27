@@ -16,6 +16,7 @@ import {
 } from '@petshop/shared-types'
 import type {
   LedgerAccount,
+  TutorCharge,
   PackagePurchase,
   PaginatedMessages,
   ServicePackage,
@@ -66,6 +67,10 @@ export interface FinanceData {
   statement: Statement
   packages: PackagePurchase[]
   catalog: ServicePackage[]
+  /** O Asaas do petshop está conectado: a recepção pode gerar link de pagamento. */
+  online: boolean
+  /** As cobranças online recentes do tutor. */
+  charges: TutorCharge[]
   can: { read: boolean; create: boolean; refund: boolean; credit: boolean }
 }
 
@@ -124,6 +129,8 @@ export function TutorDetailView({ overview, consents, tags, pets, finance, comms
           statement={finance.statement}
           packages={finance.packages}
           catalog={finance.catalog}
+          online={finance.online}
+          charges={finance.charges}
           pets={pets}
           can={finance.can}
         />

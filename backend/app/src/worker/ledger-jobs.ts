@@ -1,3 +1,4 @@
+import { expireCharges } from '../modules/ledger/tutor-charges.js'
 import type { JobDefinition } from '@petshop/job-scheduler'
 import { detectOverdue } from '../modules/ledger/credit.js'
 import { expirePackages } from '../modules/ledger/packages.js'
@@ -34,6 +35,13 @@ export const ledgerJobs: JobDefinition[] = [
     name: 'ledger.detect-overdue',
     schedule: '20 3 * * *',
     run: (now) => detectOverdue(now),
+  },
+  {
+    // De hora em hora: a linha vencida só muda a tela (o checkout no Asaas vence sozinho,
+    // e o pagamento atrasado ainda é registrado pelo webhook).
+    name: 'ledger.expire-tutor-charges',
+    schedule: '5 * * * *',
+    run: (now) => expireCharges(now),
   },
   {
     // De dez em dez minutos, não de madrugada: um recibo que não saiu é um tutor

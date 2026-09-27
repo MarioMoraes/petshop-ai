@@ -5,6 +5,7 @@ import {
   MessageListQuerySchema,
   MessageStatsQuerySchema,
   PreviewTemplateSchema,
+  SetEmailDomainSchema,
   UpdateMessagingSettingsSchema,
   UpsertMessageTemplateSchema,
 } from '@petshop/shared-types'
@@ -16,6 +17,12 @@ import { parseInput } from './validate.js'
 import { recordSecurityEvent } from '../../shared/security-events.js'
 import type { ActorContext } from './actor.js'
 import { cancelMessage, enqueueMessage, retryMessage } from './messages.js'
+import {
+  getEmailDomain,
+  removeEmailDomain,
+  setEmailDomain,
+  verifyEmailDomain,
+} from './email-domain.js'
 import { findMessage, listMessages, messageStats } from './queries.js'
 import { render } from './render.js'
 import { getSettings, toApi, updateSettings } from './settings.js'
@@ -182,7 +189,10 @@ export async function registerMessagingRoutes(app: FastifyInstance): Promise<voi
   app.put<{ Params: TemplateParams }>(
     '/v1/messaging/templates/:key/:channel',
     {
-      preHandler: requirePermission('crm:configure', 'Você não tem permissão para editar os textos'),
+      preHandler: requirePermission(
+        'crm:configure',
+        'Você não tem permissão para editar os textos',
+      ),
     },
     async (request) => {
       const input = parseInput(UpsertMessageTemplateSchema, request.body)
@@ -199,7 +209,10 @@ export async function registerMessagingRoutes(app: FastifyInstance): Promise<voi
   app.delete<{ Params: TemplateParams }>(
     '/v1/messaging/templates/:key/:channel',
     {
-      preHandler: requirePermission('crm:configure', 'Você não tem permissão para editar os textos'),
+      preHandler: requirePermission(
+        'crm:configure',
+        'Você não tem permissão para editar os textos',
+      ),
     },
     async (request) => {
       return resetTemplate(
@@ -348,6 +361,58 @@ export async function registerMessagingRoutes(app: FastifyInstance): Promise<voi
     async (request) => disconnectWhatsapp(actorOf(request)),
   )
 
+  // ─── Domínio de e-mail próprio (Configurações › Integrações) ───────────────
+
+  /**
+   * Ler é `crm:read`, como o estado do WhatsApp: a recepção precisa saber de que
+   * endereço o e-mail está saindo. **Mudar é `tenant:configure`** — o domínio é do
+   * petshop, e publicar DNS é decisão de quem responde por ele, não de quem opera o CRM.
+   */
+  app.get(
+    '/v1/messaging/email-domain',
+    { preHandler: requirePermission('crm:read', 'Você não tem permissão para ver o domínio') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      return getEmailDomain(auth.tenantId)
+    },
+  )
+
+  app.put(
+    '/v1/messaging/email-domain',
+    {
+      preHandler: requirePermission(
+        'tenant:configure',
+        'Cadastrar o domínio de e-mail é uma ação do administrador do estabelecimento',
+      ),
+    },
+    async (request) => {
+      const input = parseInput(SetEmailDomainSchema, request.body)
+      return setEmailDomain(actorOf(request), input)
+    },
+  )
+
+  app.post(
+    '/v1/messaging/email-domain/verify',
+    {
+      preHandler: requirePermission(
+        'tenant:configure',
+        'Verificar o domínio de e-mail é uma ação do administrador do estabelecimento',
+      ),
+    },
+    async (request) => verifyEmailDomain(actorOf(request)),
+  )
+
+  app.delete(
+    '/v1/messaging/email-domain',
+    {
+      preHandler: requirePermission(
+        'tenant:configure',
+        'Remover o domínio de e-mail é uma ação do administrador do estabelecimento',
+      ),
+    },
+    async (request) => removeEmailDomain(actorOf(request)),
+  )
+
   // ─── Supressões ────────────────────────────────────────────────────────────
 
   app.get(
@@ -361,7 +426,9 @@ export async function registerMessagingRoutes(app: FastifyInstance): Promise<voi
 
   app.post(
     '/v1/messaging/suppressions',
-    { preHandler: requirePermission('crm:configure', 'Você não tem permissão para editar a lista') },
+    {
+      preHandler: requirePermission('crm:configure', 'Você não tem permissão para editar a lista'),
+    },
     async (request, reply) => {
       const input = parseInput(CreateSuppressionSchema, request.body)
       await createSuppression(actorOf(request), input)
@@ -371,7 +438,9 @@ export async function registerMessagingRoutes(app: FastifyInstance): Promise<voi
 
   app.delete<{ Params: IdParams }>(
     '/v1/messaging/suppressions/:id',
-    { preHandler: requirePermission('crm:configure', 'Você não tem permissão para editar a lista') },
+    {
+      preHandler: requirePermission('crm:configure', 'Você não tem permissão para editar a lista'),
+    },
     async (request, reply) => {
       await removeSuppression(actorOf(request), request.params.id)
       return reply.status(204).send()
@@ -430,19 +499,15 @@ export async function registerWhatsappWebhookRoutes(app: FastifyInstance): Promi
  */
 export async function registerEmailWebhookRoutes(app: FastifyInstance): Promise<void> {
   await app.register(async (scope) => {
-    scope.addContentTypeParser(
-      'application/json',
-      { parseAs: 'string' },
-      (request, body, done) => {
-        const raw = typeof body === 'string' ? body : body.toString('utf8')
-        ;(request as FastifyRequest & { rawBody?: string }).rawBody = raw
-        try {
-          done(null, raw.length > 0 ? JSON.parse(raw) : {})
-        } catch (error) {
-          done(error as Error, undefined)
-        }
-      },
-    )
+    scope.addContentTypeParser('application/json', { parseAs: 'string' }, (request, body, done) => {
+      const raw = typeof body === 'string' ? body : body.toString('utf8')
+      ;(request as FastifyRequest & { rawBody?: string }).rawBody = raw
+      try {
+        done(null, raw.length > 0 ? JSON.parse(raw) : {})
+      } catch (error) {
+        done(error as Error, undefined)
+      }
+    })
 
     scope.post('/internal/v1/email/webhook', async (request, reply) => {
       const raw = (request as FastifyRequest & { rawBody?: string }).rawBody ?? ''

@@ -6,11 +6,13 @@ import { ApiError } from '@petshop/api-client'
 import type {
   EntryDirection,
   ManualEntryCategory,
+  ManualPaymentMethod,
   PackagePurchase,
   Payment,
   PaymentMethod,
   Receipt,
   Statement,
+  TutorChargeCreated,
 } from '@petshop/shared-types'
 import { serverApi } from '@/lib/api'
 
@@ -73,7 +75,7 @@ export async function loadStatementAction(
 export async function registerPaymentAction(input: {
   tutorId: string
   amountCents: number
-  method: PaymentMethod
+  method: ManualPaymentMethod
   receivedAt: string
   notes?: string
 }): Promise<ActionResult<Payment>> {
@@ -84,6 +86,23 @@ export async function registerPaymentAction(input: {
     })
     revalidateTutor(input.tutorId)
     return { ok: true, data: payment }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * O link de pagamento (cobrança online, pelo Asaas do petshop). Sem valor, o saldo
+ * devedor; `send` manda o link ao tutor pelo motor de mensagens.
+ */
+export async function createChargeAction(
+  tutorId: string,
+  input: { amountCents?: number; send: boolean },
+): Promise<ActionResult<TutorChargeCreated>> {
+  try {
+    const result = await serverApi().createTutorCharge(tutorId, input)
+    revalidateTutor(tutorId)
+    return { ok: true, data: result }
   } catch (error) {
     return toFailure(error)
   }
@@ -127,7 +146,7 @@ export async function sellPackageAction(input: {
   tutorId: string
   packageId: string
   petId?: string
-  paymentMethod: PaymentMethod
+  paymentMethod: ManualPaymentMethod
 }): Promise<ActionResult<PackagePurchase>> {
   try {
     const purchase = await serverApi().purchasePackage(input.packageId, {

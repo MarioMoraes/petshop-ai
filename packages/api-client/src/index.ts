@@ -106,6 +106,11 @@ import {
   SuppressionResponseSchema,
   TemplatePreviewSchema,
   WhatsappConnectionSchema,
+  EmailDomainResponseSchema,
+  OnlineBillingSchema,
+  TutorChargeSchema,
+  TutorChargeCreatedSchema,
+  type AsaasEnvironment,
   PaginatedTaxiRidesSchema,
   TaxiBoardSchema,
   TaxiQuoteSchema,
@@ -2136,6 +2141,47 @@ export function createApiClient(options: ApiClientOptions) {
         schema: BillingSettingsSchema,
       }),
 
+    // ─── Cobrança online do tutor (Asaas do estabelecimento) ─────────────────
+
+    getOnlineBilling: () =>
+      request({
+        method: 'GET',
+        path: '/v1/billing-settings/asaas',
+        schema: z.object({ connection: OnlineBillingSchema }),
+      }),
+
+    /** Confere a chave no Asaas, cadastra a baixa automática e grava. */
+    connectOnlineBilling: (body: { apiKey: string; environment: AsaasEnvironment }) =>
+      request({
+        method: 'PUT',
+        path: '/v1/billing-settings/asaas',
+        body,
+        schema: z.object({ connection: OnlineBillingSchema }),
+      }),
+
+    disconnectOnlineBilling: () =>
+      request({
+        method: 'DELETE',
+        path: '/v1/billing-settings/asaas',
+        schema: z.object({ connection: OnlineBillingSchema }),
+      }),
+
+    listTutorCharges: (tutorId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/ledger/accounts/${tutorId}/charges`,
+        schema: z.object({ data: z.array(TutorChargeSchema) }),
+      }),
+
+    /** Sem valor, cobra o saldo devedor. `send` manda o link ao tutor. */
+    createTutorCharge: (tutorId: string, body: { amountCents?: number; send?: boolean }) =>
+      request({
+        method: 'POST',
+        path: `/v1/ledger/accounts/${tutorId}/charges`,
+        body,
+        schema: TutorChargeCreatedSchema,
+      }),
+
     /** MOD-LEDGER-08 — número, status e URL assinada. Nunca o PDF em stream. */
     getReceipt: (paymentId: string) =>
       request({
@@ -2295,6 +2341,21 @@ export function createApiClient(options: ApiClientOptions) {
       }),
 
     /**
+     * A chave da Anthropic do estabelecimento. O servidor a confere na Anthropic antes de
+     * gravar, e devolve a configuração inteira — só os quatro últimos caracteres voltam.
+     */
+    setAgentApiKey: (apiKey: string) =>
+      request({
+        method: 'PUT',
+        path: '/v1/agent/api-key',
+        body: { apiKey },
+        schema: AgentSettingsSchema,
+      }),
+
+    removeAgentApiKey: () =>
+      request({ method: 'DELETE', path: '/v1/agent/api-key', schema: AgentSettingsSchema }),
+
+    /**
      * O painel de qualidade (MOD-AI-09).
      *
      * A janela vai como **instante**, e não como data civil: o painel é do mês do
@@ -2418,6 +2479,38 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'DELETE',
         path: `/v1/messaging/suppressions/${id}`,
         schema: z.unknown(),
+      }),
+
+    // ─── Domínio de e-mail próprio (Configurações › Integrações) ────────────
+
+    getEmailDomain: () =>
+      request({
+        method: 'GET',
+        path: '/v1/messaging/email-domain',
+        schema: EmailDomainResponseSchema,
+      }),
+
+    /** Registra o domínio no Resend da plataforma e devolve os registros de DNS. */
+    setEmailDomain: (body: { domain: string; localPart?: string }) =>
+      request({
+        method: 'PUT',
+        path: '/v1/messaging/email-domain',
+        body,
+        schema: EmailDomainResponseSchema,
+      }),
+
+    verifyEmailDomain: () =>
+      request({
+        method: 'POST',
+        path: '/v1/messaging/email-domain/verify',
+        schema: EmailDomainResponseSchema,
+      }),
+
+    removeEmailDomain: () =>
+      request({
+        method: 'DELETE',
+        path: '/v1/messaging/email-domain',
+        schema: EmailDomainResponseSchema,
       }),
 
     // ─── Conexão do WhatsApp (MOD-CRM-01) ───────────────────────────────────

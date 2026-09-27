@@ -19,6 +19,7 @@ import {
 } from '../../shared/redis.js'
 import { loadSettings as loadMessagingSettings } from '../messaging/settings.js'
 import { tenantOptions, type ActorContext } from './actor.js'
+import { getModelPort } from './model-port.js'
 
 /**
  * A configuração do agente (MOD-AI-07).
@@ -135,9 +136,16 @@ export async function loadSettings(tenantId: string): Promise<ResolvedAgentSetti
 }
 
 export async function getSettings(tenantId: string): Promise<AgentSettings> {
-  const [resolved, spentCents] = await Promise.all([
+  const [resolved, spentCents, key, model] = await Promise.all([
     withTenant(tenantId, (tx) => readSettings(tx, tenantId)),
     monthlySpendCents(tenantId),
+    withTenant(tenantId, (tx) =>
+      tx.agentSettings.findUnique({
+        where: { tenantId },
+        select: { apiKeyLast4: true, apiKeyVerifiedAt: true, apiKeyError: true },
+      }),
+    ),
+    getModelPort(tenantId),
   ])
 
   return {
@@ -156,6 +164,15 @@ export async function getSettings(tenantId: string): Promise<AgentSettings> {
      * e não depois da primeira conversa perdida.
      */
     canEnable: resolved.messagingEnabled,
+    apiKey:
+      key?.apiKeyLast4 && key.apiKeyVerifiedAt
+        ? {
+            last4: key.apiKeyLast4,
+            verifiedAt: key.apiKeyVerifiedAt.toISOString(),
+            error: key.apiKeyError,
+          }
+        : null,
+    providerConfigured: model.configured,
   }
 }
 

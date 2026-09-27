@@ -1,6 +1,6 @@
 import type { BillingCycle } from '@petshop/shared-types'
 import { loadEnv } from '../../config/env.js'
-import { logger } from '../../shared/logger.js'
+import { AsaasHttpError, asaasCall } from '../../shared/asaas-http.js'
 import { providerFailed } from './errors.js'
 
 /**
@@ -103,44 +103,22 @@ const ASAAS_CYCLE: Record<BillingCycle, string> = { MONTHLY: 'MONTHLY', YEARLY: 
 const ITEM_IMAGE_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAUElEQVR42u3PQQkAAAgEsGvi3xz2z2QE38JgBZbqeS0CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICApcFVdzQeZ0BZRAAAAAASUVORK5CYII='
 
-const TIMEOUT_MS = 15_000
-
 const reais = (cents: number) => Math.round(cents) / 100
 
 function createAsaasPort(): BillingProviderPort {
   async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown) {
     const env = loadEnv()
     if (!env.ASAAS_API_KEY) throw providerFailed('Cobrança não configurada')
-
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
     try {
-      const response = await fetch(`${env.ASAAS_API_URL}${path}`, {
+      return await asaasCall<T>(
+        { apiKey: env.ASAAS_API_KEY, baseUrl: env.ASAAS_API_URL },
         method,
-        headers: {
-          access_token: env.ASAAS_API_KEY,
-          'content-type': 'application/json',
-          'user-agent': 'petshop-ai',
-        },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-        signal: controller.signal,
-      })
-      const text = await response.text()
-      if (!response.ok) {
-        // O corpo do erro do Asaas vai para o log, e não para a tela: ele fala de campos
-        // da API dele, que quem está assinando não tem como corrigir.
-        logger.error({ status: response.status, path, body: text.slice(0, 500) }, 'Asaas recusou')
-        throw providerFailed()
-      }
-      return (text ? JSON.parse(text) : {}) as T
+        path,
+        body,
+      )
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        logger.error({ path }, 'Asaas não respondeu a tempo')
-        throw providerFailed()
-      }
+      if (error instanceof AsaasHttpError) throw providerFailed()
       throw error
-    } finally {
-      clearTimeout(timeout)
     }
   }
 

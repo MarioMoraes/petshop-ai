@@ -33,6 +33,11 @@ export interface SendRequest {
   body: string
   senderName: string | null
   replyTo: string | null
+  /**
+   * O endereço do domínio próprio do petshop, já verificado. Ausente ou `null`, o e-mail
+   * sai pelo `MAIL_FROM` da plataforma. O WhatsApp ignora o campo.
+   */
+  from?: string | null
   attachment?: SendAttachment | null
   /**
    * O corpo em HTML, quando o texto é do **produto** (MOD-NOTIF-04).

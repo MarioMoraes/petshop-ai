@@ -164,6 +164,14 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
    * webhook aberto ativaria a assinatura de quem quisesse.
    */
   ASAAS_WEBHOOK_TOKEN: z.string().min(1).optional(),
+  /**
+   * Para onde a conta do Asaas **de cada petshop** manda a baixa da cobrança do tutor.
+   *
+   * O webhook é cadastrado pela própria conexão, na conta do petshop, com um token por
+   * tenant. O padrão é o endereço público da borda (`https://{APP_DOMAIN}/internal/…`); em
+   * desenvolvimento o Asaas não alcança `localhost`, e esta variável aponta para o túnel.
+   */
+  ASAAS_TUTOR_WEBHOOK_URL: z.string().url().optional(),
   /** Dias de mensalidade em atraso antes de o estabelecimento ficar só em leitura. */
   BILLING_GRACE_DAYS: z.coerce.number().int().min(0).default(7),
 
@@ -262,15 +270,13 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),
 
   /**
-   * MOD-AI — a chave do provedor do modelo.
+   * MOD-AI — a chave do provedor do modelo, **só para desenvolvimento**.
    *
-   * **Opcional, e a ausência é um estado legítimo**: sem ela o agente se comporta como
-   * desligado e toda conversa vai para a recepção, que é exatamente o AC-02 de
-   * MOD-AI-07. Exigi-la na subida deixaria o processo inteiro de pé só quando alguém
-   * quisesse ligar o atendimento automático.
-   *
-   * A tela de configuração diz quando ela falta — a alternativa seria o petshop ligar o
-   * agente, ver o interruptor aceso e continuar sem resposta automática nenhuma.
+   * Desde 2026-09-27 cada estabelecimento cadastra a própria chave em Configurações ›
+   * Integrações e paga o próprio consumo (`modules/agent/api-key.ts`). Esta variável, como
+   * o Gemini de `AI_PROVIDER`, só vale com `NODE_ENV` diferente de `production`: é o que
+   * deixa o `pnpm dev` exercitar o agente sem cadastrar nada. Em produção ela é ignorada —
+   * um petshop sem chave cadastrada teria o atendimento pago pelo crédito da plataforma.
    */
   ANTHROPIC_API_KEY: z.string().optional(),
 
