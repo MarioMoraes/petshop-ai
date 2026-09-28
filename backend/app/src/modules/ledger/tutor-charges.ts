@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {
-  decryptWithKey,
   getMaintenancePrisma,
-  getTenantKey,
   withTenant,
   type TenantTransaction,
 } from '@petshop/db'
@@ -134,7 +132,7 @@ export async function createCharge(
     const [tutor, account, tenant, settings] = await Promise.all([
       tx.tutor.findFirst({
         where: { id: tutorId, deletedAt: null },
-        select: { fullName: true, socialName: true, cpfEncrypted: true },
+        select: { fullName: true, socialName: true },
       }),
       tx.ledgerAccount.findFirst({ where: { tutorId }, select: { balanceCents: true } }),
       tx.tenant.findFirstOrThrow({ select: { slug: true, name: true } }),
@@ -160,21 +158,11 @@ export async function createCharge(
       select: CHARGE_SELECT,
     })
 
-    let cpf: string | null = null
-    if (tutor.cpfEncrypted) {
-      try {
-        cpf = decryptWithKey(tutor.cpfEncrypted, await getTenantKey(tx, tenantId))
-      } catch {
-        cpf = null
-      }
-    }
-
     return {
       credentials,
       amountCents,
       live,
       tutorName: tutor.socialName ?? tutor.fullName,
-      cpf,
       tenant,
       timezone: settings?.timezone ?? DEFAULT_TIMEZONE,
     }
@@ -203,7 +191,6 @@ export async function createCharge(
           description: `Conta de ${context.tutorName} no ${context.tenant.name}`,
           externalReference: chargeId,
           minutesToExpire: TUTOR_CHARGE_TTL_HOURS * 60,
-          customer: { name: context.tutorName, cpfCnpj: context.cpf, email: null, phone: null },
           returnUrl: returnUrl(context.tenant.slug),
         },
       )

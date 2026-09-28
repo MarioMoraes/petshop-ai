@@ -28,7 +28,6 @@ export interface CheckoutRequest {
   /** O id da `tutor_charges`: é por ele que o webhook acha a cobrança. */
   externalReference: string
   minutesToExpire: number
-  customer: { name: string; cpfCnpj: string | null; email: string | null; phone: string | null }
   /** Para onde a página do Asaas devolve o tutor depois de pagar (ou desistir). */
   returnUrl: string
 }
@@ -127,14 +126,11 @@ function createAsaasTutorBillingPort(): TutorBillingPort {
               value: reais(input.valueCents),
             },
           ],
-          // O Asaas pede na página o que faltar — o CPF, sobretudo, que nem todo tutor
-          // tem cadastrado.
-          customerData: {
-            name: input.customer.name,
-            ...(input.customer.cpfCnpj ? { cpfCnpj: input.customer.cpfCnpj } : {}),
-            ...(input.customer.email ? { email: input.customer.email } : {}),
-            ...(input.customer.phone ? { phone: input.customer.phone } : {}),
-          },
+          // Sem `customerData`, e de propósito: o tutor preenche os dados dele na página
+          // do Checkout. O Asaas não completa um `customerData` parcial — enviado, ele
+          // exige nome completo, e-mail, telefone e endereço com CEP, que o cadastro do
+          // tutor nem sempre tem (e o endereço é cifrado). O sandbox recusou o nome com
+          // CPF em 2026-09-28; a documentação só diz que omiti-lo passa a tela ao pagador.
         },
       )
       return { checkoutId: checkout.id, url: checkout.link }
