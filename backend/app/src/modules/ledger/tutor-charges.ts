@@ -214,6 +214,14 @@ export async function createCharge(
           'O Asaas recusou a chave do petshop. O administrador precisa reconectá-la em Configurações › Integrações.',
         )
       }
+      // O Checkout oferece PIX, e o Asaas só gera PIX para conta com chave Pix cadastrada.
+      // A chave do petshop é boa — por isso isto não é `recordRejection`, que tiraria o
+      // botão do Portal —, mas falta um passo na conta dele que só ele pode dar.
+      if (error instanceof AsaasHttpError && error.status === 400 && /chave pix/i.test(error.message)) {
+        throw onlineChargeUnavailable(
+          'A conta do Asaas do petshop não tem chave Pix. O administrador cadastra uma no Asaas, em Pix › Minhas chaves, e o link passa a ser gerado.',
+        )
+      }
       throw billingProviderFailed()
     }
 

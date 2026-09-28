@@ -761,10 +761,14 @@ export type TutorChargeOrigin = z.infer<typeof TutorChargeOriginSchema>
 /**
  * Quanto tempo o link de pagamento vale.
  *
- * Três dias: o bastante para o tutor que recebeu no WhatsApp à noite pagar no dia
+ * Um dia: o bastante para o tutor que recebeu no WhatsApp à noite pagar no dia
  * seguinte, e curto o bastante para um link esquecido não cobrar um valor que já mudou.
+ *
+ * **24 horas é o teto do Asaas**, e não uma escolha: o Checkout recusa `minutesToExpire`
+ * acima de 1.440 (`invalid_object`). A primeira versão pedia três dias e nenhum link
+ * nascia — o dublê dos testes aceita qualquer prazo, e só o sandbox disse que não.
  */
-export const TUTOR_CHARGE_TTL_HOURS = 72
+export const TUTOR_CHARGE_TTL_HOURS = 24
 
 export const TutorChargeSchema = z.object({
   id: z.uuid(),

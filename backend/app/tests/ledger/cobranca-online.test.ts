@@ -40,6 +40,8 @@ interface FakeAsaas {
   webhooks: { url: string; authToken: string }[]
   removed: string[]
   failCheckoutWith: number | null
+  /** O corpo do erro, como o Asaas o devolve. */
+  failCheckoutBody: string
 }
 
 function installFakeAsaas(): FakeAsaas {
@@ -49,6 +51,7 @@ function installFakeAsaas(): FakeAsaas {
     webhooks: [],
     removed: [],
     failCheckoutWith: null,
+    failCheckoutBody: 'recusado',
   }
   const port: TutorBillingPort = {
     async validate() {
@@ -62,7 +65,7 @@ function installFakeAsaas(): FakeAsaas {
       fake.removed.push(webhookId)
     },
     async createCheckout(_key, _env, input) {
-      if (fake.failCheckoutWith) throw new AsaasHttpError(fake.failCheckoutWith, 'recusado')
+      if (fake.failCheckoutWith) throw new AsaasHttpError(fake.failCheckoutWith, fake.failCheckoutBody)
       fake.checkouts.push(input)
       return {
         checkoutId: `chk_${fake.checkouts.length}`,
@@ -231,6 +234,43 @@ describe('o link de pagamento', () => {
     expect(created).toBe(true)
     expect(charge).toMatchObject({ amountCents: 15000, status: 'PENDING', origin: 'ADMIN' })
     expect(asaas.checkouts[0]).toMatchObject({ valueCents: 15000, externalReference: charge.id })
+  })
+
+  it('o prazo do link cabe no teto do Checkout do Asaas', async () => {
+    // O Asaas recusa `minutesToExpire` acima de 1.440 com `invalid_object`, e o dublê não
+    // recusaria: a primeira versão pedia 4.320 e nenhum link nascia no sandbox.
+    await conectar()
+    await dever(15000)
+
+    await gerar()
+
+    expect(asaas.checkouts[0]!.minutesToExpire).toBeGreaterThanOrEqual(10)
+    expect(asaas.checkouts[0]!.minutesToExpire).toBeLessThanOrEqual(1440)
+  })
+
+  it('a conta sem chave Pix diz o que falta, e não tira o botão do Portal', async () => {
+    await conectar()
+    await dever(15000)
+    asaas.failCheckoutWith = 400
+    asaas.failCheckoutBody = JSON.stringify({
+      errors: [
+        {
+          code: 'invalid_object',
+          description: 'Para gerar cobranças com Pix é necessário criar uma chave Pix no Asaas.',
+        },
+      ],
+    })
+
+    const response = await gerar()
+
+    expect(response.statusCode).toBe(409)
+    expect(JSON.stringify(response.json())).toContain('Minhas chaves')
+    const conexao = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: '/v1/billing-settings/asaas',
+    })
+    expect(conexao.json().connection.error).toBeNull()
   })
 
   it('pedir de novo devolve o mesmo link, e não um segundo checkout', async () => {
