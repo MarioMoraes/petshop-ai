@@ -243,7 +243,7 @@ class Tons {
   static const gente = Color(0xFF7E5DB1);
   static const dinheiro = Color(0xFF22864A);
   static const saude = Color(0xFFA94D79);
-  static const sistema = Color(0xFF6E7179);
+  static const sistema = Color(0xFF5457C4);
 }
 
 /// O trio de um chip de ícone: o fundo suave, o aro de 1px e a tinta do desenho.

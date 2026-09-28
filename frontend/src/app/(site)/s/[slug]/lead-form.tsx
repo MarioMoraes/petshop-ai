@@ -127,7 +127,7 @@ export function LeadForm({ slug, palette }: { slug: string; palette: SitePalette
           className="rounded-full px-6 py-3 text-sm font-semibold transition disabled:opacity-60"
           style={{ backgroundColor: palette.brand, color: palette.onBrand }}
         >
-          {pending ? 'Enviando…' : 'Enviar mensagem'}
+          {pending ? 'Enviando…' : 'Enviar Mensagem'}
         </button>
         {/*
           O aviso de finalidade fica **no envio**, e não escondido num link: quem manda

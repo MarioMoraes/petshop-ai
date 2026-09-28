@@ -3,6 +3,7 @@ import {
   PLATFORM_TENANT_STATUSES,
   type TenantListQuery,
 } from '@petshop/shared-types'
+import { StoreIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { serverApi } from '@/lib/api'
@@ -72,6 +73,8 @@ export default async function EstabelecimentosPage({ searchParams }: PageProps) 
           <Falha titulo="A lista não veio" mensagem={leitura.mensagem} />
         ) : leitura.dado.data.length === 0 ? (
           <EmptyState
+            icon={<StoreIcon />}
+            tone="icon-brand"
             title="Nenhum estabelecimento neste recorte"
             description={
               status || plan || q

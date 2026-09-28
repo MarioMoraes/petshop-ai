@@ -67,6 +67,7 @@ export default async function SiteLeadsPage({ searchParams }: PageProps) {
 
       {leads instanceof ApiError ? (
         <EmptyState
+          tone="icon-metric"
           icon={<AlertTriangleIcon />}
           title="Não foi possível carregar os contatos"
           description={leads.message}

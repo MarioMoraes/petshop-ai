@@ -155,13 +155,13 @@ void main() {
 
     expect(find.textContaining('às 10:00'), findsOneWidget);
 
-    await tocar(tester, 'Ver mais');
+    await tocar(tester, 'Ver Mais');
 
     expect(find.text('Bolinha · Consulta'), findsOneWidget);
     // A armadilha: a segunda página trouxe o mesmo bloco de próximos, e o cartão não
     // pode aparecer duas vezes.
     expect(find.textContaining('às 10:00'), findsOneWidget);
-    expect(find.text('Ver mais'), findsNothing);
+    expect(find.text('Ver Mais'), findsNothing);
   });
 
   testWidgets('os botões vêm do servidor: sem ação, sem botão', (tester) async {
@@ -194,11 +194,11 @@ void main() {
       findsOneWidget,
     );
 
-    await tocar(tester, 'Cancelar mesmo assim');
+    await tocar(tester, 'Cancelar Mesmo Assim');
 
     expect(corposDeCancelamento.single['acknowledgeFee'], isFalse);
     // A folha fechou e a lista foi pedida de novo.
-    expect(find.text('Cancelar mesmo assim'), findsNothing);
+    expect(find.text('Cancelar Mesmo Assim'), findsNothing);
     expect(chamadas.where((c) => c == 'GET /portal/v1/appointments').length, 2);
   });
 
@@ -219,7 +219,7 @@ void main() {
     expect(find.textContaining('taxa de R\$ 45,00'), findsOneWidget);
     expect(find.textContaining('menos de 24h'), findsOneWidget);
 
-    await tocar(tester, 'Cancelar mesmo assim');
+    await tocar(tester, 'Cancelar Mesmo Assim');
     expect(corposDeCancelamento.single['acknowledgeFee'], isTrue);
   });
 
@@ -241,7 +241,7 @@ void main() {
         );
 
     await tocar(tester, 'Cancelar');
-    await tocar(tester, 'Cancelar mesmo assim');
+    await tocar(tester, 'Cancelar Mesmo Assim');
 
     // Não cancelou às escondidas: a folha continua aberta, agora com o número do
     // servidor.
@@ -249,7 +249,7 @@ void main() {
     expect(find.textContaining('taxa de R\$ 45,00'), findsOneWidget);
 
     recusaDoCancelamento = null;
-    await tocar(tester, 'Cancelar mesmo assim');
+    await tocar(tester, 'Cancelar Mesmo Assim');
 
     expect(corposDeCancelamento, hasLength(2));
     expect(corposDeCancelamento.last['acknowledgeFee'], isTrue);
@@ -262,7 +262,7 @@ void main() {
     expect(find.text('Hoje está marcado'), findsOneWidget);
     expect(find.text('Novo horário'), findsOneWidget);
 
-    await tocar(tester, 'Escolher o dia');
+    await tocar(tester, 'Escolher o Dia');
     await tocar(tester, 'OK');
 
     // Os `serviceIds` vêm do **detalhe**: o resumo da lista não os traz.
@@ -272,7 +272,7 @@ void main() {
     await tocar(tester, '15:00');
     expect(find.textContaining('O horário passa para'), findsOneWidget);
 
-    await tocar(tester, 'Confirmar novo horário');
+    await tocar(tester, 'Confirmar Novo Horário');
 
     expect(corposDeRemarcacao.single['startsAt'], '2026-09-30T18:00:00.000Z');
     expect(corposDeRemarcacao.single['professionalId'], _prof);
@@ -289,7 +289,7 @@ void main() {
       find.text('O leva-e-traz deste horário é cancelado junto, sem cobrança.'),
       findsOneWidget,
     );
-    await tocar(tester, 'Manter horário');
+    await tocar(tester, 'Manter Horário');
 
     await tocar(tester, 'Remarcar');
     expect(find.text('O leva-e-traz não vai junto'), findsOneWidget);

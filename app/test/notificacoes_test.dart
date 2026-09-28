@@ -122,7 +122,7 @@ void main() {
     expect(fake.pedidos, 0);
     expect(chamadas, isNot(contains('POST /portal/v1/devices')));
 
-    await tester.tap(find.text('Ativar avisos'));
+    await tester.tap(find.text('Ativar Avisos'));
     await tester.pumpAndSettle();
 
     expect(fake.pedidos, 1);
@@ -133,7 +133,7 @@ void main() {
   testWidgets('"Agora não" some com o convite e fica guardado no aparelho', (tester) async {
     await abrirApp(tester, permissao: PermissaoDeAvisos.naoDecidida);
 
-    await tester.tap(find.text('Agora não'));
+    await tester.tap(find.text('Agora Não'));
     await tester.pumpAndSettle();
 
     expect(find.text('Receber avisos no celular'), findsNothing);

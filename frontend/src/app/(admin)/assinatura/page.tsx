@@ -35,7 +35,7 @@ export default async function AssinaturaPage({ searchParams }: PageProps) {
         <PageHeader eyebrow="Configurações" title="Assinatura" />
         <EmptyState
           icon={<ShieldCheckIcon />}
-          tone="icon-system"
+          tone="icon-brand"
           title="A assinatura é do administrador"
           description="Plano e pagamento ficam com quem administra o estabelecimento."
         />
@@ -55,6 +55,7 @@ export default async function AssinaturaPage({ searchParams }: PageProps) {
       <div className="space-y-6">
         <PageHeader eyebrow="Configurações" title="Assinatura" />
         <EmptyState
+          tone="icon-brand"
           icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="Não foi possível ler a assinatura agora. Recarregue em instantes."

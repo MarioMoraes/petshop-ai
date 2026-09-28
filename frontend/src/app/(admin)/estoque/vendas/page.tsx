@@ -55,6 +55,7 @@ export default async function VendasPage() {
       <div className="space-y-6">
         <PageHeader eyebrow="Operação · Estoque" title="Vendas" actions={actions} />
         <EmptyState
+          tone="icon-money"
           icon={<AlertTriangleIcon />}
           title="Não conseguimos carregar as vendas"
           description="O servidor não respondeu. Tente de novo em instantes."

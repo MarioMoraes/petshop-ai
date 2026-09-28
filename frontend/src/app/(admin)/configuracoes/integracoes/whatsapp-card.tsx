@@ -131,7 +131,7 @@ export function WhatsappCard({ initial, canConnect }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <SectionHead
           icon={<PhoneIcon />}
-          tone="icon-system"
+          tone="icon-brand"
           eyebrow="WhatsApp"
           title="WhatsApp do estabelecimento"
           description={describe(connection)}

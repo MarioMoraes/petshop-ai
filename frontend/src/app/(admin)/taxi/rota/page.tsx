@@ -35,7 +35,7 @@ export default async function RotaPage() {
         <PageHeader eyebrow="Taxi Dog" title="Minha rota" />
         <EmptyState
           icon={route.status === 404 ? <VanIcon /> : <AlertTriangleIcon />}
-          tone={route.status === 404 ? 'icon-time' : undefined}
+          tone="icon-time"
           title={
             route.status === 404
               ? 'Você não está cadastrado como motorista'

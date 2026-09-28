@@ -94,6 +94,7 @@ export default async function QualidadePage({ searchParams }: PageProps) {
 
       {failed ? (
         <EmptyState
+          tone="icon-brand"
           icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O painel está indisponível agora. Recarregue em instantes."

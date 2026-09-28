@@ -593,7 +593,7 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
                           : 'bg-black/5 text-muted hover:bg-black/10'
                       }`}
                     >
-                      {tutor.role === 'PRIMARY' ? 'Principal' : 'Tornar principal'}
+                      {tutor.role === 'PRIMARY' ? 'Principal' : 'Tornar Principal'}
                     </button>
 
                     <Button

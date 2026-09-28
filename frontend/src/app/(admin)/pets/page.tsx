@@ -59,7 +59,11 @@ export default async function PetsPage({ searchParams }: PageProps) {
         filters={species.map((item) => ({
           value: item.id,
           label: item.label,
-          icon: <SpeciesIcon speciesKey={item.key} />,
+          icon: (
+            <span className="icon-tint icon-pet flex">
+              <SpeciesIcon speciesKey={item.key} />
+            </span>
+          ),
         }))}
         activeFilter={params.speciesId ?? ''}
       />

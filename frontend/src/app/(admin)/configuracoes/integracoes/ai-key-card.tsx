@@ -73,7 +73,7 @@ export function AiKeyCard({ settings, canEdit }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <SectionHead
           icon={<SparkleIcon />}
-          tone="icon-system"
+          tone="icon-people"
           eyebrow="Assistente de IA"
           title="Chave da Anthropic"
           description="O agente que responde no WhatsApp usa a conta do petshop na Anthropic, e o consumo é cobrado direto nela. Sem chave, toda conversa vai para a fila da recepção."

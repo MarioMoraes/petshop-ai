@@ -25,7 +25,8 @@ import { assinarAction, trocarPlanoAction } from './actions'
 /**
  * A ficha da assinatura.
  *
- * Um tom só, `icon-system`, porque a tela mora em Configurações (regra 3 do padrão).
+ * Cada seção no tom do seu assunto, como o menu lateral: o plano em `icon-brand`, a
+ * cobrança e o pagamento em `icon-money`.
  * Cada bloco grava sozinho, como os painéis de configuração: escolher e pagar é uma ação,
  * trocar de plano é outra, e as duas nunca aparecem juntas.
  *
@@ -96,7 +97,7 @@ export function AssinaturaForm({ view, retorno }: Props) {
         <Card className="space-y-4">
           <SectionHead
             icon={<ReceiptIcon />}
-            tone="icon-system"
+            tone="icon-money"
             eyebrow="Pagamento"
             title={
               sub.status === 'PAST_DUE'
@@ -115,7 +116,7 @@ export function AssinaturaForm({ view, retorno }: Props) {
           />
           {/* Link externo: a página de pagamento é do Asaas, e não uma rota do app. */}
           <a href={sub.paymentUrl ?? '#'} className="btn btn-primary">
-            Abrir pagamento
+            Abrir Pagamento
           </a>
         </Card>
       )}
@@ -257,7 +258,7 @@ function Assinar({ view }: { view: SubscriptionView }) {
       <Card tone="soft" className="space-y-5">
         <SectionHead
           icon={<SparkleIcon />}
-          tone="icon-system"
+          tone="icon-brand"
           eyebrow="01 · Plano"
           title="Qual plano o estabelecimento assina"
         />
@@ -300,7 +301,7 @@ function Assinar({ view }: { view: SubscriptionView }) {
       <Card tone="soft" className="space-y-5">
         <SectionHead
           icon={<WalletIcon />}
-          tone="icon-system"
+          tone="icon-money"
           eyebrow="02 · Pagamento"
           title={ciclo === 'YEARLY' ? 'Como pagar a anuidade' : 'Como pagar a mensalidade'}
           description={
@@ -402,7 +403,7 @@ function TrocarPlano({ view }: { view: SubscriptionView }) {
       <Card className="space-y-2">
         <SectionHead
           icon={<SparkleIcon />}
-          tone="icon-system"
+          tone="icon-brand"
           eyebrow="Plano"
           title="Plano Enterprise"
           description="Mudanças no Enterprise são combinadas com a equipe PetShop AI."
@@ -429,7 +430,7 @@ function TrocarPlano({ view }: { view: SubscriptionView }) {
       <Card tone="soft" className="space-y-5">
         <SectionHead
           icon={<SparkleIcon />}
-          tone="icon-system"
+          tone="icon-brand"
           eyebrow="Plano"
           title="Trocar de plano"
           description={

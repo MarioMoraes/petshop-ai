@@ -402,7 +402,7 @@ function TargetsModal({
               })
             }
           >
-            Cancelar o que ainda não saiu
+            Cancelar o Que Ainda Não Saiu
           </button>
         )}
       </div>

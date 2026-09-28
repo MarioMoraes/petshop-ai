@@ -37,6 +37,7 @@ export default async function CaixaFechamentoPage({ params }: { params: Promise<
       <div className="space-y-6">
         <PageHeader eyebrow="Caixa do dia" title="Fechamento" />
         <EmptyState
+          tone="icon-money"
           icon={<AlertTriangleIcon />}
           title="Não conseguimos carregar o fechamento"
           description={session.message}

@@ -13,8 +13,14 @@ O resumo que mais importa:
   (Inter 18px/600), **nunca serifa**;
 - todo título sai em **Title Case** — as peças (`PageHeader`, `SectionHead`, `CardHead`,
   `Modal`, `EmptyState`) aplicam `titleCase` sozinhas; `<h1>`–`<h3>` à mão chama a função;
-- um tom de ícone por formulário, o do domínio no menu lateral, repetido em todas as
-  seções;
+  **botão também**: `Button`, `ButtonLink`, `Segmented` e o filtro em pílula convertem o
+  rótulo (`components/title-case-node.ts`), e `<button>` à mão escreve o rótulo já em
+  Title Case — no app, `BotaoPrincipal`/`BotaoFlutuante` convertem sozinhos;
+- um tom de ícone por formulário de **um** assunto, o do domínio no menu lateral; tela
+  que reúne assuntos (Configurações, Integrações) pinta cada cartão na cor do seu, como
+  o menu;
+- **nenhum ícone sem cor**: todo ícone leva o tom do domínio (`icon-chip`/`icon-tint`
+  com a classe de tom), inclusive o do erro e do sem-acesso — o neutro é esquecimento;
 - nenhum controle nativo sem estilo: `<Choice>`, `<Segmented>`, `.check`, `.field`;
 - botão é escuro (`primary`), no topo e dentro da tela; `ghost` só para desistir
   (Cancelar, Voltar, Fechar) ao lado da ação que grava, e destrutivo sem `text-danger`;

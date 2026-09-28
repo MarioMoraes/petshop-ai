@@ -41,6 +41,7 @@ export default async function TextosPage() {
       <div className="space-y-6">
         <Header canConfigure={canConfigure} />
         <EmptyState
+          tone="icon-brand"
           icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de mensagens está indisponível agora. Recarregue em instantes."

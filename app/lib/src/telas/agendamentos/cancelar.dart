@@ -190,7 +190,7 @@ class _CancelamentoState extends State<_Cancelamento> {
             TextButton(
               onPressed:
                   _cancelando ? null : () => Navigator.of(context).pop(false),
-              child: const Text('Manter horário'),
+              child: const Text('Manter Horário'),
             ),
           ],
         ),

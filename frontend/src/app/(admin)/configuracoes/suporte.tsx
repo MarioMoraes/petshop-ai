@@ -61,7 +61,7 @@ export function AcessoSuporte({ grants, canEdit }: AcessoSuporteProps) {
       <Card>
         <SectionHead
           icon={<ShieldCheckIcon />}
-          tone="icon-system"
+          tone="icon-metric"
           eyebrow="Suporte"
           title="Acesso da equipe PetShop AI"
           description="Ninguém de fora do seu estabelecimento lê os seus dados sem esta autorização. Quando o suporte precisa ver a base para resolver um chamado, ele pede aqui, com motivo e prazo — e o acesso é somente de leitura, sempre."
@@ -71,7 +71,7 @@ export function AcessoSuporte({ grants, canEdit }: AcessoSuporteProps) {
           <div className="mt-6">
             <EmptyState
               icon={<ShieldCheckIcon />}
-              tone="icon-system"
+              tone="icon-metric"
               title="Nenhum acesso pedido ou ativo"
               description="Enquanto esta lista estiver vazia, nenhuma pessoa da PetShop AI consegue abrir a ficha de um cliente seu."
             />
@@ -214,7 +214,7 @@ function Pedido({
         onClose={() => setAberto(false)}
         busy={pendente}
         icon={<ShieldCheckIcon />}
-        tone="icon-system"
+        tone="icon-metric"
         eyebrow="Suporte"
         title={`Autorizar ${grant.requestedBy.fullName}`}
         subtitle="Leitura apenas, pelo prazo que você escolher. Você pode encerrar antes a qualquer momento."

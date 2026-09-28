@@ -126,10 +126,15 @@
   --color-icon-health-soft: #fef0f6;
   --color-icon-health-ring: #fbd3e3;
 
-  /* Configurações é encanamento, não domínio: fica em grafite, sem matiz. */
-  --color-icon-system: #6e7179;
-  --color-icon-system-soft: #f3f4f7;
-  --color-icon-system-ring: #dddfe5;
+  /*
+   * Configurações, segurança e acesso. Era grafite, sem matiz, e lia como ícone
+   * apagado; depois oliva, que lia como sujeira ao lado dos outros sete. Índigo
+   * saturado (238°) se separa do roxo apagado de Tutores e do azul da Agenda pela
+   * saturação, e é o tom que se espera de engrenagem e escudo. 5,3:1 no fundo suave.
+   */
+  --color-icon-system: #5457c4;
+  --color-icon-system-soft: #f0f0ff;
+  --color-icon-system-ring: #d9dafc;
 
   /* As variáveis vêm do `next/font` no layout raiz. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -1836,7 +1841,8 @@
     top: 50%;
     display: flex;
     transform: translateY(-50%);
-    color: var(--color-subtle);
+    /* Com classe de tom (`icon-people`…), o adorno sai na cor do formulário. */
+    color: var(--icon, var(--color-subtle));
     pointer-events: none;
     transition: color 0.2s;
   }

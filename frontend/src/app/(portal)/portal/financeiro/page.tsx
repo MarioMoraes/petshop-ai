@@ -94,7 +94,7 @@ export default async function PortalFinanceiroPage({
         se faz quando a leitura na tela não bastou — levar o papel para outro lugar.
       */}
       <a href="/portal/financeiro/extrato" className="btn btn-ghost w-full">
-        Baixar extrato em PDF
+        Baixar Extrato em PDF
       </a>
 
       {deve > 0 && <HowToPayCard finance={finance} tenantName={context.tenant.name} />}

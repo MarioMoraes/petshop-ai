@@ -164,7 +164,7 @@ function PackageRow({
               disabled={pending}
               onClick={toggleActive}
             >
-              {pkg.active ? 'Tirar de venda' : 'Voltar a vender'}
+              {pkg.active ? 'Tirar de Venda' : 'Voltar a Vender'}
             </button>
           </div>
         )}

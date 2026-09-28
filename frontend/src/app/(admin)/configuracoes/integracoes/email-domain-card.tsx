@@ -105,7 +105,7 @@ export function EmailDomainCard({ data, canEdit }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <SectionHead
           icon={<GlobeIcon />}
-          tone="icon-system"
+          tone="icon-metric"
           eyebrow="E-mail"
           title="De qual endereço o e-mail sai"
           description={describe(data)}

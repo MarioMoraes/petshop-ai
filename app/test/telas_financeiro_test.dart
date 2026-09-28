@@ -198,11 +198,11 @@ void main() {
     await tester.tap(find.text('Minha Conta'));
     await tester.pumpAndSettle();
 
-    await aVista(tester, find.text('Pagar ${r('180,00')} agora'));
+    await aVista(tester, find.text('Pagar ${r('180,00')} Agora'));
     // A chave PIX continua como alternativa.
     expect(find.text('petshopteste@exemplo.com.br'), findsOneWidget);
 
-    await tester.tap(find.text('Pagar ${r('180,00')} agora'));
+    await tester.tap(find.text('Pagar ${r('180,00')} Agora'));
     await tester.pumpAndSettle();
 
     // Sem corpo: o valor é decidido no servidor.
@@ -257,8 +257,8 @@ void main() {
       (tester) async {
     await entrarNaConta(tester);
 
-    await aVista(tester, find.text('Ver mais'));
-    await tester.tap(find.text('Ver mais'));
+    await aVista(tester, find.text('Ver Mais'));
+    await tester.tap(find.text('Ver Mais'));
     await tester.pumpAndSettle();
 
     expect(chamadas.contains('GET /portal/v1/finance/statement?page=2&limit=10'), isTrue);
@@ -268,7 +268,7 @@ void main() {
     expect(find.text('Pagamento recebido'), findsOneWidget);
 
     // A terceira página não existe: acabaram os lançamentos, e o botão some.
-    expect(find.text('Ver mais'), findsNothing);
+    expect(find.text('Ver Mais'), findsNothing);
   });
 
   testWidgets('o recibo existe só no pagamento, e nunca no estornado',
@@ -278,8 +278,8 @@ void main() {
     // Um pagamento, um recibo. O débito não tem `paymentId`.
     expect(find.text('Baixar recibo'), findsOneWidget);
 
-    await aVista(tester, find.text('Ver mais'));
-    await tester.tap(find.text('Ver mais'));
+    await aVista(tester, find.text('Ver Mais'));
+    await tester.tap(find.text('Ver Mais'));
     await tester.pumpAndSettle();
 
     // A linha estornada **tem** `paymentId` e continua sem recibo: o que foi desfeito
@@ -334,8 +334,8 @@ void main() {
       (tester) async {
     await entrarNaConta(tester);
 
-    await aVista(tester, find.text('Baixar extrato em PDF'));
-    await tester.tap(find.text('Baixar extrato em PDF'));
+    await aVista(tester, find.text('Baixar Extrato em PDF'));
+    await tester.tap(find.text('Baixar Extrato em PDF'));
     await tester.pumpAndSettle();
 
     expect(chamadas.contains('GET /portal/v1/finance/statement/pdf'), isTrue);
@@ -350,8 +350,8 @@ void main() {
     await entrarNaConta(tester);
     recusaDoPdf = true;
 
-    await aVista(tester, find.text('Baixar extrato em PDF'));
-    await tester.tap(find.text('Baixar extrato em PDF'));
+    await aVista(tester, find.text('Baixar Extrato em PDF'));
+    await tester.tap(find.text('Baixar Extrato em PDF'));
     await tester.pumpAndSettle();
 
     // O texto do `problem+json` já foi escrito para o cliente final: ele atravessa.
@@ -361,11 +361,11 @@ void main() {
     // E o botão sai da espera. Um `finally` esquecido aqui deixaria "Preparando…" para
     // sempre, sem erro nenhum no log — o botão que não volta é o defeito desta forma.
     expect(find.text('Preparando…'), findsNothing);
-    expect(find.text('Baixar extrato em PDF'), findsOneWidget);
+    expect(find.text('Baixar Extrato em PDF'), findsOneWidget);
     expect(
       tester
           .widget<OutlinedButton>(find.ancestor(
-            of: find.text('Baixar extrato em PDF'),
+            of: find.text('Baixar Extrato em PDF'),
             matching: find.byType(OutlinedButton),
           ))
           .onPressed,
@@ -374,7 +374,7 @@ void main() {
 
     // E tentar de novo funciona: a falha não deixou estado preso.
     recusaDoPdf = false;
-    await tester.tap(find.text('Baixar extrato em PDF'));
+    await tester.tap(find.text('Baixar Extrato em PDF'));
     await tester.pumpAndSettle();
     expect(entregues.single.nome, 'extrato-2026-09-21.pdf');
   });

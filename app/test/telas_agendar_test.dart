@@ -131,7 +131,7 @@ void main() {
   }
 
   Future<void> irParaAgendar(WidgetTester tester) async {
-    await tester.tap(find.text('Marcar horário'));
+    await tester.tap(find.text('Marcar Horário'));
     await tester.pumpAndSettle();
   }
 
@@ -139,7 +139,7 @@ void main() {
   /// celular ele está sempre abaixo da dobra — quase sempre fora até do alcance do
   /// `cacheExtent`. Rolar até ele primeiro, porque um toque fora da tela não erra: ele
   /// simplesmente não acontece.
-  Future<void> confirmar(WidgetTester tester, [String rotulo = 'Confirmar horário']) async {
+  Future<void> confirmar(WidgetTester tester, [String rotulo = 'Confirmar Horário']) async {
     await aVista(tester, find.text(rotulo));
     await tester.tap(find.text(rotulo));
     await tester.pumpAndSettle();
@@ -152,8 +152,8 @@ void main() {
   /// e o dia: num celular de 360×800 o botão do dia passou a nascer abaixo da dobra, e
   /// toque fora da tela não erra — ele simplesmente não acontece.
   Future<void> escolherHoje(WidgetTester tester) async {
-    await aVista(tester, find.text('Escolher o dia'));
-    await tester.tap(find.text('Escolher o dia'));
+    await aVista(tester, find.text('Escolher o Dia'));
+    await tester.tap(find.text('Escolher o Dia'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
@@ -241,10 +241,10 @@ void main() {
 
     // O botão muda de texto: pedir a mesma resposta duas vezes sem avisar que algo
     // mudou é o que faz alguém tocar de novo achando que a primeira falhou.
-    expect(find.text('Confirmar mesmo assim'), findsOneWidget);
+    expect(find.text('Confirmar Mesmo Assim'), findsOneWidget);
 
     recusaDoPost = null;
-    await confirmar(tester, 'Confirmar mesmo assim');
+    await confirmar(tester, 'Confirmar Mesmo Assim');
 
     expect(pedidos, hasLength(2));
     expect(pedidos.last['acknowledgedAlerts'], isTrue);
@@ -340,7 +340,7 @@ void main() {
   testWidgets('sem agendamento online, a porta não aparece no Início', (tester) async {
     await abrirApp(tester, agendamentoLigado: false);
     expect(find.text('Meus Pets'), findsOneWidget);
-    expect(find.text('Marcar horário'), findsNothing);
+    expect(find.text('Marcar Horário'), findsNothing);
   });
 
   testWidgets('com aprovação, o aviso vem antes e o comprovante diz reservado',
@@ -497,7 +497,7 @@ void main() {
     // AC-04: a recusa acontece **antes** de o agendamento nascer, então ainda dá para
     // trocar de horário — ou abrir mão da van sem rolar para cima e desmarcar a caixa.
     recusaDoPost = null;
-    await confirmar(tester, 'Marcar sem o leva-e-traz');
+    await confirmar(tester, 'Marcar sem o Leva-e-traz');
 
     expect(pedidos, hasLength(2));
     expect(pedidos.last.containsKey('taxi'), isFalse);

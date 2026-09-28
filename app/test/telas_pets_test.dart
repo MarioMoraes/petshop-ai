@@ -216,8 +216,8 @@ void main() {
     await tester.pumpAndSettle();
 
     Future<void> verMais() async {
-      await aVista(tester, find.text('Ver mais'));
-      await tester.tap(find.text('Ver mais'));
+      await aVista(tester, find.text('Ver Mais'));
+      await tester.tap(find.text('Ver Mais'));
       await tester.pumpAndSettle();
     }
 
@@ -229,7 +229,7 @@ void main() {
     // A terceira responde 500: a tela diz o que houve e mantém o botão.
     await verMais();
     expect(find.text('não deu para carregar'), findsOneWidget);
-    expect(find.text('Ver mais'), findsOneWidget);
+    expect(find.text('Ver Mais'), findsOneWidget);
   });
 }
 

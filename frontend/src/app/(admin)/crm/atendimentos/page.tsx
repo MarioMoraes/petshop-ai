@@ -81,6 +81,7 @@ export default async function AtendimentosPage({ searchParams }: PageProps) {
 
       {failed ? (
         <EmptyState
+          tone="icon-brand"
           icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de atendimentos está indisponível agora. Recarregue em instantes."

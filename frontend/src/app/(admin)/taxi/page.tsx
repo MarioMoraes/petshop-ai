@@ -107,6 +107,7 @@ export default async function TaxiPage({ searchParams }: PageProps) {
         />
       ) : boardFailed ? (
         <EmptyState
+          tone="icon-time"
           icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de Taxi Dog está indisponível agora. Recarregue em instantes."

@@ -94,6 +94,7 @@ export default async function EstoquePage({ searchParams }: PageProps) {
       <div className="space-y-6">
         <PageHeader eyebrow="Operação" title="Estoque" />
         <EmptyState
+          tone="icon-money"
           icon={<AlertTriangleIcon />}
           title="Não conseguimos carregar o estoque"
           description="O servidor não respondeu. Tente de novo em instantes."

@@ -582,7 +582,7 @@ export function DeleteProductLink({ product }: { product: ProductDetailResponse 
         className="text-sm text-danger underline decoration-danger/40 underline-offset-4 hover:decoration-danger"
         onClick={() => setOpen(true)}
       >
-        Excluir produto
+        Excluir Produto
       </button>
       {open && (
         <Modal

@@ -52,7 +52,7 @@ export default async function ImportacaoPage() {
         {!podeImportar ? (
           <EmptyState
             icon={<ShieldCheckIcon />}
-            tone="icon-system"
+            tone="icon-time"
             title="Sem permissão para importar"
             description="Trazer a base de outro sistema cria clientes, animais, equipe e agenda de uma vez. A ação é do administrador do estabelecimento — peça a ele."
           />

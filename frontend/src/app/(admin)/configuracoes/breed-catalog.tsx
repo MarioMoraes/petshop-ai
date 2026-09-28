@@ -143,7 +143,7 @@ export function BreedCatalog({ species, canManage }: Props) {
         <div className="flex flex-wrap items-center gap-3">
           <CardHead
             icon={<PawPrintIcon />}
-            tone="icon-system"
+            tone="icon-pet"
             title={`${visible.length} ${visible.length === 1 ? 'raça' : 'raças'}`}
           />
           {hiddenCount > 0 && (

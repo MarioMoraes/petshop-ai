@@ -92,6 +92,8 @@ export default async function TrilhaPage({ searchParams }: PageProps) {
           <Falha titulo="A trilha não veio" mensagem={leitura.mensagem} />
         ) : leitura.dado.items.length === 0 ? (
           <EmptyState
+            icon={<ShieldCheckIcon />}
+            tone="icon-system"
             title="Nenhuma linha neste recorte"
             description="Nada foi escrito com esses filtros na janela pedida. A trilha registra escrita — quem só consultou não deixa linha."
           />

@@ -44,6 +44,8 @@ export default async function PortalPetsPage() {
     >
       {pets.length === 0 && (
         <EmptyState
+          icon={<PawPrintIcon />}
+          tone="icon-pet"
           title="Nenhum pet por aqui ainda"
           description={`Quem cadastra os pets é o ${context.tenant.name}. Se algum estiver faltando, fale com eles.`}
         />

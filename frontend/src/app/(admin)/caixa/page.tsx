@@ -62,6 +62,7 @@ export default async function CaixaPage() {
       <div className="space-y-6">
         <PageHeader eyebrow="Operação" title="Caixa do dia" />
         <EmptyState
+          tone="icon-money"
           icon={<AlertTriangleIcon />}
           title="Não conseguimos carregar o caixa"
           description="O servidor não respondeu. Tente de novo em instantes."

@@ -139,7 +139,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('fotos do meu pet', findRichText: true), findsOneWidget);
 
-    await tester.tap(find.text('Li e aceito'));
+    await tester.tap(find.text('Li e Aceito'));
     await tester.pumpAndSettle();
 
     expect(chamadas, contains('POST /portal/v1/terms/IMAGE_USE/accept'));
@@ -156,7 +156,7 @@ void main() {
     await tester.tap(termo);
     await tester.pumpAndSettle();
 
-    expect(find.text('Li e aceito'), findsNothing);
+    expect(find.text('Li e Aceito'), findsNothing);
     expect(find.byType(BottomSheet), findsOneWidget);
   });
 

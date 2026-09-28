@@ -53,7 +53,7 @@ export function PixCard({ settings, canEdit }: Props) {
     <Card tone="soft" className="space-y-5">
       <SectionHead
         icon={<WalletIcon />}
-        tone="icon-system"
+        tone="icon-money"
         eyebrow="Cobrança"
         title="Chave PIX no Portal do Tutor"
         description="Aparece para o cliente que tem valor em aberto, junto do telefone e do horário de atendimento. Em branco, o Portal mostra só o contato."

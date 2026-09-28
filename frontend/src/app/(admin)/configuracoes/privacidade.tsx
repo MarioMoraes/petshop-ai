@@ -52,7 +52,7 @@ export function Privacidade({ pedidos }: { pedidos: DeletionRequestResponse[] })
       <Card>
         <SectionHead
           icon={<ShieldCheckIcon />}
-          tone="icon-system"
+          tone="icon-health"
           eyebrow="Privacidade"
           title="Pedidos de exclusão de dados"
           description="O titular pode pedir a exclusão pelo Portal, e a lei dá 15 dias para a resposta. Responder aqui registra a decisão — apagar o cadastro continua sendo a anonimização, na ficha do tutor."
@@ -62,7 +62,7 @@ export function Privacidade({ pedidos }: { pedidos: DeletionRequestResponse[] })
           <div className="mt-6">
             <EmptyState
               icon={<InboxIcon />}
-              tone="icon-system"
+              tone="icon-health"
               title="Nenhum pedido esperando"
               description="Quando um cliente pedir a exclusão dos dados pelo Portal, o pedido aparece aqui e no sino da topbar."
             />
@@ -191,7 +191,7 @@ function Pedido({
         onClose={() => setAberto(false)}
         busy={salvando}
         icon={<ShieldCheckIcon />}
-        tone="icon-system"
+        tone="icon-health"
         eyebrow="Privacidade"
         title={`Responder ${pedido.tutorName}`}
         subtitle="O que você escrever aqui aparece para o titular no Portal."

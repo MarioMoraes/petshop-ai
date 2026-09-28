@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import Link, { useLinkStatus } from 'next/link'
 import { titleCase } from '@petshop/shared-types'
 import { SpinnerIcon, type IconTone } from './icons'
+import { titleCaseNode } from './title-case-node'
 
 /**
  * Links que sabem que foram clicados.
@@ -158,7 +159,7 @@ export function ButtonLink<T extends string>({
         // preço de reservar 16px em repouso em **todo** botão seria pior.
         <LinkSpinnerVazio />
       )}
-      {children}
+      {titleCaseNode(children)}
     </Link>
   )
 }

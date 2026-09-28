@@ -213,7 +213,7 @@ class _FormularioState extends State<_Formulario> {
               onPressed: _escolherDia,
               icon: const Icon(Icons.calendar_today_rounded, size: 17),
               label: Text(_dia == null
-                  ? 'Escolher o dia'
+                  ? 'Escolher o Dia'
                   : _tempo.diaPorExtenso(_diaComoInstante(_dia!))),
             ),
             if (_dia != null) ...[

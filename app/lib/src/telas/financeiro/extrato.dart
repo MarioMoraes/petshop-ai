@@ -106,7 +106,7 @@ class _ExtratoState extends State<Extrato> {
                 if (faltam > 0)
                   OutlinedButton(
                     onPressed: _carregando ? null : _mais,
-                    child: Text(_carregando ? 'Carregando…' : 'Ver mais'),
+                    child: Text(_carregando ? 'Carregando…' : 'Ver Mais'),
                   ),
               ],
             )

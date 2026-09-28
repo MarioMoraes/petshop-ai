@@ -115,7 +115,7 @@ class _Falha extends StatelessWidget {
               const SizedBox(height: 20),
               OutlinedButton(
                 onPressed: () => aoTentarDeNovo(),
-                child: const Text('Tentar de novo'),
+                child: const Text('Tentar de Novo'),
               ),
             ],
           ),

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from 'reac
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { SearchIcon, SpinnerIcon, XIcon } from './icons'
+import { titleCaseNode } from './title-case-node'
 
 /**
  * Caixa de busca das listagens de cadastro — `/pets` e `/tutores`.
@@ -164,7 +165,7 @@ function FilterChip({
       aria-pressed={active}
       className={`filter-chip ${active ? 'filter-chip-active' : ''}`}
     >
-      {children}
+      {titleCaseNode(children)}
     </button>
   )
 }

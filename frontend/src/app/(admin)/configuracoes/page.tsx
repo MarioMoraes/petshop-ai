@@ -76,7 +76,7 @@ const DESTINOS: Destino[] = [
   {
     href: '/configuracoes/integracoes',
     icon: <PlugIcon />,
-    tone: 'icon-system',
+    tone: 'icon-metric',
     eyebrow: 'Conexões',
     title: 'Integrações',
     description:
@@ -86,7 +86,7 @@ const DESTINOS: Destino[] = [
   {
     href: '/assinatura',
     icon: <WalletIcon />,
-    tone: 'icon-money',
+    tone: 'icon-brand',
     eyebrow: 'Plano',
     title: 'Assinatura',
     description: 'O plano contratado, o que ele inclui, a forma de pagamento e a próxima cobrança.',
@@ -95,7 +95,7 @@ const DESTINOS: Destino[] = [
   {
     href: '/configuracoes/importacao',
     icon: <UploadIcon />,
-    tone: 'icon-system',
+    tone: 'icon-time',
     eyebrow: 'Virada de sistema',
     title: 'Importar dados',
     description:

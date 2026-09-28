@@ -72,6 +72,7 @@ export default async function CrmConfigPage() {
       <div className="space-y-6">
         {header}
         <EmptyState
+          tone="icon-brand"
           icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de mensagens está indisponível agora. Recarregue em instantes."

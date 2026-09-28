@@ -376,7 +376,9 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
                 title="Console da plataforma"
                 className="hidden h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition hover:bg-black/5 hover:text-ink sm:grid"
               >
-                <ShieldCheckIcon />
+                <span className="icon-tint icon-system flex">
+                  <ShieldCheckIcon />
+                </span>
               </Link>
             )}
             {/*

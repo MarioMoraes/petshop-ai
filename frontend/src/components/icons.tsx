@@ -386,8 +386,9 @@ export function SparkleIcon() {
  * conversa genérico no lugar do glifo do WhatsApp não diz para onde o link leva, que
  * é a única coisa que estes dois precisam dizer.
  *
- * Sem tom: herdam a cor de quem os embrulha. Colorir com o verde e o degradê das
- * marcas puxaria para o rodapé um peso visual que ele não deve ter.
+ * O tom é o do acento do produto (`icon-brand`), aplicado por quem os embrulha — nenhum
+ * ícone do sistema fica sem cor. O verde e o degradê das marcas puxariam para o rodapé
+ * um peso visual que ele não deve ter.
  */
 
 const MARCA = {
@@ -420,8 +421,8 @@ export function WhatsAppIcon() {
 /* ── Glifos de formulário ──────────────────────────────────────────────────
  *
  * Menores em intenção que os de cima: não representam um módulo, e sim o tipo de
- * dado que o campo espera. Entram no adorno de `.field-wrap`, em 18px, herdando a
- * cor do campo — daí não terem tom próprio.
+ * dado que o campo espera. Entram no adorno de `.field-wrap`, em 18px, na cor do tom
+ * que o `.field-lead` recebe — o do formulário, como os chips das seções.
  */
 
 /** Adorno do campo de telefone. */

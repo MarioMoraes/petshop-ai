@@ -123,7 +123,7 @@ class _HistoricoState extends State<Historico> {
                 if (_cursor != null)
                   OutlinedButton(
                     onPressed: _carregando ? null : _mais,
-                    child: Text(_carregando ? 'Carregando…' : 'Ver mais'),
+                    child: Text(_carregando ? 'Carregando…' : 'Ver Mais'),
                   ),
               ],
             )

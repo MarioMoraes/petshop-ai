@@ -126,7 +126,7 @@ export function DriverRoute({ route }: Props) {
             target="_blank"
             rel="noreferrer"
           >
-            Abrir no mapa
+            Abrir no Mapa
           </a>
           {stop.tutorPhone && (
             <a className="btn h-10" href={`tel:${stop.tutorPhone}`}>

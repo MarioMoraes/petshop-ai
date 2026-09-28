@@ -347,7 +347,7 @@ function IdentityPanel({
     <Card tone="soft">
       <SectionHead
         icon={<IdCardIcon />}
-        tone="icon-system"
+        tone="icon-brand"
         eyebrow="Configurações"
         title="Dados do estabelecimento"
       />
@@ -548,7 +548,7 @@ function ContactPanel({
     <Card tone="soft">
       <SectionHead
         icon={<MapPinIcon />}
-        tone="icon-system"
+        tone="icon-metric"
         eyebrow="Configurações"
         title="Onde vocês ficam"
       />
@@ -733,7 +733,7 @@ function HoursPanel({ state, canEdit, run, settings }: PanelProps & { settings: 
     <Card tone="soft">
       <SectionHead
         icon={<CalendarIcon />}
-        tone="icon-system"
+        tone="icon-time"
         eyebrow="Configurações"
         title="Quando vocês abrem"
       />
@@ -999,7 +999,7 @@ function BrandingPanel({ state, canEdit, run, branding }: PanelProps & { brandin
     <Card tone="soft">
       <SectionHead
         icon={<PaletteIcon />}
-        tone="icon-system"
+        tone="icon-health"
         eyebrow="Configurações"
         title="A cara do estabelecimento"
       />

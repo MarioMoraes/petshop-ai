@@ -75,6 +75,7 @@ export default async function SitePage() {
 
       {preview instanceof ApiError ? (
         <EmptyState
+          tone="icon-metric"
           icon={<AlertTriangleIcon />}
           title="Não foi possível carregar o site"
           description={preview.message}

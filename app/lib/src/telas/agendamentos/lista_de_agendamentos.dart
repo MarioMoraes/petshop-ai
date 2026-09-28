@@ -214,7 +214,7 @@ class _ListaState extends State<_Lista> {
                       if (_cursor != null)
                         OutlinedButton(
                           onPressed: _carregando ? null : _mais,
-                          child: Text(_carregando ? 'Carregando…' : 'Ver mais'),
+                          child: Text(_carregando ? 'Carregando…' : 'Ver Mais'),
                         ),
                     ],
                   )

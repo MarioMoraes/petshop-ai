@@ -392,7 +392,7 @@ class _CopiaState extends State<_Copia> {
               child: Text(
                 _baixando == 'json'
                     ? 'Preparando…'
-                    : 'Prefere o arquivo para outro sistema? Baixar em JSON',
+                    : 'Prefere o Arquivo para Outro Sistema? Baixar em JSON',
                 textAlign: TextAlign.center,
                 style: tema.textTheme.bodySmall?.copyWith(
                   color: t.discreta,
@@ -477,7 +477,7 @@ class _Exclusao extends StatelessWidget {
                   padding: EdgeInsets.zero,
                 ),
                 child: Text(
-                  'Pedir exclusão dos meus dados',
+                  'Pedir Exclusão dos Meus Dados',
                   style: tema.textTheme.bodyMedium?.copyWith(
                     color: t.fraca,
                     decoration: TextDecoration.underline,

@@ -159,7 +159,7 @@ class _VincularState extends State<Vincular> {
         const SizedBox(height: 12),
         TextButton(
           onPressed: _ocupado ? null : widget.sessao.sair,
-          child: const Text('Entrar com outra conta'),
+          child: const Text('Entrar com Outra Conta'),
         ),
       ],
     );

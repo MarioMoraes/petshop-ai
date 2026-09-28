@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, KeyboardEvent, ReactNode } from 'react'
 import { titleCase } from '@petshop/shared-types'
 import { SpinnerIcon, type IconTone } from './icons'
+import { titleCaseNode } from './title-case-node'
 
 /**
  * Peças de interface do sistema visual (`design/design-modelo.html`).
@@ -205,9 +206,8 @@ export function PageHeader({
  * O halo em volta do chip é um anel de 8px na cor clara do próprio tom: dá ao ícone o
  * peso de figura central sem precisar de ilustração.
  *
- * `icon` é opcional no tipo porque o Portal e o console da plataforma também usam a
- * peça e têm linguagem própria; nas telas do Admin ele é obrigatório, e quem cobra é
- * `lib/estados-vazios.test.ts`.
+ * `icon` e `tone` são obrigatórios em todas as raízes — Admin, Portal e console da
+ * plataforma: nenhum ícone do sistema fica sem cor.
  */
 export function EmptyState({
   title,
@@ -219,14 +219,18 @@ export function EmptyState({
   title: string
   description: string
   action?: ReactNode
-  icon?: ReactNode
-  /** O tom do domínio. Sem tom, o chip cai no neutro com traço no acento — o do erro. */
-  tone?: IconTone
+  icon: ReactNode
+  /**
+   * O tom do domínio: nenhum ícone do sistema fica sem cor. O erro e o sem-acesso usam o
+   * mesmo tom da área — o que os separa do vazio é o desenho (triângulo, escudo), não
+   * um chip cinza.
+   */
+  tone: IconTone
 }) {
   return (
     <div className="card flex flex-col items-center px-6 py-14 text-center">
-      {icon && <span className={`icon-chip empty-chip ${tone ?? ''}`}>{icon}</span>}
-      <h3 className={`text-lg font-semibold ${icon ? 'mt-6' : ''}`}>{titleCase(title)}</h3>
+      <span className={`icon-chip empty-chip ${tone}`}>{icon}</span>
+      <h3 className="mt-6 text-lg font-semibold">{titleCase(title)}</h3>
       <p className="hint mt-2 max-w-sm">{description}</p>
       {action && <div className="mt-6">{action}</div>}
     </div>
@@ -422,7 +426,7 @@ export function Segmented<T extends string>({
           disabled={disabled}
           onClick={() => onChange(option.value)}
         >
-          {option.label}
+          {titleCaseNode(option.label)}
         </button>
       ))}
     </div>
@@ -503,6 +507,8 @@ export function FormActions({ children }: { children: ReactNode }) {
  * esconde — sem ele, quem pediu menos movimento fica sem sinal nenhum. Escreva-o sempre
  * que o botão gravar algo.
  *
+ * O rótulo sai em Title Case (`titleCaseNode`), como os títulos: "Salvar Alterações".
+ *
  * O irmão que navega em vez de gravar é o `<ButtonLink>` (`components/links.tsx`), que
  * lê a espera do próprio roteador.
  */
@@ -543,7 +549,7 @@ export function Button({
       ) : (
         busy && <SpinnerIcon />
       )}
-      {busy && busyLabel ? busyLabel : children}
+      {busy && busyLabel ? titleCase(busyLabel) : titleCaseNode(children)}
     </button>
   )
 }

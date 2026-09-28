@@ -49,6 +49,8 @@ export default async function PortalAgendamentosPage() {
     >
       {vazio ? (
         <EmptyState
+          icon={<CalendarIcon />}
+          tone="icon-time"
           title="Nenhum horário por aqui"
           description={
             context.features.onlineBookingEnabled

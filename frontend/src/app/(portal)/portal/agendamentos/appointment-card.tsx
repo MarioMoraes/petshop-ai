@@ -199,7 +199,7 @@ export function TaxiStrip({ rides, timezone }: { rides: PortalTaxiRide[]; timezo
     <div className="mt-3 flex flex-col gap-2">
       {rides.map((ride) => (
         <div key={ride.id} className="flex items-start gap-2 text-sm">
-          <span className="text-muted mt-0.5 shrink-0">
+          <span className="icon-tint icon-time mt-0.5 shrink-0">
             <VanIcon />
           </span>
           <span className="min-w-0">

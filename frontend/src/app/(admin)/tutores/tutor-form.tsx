@@ -349,7 +349,7 @@ export function TutorForm({ tutor, prefill }: Props) {
             }
           >
             <span className="field-wrap">
-              <span className="field-lead">
+              <span className="field-lead icon-people">
                 <DocumentIcon />
               </span>
               <input
@@ -370,7 +370,7 @@ export function TutorForm({ tutor, prefill }: Props) {
             hint="É por aqui que saem os lembretes e o atendimento automático."
           >
             <span className="field-wrap">
-              <span className="field-lead">
+              <span className="field-lead icon-people">
                 <PhoneIcon />
               </span>
               <input
@@ -390,7 +390,7 @@ export function TutorForm({ tutor, prefill }: Props) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="E-mail" htmlFor="email" error={fieldErrors.email}>
             <span className="field-wrap">
-              <span className="field-lead">
+              <span className="field-lead icon-people">
                 <MailIcon />
               </span>
               <input
@@ -406,7 +406,7 @@ export function TutorForm({ tutor, prefill }: Props) {
 
           <Field label="Data de nascimento" htmlFor="birthDate" error={fieldErrors.birthDate}>
             <span className="field-wrap">
-              <span className="field-lead">
+              <span className="field-lead icon-people">
                 <CakeIcon />
               </span>
               <input
@@ -443,7 +443,7 @@ export function TutorForm({ tutor, prefill }: Props) {
                 a cada consulta, e o salto chamava mais atenção que o próprio status.
               */}
               <span className="field-wrap">
-                <span className="field-lead">
+                <span className="field-lead icon-people">
                   <MapPinIcon />
                 </span>
                 <input

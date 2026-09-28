@@ -58,6 +58,7 @@ export default async function CampanhasPage() {
 
       {failed ? (
         <EmptyState
+          tone="icon-brand"
           icon={<AlertTriangleIcon />}
           title="O serviço não respondeu"
           description="O serviço de automações está indisponível agora. Recarregue em instantes."

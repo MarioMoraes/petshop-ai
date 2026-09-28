@@ -760,7 +760,7 @@ function ReceiptLink({ paymentId }: { paymentId: string }) {
   return (
     <div className="mt-2">
       <button type="button" className="hint underline" disabled={pending} onClick={load}>
-        {pending ? 'Buscando recibo…' : 'Recibo'}
+        {pending ? 'Buscando Recibo…' : 'Recibo'}
       </button>
       {error && (
         <span className="hint ml-2 text-danger" role="alert">
@@ -1053,7 +1053,7 @@ function EntryPanel({
                 direction === option ? 'bg-ink text-white' : 'bg-black/5 text-muted'
               }`}
             >
-              {option === 'DEBIT' ? 'Cobrar (débito)' : 'Creditar (desconto)'}
+              {option === 'DEBIT' ? 'Cobrar (Débito)' : 'Creditar (Desconto)'}
             </button>
           ))}
         </div>

@@ -95,6 +95,8 @@ export default async function AlertasPage({ searchParams }: PageProps) {
           <Falha titulo="Os alertas não vieram" mensagem={leitura.mensagem} />
         ) : itens.length === 0 ? (
           <EmptyState
+            icon={<AlertTriangleIcon />}
+            tone="icon-pet"
             title="Nada aqui"
             description={
               status === 'FIRING'

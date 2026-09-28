@@ -175,8 +175,8 @@ void main() {
     expect(find.text('Rua das Flores, 120 — Apto 42'), findsOneWidget);
     expect(find.text('Principal'), findsOneWidget);
 
-    await aVista(tester, find.text('Pedir exclusão dos meus dados'));
-    expect(find.text('Pedir exclusão dos meus dados'), findsOneWidget);
+    await aVista(tester, find.text('Pedir Exclusão dos Meus Dados'));
+    expect(find.text('Pedir Exclusão dos Meus Dados'), findsOneWidget);
 
     // Uma chamada só abre a tela.
     expect(chamadas.where((c) => c.startsWith('GET /portal/v1/me/data')).length, 1);
@@ -215,7 +215,7 @@ void main() {
       '11987654321',
     );
     await tester.pump();
-    await tocarNaFolha(tester, 'Enviar código');
+    await tocarNaFolha(tester, 'Enviar Código');
 
     expect(corpos['POST /portal/v1/me/contact'], {'field': 'PHONE', 'value': '11987654321'});
     expect(find.text('Confirme o código'), findsOneWidget);
@@ -336,18 +336,18 @@ void main() {
       (tester) async {
     await abrirApp(tester);
 
-    await aVista(tester, find.text('Pedir exclusão dos meus dados'));
-    await tester.tap(find.text('Pedir exclusão dos meus dados'));
+    await aVista(tester, find.text('Pedir Exclusão dos Meus Dados'));
+    await tester.tap(find.text('Pedir Exclusão dos Meus Dados'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Nada é apagado agora.'), findsOneWidget);
 
-    await tocarNaFolha(tester, 'Enviar pedido');
+    await tocarNaFolha(tester, 'Enviar Pedido');
 
     expect(corpos['POST /portal/v1/me/deletion-request'], isEmpty);
     await aVista(tester, find.text('Em análise'));
     expect(find.text('Em análise'), findsOneWidget);
     expect(find.textContaining('responde até 08/10/2026'), findsOneWidget);
-    expect(find.text('Pedir exclusão dos meus dados'), findsNothing);
+    expect(find.text('Pedir Exclusão dos Meus Dados'), findsNothing);
   });
 
   testWidgets('a cópia desce em PDF e em JSON, e vai para a folha do sistema',

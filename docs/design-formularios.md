@@ -85,9 +85,16 @@ cada palavra não é tocado — "PIX" e "WhatsApp" saem como estão. Um `<h1>`�
 
 **Abas e menus** seguem a mesma regra, também na peça: `Tabs` do kit, as faixas por rota
 (`agenda-tabs.tsx`, `financeiro-tabs-nav.tsx`), o `NavLink`/`NavPill` do menu lateral e
-do console, e o menu do Início do Portal. Filtros em pílula (contatos do site, busca de
-listas) não são abas e ficam em caixa de frase. No app, o menu do Início e o título da
-tela a que cada item leva são escritos já em Title Case — os dois precisam bater.
+do console, e o menu do Início do Portal. No app, o menu do Início e o título da tela a
+que cada item leva são escritos já em Title Case — os dois precisam bater.
+
+**Botões** também, desde 2026-09-28: `Button` (e o `busyLabel`), `ButtonLink`,
+`Segmented` e o filtro em pílula da busca de listas convertem o rótulo por
+`titleCaseNode` (`components/title-case-node.ts`), que junta os pedaços de texto antes
+de converter — `Remover {nome} do pacote` não pode recomeçar a frase no meio. O
+`<button>` escrito à mão traz o rótulo já em Title Case. No app, `BotaoPrincipal` e
+`BotaoFlutuante` convertem sozinhos. Cartão clicável (evento da agenda, horário, opção
+de plano) não é botão de ação e fica como está.
 
 Os **PDFs** seguem a mesma regra: o molde comum (`packages/documents/src/layout.ts`) converte
 o título do documento — recibo, extrato, receita, termo — no topo e no rodapé, e os
@@ -121,6 +128,25 @@ O tom é o do domínio no menu lateral (`app-shell.tsx`):
 | Estoque | `icon-money` |
 | Equipe | `icon-people` |
 | Configurações | `icon-system` |
+
+**Nenhum ícone do sistema fica sem cor.** Todo ícone sai num `.icon-chip` com tom ou num
+`.icon-tint` com tom — o neutro (chip off-white, traço no acento) é só o que o CSS faz
+quando alguém esquece, e não uma escolha de desenho. Erro, sem-acesso e aviso usam o tom
+do domínio da tela; o que muda é o ícone. `icon-system` é **índigo** (`#5457c4`) desde
+2026-09-28 — era grafite, e lia como ícone apagado.
+
+**Telas que reúnem assuntos diferentes pintam cada um na cor do assunto, como o menu
+lateral.** Configurações não é um domínio, é uma gaveta de assuntos: pintar todos os
+cartões com o tom da gaveta deixava a tela monocromática. Em Integrações o WhatsApp é
+`icon-brand` (o de Mensagens), o e-mail `icon-time`, o domínio `icon-metric` (o do
+Site), o Asaas `icon-system`, o PIX `icon-money` e a chave da IA `icon-people`; na
+porta de Configurações, nas abas do Estabelecimento e na Assinatura vale o mesmo. A
+regra de um tom por formulário continua para a ficha de **um** assunto (tutor, pet) e
+para sequências numeradas (Importação, toda em `icon-time`).
+
+O adorno de campo (`.field-lead`) recebe o tom do formulário como os chips. Ficam de
+fora só o ícone dentro de botão, que segue a cor do texto do botão, e os glifos de
+controle — chevron, fechar (X), busca, check, spinner —, que são mecânica e não assunto.
 
 ### 4. Numere as seções quando forem uma sequência; não numere quando forem abas.
 
@@ -272,11 +298,13 @@ Não são formulário, mas usam as mesmas peças.
   sem olho-de-boi — nunca um `<h3 className="font-semibold">` solto. A exceção são as
   **confirmações de perigo** (anonimizar, excluir, registrar óbito): ali o título em
   `text-danger` é o próprio aviso, e um chip colorido o amaciaria.
-- **Estado vazio tem rosto.** `<EmptyState>` recebe `icon` e `tone`: o ícone e o tom da
-  área quando está vazio de verdade, `AlertTriangleIcon` sem tom quando o serviço não
-  respondeu, `ShieldCheckIcon` com `icon-system` quando falta acesso — um erro com o
-  mesmo rosto do "ainda não há nada" confundiria os dois. Nas telas do Admin o ícone é
-  obrigatório, e `src/lib/estados-vazios.test.ts` cobra.
+- **Estado vazio tem rosto.** `<EmptyState>` recebe `icon` e `tone`: o ícone da área
+  quando está vazio de verdade, `AlertTriangleIcon` quando o serviço não respondeu,
+  `ShieldCheckIcon` com `icon-system` quando falta acesso — um erro com o mesmo rosto do
+  "ainda não há nada" confundiria os dois. **O que os separa é o desenho, não a cor**: o
+  triângulo leva o tom do domínio como qualquer outro ícone. Ícone e tom são
+  obrigatórios no Admin, no Portal e no console da plataforma — o tipo exige os dois, e
+  `src/lib/estados-vazios.test.ts` varre o `src/app` inteiro.
 
 ---
 
@@ -330,6 +358,7 @@ Está aqui para não voltar:
 | Ação destrutiva ao lado da principal no rodapé | Alvo vizinho do botão mais clicado da janela. |
 | Botão fantasma como ação secundária (Mural ao lado de Marcar horário, os atalhos do topo, Editar e Excluir no detalhe) | Recusado. A ação lia como desabilitada; toda ação é escuro, e o fantasma ficou só para desistir. |
 | Botão destrutivo com texto vermelho sobre o escuro | Vermelho sobre grafite não se lê. O aviso vai na confirmação. |
+| Um tom só para todos os cartões de Configurações (grafite, depois oliva) | Monocromático e "estranho demais": cada cartão leva a cor do seu assunto, como o menu lateral. |
 
 ---
 

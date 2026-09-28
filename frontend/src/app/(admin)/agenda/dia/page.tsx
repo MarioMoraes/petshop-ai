@@ -132,7 +132,7 @@ export default async function DiaPage({ searchParams }: PageProps) {
       {failed ? (
         <EmptyState
           icon={view.status === 403 ? <ShieldCheckIcon /> : <AlertTriangleIcon />}
-          tone={view.status === 403 ? 'icon-system' : undefined}
+          tone={view.status === 403 ? 'icon-system' : 'icon-time'}
           title={view.status === 403 ? 'Sem acesso à agenda geral' : 'A agenda não respondeu'}
           description={
             view.status === 403

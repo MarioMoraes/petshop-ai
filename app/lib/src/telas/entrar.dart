@@ -154,7 +154,7 @@ class _EntrarState extends State<Entrar> {
             const SizedBox(height: 20),
             TextButton(
               onPressed: _ocupado ? null : widget.sessao.trocarPetshop,
-              child: const Text('Trocar de estabelecimento'),
+              child: const Text('Trocar de Estabelecimento'),
             ),
           ],
         ),

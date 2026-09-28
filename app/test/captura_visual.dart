@@ -141,11 +141,11 @@ void main() {
     await clique('Cancelar');
     await foto('09-cancelar');
 
-    await clique('Manter horário');
+    await clique('Manter Horário');
     await aoInicio();
 
     // ── marcar horário ────────────────────────────────────────────────────────
-    await clique('Marcar horário');
+    await clique('Marcar Horário');
     await foto('10-marcar-servicos');
 
     await clique('Banho');
@@ -160,7 +160,7 @@ void main() {
     // os serviços — toque em widget fora da tela não acontece.
     await tester.drag(find.byType(ListView).last, const Offset(0, -320));
     await tester.pumpAndSettle();
-    await clique('Escolher o dia');
+    await clique('Escolher o Dia');
     await clique('OK');
     await foto('11-grade');
 
@@ -172,7 +172,7 @@ void main() {
     await tester.pumpAndSettle();
     await foto('12-confirmar');
 
-    await clique('Confirmar horário');
+    await clique('Confirmar Horário');
     await foto('13-comprovante');
 
     // O comprovante cresceu com as duas corridas, e o total — que é o único número que

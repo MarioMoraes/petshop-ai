@@ -60,6 +60,7 @@ export default async function SiteGalleryPage() {
 
       {photos instanceof ApiError ? (
         <EmptyState
+          tone="icon-metric"
           icon={<AlertTriangleIcon />}
           title="Não foi possível carregar as fotos"
           description={photos.message}

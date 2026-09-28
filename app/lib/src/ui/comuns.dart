@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../titulo.dart';
 import 'superficies.dart';
 import 'tema.dart';
 
@@ -86,7 +87,7 @@ class _BotaoPrincipalState extends State<BotaoPrincipal> {
                           // folha, "Registrando…" com a rosquinha estourava a largura.
                           Flexible(
                             child: Text(
-                              widget.rotuloOcupado ?? 'Aguarde…',
+                              titleCase(widget.rotuloOcupado ?? 'Aguarde…'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: _estilo(frente),
@@ -103,7 +104,7 @@ class _BotaoPrincipalState extends State<BotaoPrincipal> {
                           ],
                           Flexible(
                             child: Text(
-                              widget.rotulo,
+                              titleCase(widget.rotulo),
                               textAlign: TextAlign.center,
                               style: _estilo(frente),
                             ),
@@ -173,7 +174,7 @@ class BotaoFlutuante extends StatelessWidget {
         shape: const StadiumBorder(),
         icon: Icon(icone, size: 20),
         label: Text(
-          rotulo,
+          titleCase(rotulo),
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 15,

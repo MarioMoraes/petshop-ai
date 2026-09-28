@@ -47,7 +47,7 @@ export function Documentos({
       <Card>
         <SectionHead
           icon={<DocumentIcon />}
-          tone="icon-system"
+          tone="icon-people"
           eyebrow="Documentos"
           title="Termos apresentados ao cliente"
           description="O texto que o tutor lê antes de aceitar, e que sai impresso no papel do aceite. Publicar uma versão nova pede o aceite de novo a quem tinha aceitado a anterior."
@@ -145,7 +145,7 @@ function TermoDoTipo({
         open={lendo !== null}
         onClose={() => setLendo(null)}
         icon={<DocumentIcon />}
-        tone="icon-system"
+        tone="icon-people"
         eyebrow="Documentos"
         title={lendo?.title ?? ''}
         subtitle={
@@ -207,7 +207,7 @@ function PublicarModal({
       onClose={onClose}
       busy={salvando}
       icon={<DocumentIcon />}
-      tone="icon-system"
+      tone="icon-people"
       eyebrow="Documentos"
       title={`Publicar ${TERM_KIND_LABELS[kind].toLowerCase()}`}
       subtitle="O texto publicado passa a ser o apresentado ao cliente. A versão anterior continua legível."

@@ -95,7 +95,7 @@ export function AcceptInvite({ token, preview }: { token: string; preview: Invit
               cadastro e traz de volta pela `returnBackUrl`. */}
           <SignOutButton redirectUrl={`/convite/${token}`}>
             <button type="button" className="mt-3 font-medium underline underline-offset-4">
-              Sair e entrar com outra conta
+              Sair e Entrar com Outra Conta
             </button>
           </SignOutButton>
         </div>

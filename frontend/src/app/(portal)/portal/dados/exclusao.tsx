@@ -106,7 +106,7 @@ export function Exclusao({
         className="text-subtle mt-3 text-sm underline underline-offset-4 hover:text-ink"
         onClick={() => setAberto(true)}
       >
-        Pedir exclusão dos meus dados
+        Pedir Exclusão dos Meus Dados
       </button>
 
       <Modal

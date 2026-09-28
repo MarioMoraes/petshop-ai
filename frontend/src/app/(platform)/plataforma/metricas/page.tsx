@@ -1,4 +1,5 @@
 import type { PlatformMetricPoint } from '@petshop/shared-types'
+import { TrendingUpIcon } from '@/components/icons'
 import { EmptyState, PageHeader } from '@/components/ui'
 import { serverApi } from '@/lib/api'
 import { ler, talvez } from '@/lib/platform'
@@ -55,6 +56,8 @@ export default async function MetricasPage({ searchParams }: PageProps) {
           <Cabecalho />
           <Consulta metric="" janela={janela} groupBy={groupBy} />
           <EmptyState
+            icon={<TrendingUpIcon />}
+            tone="icon-metric"
             title="Escolha uma métrica"
             description="O nome é o mesmo que o código emite — messages_dispatched, job_failure_total, receivables_overdue_cents. O campo sugere as mais consultadas, e aceita qualquer uma."
           />
@@ -84,6 +87,8 @@ export default async function MetricasPage({ searchParams }: PageProps) {
           <Falha titulo="A série não veio" mensagem={leitura.mensagem} />
         ) : leitura.dado.points.length === 0 ? (
           <EmptyState
+            icon={<TrendingUpIcon />}
+            tone="icon-metric"
             title="Nenhuma amostra nesta janela"
             description="Ou a métrica não foi emitida no período, ou o nome não é o que o código escreve. O coletor drena de cinco em cinco minutos — o que aconteceu agora há pouco pode ainda não estar aqui."
           />

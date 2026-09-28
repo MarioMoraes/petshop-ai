@@ -278,7 +278,9 @@ export function TaxiPanel({
     <div className="space-y-5">
       {quote && (
         <p className="meta-pill">
-          <VanIcon />
+          <span className="icon-tint icon-time flex">
+            <VanIcon />
+          </span>
           <span>
             {money(quote.priceCents)} por perna
             {quote.zone?.name ? ` · ${quote.zone.name}` : ''}

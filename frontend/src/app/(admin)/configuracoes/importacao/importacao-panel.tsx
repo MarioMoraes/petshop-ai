@@ -23,9 +23,9 @@ import { aplicarImportacao, conferirImportacao, desfazerImportacao } from './act
  * criado quatrocentos pets errados quando alguém percebesse que a coluna "Nome" era a do
  * dono.
  *
- * O tom é `icon-system` nas quatro seções, e não um por passo: a regra 3 de
- * `docs/design-formularios.md` manda um tom por tela, o do domínio no menu — esta mora
- * em Configurações. O que muda de uma seção para a outra é o número, não a cor.
+ * O tom é `icon-time` nas quatro seções, e não um por passo: é uma sequência numerada
+ * da mesma virada — o azul do cartão de Importação em Configurações. O que muda de uma
+ * seção para a outra é o número, não a cor.
  */
 
 /** Onde cada passo está, na sessão atual da tela. */
@@ -289,7 +289,7 @@ function Passo({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <SectionHead
             icon={<SettingsIcon />}
-            tone="icon-system"
+            tone="icon-time"
             eyebrow={`${String(numero).padStart(2, '0')} · ${
               total > 0
                 ? `${total} registro(s) em ${aplicados.length} carga(s)`
@@ -342,7 +342,7 @@ function Passo({
         <Card tone="soft" className="space-y-5">
           <SectionHead
             icon={<UploadIcon />}
-            tone="icon-system"
+            tone="icon-time"
             eyebrow="Conferência"
             title={passo.fileName}
             description="Nada foi gravado ainda. Confira as colunas reconhecidas e o que vai acontecer com cada linha."
@@ -644,7 +644,7 @@ function Confirmar({
       open={confirmacao !== null}
       onClose={onFechar}
       icon={<UploadIcon />}
-      tone="icon-system"
+      tone="icon-time"
       eyebrow="Importação"
       busy={pendente}
       title={

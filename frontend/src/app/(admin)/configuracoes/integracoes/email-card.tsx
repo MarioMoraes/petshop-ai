@@ -57,7 +57,7 @@ export function EmailCard({ settings, canEdit }: Props) {
     <Card tone="soft" className="space-y-5">
       <SectionHead
         icon={<MailIcon />}
-        tone="icon-system"
+        tone="icon-time"
         eyebrow="E-mail"
         title="Como o e-mail se apresenta"
         description="O nome que o tutor vê e para onde vai a resposta dele."

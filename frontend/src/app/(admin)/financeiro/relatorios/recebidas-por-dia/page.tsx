@@ -103,6 +103,7 @@ export default async function RecebidasPorDiaPage({ searchParams }: PageProps) {
 
       {report instanceof ApiError ? (
         <EmptyState
+          tone="icon-money"
           icon={<AlertTriangleIcon />}
           title="O financeiro não respondeu"
           description={report.message}

@@ -393,7 +393,7 @@ function Rodape() {
               aria-label={contato.descricao}
               className="inline-flex items-center gap-2 transition-colors hover:text-ink"
             >
-              {contato.icone}
+              <span className="icon-tint icon-brand flex">{contato.icone}</span>
               {contato.rotulo}
             </a>
           ))}

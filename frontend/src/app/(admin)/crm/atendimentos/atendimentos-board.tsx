@@ -394,7 +394,7 @@ function JanelaConversa({
               disabled={agindo}
               className="text-sm text-subtle underline underline-offset-4 hover:text-muted disabled:opacity-60"
             >
-              Encerrar conversa
+              Encerrar Conversa
             </button>
           </div>
         )}

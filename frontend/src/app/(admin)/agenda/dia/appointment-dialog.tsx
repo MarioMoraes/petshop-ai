@@ -287,7 +287,9 @@ export function AppointmentDialog({
             <ul className="mt-2 space-y-1.5">
               {rides.map((ride) => (
                 <li key={ride.id} className="meta-pill">
-                  <VanIcon />
+                  <span className="icon-tint icon-time flex">
+                    <VanIcon />
+                  </span>
                   <span>
                     {ride.legLabel} · {horaDe(minutosNoFuso(ride.windowStartsAt, timezone))} ·{' '}
                     {/* Sem motorista é a única situação que pede alguém agora. */}
@@ -318,7 +320,7 @@ export function AppointmentDialog({
               disabled={enviando}
               onClick={() => setVista('cancelar')}
             >
-              Cancelar este horário
+              Cancelar Este Horário
             </button>
           </div>
         )}

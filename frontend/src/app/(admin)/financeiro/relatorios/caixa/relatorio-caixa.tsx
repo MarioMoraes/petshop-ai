@@ -129,6 +129,7 @@ export function MolduraRelatorio({
 
       {falhou ? (
         <EmptyState
+          tone="icon-money"
           icon={<AlertTriangleIcon />}
           title="O caixa não respondeu"
           description={report.message}

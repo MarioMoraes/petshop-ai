@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/sessao.dart';
 import '../notificacoes.dart';
+import '../titulo.dart';
 import '../ui/comuns.dart';
 import '../ui/listas.dart';
 import '../ui/superficies.dart';
@@ -280,7 +281,7 @@ class _BotaoClaro extends StatelessWidget {
                 Icon(icone, size: 20, color: const Color(0xFF17181A)),
                 const SizedBox(width: 8),
                 Text(
-                  rotulo,
+                  titleCase(rotulo),
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 15.5,
@@ -404,7 +405,7 @@ class _CartaoDeAvisosState extends State<_CartaoDeAvisos> {
               Expanded(
                 child: TextButton(
                   onPressed: _pedindo ? null : widget.sessao.dispensarAvisos,
-                  child: const Text('Agora não'),
+                  child: const Text('Agora Não'),
                 ),
               ),
               const SizedBox(width: 10),

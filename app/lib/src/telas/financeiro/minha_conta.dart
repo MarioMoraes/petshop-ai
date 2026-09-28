@@ -282,7 +282,7 @@ class _BotaoDoExtratoEmPdfState extends State<_BotaoDoExtratoEmPdf> {
       icon: _baixando
           ? const Girando(tamanho: 16)
           : const Icon(Icons.picture_as_pdf_rounded, size: 18),
-      label: Text(_baixando ? 'Preparando…' : 'Baixar extrato em PDF'),
+      label: Text(_baixando ? 'Preparando…' : 'Baixar Extrato em PDF'),
     );
   }
 }

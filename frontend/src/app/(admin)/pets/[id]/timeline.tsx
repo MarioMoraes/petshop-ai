@@ -257,7 +257,7 @@ function TimelineCard({
           className="mt-2 text-sm underline decoration-line underline-offset-4 hover:decoration-fg"
           onClick={onToggle}
         >
-          {expanded ? 'Fechar' : 'Ver atendimento'}
+          {expanded ? 'Fechar' : 'Ver Atendimento'}
         </button>
       )}
 
