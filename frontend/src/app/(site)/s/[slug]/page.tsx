@@ -316,7 +316,7 @@ function Services({ site, palette }: { site: PublicSiteResponse; palette: SitePa
           {site.services.map((service) => (
             <li
               key={service.id}
-              className="rounded-3xl border bg-white p-6"
+              className="flex flex-col rounded-3xl border bg-white p-6"
               style={{ borderColor: palette.line }}
             >
               <h3 className="text-base font-semibold text-ink">{titleCase(service.name)}</h3>
@@ -328,8 +328,12 @@ function Services({ site, palette }: { site: PublicSiteResponse; palette: SitePa
                 Piso, nunca preço exato (RN-04): o site não sabe qual é o pet. Serviço
                 sem tabela aparece com "consulte" e não some — sumir esconderia do
                 cliente um serviço que o petshop presta.
+
+                `mt-auto` põe o preço no pé do cartão: a grade estica os cartões de uma
+                linha à altura do maior, e com descrições de tamanhos diferentes o preço
+                ficava a meia altura, cada um num degrau.
               */}
-              <p className="mt-4 text-sm font-medium" style={{ color: palette.brand }}>
+              <p className="mt-auto pt-4 text-sm font-medium" style={{ color: palette.brand }}>
                 {service.fromPriceCents === null
                   ? 'Consulte'
                   : `a partir de ${formatBRL(service.fromPriceCents)}`}

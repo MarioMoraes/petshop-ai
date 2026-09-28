@@ -389,10 +389,12 @@ class _CopiaState extends State<_Copia> {
               onPressed:
                   _baixando != null ? null : () => _baixar('json', api.meusDadosEmJson),
               style: TextButton.styleFrom(foregroundColor: t.discreta),
+              // Fica em caixa de frase, de propósito: é uma pergunta sublinhada, e não um
+              // rótulo de ação — em Title Case lia como título solto no rodapé.
               child: Text(
                 _baixando == 'json'
                     ? 'Preparando…'
-                    : 'Prefere o Arquivo para Outro Sistema? Baixar em JSON',
+                    : 'Prefere o arquivo para outro sistema? Baixar em JSON',
                 textAlign: TextAlign.center,
                 style: tema.textTheme.bodySmall?.copyWith(
                   color: t.discreta,
