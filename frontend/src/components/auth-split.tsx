@@ -70,6 +70,11 @@ interface Recurso {
  * Portal, e "Documentos e PDFs" saiu — o PDF é o que o financeiro e o prontuário
  * entregam, e não uma área que alguém procure pelo nome.
  *
+ * A cobrança online do tutor (PIX e cartão, na conta do Asaas do petshop) entrou pela
+ * mesma porta: não é área nova, é o financeiro recebendo sem balcão, então virou parte
+ * do nome dele. Integrações ficou de fora pela regra de cima — é onde se liga o que
+ * esta lista já promete, e não uma coisa que alguém venha procurar.
+ *
  * **Dez itens e não mais.** O teto não é o número, é o que ele protege: a coluna divide
  * a tela com o formulário, e uma lista que precisa de rolagem para terminar deixa de ser
  * um resumo do produto e vira catálogo. Sem as descrições sobra folga, mas ela é para o
@@ -100,7 +105,7 @@ const RECURSOS: Recurso[] = [
   {
     icone: <WalletIcon />,
     tom: 'icon-money',
-    titulo: 'Financeiro e Caixa',
+    titulo: 'Financeiro, Caixa e Pagamento Online',
   },
   {
     icone: <PackageIcon />,
