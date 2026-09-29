@@ -252,9 +252,25 @@ async function absorbIntoRecent(
   return count === 1 ? sibling.id : null
 }
 
+/**
+ * O texto que substitui o do template — hoje, só o da campanha manual (MOD-CRM-12).
+ *
+ * Fica **fora** de `EnqueueMessageSchema`, e é a decisão que importa: a rota
+ * `POST /v1/messages` não aceita corpo livre, então mandar texto arbitrário continua
+ * exigindo passar por um módulo que decidiu isso — a campanha, que valida as variáveis
+ * contra a whitelist do template na gravação. O template continua mandando em todo o
+ * resto: categoria, consentimento, teto semanal e versão.
+ */
+export interface EnqueueContent {
+  body: string
+  /** Nulo mantém o assunto do template. */
+  subject: string | null
+}
+
 export async function enqueueMessage(
   actor: ActorContext,
   input: EnqueueMessageInput,
+  content?: EnqueueContent,
 ): Promise<EnqueueResult> {
   const definition = findTemplateDefinition(input.templateKey)
   if (!definition) {
@@ -437,8 +453,10 @@ export async function enqueueMessage(
         ...(await baseVariables(tx, recipient, input.documentId ?? null)),
         ...input.variables,
       }
-      const body = render(template.body, variables)
-      const subject = template.subject ? render(template.subject, variables).text : null
+      const bodySource = content?.body ?? template.body
+      const subjectSource = content?.subject ?? template.subject
+      const body = render(bodySource, variables)
+      const subject = subjectSource ? render(subjectSource, variables).text : null
 
       /**
        * O texto do e-mail, renderizado **agora** junto com o do WhatsApp.
@@ -452,12 +470,11 @@ export async function enqueueMessage(
         wantsFallback && decision.ok && channel === 'WHATSAPP'
           ? await resolveTemplate(tx, input.templateKey, 'EMAIL')
           : null
+      const fallbackSubject = content?.subject ?? fallbackTemplate?.subject
       const fallback = fallbackTemplate
         ? {
-            body: render(fallbackTemplate.body, variables).text,
-            subject: fallbackTemplate.subject
-              ? render(fallbackTemplate.subject, variables).text
-              : null,
+            body: render(content?.body ?? fallbackTemplate.body, variables).text,
+            subject: fallbackSubject ? render(fallbackSubject, variables).text : null,
           }
         : null
 

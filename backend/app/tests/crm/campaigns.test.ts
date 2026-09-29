@@ -221,6 +221,70 @@ describe('campanha manual — o disparo', () => {
 })
 
 describe('campanha manual — as guardas', () => {
+  it('a campanha leva o próprio texto até o motor', async () => {
+    await givenTutorWithPet(fixture, { name: 'Ana Elegível' })
+
+    const created = await createCampaign({
+      body: 'Oi {{tutor.primeiro_nome}}, banho com 20% até sexta!',
+      subject: 'Só esta semana',
+    })
+    expect(created.statusCode).toBe(201)
+    expect(created.json()).toMatchObject({
+      body: 'Oi {{tutor.primeiro_nome}}, banho com 20% até sexta!',
+      subject: 'Só esta semana',
+    })
+
+    const response = await callApi({
+      ...asAdmin(fixture),
+      method: 'POST',
+      url: `/v1/crm/campaigns/${created.json().id}/run`,
+      payload: { expectedTargets: 1 },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(messaging.requests[0]?.content).toEqual({
+      body: 'Oi {{tutor.primeiro_nome}}, banho com 20% até sexta!',
+      subject: 'Só esta semana',
+    })
+  })
+
+  it('sem texto próprio, sai o do catálogo', async () => {
+    await givenTutorWithPet(fixture, { name: 'Ana Elegível' })
+
+    const created = await createCampaign()
+    await callApi({
+      ...asAdmin(fixture),
+      method: 'POST',
+      url: `/v1/crm/campaigns/${created.json().id}/run`,
+      payload: { expectedTargets: 1 },
+    })
+
+    expect(messaging.requests[0]?.content).toBeUndefined()
+  })
+
+  it('recusa variável que o texto não conhece, na gravação', async () => {
+    const response = await createCampaign({ body: 'Seu banho é {{agendamento.data}}' })
+
+    expect(response.statusCode).toBe(422)
+    expect(JSON.stringify(response.json())).toContain('agendamento.data')
+  })
+
+  it('o rascunho tem o texto editado', async () => {
+    const created = await createCampaign({ body: 'Primeira versão' })
+
+    const response = await callApi({
+      ...asAdmin(fixture),
+      method: 'PATCH',
+      url: `/v1/crm/campaigns/${created.json().id}`,
+      payload: { body: 'Segunda versão, {{tutor.primeiro_nome}}' },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().body).toBe('Segunda versão, {{tutor.primeiro_nome}}')
+    // O PATCH só do texto não mexe no resto.
+    expect(response.json().segment).toMatchObject({ excludeDebtors: true, requiresActivePet: true })
+  })
+
   it('só aceita texto de marketing', async () => {
     const response = await createCampaign({ templateKey: 'appointment_reminder' })
 
@@ -236,7 +300,11 @@ describe('campanha manual — as guardas', () => {
   it('a recepção vê as campanhas mas não dispara nenhuma', async () => {
     const created = await createCampaign()
 
-    const list = await callApi({ ...(await asReceptionist(fixture)), method: 'GET', url: '/v1/crm/campaigns' })
+    const list = await callApi({
+      ...(await asReceptionist(fixture)),
+      method: 'GET',
+      url: '/v1/crm/campaigns',
+    })
     expect(list.statusCode).toBe(200)
 
     const run = await callApi({

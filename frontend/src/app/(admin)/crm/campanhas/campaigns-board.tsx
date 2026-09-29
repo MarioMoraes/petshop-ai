@@ -3,18 +3,19 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  CAMPAIGN_BODY_MAX,
   CAMPAIGN_SKIP_REASON_LABELS,
   CAMPAIGN_STATUS_LABELS,
-  CAMPAIGN_TEMPLATE_KEYS,
   CAMPAIGN_TYPE_LABELS,
   MESSAGE_CHANNEL_PREF_LABELS,
   MessageChannelPrefSchema,
-  templateLabelOf,
+  findTemplateDefinition,
   type CampaignPreview,
   type CampaignSkipReason,
   type CampaignSummary,
   type CampaignTargetRow,
   type MessageChannelPref,
+  type TemplatePreview,
 } from '@petshop/shared-types'
 import {
   Alert,
@@ -34,7 +35,9 @@ import {
   listCampaignTargetsAction,
   previewCampaignAction,
   runCampaignAction,
+  updateCampaignAction,
 } from '../campaign-actions'
+import { previewTemplateAction } from '../config-actions'
 
 /**
  * A lista de campanhas e o caminho até o disparo.
@@ -91,7 +94,7 @@ export function CampaignsBoard({ campaigns, canSend }: Props) {
         </div>
       )}
 
-      {creating && <CreateCampaignModal onClose={() => setCreating(false)} />}
+      {creating && <CampaignFormModal onClose={() => setCreating(false)} />}
     </div>
   )
 }
@@ -107,6 +110,7 @@ function CampaignRow({
   onError: (message: string | null) => void
 }) {
   const [dispatching, setDispatching] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [targets, setTargets] = useState<CampaignTargetRow[] | null>(null)
 
   const isSystem = campaign.type === 'INACTIVE'
@@ -150,6 +154,11 @@ function CampaignRow({
             </Button>
           )}
           {canRun && (
+            <Button type="button" onClick={() => setEditing(true)}>
+              Editar
+            </Button>
+          )}
+          {canRun && (
             <Button type="button" onClick={() => setDispatching(true)}>
               Ver quem recebe
             </Button>
@@ -172,6 +181,7 @@ function CampaignRow({
       )}
 
       {dispatching && <DispatchModal campaign={campaign} onClose={() => setDispatching(false)} />}
+      {editing && <CampaignFormModal campaign={campaign} onClose={() => setEditing(false)} />}
       {targets && (
         <TargetsModal campaign={campaign} targets={targets} onClose={() => setTargets(null)} />
       )}
@@ -273,13 +283,43 @@ function DispatchModal({ campaign, onClose }: { campaign: CampaignSummary; onClo
         ) : preview ? (
           <PreviewPanel preview={preview} />
         ) : (
-          <p className="hint">
-            A lista é montada agora, no clique — e não quando a campanha foi criada. Quem voltou
-            ontem sai do filtro sozinho.
-          </p>
+          <>
+            <CampaignText campaign={campaign} />
+            <p className="hint">
+              A lista é montada agora, no clique — e não quando a campanha foi criada. Quem voltou
+              ontem sai do filtro sozinho.
+            </p>
+          </>
         )}
       </div>
     </Modal>
+  )
+}
+
+/**
+ * O texto que vai sair, à vista antes do disparo.
+ *
+ * Sem ele a janela de confirmação pedia um "sim" sobre uma lista de pessoas sem mostrar o
+ * que elas vão ler — e o texto é justamente o que a pessoa mais quer conferir.
+ */
+function CampaignText({ campaign }: { campaign: CampaignSummary }) {
+  return (
+    <div className="rounded-xl border border-dashed border-line px-4 py-3">
+      <p className="hint">O que vai sair</p>
+      {campaign.body ? (
+        <>
+          {campaign.subject && campaign.channel !== 'WHATSAPP' && (
+            <p className="mt-2 text-sm font-medium">{campaign.subject}</p>
+          )}
+          <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{campaign.body}</p>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-muted">
+          O texto “{campaign.templateLabel}” de Mensagens › Textos, o mesmo para todas as campanhas
+          que o usam. Edite a campanha para escrever um texto só dela.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -410,36 +450,79 @@ function TargetsModal({
   )
 }
 
-/** Montar a campanha: o texto, o canal e para quem. */
-function CreateCampaignModal({ onClose }: { onClose: () => void }) {
+/** O texto de onde a campanha nova parte: o do catálogo, que é um recado genérico. */
+const BROADCAST = findTemplateDefinition('campaign_broadcast')!
+
+/**
+ * Montar ou editar a campanha: o texto, o canal e para quem.
+ *
+ * O texto é **da campanha**, e não mais uma escolha entre os textos do catálogo: duas
+ * campanhas seguidas precisam dizer coisas diferentes sem que a segunda reescreva a
+ * primeira. Nasce preenchido com o recado genérico, para ninguém começar da folha em
+ * branco nem esquecer onde entram as marcações.
+ */
+function CampaignFormModal({
+  campaign,
+  onClose,
+}: {
+  campaign?: CampaignSummary
+  onClose: () => void
+}) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [sample, setSample] = useState<TemplatePreview | null>(null)
 
-  const [name, setName] = useState('')
-  const [templateKey, setTemplateKey] = useState<string>(CAMPAIGN_TEMPLATE_KEYS[0])
-  const [channel, setChannel] = useState<MessageChannelPref>('AUTO')
-  const [inactiveDays, setInactiveDays] = useState('')
-  const [excludeDebtors, setExcludeDebtors] = useState(true)
-  const [requiresActivePet, setRequiresActivePet] = useState(true)
+  const templateKey = campaign?.templateKey ?? BROADCAST.key
+  const definition = findTemplateDefinition(templateKey) ?? BROADCAST
+  // A campanha de antes deste campo não tem texto próprio: o formulário mostra o do
+  // catálogo, e só o grava se a pessoa mexer nele (ver `submit`).
+  const initialBody = campaign?.body ?? definition.body.WHATSAPP
+  const initialSubject = campaign?.subject ?? definition.subject ?? ''
+
+  const [name, setName] = useState(campaign?.name ?? '')
+  const [body, setBody] = useState(initialBody)
+  const [subject, setSubject] = useState(initialSubject)
+  const [channel, setChannel] = useState<MessageChannelPref>(campaign?.channel ?? 'AUTO')
+  const [inactiveDays, setInactiveDays] = useState(
+    campaign?.segment.inactiveDaysMin !== undefined ? String(campaign.segment.inactiveDaysMin) : '',
+  )
+  const [excludeDebtors, setExcludeDebtors] = useState(campaign?.segment.excludeDebtors ?? true)
+  const [requiresActivePet, setRequiresActivePet] = useState(
+    campaign?.segment.requiresActivePet ?? true,
+  )
+
+  // O assunto só existe no e-mail; no automático, o e-mail é a queda de quem não tem
+  // WhatsApp, e o assunto precisa estar lá quando ela acontecer.
+  const showsSubject = channel !== 'WHATSAPP'
 
   function submit() {
     setError(null)
     setFieldErrors({})
     startTransition(async () => {
       const days = Number.parseInt(inactiveDays, 10)
-      const result = await createCampaignAction({
-        name,
-        templateKey,
-        channel,
-        segment: {
-          ...(Number.isFinite(days) && days > 0 ? { inactiveDaysMin: days } : {}),
-          excludeDebtors,
-          requiresActivePet,
-        },
-        scheduledFor: null,
-      })
+      const segment = {
+        ...campaign?.segment,
+        inactiveDaysMin: Number.isFinite(days) && days > 0 ? days : undefined,
+        excludeDebtors,
+        requiresActivePet,
+      }
+      const touchedText =
+        campaign?.body != null || body !== initialBody || subject !== initialSubject
+      const text = touchedText ? { body: body.trim(), subject: subject.trim() || null } : {}
+
+      const result = campaign
+        ? await updateCampaignAction(campaign.id, { name, channel, segment, ...text })
+        : await createCampaignAction({
+            name,
+            templateKey,
+            channel,
+            segment,
+            body: body.trim(),
+            subject: subject.trim() || null,
+            scheduledFor: null,
+          })
       if (!result.ok) {
         setError(result.message)
         setFieldErrors(result.fieldErrors)
@@ -447,6 +530,24 @@ function CreateCampaignModal({ onClose }: { onClose: () => void }) {
       }
       router.refresh()
       onClose()
+    })
+  }
+
+  function showSample() {
+    setError(null)
+    startTransition(async () => {
+      const result = await previewTemplateAction({
+        templateKey,
+        channel: channel === 'EMAIL' ? 'EMAIL' : 'WHATSAPP',
+        ...(channel === 'EMAIL' && subject.trim() ? { subject: subject.trim() } : {}),
+        body,
+      })
+      if (!result.ok) {
+        setError(result.message)
+        setFieldErrors(result.fieldErrors)
+        return
+      }
+      setSample(result.data)
     })
   }
 
@@ -458,8 +559,12 @@ function CreateCampaignModal({ onClose }: { onClose: () => void }) {
       icon={<BellIcon />}
       tone="icon-brand"
       eyebrow="Campanha"
-      title="Nova campanha"
-      subtitle="Ela nasce como rascunho. Nada sai antes da prévia."
+      title={campaign ? campaign.name : 'Nova campanha'}
+      subtitle={
+        campaign
+          ? 'Rascunho: o texto e o filtro ainda podem mudar.'
+          : 'Ela nasce como rascunho. Nada sai antes da prévia.'
+      }
       footer={
         <>
           <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
@@ -468,11 +573,11 @@ function CreateCampaignModal({ onClose }: { onClose: () => void }) {
           <Button
             type="button"
             busy={pending}
-            disabled={name.trim().length === 0}
+            disabled={name.trim().length === 0 || body.trim().length === 0}
             onClick={submit}
-            busyLabel="Criando…"
+            busyLabel={campaign ? 'Salvando…' : 'Criando…'}
           >
-            Criar rascunho
+            {campaign ? 'Salvar' : 'Criar rascunho'}
           </Button>
         </>
       }
@@ -499,34 +604,16 @@ function CreateCampaignModal({ onClose }: { onClose: () => void }) {
             />
           </Field>
 
-          <Field
-            label="Texto"
-            htmlFor="templateKey"
-            hint="Só textos de promoção. Edite o conteúdo em Textos."
-            error={fieldErrors.templateKey}
-          >
-            <select
-              id="templateKey"
-              className="field"
-              value={templateKey}
-              disabled={pending}
-              onChange={(event) => setTemplateKey(event.target.value)}
-            >
-              {CAMPAIGN_TEMPLATE_KEYS.map((key) => (
-                <option key={key} value={key}>
-                  {templateLabelOf(key)}
-                </option>
-              ))}
-            </select>
-          </Field>
-
           <Field label="Canal" htmlFor="channel">
             <select
               id="channel"
               className="field"
               value={channel}
               disabled={pending}
-              onChange={(event) => setChannel(event.target.value as MessageChannelPref)}
+              onChange={(event) => {
+                setChannel(event.target.value as MessageChannelPref)
+                setSample(null)
+              }}
             >
               {MessageChannelPrefSchema.options.map((option) => (
                 <option key={option} value={option}>
@@ -535,6 +622,76 @@ function CreateCampaignModal({ onClose }: { onClose: () => void }) {
               ))}
             </select>
           </Field>
+
+          {showsSubject && (
+            <Field
+              label="Assunto do e-mail"
+              htmlFor="subject"
+              error={fieldErrors.subject}
+              hint="Só aparece em quem recebe por e-mail."
+            >
+              <input
+                id="subject"
+                className="field"
+                value={subject}
+                maxLength={160}
+                disabled={pending}
+                onChange={(event) => {
+                  setSubject(event.target.value)
+                  setSample(null)
+                }}
+              />
+            </Field>
+          )}
+
+          <Field
+            label="Texto"
+            htmlFor="body"
+            error={fieldErrors.body}
+            hint={`${body.length} de ${CAMPAIGN_BODY_MAX} caracteres. As marcações abaixo viram o dado de cada cliente.`}
+          >
+            <textarea
+              id="body"
+              className="field min-h-40"
+              value={body}
+              maxLength={CAMPAIGN_BODY_MAX}
+              disabled={pending}
+              onChange={(event) => {
+                setBody(event.target.value)
+                setSample(null)
+              }}
+            />
+          </Field>
+
+          <div className="flex flex-wrap gap-1.5">
+            {definition.variables.map((variable) => (
+              <code key={variable} className="pill bg-black/5 px-2.5 py-1 text-xs text-muted">
+                {`{{${variable}}}`}
+              </code>
+            ))}
+          </div>
+
+          {sample ? (
+            <div className="rounded-xl border border-dashed border-line px-4 py-3">
+              <p className="hint">Com dados de exemplo</p>
+              {channel === 'EMAIL' && sample.subject && (
+                <p className="mt-2 text-sm font-medium">{sample.subject}</p>
+              )}
+              <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{sample.body}</p>
+            </div>
+          ) : (
+            <div>
+              <Button
+                type="button"
+                busy={pending}
+                disabled={body.trim().length === 0}
+                onClick={showSample}
+                busyLabel="Gerando…"
+              >
+                Ver como fica
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">

@@ -6,7 +6,9 @@ import {
 } from '@petshop/shared-types'
 import { logger } from '../../shared/logger.js'
 import { MESSAGING_DISABLED_CODE } from '../messaging/errors.js'
-import { enqueueMessage } from '../messaging/messages.js'
+import { enqueueMessage, type EnqueueContent } from '../messaging/messages.js'
+
+export type { EnqueueContent }
 
 /**
  * A porta para o MOD-NOTIF.
@@ -49,6 +51,8 @@ export interface EnqueueRequest {
   scheduledFor?: Date
   /** Se o WhatsApp não entregar, manda pelo e-mail (ver `EnqueueMessageSchema`). */
   fallbackToEmail?: boolean
+  /** O texto da campanha, no lugar do template (ver `EnqueueContent`). */
+  content?: EnqueueContent
 }
 
 /**
@@ -100,7 +104,7 @@ function createInProcessPort(): MessagingPort {
           ...(request.fallbackToEmail ? { fallbackToEmail: true } : {}),
         })
 
-        const result = await enqueueMessage({ tenantId: request.tenantId }, input)
+        const result = await enqueueMessage({ tenantId: request.tenantId }, input, request.content)
 
         return {
           messageId: result.id,

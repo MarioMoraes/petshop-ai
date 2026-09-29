@@ -3258,6 +3258,12 @@ model Campaign {
   templateKey String @map("template_key") @db.VarChar(60)
   channel     String @default("AUTO") @db.VarChar(10)
 
+  /// O texto desta campanha, com as variáveis do template. Nulo usa o texto do catálogo
+  /// (`templateKey`) — as campanhas anteriores a este campo e a de reativação.
+  body    String? @db.Text
+  /// Assunto do e-mail. Nulo usa o do template.
+  subject String? @db.VarChar(160)
+
   /// Validado por `CampaignSegmentSchema`. Objeto vazio = todo tutor ativo.
   segment Json @default("{}")
 

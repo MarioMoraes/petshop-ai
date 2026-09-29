@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { withTenant } from '@petshop/db'
 import { dispatchTenant } from '../../src/modules/messaging/dispatch.js'
+import { openCipher } from '../../src/modules/messaging/crypto.js'
 import { enqueueMessage } from '../../src/modules/messaging/messages.js'
 import {
   closeHarness,
@@ -278,5 +279,40 @@ describe('destino imposto', () => {
         urgent: false,
       }),
     ).rejects.toMatchObject({ code: 'ERR_CRM_003' })
+  })
+})
+
+describe('o texto da campanha (MOD-CRM-12)', () => {
+  it('substitui o do template, com as variáveis renderizadas', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture, { marketing: { email: true } })
+
+    const message = await enqueueMessage(
+      actor(fixture.tenantId),
+      {
+        recipientKind: 'TUTOR',
+        tutorId,
+        templateKey: 'campaign_broadcast',
+        channel: 'EMAIL',
+        dedupeKey: 'campanha-texto-proprio',
+        variables: {},
+        urgent: false,
+      } as Parameters<typeof enqueueMessage>[1],
+      { body: 'Banho com 20% até sexta no {{petshop.nome}}!', subject: 'Só esta semana' },
+    )
+
+    const { body, subject } = await withTenant(fixture.tenantId, async (tx) => {
+      const cipher = await openCipher(tx, fixture.tenantId)
+      const row = await tx.message.findUniqueOrThrow({ where: { id: message.id } })
+      return {
+        body: cipher.decrypt(row.bodyEncrypted),
+        subject: row.subjectEncrypted ? cipher.decrypt(row.subjectEncrypted) : null,
+      }
+    })
+
+    expect(body).toMatch(/^Banho com 20% até sexta no .+!$/)
+    expect(body).not.toContain('{{')
+    expect(body).not.toContain('temos uma novidade')
+    expect(subject).toBe('Só esta semana')
   })
 })

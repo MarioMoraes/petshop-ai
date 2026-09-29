@@ -129,11 +129,24 @@ export const CampaignSegmentSchema = z.strictObject({
 })
 export type CampaignSegment = z.output<typeof CampaignSegmentSchema>
 
+/** O teto do texto: cabe numa mensagem de WhatsApp com folga para as variáveis. */
+export const CAMPAIGN_BODY_MAX = 2000
+
 const campaignShape = {
   name: z.string().min(1).max(120),
   templateKey: z.string().min(1).max(60),
   channel: z.enum(['AUTO', 'WHATSAPP', 'EMAIL']).default('AUTO'),
   segment: CampaignSegmentSchema.default({ excludeDebtors: true, requiresActivePet: true }),
+  /**
+   * O texto **desta** campanha, com as mesmas variáveis do template (`{{tutor.primeiro_nome}}`).
+   *
+   * Nulo usa o texto do catálogo, que é um por estabelecimento — o comportamento de antes
+   * deste campo. A tela sempre manda o texto: duas campanhas seguidas precisam poder dizer
+   * coisas diferentes sem que a segunda reescreva a primeira.
+   */
+  body: z.string().trim().min(1).max(CAMPAIGN_BODY_MAX).nullish(),
+  /** Assunto do e-mail. Nulo usa o do template. */
+  subject: z.string().trim().min(1).max(160).nullish(),
   /** Nulo dispara na hora em que alguém clicar; com data, o job pega. */
   scheduledFor: z.iso.datetime({ offset: true }).nullish(),
 }
@@ -153,6 +166,8 @@ export const UpdateCampaignSchema = z.strictObject({
   templateKey: campaignShape.templateKey.optional(),
   channel: z.enum(['AUTO', 'WHATSAPP', 'EMAIL']).optional(),
   segment: CampaignSegmentSchema.optional(),
+  body: campaignShape.body,
+  subject: campaignShape.subject,
   scheduledFor: z.iso.datetime({ offset: true }).nullish(),
 })
 export type UpdateCampaignInput = z.output<typeof UpdateCampaignSchema>
@@ -206,6 +221,9 @@ export const CampaignSummarySchema = z.object({
   templateLabel: z.string(),
   channel: z.enum(['AUTO', 'WHATSAPP', 'EMAIL']),
   segment: CampaignSegmentSchema,
+  /** Nulo: sai o texto do catálogo (`templateKey`). */
+  body: z.string().nullable(),
+  subject: z.string().nullable(),
   scheduledFor: z.string().nullable(),
   createdAt: z.string(),
   lastRun: CampaignRunSummarySchema.nullable(),

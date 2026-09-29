@@ -1,6 +1,7 @@
 import { getMaintenancePrisma, withTenant, type TenantTransaction } from '@petshop/db'
 import {
   CampaignSegmentSchema,
+  extractVariables,
   findTemplateDefinition,
   templateLabelOf,
   type CampaignPreview,
@@ -26,7 +27,7 @@ import {
   unknownTemplate,
 } from './errors.js'
 import { tenantOptions, type ActorContext } from './actor.js'
-import { getMessagingPort } from './messaging-port.js'
+import { getMessagingPort, type EnqueueContent } from './messaging-port.js'
 import { resolveSegment, type Candidate } from './segments.js'
 import { petListsOf } from './tutor-vars.js'
 
@@ -77,6 +78,7 @@ export async function createCampaign(
   input: CreateCampaignInput,
 ): Promise<CampaignSummary> {
   assertMarketingTemplate(input.templateKey)
+  assertKnownVariables(input.templateKey, input.body, input.subject)
 
   const created = await withTenant(
     actor.tenantId,
@@ -90,6 +92,8 @@ export async function createCampaign(
           templateKey: input.templateKey,
           channel: input.channel,
           segment: input.segment,
+          body: input.body ?? null,
+          subject: input.subject ?? null,
           scheduledFor: input.scheduledFor ? new Date(input.scheduledFor) : null,
           createdBy: actor.actorUserId ?? null,
         },
@@ -135,6 +139,14 @@ export async function updateCampaign(
         throw campaignBusy(`Esta campanha está em ${before.status} e não pode mais ser editada`)
       }
 
+      // A whitelist é a do template que vai valer depois do PATCH, e o texto conferido é o
+      // que vai valer também: trocar só o template pode tornar inválido o texto de antes.
+      assertKnownVariables(
+        input.templateKey ?? before.templateKey,
+        input.body === undefined ? before.body : input.body,
+        input.subject === undefined ? before.subject : input.subject,
+      )
+
       const scheduledFor =
         input.scheduledFor === undefined
           ? before.scheduledFor
@@ -149,6 +161,8 @@ export async function updateCampaign(
           ...(input.templateKey !== undefined ? { templateKey: input.templateKey } : {}),
           ...(input.channel !== undefined ? { channel: input.channel } : {}),
           ...(input.segment !== undefined ? { segment: input.segment } : {}),
+          ...(input.body !== undefined ? { body: input.body } : {}),
+          ...(input.subject !== undefined ? { subject: input.subject } : {}),
           scheduledFor,
           status: scheduledFor ? 'SCHEDULED' : 'DRAFT',
         },
@@ -161,8 +175,18 @@ export async function updateCampaign(
         action: 'campaign.updated',
         entity: 'campaigns',
         entityId: id,
-        before: { name: before.name, templateKey: before.templateKey, segment: before.segment },
-        after: { name: row.name, templateKey: row.templateKey, segment: row.segment },
+        before: {
+          name: before.name,
+          templateKey: before.templateKey,
+          segment: before.segment,
+          body: before.body,
+        },
+        after: {
+          name: row.name,
+          templateKey: row.templateKey,
+          segment: row.segment,
+          body: row.body,
+        },
         ipAddress: actor.ipAddress ?? null,
         userAgent: actor.userAgent ?? null,
       })
@@ -273,6 +297,7 @@ export async function runCampaign(
       runId,
       campaignId: campaign.id,
       templateKey: campaign.templateKey,
+      content: contentOf(campaign),
       channel: campaign.channel as MessageChannelPref,
       candidates,
     })
@@ -412,6 +437,7 @@ export async function runScheduledCampaigns(now: Date = new Date()): Promise<num
         runId,
         campaignId: row.id,
         templateKey: candidates.campaign.templateKey,
+        content: contentOf(candidates.campaign),
         channel: candidates.campaign.channel as MessageChannelPref,
         candidates: candidates.candidates,
       })
@@ -474,6 +500,8 @@ export interface DeliveryPlan {
   runId: string
   campaignId: string
   templateKey: string
+  /** O texto da campanha; ausente, sai o do template. */
+  content?: EnqueueContent
   channel: MessageChannelPref
   candidates: Candidate[]
 }
@@ -538,6 +566,7 @@ export async function deliver(
       originType: 'CAMPAIGN_RUN',
       originId: plan.runId,
       variables: { 'pets.lista': petLists.get(candidate.tutorId) ?? '' },
+      ...(plan.content ? { content: plan.content } : {}),
     })
 
     if (!outcome) {
@@ -649,6 +678,44 @@ function assertMarketingTemplate(key: string): void {
   }
 }
 
+/**
+ * O texto próprio só pode usar as variáveis do template (AC-03 de MOD-CRM-02).
+ *
+ * É a mesma regra da tela de Textos, e pela mesma razão: variável inventada renderiza
+ * vazio no celular do cliente, e o erro precisa doer na hora de escrever, não no disparo.
+ */
+function assertKnownVariables(
+  templateKey: string,
+  body: string | null | undefined,
+  subject: string | null | undefined,
+): void {
+  const definition = findTemplateDefinition(templateKey)
+  if (!definition) return
+
+  const allowed = new Set<string>(definition.variables)
+  const fields: { field: string; message: string }[] = []
+  for (const [field, text] of [
+    ['body', body],
+    ['subject', subject],
+  ] as const) {
+    const unknown = text ? extractVariables(text).filter((name) => !allowed.has(name)) : []
+    if (unknown.length > 0) {
+      fields.push({
+        field,
+        message: `Variável que não existe neste texto: ${unknown.map((name) => `{{${name}}}`).join(', ')}`,
+      })
+    }
+  }
+  if (fields.length > 0) throw invalid(fields[0]!.message, fields)
+}
+
+function contentOf(campaign: {
+  body: string | null
+  subject: string | null
+}): EnqueueContent | undefined {
+  return campaign.body ? { body: campaign.body, subject: campaign.subject } : undefined
+}
+
 function parseSegment(raw: unknown): CampaignSegment {
   const parsed = CampaignSegmentSchema.safeParse(raw ?? {})
   // Uma `segment` ilegível não pode virar "todo mundo": a queda segura de um filtro
@@ -664,6 +731,8 @@ interface CampaignRow {
   templateKey: string
   channel: string
   segment: unknown
+  body: string | null
+  subject: string | null
   scheduledFor: Date | null
   createdAt: Date
   runs: {
@@ -688,6 +757,8 @@ function toSummary(row: CampaignRow): CampaignSummary {
     templateLabel: templateLabelOf(row.templateKey),
     channel: row.channel as CampaignSummary['channel'],
     segment: parseSegment(row.segment),
+    body: row.body,
+    subject: row.subject,
     scheduledFor: row.scheduledFor?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     lastRun: row.runs[0] ? toRunSummary(row.runs[0]) : null,
