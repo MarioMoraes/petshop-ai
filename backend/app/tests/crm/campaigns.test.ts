@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { withTenant } from '@petshop/db'
+import { CampaignPreviewSchema } from '@petshop/shared-types'
 import { runInactiveCampaign } from '../../src/modules/crm/inactive.js'
 import {
   asAdmin,
@@ -75,6 +76,9 @@ describe('campanha manual — a prévia (AC-01 de MOD-CRM-12)', () => {
     // A amostra é só de quem vai receber.
     expect(preview.sample).toHaveLength(1)
     expect(preview.sample[0].name).toBe('Ana Elegível')
+    // O contrato que o frontend aplica: só os motivos que aconteceram vêm no mapa, e o
+    // schema precisa aceitar isso — `z.record` com chave enum exigia todos.
+    expect(CampaignPreviewSchema.safeParse(preview).success).toBe(true)
   })
 
   it('a prévia é do instante — o segmento não fica congelado', async () => {

@@ -174,8 +174,12 @@ export const CampaignPreviewSchema = z.object({
   targeted: z.number().int(),
   eligible: z.number().int(),
   skipped: z.number().int(),
-  /** Motivo → quantos. Só os que aconteceram. */
-  skippedByReason: z.record(CampaignSkipReasonSchema, z.number().int()),
+  /**
+   * Motivo → quantos. Só os que aconteceram — por isso `partialRecord`: no Zod 4,
+   * `z.record` com chave enum exige **todas** as chaves, e a prévia sem nenhum pulado
+   * por supressão virava "resposta fora do contrato".
+   */
+  skippedByReason: z.partialRecord(CampaignSkipReasonSchema, z.number().int()),
   /** Uma amostra de nomes, para a pessoa reconhecer que o filtro faz o que ela quer. */
   sample: z.array(z.object({ tutorId: z.uuid(), name: z.string() })).max(10),
 })

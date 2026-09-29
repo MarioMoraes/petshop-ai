@@ -203,7 +203,7 @@ export function summarize(candidates: Candidate[]): CampaignPreview {
     targeted: candidates.length,
     eligible,
     skipped: candidates.length - eligible,
-    skippedByReason: skippedByReason as Record<CampaignSkipReason, number>,
+    skippedByReason,
     // A amostra é de quem **vai receber**. Uma amostra que mistura pulados faria a
     // pessoa reconhecer nomes que não recebem nada, e é a leitura mais perigosa que uma
     // tela de disparo pode induzir.
