@@ -207,7 +207,7 @@ svg.icon.fill { fill: currentColor; stroke: none; }
   <div id="glow-b" class="glow"></div>
   <div id="grain"></div>
 
-  <!-- ═══ Cena 1 · 0–6s · o software ═══ -->
+  <!-- ═══ Cena 1 · 0–9,7s · o software ═══ -->
   <section class="scene" id="s1">
     <div class="abs center-x" style="top: 280px"><span class="eyebrow" id="s1-eyebrow"><svg class="icon"><use href="#i-spark" /></svg>Gestão + Atendimento com IA</span></div>
     <h1 class="abs center-x h1" style="top: 380px">
@@ -219,7 +219,7 @@ svg.icon.fill { fill: currentColor; stroke: none; }
     <div id="s1-rows"></div>
   </section>
 
-  <!-- ═══ Cena 2 · 6–12s · a agenda enchendo ═══ -->
+  <!-- ═══ Cena 2 · 9,7–19,5s · a agenda enchendo ═══ -->
   <section class="scene" id="s2">
     <h1 class="abs center-x h1" style="top: 262px">
       <span class="line" id="s2-l1">Agenda Cheia,</span>
@@ -253,7 +253,7 @@ svg.icon.fill { fill: currentColor; stroke: none; }
     </div>
   </section>
 
-  <!-- ═══ Cena 3 · 12–19s · o atendente automático ═══ -->
+  <!-- ═══ Cena 3 · 19,5–31,7s · o atendente automático ═══ -->
   <section class="scene" id="s3">
     <h1 class="abs center-x h1" style="top: 262px">
       <span class="line" id="s3-l1">Atendente de IA</span>
@@ -278,7 +278,7 @@ svg.icon.fill { fill: currentColor; stroke: none; }
     </div>
   </section>
 
-  <!-- ═══ Cena 4 · 19–25s · o resultado ═══ -->
+  <!-- ═══ Cena 4 · 31,7–40,2s · o resultado ═══ -->
   <section class="scene" id="s4">
     <h1 class="abs center-x h1" style="top: 262px">
       <span class="line" id="s4-l1">Menos Tarefa,</span>
@@ -315,7 +315,7 @@ svg.icon.fill { fill: currentColor; stroke: none; }
     </div>
   </section>
 
-  <!-- ═══ Cena 5 · 25–30s · tagline e chamada ═══ -->
+  <!-- ═══ Cena 5 · 40,2–48,2s · tagline e chamada ═══ -->
   <section class="scene" id="s5">
     <div class="abs center-x" style="top: 400px"><span class="logo" id="s5-logo"><span class="mark"><svg class="icon"><use href="#i-paw" /></svg></span>PetShop AI</span></div>
     <div class="abs center-x tag" style="top: 640px">
@@ -336,7 +336,16 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 </div>
 
 <script>
-const DURATION = 30
+// quanto tempo a cena fica parada, já montada, antes de sair
+const PAUSA = 5
+// quando o último elemento de cada cena termina de entrar (tempo local, em segundos) —
+// se mudar a animação de uma cena, confira este número
+const PRONTA = [4.3, 4.4, 6.8, 3.1, 3.0]
+const FADE = 0.4
+// duração de cada cena: montar + pausa + sair (a última não sai)
+const CENAS = PRONTA.map((p, i) => p + PAUSA + (i < PRONTA.length - 1 ? FADE : 0))
+const INICIO = CENAS.map((_, i) => CENAS.slice(0, i).reduce((a, b) => a + b, 0))
+const DURATION = CENAS.reduce((a, b) => a + b, 0)
 const $ = (id) => document.getElementById(id)
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x))
 const prog = (t, a, d) => clamp((t - a) / d)
@@ -359,9 +368,10 @@ function slideX(el, t, a, d = 0.55, dx = 80) {
   el.style.opacity = x
   el.style.transform = `translateX(${(1 - x) * dx}px)`
 }
-function sceneAlpha(t, start, end, first, last) {
-  const inA = first ? 1 : easeInOut(prog(t, start, 0.4))
-  const outA = last ? 1 : 1 - easeInOut(prog(t, end - 0.4, 0.4))
+// L é o tempo local da cena i: a entrada e a saída são fades de 0,4 s nas pontas
+function sceneAlpha(L, i) {
+  const inA = i === 0 ? 1 : easeInOut(prog(L, 0, FADE))
+  const outA = i === CENAS.length - 1 ? 1 : 1 - easeInOut(prog(L, CENAS[i] - FADE, FADE))
   return inA * outA
 }
 const brl = (n) => 'R$ ' + Math.round(n).toLocaleString('pt-BR')
@@ -434,7 +444,7 @@ const apptEls = APPTS.map(([c, s, span, name, svc, tone]) => {
   return el
 })
 const nowLine = document.createElement('div'); nowLine.className = 'now-line'; nowLine.style.top = BOARD_TOP + 5.3 * SLOT + 'px'; board.appendChild(nowLine)
-const APPT_START = 6.7, APPT_STEP = 0.29
+const APPT_START = 0.6, APPT_STEP = 0.24
 
 // ── Cena 3: a conversa
 const CHAT = [
@@ -468,57 +478,56 @@ function render(t) {
   $('glow-b').style.transform = `translate(${240 + Math.cos(t * 0.3) * 140}px, ${1100 + Math.sin(t * 0.22) * 160}px)`
   $('progress').style.width = (clamp(t / DURATION) * 100).toFixed(3) + '%'
 
-  // ── Cena 1 (0–6)
-  const s1 = sceneAlpha(t, 0, 6, true, false)
-  $('s1').style.opacity = s1
-  if (s1 > 0) {
-    slide($('s1-eyebrow'), t, 0.05, 0.5, 30)
-    slide($('s1-l1'), t, 0.15)
-    slide($('s1-l2'), t, 0.35)
+  // cada cena anima no seu tempo local L (0 = início da cena)
+  const cena = (i) => { const L = t - INICIO[i]; const a = sceneAlpha(L, i); $('s' + (i + 1)).style.opacity = a; return a > 0 ? L : null }
+
+  // ── Cena 1 · recursos
+  let L = cena(0)
+  if (L !== null) {
+    slide($('s1-eyebrow'), L, 0.05, 0.5, 30)
+    slide($('s1-l1'), L, 0.15)
+    slide($('s1-l2'), L, 0.35)
     tileEls.forEach((el, i) => {
-      const x = prog(t, 0.75 + i * 0.16, 0.5)
-      const dim = 1 - 0.3 * easeInOut(prog(t, 3.0, 0.5))
+      const x = prog(L, 0.75 + i * 0.12, 0.5)
+      const dim = 1 - 0.3 * easeInOut(prog(L, 2.6, 0.5))
       el.style.opacity = clamp(x * 2.2) * dim
-      el.style.transform = `scale(${(0.8 + 0.2 * backOut(x)) * (1 - 0.04 * easeInOut(prog(t, 3.0, 0.5)))})`
+      el.style.transform = `scale(${(0.8 + 0.2 * backOut(x)) * (1 - 0.04 * easeInOut(prog(L, 2.6, 0.5)))})`
     })
-    slide($('s1-cap'), t, 3.0, 0.5, 30)
-    rowEls.forEach((el, i) => slideX(el, t, 3.35 + i * 0.38, 0.5, 120))
+    slide($('s1-cap'), L, 2.6, 0.5, 30)
+    rowEls.forEach((el, i) => slideX(el, L, 2.9 + i * 0.3, 0.5, 120))
   }
 
-  // ── Cena 2 (6–12)
-  const s2 = sceneAlpha(t, 6, 12)
-  $('s2').style.opacity = s2
-  if (s2 > 0) {
-    slide($('s2-l1'), t, 6.1)
-    slide($('s2-l2'), t, 6.28)
-    slide($('s2-counter'), t, 6.35, 0.5, 30)
-    slide($('s2-window'), t, 6.45, 0.7, 120)
+  // ── Cena 2 · agenda
+  L = cena(1)
+  if (L !== null) {
+    slide($('s2-l1'), L, 0.1)
+    slide($('s2-l2'), L, 0.28)
+    slide($('s2-counter'), L, 0.35, 0.5, 30)
+    slide($('s2-window'), L, 0.45, 0.7, 120)
     let count = 0, last = -1
     apptEls.forEach((el, i) => {
       const a = APPT_START + i * APPT_STEP
-      pop(el, t, a, 0.42, 0.6)
-      if (t >= a) { count++; last = a }
+      pop(el, L, a, 0.42, 0.6)
+      if (L >= a) { count++; last = a }
     })
     const num = $('s2-num')
     num.textContent = count
-    const bump = last > 0 ? 1 - prog(t, last, 0.25) : 0
+    const bump = last > 0 ? 1 - prog(L, last, 0.25) : 0
     num.style.transform = `scale(${1 + 0.12 * bump})`
     num.style.color = bump > 0.05 ? `color-mix(in srgb, #5ccb88 ${Math.round(bump * 100)}%, #fff)` : '#fff'
     const plus = $('s2-plus')
-    const pp = last > 0 ? prog(t, last, 0.5) : 1
+    const pp = last > 0 ? prog(L, last, 0.5) : 1
     plus.style.opacity = count ? 1 - pp : 0
     plus.style.transform = `translateY(${-30 * pp}px)`
-    pop($('s2-float'), t, APPT_START + 13 * APPT_STEP - 0.05, 0.5, 0.7)
+    pop($('s2-float'), L, APPT_START + 13 * APPT_STEP - 0.05, 0.5, 0.7)
   }
 
-  // ── Cena 3 (12–19)
-  const s3 = sceneAlpha(t, 12, 19)
-  $('s3').style.opacity = s3
-  if (s3 > 0) {
-    const L = t - 12
-    slide($('s3-l1'), t, 12.1)
-    slide($('s3-l2'), t, 12.28)
-    slide($('s3-phone'), t, 12.3, 0.7, 140)
+  // ── Cena 3 · WhatsApp
+  L = cena(2)
+  if (L !== null) {
+    slide($('s3-l1'), L, 0.1)
+    slide($('s3-l2'), L, 0.28)
+    slide($('s3-phone'), L, 0.3, 0.7, 140)
     let isTyping = false
     CHAT.forEach(([who, , at, typ], i) => {
       const { wrap, msg, typing } = chatEls[i]
@@ -546,45 +555,43 @@ function render(t) {
       msg.style.transform = `scale(${0.85 + 0.15 * backOut(x)})`
     })
     $('s3-status').textContent = isTyping ? 'digitando…' : 'online'
-    pop($('s3-badge-a'), t, 12 + 6.05, 0.5, 0.7)
-    pop($('s3-badge-b'), t, 12 + 6.3, 0.5, 0.7)
+    pop($('s3-badge-a'), L, 6.05, 0.5, 0.7)
+    pop($('s3-badge-b'), L, 6.3, 0.5, 0.7)
   }
 
-  // ── Cena 4 (19–25)
-  const s4 = sceneAlpha(t, 19, 25)
-  $('s4').style.opacity = s4
-  if (s4 > 0) {
-    slide($('s4-l1'), t, 19.1)
-    slide($('s4-l2'), t, 19.28)
-    ;['s4-st0', 's4-st1', 's4-st2', 's4-st3'].forEach((id, i) => pop($(id), t, 19.4 + i * 0.14, 0.5, 0.85))
-    const c = (a) => easeOut(prog(t, a, 1.6))
-    $('s4-v0').textContent = Math.round(27 * c(19.6))
-    $('s4-v1').textContent = brl(1480 * c(19.75))
-    $('s4-v2').textContent = Math.round(38 * c(19.9))
-    $('s4-v3').textContent = Math.round(64 * c(20.05))
-    slide($('s4-bars'), t, 20.1, 0.6, 60)
+  // ── Cena 4 · resultados
+  L = cena(3)
+  if (L !== null) {
+    slide($('s4-l1'), L, 0.1)
+    slide($('s4-l2'), L, 0.28)
+    ;['s4-st0', 's4-st1', 's4-st2', 's4-st3'].forEach((id, i) => pop($(id), L, 0.4 + i * 0.14, 0.5, 0.85))
+    const c = (a) => easeOut(prog(L, a, 1.6))
+    $('s4-v0').textContent = Math.round(27 * c(0.6))
+    $('s4-v1').textContent = brl(1480 * c(0.75))
+    $('s4-v2').textContent = Math.round(38 * c(0.9))
+    $('s4-v3').textContent = Math.round(64 * c(1.05))
+    slide($('s4-bars'), L, 1.1, 0.6, 60)
     document.querySelectorAll('#s4-barset i').forEach((b, i) => {
       const h = parseFloat(b.style.getPropertyValue('--h'))
-      b.style.height = 200 * h * easeOut(prog(t, 20.4 + i * 0.1, 0.6)) + 'px'
+      b.style.height = 200 * h * easeOut(prog(L, 1.4 + i * 0.1, 0.6)) + 'px'
     })
-    slide($('s4-crm'), t, 20.6, 0.6, 60)
-    document.querySelectorAll('#s4-crm .pill').forEach((p, i) => pop(p, t, 21.0 + i * 0.22, 0.45, 0.6))
+    slide($('s4-crm'), L, 1.6, 0.6, 60)
+    document.querySelectorAll('#s4-crm .pill').forEach((p, i) => pop(p, L, 2.0 + i * 0.22, 0.45, 0.6))
   }
 
-  // ── Cena 5 (25–30)
-  const s5 = sceneAlpha(t, 25, 30, false, true)
-  $('s5').style.opacity = s5
-  if (s5 > 0) {
-    pop($('s5-logo'), t, 25.15, 0.6, 0.7)
-    slide($('s5-l1'), t, 25.45)
-    slide($('s5-l2'), t, 25.6)
-    slide($('s5-l3'), t, 26.1)
-    slide($('s5-l4'), t, 26.25)
-    pop($('s5-cta'), t, 26.9, 0.55, 0.75)
-    const pulse = t > 27.6 ? 1 + 0.025 * Math.sin((t - 27.6) * 4) : null
+  // ── Cena 5 · CTA
+  L = cena(4)
+  if (L !== null) {
+    pop($('s5-logo'), L, 0.15, 0.6, 0.7)
+    slide($('s5-l1'), L, 0.45)
+    slide($('s5-l2'), L, 0.6)
+    slide($('s5-l3'), L, 1.1)
+    slide($('s5-l4'), L, 1.25)
+    pop($('s5-cta'), L, 1.9, 0.55, 0.75)
+    const pulse = L > 2.6 ? 1 + 0.025 * Math.sin((L - 2.6) * 4) : null
     if (pulse) $('s5-cta').style.transform = `scale(${pulse})`
-    slide($('s5-notes'), t, 27.2, 0.5, 20)
-    slide($('s5-by'), t, 27.5, 0.5, 20)
+    slide($('s5-notes'), L, 2.2, 0.5, 20)
+    slide($('s5-by'), L, 2.5, 0.5, 20)
   }
 }
 

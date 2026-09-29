@@ -17,7 +17,7 @@ if (mode === 'frames') {
     await page.screenshot({ path: `shots/t${String(t).padStart(5, '0')}.png` })
   }
 } else {
-  const FPS = 60, DUR = 30, out = rest[0] || 'reel.mp4'
+  const FPS = 60, DUR = await page.evaluate(() => DURATION), out = rest[0] || 'reel.mp4'
   const ff = spawn(ffmpegPath, ['-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'png', '-i', '-',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.2',
     '-r', String(FPS), '-movflags', '+faststart', '-an', out], { stdio: ['pipe', 'ignore', 'inherit'] })

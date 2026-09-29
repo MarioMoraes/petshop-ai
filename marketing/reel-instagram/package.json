@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "frames": "node render.mjs frames 5 11 18 23 29",
+    "frames": "node render.mjs frames 4.4 14.2 26.4 34.9 43.3",
     "render": "node render.mjs video reel-petshop-ai.mp4"
   },
   "dependencies": {
