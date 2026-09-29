@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>PetShop AI Reel</title>
+<style>
+@font-face { font-family: Inter; src: url(fonts/Inter-Regular.ttf); font-weight: 400; }
+@font-face { font-family: Inter; src: url(fonts/Inter-Medium.ttf); font-weight: 500; }
+@font-face { font-family: Inter; src: url(fonts/Inter-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: Inter; src: url(fonts/Inter-Bold.ttf); font-weight: 700; }
+@font-face { font-family: 'Instrument Serif'; src: url(fonts/InstrumentSerif-Italic.ttf); font-style: italic; }
+
+:root {
+  --ink: #232427; --ink-strong: #171719; --muted: #5d6068; --subtle: #7d8089;
+  --line: rgb(35 36 39 / 0.08);
+  --accent: #e34a32; --accent-2: #f05a3c;
+  --gold-1: #b8862f; --gold-2: #f2d27a;
+  --t-brand: #b0503e; --t-brand-soft: #fff1ee; --t-brand-ring: #ffd4cb; --d-brand: #f28a73;
+  --t-people: #7e5db1; --t-people-soft: #f6f2ff; --t-people-ring: #e4d9fd; --d-people: #b39cf0;
+  --t-pet: #966700; --t-pet-soft: #fbf3e8; --t-pet-ring: #f2dcbb; --d-pet: #e9b04a;
+  --t-time: #466fbd; --t-time-soft: #eff5ff; --t-time-ring: #cfe0ff; --d-time: #86a9f0;
+  --t-money: #22864a; --t-money-soft: #edf8ef; --t-money-ring: #c8ead0; --d-money: #5ccb88;
+  --t-metric: #00818c; --t-metric-soft: #e8f8fa; --t-metric-ring: #baeaef; --d-metric: #4cc9d4;
+  --t-health: #a94d79; --t-health-soft: #fef0f6; --t-health-ring: #fbd3e3; --d-health: #ea86b5;
+  --t-system: #5457c4; --t-system-soft: #f0f0ff; --t-system-ring: #d9dafc; --d-system: #9a9cf4;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #141416; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+svg.icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+svg.icon.fill { fill: currentColor; stroke: none; }
+
+#stage { position: relative; width: 1080px; height: 1920px; overflow: hidden;
+  background: linear-gradient(180deg, #1d1e22, #121214); }
+.glow { position: absolute; border-radius: 50%; filter: blur(20px); pointer-events: none; }
+#glow-a { width: 1100px; height: 1100px; background: radial-gradient(circle, rgb(227 74 50 / 0.30), transparent 62%); }
+#glow-b { width: 1200px; height: 1200px; background: radial-gradient(circle, rgb(70 111 189 / 0.24), transparent 62%); }
+#grain { position: absolute; inset: 0; background-image: radial-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px); background-size: 22px 22px; }
+
+.scene { position: absolute; inset: 0; opacity: 0; }
+.abs { position: absolute; }
+.center-x { left: 0; right: 0; text-align: center; }
+
+.eyebrow { display: inline-flex; align-items: center; gap: 14px; padding: 14px 26px; border-radius: 999px;
+  background: rgb(255 255 255 / 0.07); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12) inset;
+  font-size: 30px; font-weight: 500; color: rgb(255 255 255 / 0.85); }
+.eyebrow .icon { font-size: 32px; color: var(--accent-2); }
+
+.h1 { font-size: 96px; line-height: 1.04; font-weight: 600; letter-spacing: -0.035em; }
+.h1 .serif, .serif { font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
+.h1 .serif { color: var(--accent-2); font-size: 1.12em; }
+.line { display: block; }
+
+/* chips com tom — nenhum ícone sem cor */
+.chip { display: grid; place-items: center; border-radius: 18px; flex: none; }
+.tone-time { --tone: var(--t-time); --tone-soft: var(--t-time-soft); --tone-ring: var(--t-time-ring); --dark: var(--d-time); }
+.tone-pet { --tone: var(--t-pet); --tone-soft: var(--t-pet-soft); --tone-ring: var(--t-pet-ring); --dark: var(--d-pet); }
+.tone-health { --tone: var(--t-health); --tone-soft: var(--t-health-soft); --tone-ring: var(--t-health-ring); --dark: var(--d-health); }
+.tone-money { --tone: var(--t-money); --tone-soft: var(--t-money-soft); --tone-ring: var(--t-money-ring); --dark: var(--d-money); }
+.tone-brand { --tone: var(--t-brand); --tone-soft: var(--t-brand-soft); --tone-ring: var(--t-brand-ring); --dark: var(--d-brand); }
+.tone-metric { --tone: var(--t-metric); --tone-soft: var(--t-metric-soft); --tone-ring: var(--t-metric-ring); --dark: var(--d-metric); }
+.tone-system { --tone: var(--t-system); --tone-soft: var(--t-system-soft); --tone-ring: var(--t-system-ring); --dark: var(--d-system); }
+.tone-people { --tone: var(--t-people); --tone-soft: var(--t-people-soft); --tone-ring: var(--t-people-ring); --dark: var(--d-people); }
+.chip-dark { background: color-mix(in srgb, var(--dark) 18%, transparent); color: var(--dark);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dark) 30%, transparent) inset; }
+.chip-light { background: var(--tone-soft); color: var(--tone); box-shadow: 0 0 0 1px var(--tone-ring) inset; }
+
+/* ── Cena 1: recursos ── */
+.tile { position: absolute; width: 300px; height: 140px; padding: 20px 24px; border-radius: 28px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.085), rgb(255 255 255 / 0.04));
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.11) inset, 0 30px 50px -30px rgb(0 0 0 / 0.6);
+  display: flex; flex-direction: column; justify-content: space-between; }
+.tile .chip { width: 60px; height: 60px; font-size: 32px; }
+.tile b { font-size: 30px; font-weight: 600; letter-spacing: -0.01em; }
+.auto-cap { font-size: 40px; font-weight: 600; letter-spacing: -0.02em; }
+.auto-cap .serif { color: var(--gold-2); font-size: 1.15em; }
+.auto-row { position: absolute; left: 66px; width: 948px; height: 70px; padding: 0 22px 0 14px; border-radius: 22px;
+  background: #fff; color: var(--ink); display: flex; align-items: center; gap: 18px;
+  box-shadow: 0 24px 40px -26px rgb(0 0 0 / 0.7); font-size: 27px; font-weight: 500; }
+.auto-row .chip { width: 46px; height: 46px; border-radius: 14px; font-size: 26px; }
+.auto-row small { margin-left: auto; font-size: 22px; color: var(--subtle); font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.auto-row small .icon { color: var(--t-money); font-size: 26px; }
+
+/* ── Cena 2: agenda ── */
+.counter { position: absolute; left: 66px; width: 948px; height: 132px; top: 478px; border-radius: 30px; padding: 0 34px;
+  background: rgb(255 255 255 / 0.07); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12) inset;
+  display: flex; align-items: center; gap: 24px; }
+.counter .chip { width: 74px; height: 74px; font-size: 40px; border-radius: 22px; }
+.counter .lbl { font-size: 30px; color: rgb(255 255 255 / 0.75); font-weight: 500; line-height: 1.25; }
+.counter .lbl small { display: block; font-size: 24px; color: rgb(255 255 255 / 0.5); }
+.counter .num { margin-left: auto; font-size: 96px; font-weight: 700; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; color: #fff; }
+.counter .plus { position: absolute; right: 150px; top: 18px; font-size: 34px; font-weight: 700; color: var(--d-money); }
+
+.window { position: absolute; left: 44px; top: 640px; width: 992px; height: 890px; border-radius: 36px; background: #fff; overflow: hidden; color: var(--ink);
+  box-shadow: 0 60px 120px -40px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.2); }
+.window-bar { height: 58px; display: flex; align-items: center; gap: 18px; padding: 0 24px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #fbfbfc, #f6f7f9); }
+.dots { display: flex; gap: 9px; } .dots i { width: 14px; height: 14px; border-radius: 50%; background: #dcdde0; }
+.url { flex: 1; text-align: center; font-size: 20px; color: var(--subtle); margin-right: 66px; }
+.app-head { display: flex; align-items: flex-end; justify-content: space-between; padding: 26px 32px 18px; }
+.app-eyebrow { font-size: 19px; color: var(--t-time); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.app-title { font-size: 44px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+.app-sub { font-size: 20px; color: var(--muted); }
+.app-btn { padding: 14px 24px; border-radius: 999px; font-size: 20px; font-weight: 500; color: #fff; background: linear-gradient(180deg, #2c2d31, #171719 62%); }
+.days { display: flex; gap: 8px; margin: 0 32px 16px; padding: 8px; border-radius: 20px; background: #f4f5f7; }
+.day { flex: 1; text-align: center; font-size: 16px; color: var(--subtle); padding: 8px 0; border-radius: 14px; line-height: 1.3; }
+.day b { display: block; font-size: 24px; color: var(--ink); font-weight: 600; }
+.day.on { background: #fff; box-shadow: 0 10px 20px -12px rgb(35 36 39 / 0.4); }
+.board { position: absolute; left: 32px; right: 32px; top: 330px; bottom: 24px; }
+.col-head { position: absolute; top: 0; height: 44px; display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 500; border-bottom: 1px solid var(--line); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #fff; }
+.hour { position: absolute; left: 0; width: 70px; font-size: 16px; color: var(--subtle); font-variant-numeric: tabular-nums; }
+.hline { position: absolute; left: 78px; right: 0; height: 1px; background: var(--line); }
+.appt { position: absolute; padding: 8px 12px; border-radius: 12px; background: var(--tone-soft); box-shadow: 0 0 0 1px var(--tone-ring) inset; border-left: 5px solid var(--tone);
+  font-size: 17px; line-height: 1.25; overflow: hidden; transform-origin: 30% 50%; }
+.appt b { display: block; font-size: 20px; font-weight: 600; color: var(--ink-strong); }
+.appt span { color: var(--muted); }
+.now-line { position: absolute; left: 70px; right: 0; height: 3px; background: var(--accent); border-radius: 2px; }
+.now-line::before { content: ''; position: absolute; left: -6px; top: -5px; width: 13px; height: 13px; border-radius: 50%; background: var(--accent); }
+
+.float { position: absolute; background: #fff; color: var(--ink); border-radius: 26px; padding: 18px 24px 18px 18px; display: flex; align-items: center; gap: 16px;
+  box-shadow: 0 40px 70px -30px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(35 36 39 / 0.06); }
+.float .chip { width: 58px; height: 58px; font-size: 30px; }
+.float small { display: block; font-size: 20px; color: var(--subtle); }
+.float strong, .float b { display: block; font-size: 26px; font-weight: 600; color: var(--ink-strong); }
+
+/* ── Cena 3: WhatsApp ── */
+.phone { position: absolute; left: 230px; top: 486px; width: 620px; height: 1044px; padding: 16px; border-radius: 76px;
+  background: linear-gradient(180deg, #2b2c30, #0f0f11); box-shadow: 0 0 0 2px rgb(255 255 255 / 0.1) inset, 0 80px 140px -50px rgb(0 0 0 / 0.9); }
+.phone-screen { width: 100%; height: 100%; border-radius: 62px; overflow: hidden; background: #efeae2; display: flex; flex-direction: column; color: #111; }
+.wa-top { display: flex; align-items: center; gap: 16px; padding: 60px 28px 20px; background: #0f6b52; color: #fff; flex: none; }
+.wa-top .avatar { width: 60px; height: 60px; background: var(--accent); font-size: 28px; }
+.wa-top b { display: block; font-size: 26px; font-weight: 600; }
+.wa-top small { font-size: 20px; opacity: 0.85; }
+.wa-body { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 20px 26px; overflow: hidden;
+  background-image: radial-gradient(rgb(0 0 0 / 0.04) 1.5px, transparent 1.5px); background-size: 24px 24px; }
+.wa-wrap { overflow: visible; display: flex; flex-direction: column; flex: none; }
+.wa-msg { max-width: 84%; padding: 14px 18px 10px; border-radius: 20px; font-size: 25px; line-height: 1.4; box-shadow: 0 1px 1px rgb(0 0 0 / 0.1); margin-top: 14px; }
+.wa-msg time { display: block; text-align: right; font-size: 17px; color: rgb(0 0 0 / 0.45); margin-top: 2px; }
+.wa-in { align-self: flex-end; background: #d9fdd3; border-top-right-radius: 5px; transform-origin: 100% 100%; }
+.wa-out { align-self: flex-start; background: #fff; border-top-left-radius: 5px; transform-origin: 0 100%; }
+.wa-card { margin: 10px 0 6px; padding: 12px 16px; border-radius: 12px; background: #f5f6f7; border-left: 5px solid var(--accent); font-size: 22px; }
+.wa-card b { display: block; }
+.typing { display: flex; gap: 8px; padding: 20px 22px; }
+.typing i { width: 12px; height: 12px; border-radius: 50%; background: #9aa0a6; }
+
+/* ── Cena 4: resultados ── */
+.stat { position: absolute; width: 462px; height: 206px; border-radius: 30px; background: #fff; color: var(--ink); padding: 26px 28px;
+  box-shadow: 0 40px 70px -36px rgb(0 0 0 / 0.8); }
+.stat .top { display: flex; align-items: center; gap: 14px; font-size: 22px; color: var(--muted); font-weight: 500; }
+.stat .chip { width: 50px; height: 50px; font-size: 27px; border-radius: 15px; }
+.stat .val { margin-top: 22px; font-size: 70px; font-weight: 700; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; color: var(--ink-strong); line-height: 1; }
+.card-w { position: absolute; left: 66px; width: 948px; border-radius: 32px; background: #fff; color: var(--ink); padding: 28px 32px;
+  box-shadow: 0 40px 70px -36px rgb(0 0 0 / 0.8); }
+.card-w h4 { font-size: 26px; font-weight: 600; display: flex; align-items: center; gap: 14px; }
+.card-w h4 .chip { width: 50px; height: 50px; font-size: 27px; border-radius: 15px; }
+.bars { display: flex; align-items: flex-end; gap: 22px; height: 200px; margin-top: 26px; }
+.bars i { flex: 1; border-radius: 12px 12px 6px 6px; background: color-mix(in srgb, var(--t-money) 22%, #fff); transform-origin: bottom; }
+.bars i.today { background: linear-gradient(180deg, #2fa25f, var(--t-money)); }
+.bars-legend { display: flex; gap: 22px; margin-top: 12px; } .bars-legend span { flex: 1; text-align: center; font-size: 19px; color: var(--subtle); }
+.pills { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 22px; }
+.pill { display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; border-radius: 999px; font-size: 22px; font-weight: 500;
+  background: var(--tone-soft); color: var(--tone); box-shadow: 0 0 0 1px var(--tone-ring) inset; }
+.pill .icon { font-size: 24px; }
+
+/* ── Cena 5: CTA ── */
+.logo { display: inline-flex; align-items: center; gap: 22px; font-size: 52px; font-weight: 600; letter-spacing: -0.02em; }
+.logo .mark { width: 96px; height: 96px; border-radius: 30px; display: grid; place-items: center; font-size: 54px; color: #fff;
+  background: linear-gradient(180deg, #f05a3c, #c93a24); box-shadow: 0 24px 50px -20px rgb(227 74 50 / 0.8); }
+.tag { font-size: 104px; line-height: 1.02; font-weight: 600; letter-spacing: -0.04em; }
+.tag .serif { color: var(--accent-2); font-size: 1.14em; }
+.cta { display: inline-flex; align-items: center; gap: 16px; padding: 30px 48px; border-radius: 999px; font-size: 38px; font-weight: 600; color: var(--ink-strong);
+  background: linear-gradient(180deg, #fff, #eceae6); box-shadow: 0 30px 60px -24px rgb(0 0 0 / 0.8); }
+.cta .icon { font-size: 40px; color: var(--accent); }
+.notes { display: flex; justify-content: center; gap: 36px; font-size: 27px; color: rgb(255 255 255 / 0.72); }
+.notes span { display: inline-flex; align-items: center; gap: 10px; } .notes .icon { color: var(--d-money); font-size: 30px; }
+.by { font-size: 26px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(255 255 255 / 0.55); }
+.by b { color: var(--gold-2); font-weight: 600; }
+
+/* barra de progresso */
+#progress-track { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: rgb(255 255 255 / 0.08); }
+#progress { height: 100%; width: 0; background: linear-gradient(90deg, var(--gold-1), var(--gold-2)); box-shadow: 0 0 18px rgb(242 210 122 / 0.6); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-paw" viewBox="0 0 24 24"><circle cx="11" cy="4" r="2" /><circle cx="18" cy="8" r="2" /><circle cx="20" cy="16" r="2" /><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" /></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></symbol>
+  <symbol id="i-van" viewBox="0 0 24 24"><path d="M2 17V7a1 1 0 0 1 1-1h11v11" /><path d="M14 9h4l3 4v4h-2" /><circle cx="7" cy="17" r="2" /><circle cx="17" cy="17" r="2" /><path d="M9 17h6" /></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /><path d="M3.5 13H9l.5-1 2 4.5 2-7 1.5 3.5h5.2" /></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6a3 3 0 0 0 1.9 1.9L21.4 12l-5.6 1.9a3 3 0 0 0-1.9 1.9L12 21.4l-1.9-5.6a3 3 0 0 0-1.9-1.9L2.6 12l5.6-1.9a3 3 0 0 0 1.9-1.9Z" /><path d="M19.5 3v3" /><path d="M21 4.5h-3" /><path d="M5 17v2.5" /><path d="M6.25 18.25h-2.5" /></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.87 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.34" /><path d="M20.52 3.48A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.69 1.45c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42M12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.89 9.89-9.89 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.43 9.89-9.89 9.89" /></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17" /><path d="M16 7h6v6" /></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5 3h14v18l-2.3-1.6L14.4 21l-2.4-1.6L9.6 21l-2.3-1.6L5 21Z" /><path d="M9 8h6M9 12h6" /></symbol>
+  <symbol id="i-cake" viewBox="0 0 24 24"><path d="M4 14a2 2 0 0 1 2 2 2 2 0 0 0 4 0 2 2 0 0 1 4 0 2 2 0 0 0 4 0 2 2 0 0 1 2-2" /><path d="M4 12a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9H4Z" /><path d="M12 7V5M8 7V6M16 7V6" /></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73Z" /><path d="M12 22V12" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="m7.5 4.27 9 5.15" /></symbol>
+  <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></symbol>
+</svg>
+
+<div id="stage">
+  <div id="glow-a" class="glow"></div>
+  <div id="glow-b" class="glow"></div>
+  <div id="grain"></div>
+
+  <!-- ═══ Cena 1 · 0–6s · o software ═══ -->
+  <section class="scene" id="s1">
+    <div class="abs center-x" style="top: 280px"><span class="eyebrow" id="s1-eyebrow"><svg class="icon"><use href="#i-spark" /></svg>Gestão + Atendimento com IA</span></div>
+    <h1 class="abs center-x h1" style="top: 380px">
+      <span class="line" id="s1-l1">O Petshop Inteiro,</span>
+      <span class="line serif" id="s1-l2">num Lugar Só</span>
+    </h1>
+    <div id="s1-tiles"></div>
+    <div class="abs center-x auto-cap" id="s1-cap" style="top: 1124px">Tarefa repetitiva, <span class="serif">no automático</span></div>
+    <div id="s1-rows"></div>
+  </section>
+
+  <!-- ═══ Cena 2 · 6–12s · a agenda enchendo ═══ -->
+  <section class="scene" id="s2">
+    <h1 class="abs center-x h1" style="top: 262px">
+      <span class="line" id="s2-l1">Agenda Cheia,</span>
+      <span class="line serif" id="s2-l2">sem Planilha</span>
+    </h1>
+    <div class="counter" id="s2-counter">
+      <span class="chip chip-dark tone-time"><svg class="icon"><use href="#i-cal" /></svg></span>
+      <div class="lbl">Agendamentos hoje<small>quarta-feira, 16 de setembro</small></div>
+      <div class="plus" id="s2-plus">+1</div>
+      <div class="num" id="s2-num">0</div>
+    </div>
+    <div class="window" id="s2-window">
+      <div class="window-bar"><div class="dots"><i></i><i></i><i></i></div><div class="url">app.petshop.ai/agenda/dia</div></div>
+      <div class="app-head">
+        <div>
+          <div class="app-eyebrow"><svg class="icon"><use href="#i-cal" /></svg>Agenda</div>
+          <div class="app-title">Hoje</div>
+          <div class="app-sub">quarta-feira, 16 de setembro</div>
+        </div>
+        <span class="app-btn">Marcar Horário</span>
+      </div>
+      <div class="days">
+        <div class="day">S<b>13</b></div><div class="day">S<b>14</b></div><div class="day">T<b>15</b></div>
+        <div class="day on">Q<b>16</b></div><div class="day">Q<b>17</b></div><div class="day">S<b>18</b></div><div class="day">S<b>19</b></div>
+      </div>
+      <div class="board" id="s2-board"></div>
+    </div>
+    <div class="float" id="s2-float" style="left: 470px; top: 690px">
+      <span class="chip chip-light tone-brand"><svg class="icon fill"><use href="#i-wa" /></svg></span>
+      <div><small>Marcado pelo WhatsApp</small><strong>Kiara · 15h com Bruno ✓</strong></div>
+    </div>
+  </section>
+
+  <!-- ═══ Cena 3 · 12–19s · o atendente automático ═══ -->
+  <section class="scene" id="s3">
+    <h1 class="abs center-x h1" style="top: 262px">
+      <span class="line" id="s3-l1">Atendente de IA</span>
+      <span class="line serif" id="s3-l2">no seu WhatsApp</span>
+    </h1>
+    <div class="phone" id="s3-phone">
+      <div class="phone-screen">
+        <div class="wa-top">
+          <span class="avatar">🐾</span>
+          <div><b>Pet Feliz Banho & Tosa</b><small id="s3-status">online</small></div>
+        </div>
+        <div class="wa-body" id="s3-body"></div>
+      </div>
+    </div>
+    <div class="float" id="s3-badge-b" style="left: 520px; top: 560px">
+      <span class="chip chip-light tone-system"><svg class="icon"><use href="#i-spark" /></svg></span>
+      <div><small>Resolvido pelo agente</small><b>sem ninguém da equipe</b></div>
+    </div>
+    <div class="float" id="s3-badge-a" style="left: 30px; top: 760px">
+      <span class="chip chip-light tone-time"><svg class="icon"><use href="#i-cal" /></svg></span>
+      <div><small>Agenda atualizada</small><b>Sex · 16:00 · Ana</b></div>
+    </div>
+  </section>
+
+  <!-- ═══ Cena 4 · 19–25s · o resultado ═══ -->
+  <section class="scene" id="s4">
+    <h1 class="abs center-x h1" style="top: 262px">
+      <span class="line" id="s4-l1">Menos Tarefa,</span>
+      <span class="line serif" id="s4-l2">mais Pet Atendido</span>
+    </h1>
+    <div class="stat tone-time" id="s4-st0" style="left: 66px; top: 500px">
+      <div class="top"><span class="chip chip-light"><svg class="icon"><use href="#i-paw" /></svg></span>Atendimentos hoje</div>
+      <div class="val" id="s4-v0">0</div>
+    </div>
+    <div class="stat tone-money" id="s4-st1" style="left: 552px; top: 500px">
+      <div class="top"><span class="chip chip-light"><svg class="icon"><use href="#i-wallet" /></svg></span>Recebido hoje</div>
+      <div class="val" id="s4-v1">R$ 0</div>
+    </div>
+    <div class="stat tone-brand" id="s4-st2" style="left: 66px; top: 730px">
+      <div class="top"><span class="chip chip-light"><svg class="icon"><use href="#i-bell" /></svg></span>Lembretes enviados</div>
+      <div class="val" id="s4-v2">0</div>
+    </div>
+    <div class="stat tone-system" id="s4-st3" style="left: 552px; top: 730px">
+      <div class="top"><span class="chip chip-light"><svg class="icon"><use href="#i-spark" /></svg></span>Conversas da IA</div>
+      <div class="val" id="s4-v3">0</div>
+    </div>
+    <div class="card-w tone-money" id="s4-bars" style="top: 962px; height: 340px">
+      <h4><span class="chip chip-light"><svg class="icon"><use href="#i-trend" /></svg></span>Movimento da semana</h4>
+      <div class="bars" id="s4-barset"><i style="--h:.44"></i><i style="--h:.62"></i><i style="--h:.38"></i><i style="--h:.80"></i><i style="--h:.58"></i><i style="--h:.92"></i><i class="today" style="--h:1"></i></div>
+    </div>
+    <div class="card-w tone-brand" id="s4-crm" style="top: 1326px; height: 186px">
+      <h4><span class="chip chip-light"><svg class="icon"><use href="#i-bell" /></svg></span>Mensagens que saem sozinhas</h4>
+      <div class="pills">
+        <span class="pill tone-time"><svg class="icon"><use href="#i-check" /></svg>Confirmação</span>
+        <span class="pill tone-time"><svg class="icon"><use href="#i-clock" /></svg>Lembrete</span>
+        <span class="pill tone-pet"><svg class="icon"><use href="#i-cake" /></svg>Aniversário</span>
+        <span class="pill tone-money"><svg class="icon"><use href="#i-receipt" /></svg>Cobrança</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Cena 5 · 25–30s · tagline e chamada ═══ -->
+  <section class="scene" id="s5">
+    <div class="abs center-x" style="top: 400px"><span class="logo" id="s5-logo"><span class="mark"><svg class="icon"><use href="#i-paw" /></svg></span>PetShop AI</span></div>
+    <div class="abs center-x tag" style="top: 640px">
+      <span class="line" id="s5-l1">Você cuida</span>
+      <span class="line" id="s5-l2">do pet.</span>
+      <span class="line serif" id="s5-l3">A gente cuida</span>
+      <span class="line serif" id="s5-l4">do resto.</span>
+    </div>
+    <div class="abs center-x" style="top: 1190px"><span class="cta" id="s5-cta">Teste Grátis por 14 Dias<svg class="icon"><use href="#i-arrow" /></svg></span></div>
+    <div class="abs notes" id="s5-notes" style="top: 1340px; left: 0; right: 0">
+      <span><svg class="icon"><use href="#i-check" /></svg>Sem cartão de crédito</span>
+      <span><svg class="icon"><use href="#i-check" /></svg>Cancele quando quiser</span>
+    </div>
+    <div class="abs center-x by" id="s5-by" style="top: 1480px">um produto <b>Offices Aplicativos</b></div>
+  </section>
+
+  <div id="progress-track"><div id="progress"></div></div>
+</div>
+
+<script>
+const DURATION = 30
+const $ = (id) => document.getElementById(id)
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x))
+const prog = (t, a, d) => clamp((t - a) / d)
+const easeOut = (x) => 1 - Math.pow(1 - x, 3)
+const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
+const backOut = (x) => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) }
+
+function slide(el, t, a, d = 0.55, dy = 50) {
+  const x = easeOut(prog(t, a, d))
+  el.style.opacity = x
+  el.style.transform = `translateY(${(1 - x) * dy}px)`
+}
+function pop(el, t, a, d = 0.5, from = 0.82) {
+  const x = prog(t, a, d)
+  el.style.opacity = clamp(x * 2.2)
+  el.style.transform = `scale(${from + (1 - from) * backOut(x)})`
+}
+function slideX(el, t, a, d = 0.55, dx = 80) {
+  const x = easeOut(prog(t, a, d))
+  el.style.opacity = x
+  el.style.transform = `translateX(${(1 - x) * dx}px)`
+}
+function sceneAlpha(t, start, end, first, last) {
+  const inA = first ? 1 : easeInOut(prog(t, start, 0.4))
+  const outA = last ? 1 : 1 - easeInOut(prog(t, end - 0.4, 0.4))
+  return inA * outA
+}
+const brl = (n) => 'R$ ' + Math.round(n).toLocaleString('pt-BR')
+
+// ── Cena 1: monta os cartões de recurso e as linhas do automático
+const TILES = [
+  ['Agenda', 'i-cal', 'time'], ['Tutores e Pets', 'i-paw', 'pet'], ['Prontuário', 'i-heart', 'health'],
+  ['Financeiro', 'i-wallet', 'money'], ['Mensagens', 'i-bell', 'brand'], ['Taxi Dog', 'i-van', 'metric'],
+  ['Estoque', 'i-box', 'money'], ['Caixa', 'i-cash', 'money'], ['Agente de IA', 'i-spark', 'system'],
+]
+const tileEls = TILES.map(([label, icon, tone], i) => {
+  const el = document.createElement('div')
+  el.className = `tile tone-${tone}`
+  el.style.left = 66 + (i % 3) * 324 + 'px'
+  el.style.top = 636 + Math.floor(i / 3) * 156 + 'px'
+  el.innerHTML = `<span class="chip chip-dark"><svg class="icon"><use href="#${icon}" /></svg></span><b>${label}</b>`
+  $('s1-tiles').appendChild(el)
+  return el
+})
+const ROWS = [
+  ['Lembrete de véspera enviado', 'i-bell', 'brand', '07:30'],
+  ['Cobrança enviada ao tutor', 'i-receipt', 'money', '08:00'],
+  ['Recibo em PDF gerado', 'i-wallet', 'money', '11:15'],
+  ['Estoque baixo avisado no sino', 'i-box', 'pet', '12:40'],
+]
+const rowEls = ROWS.map(([label, icon, tone, time], i) => {
+  const el = document.createElement('div')
+  el.className = `auto-row tone-${tone}`
+  el.style.top = 1226 + i * 82 + 'px'
+  el.innerHTML = `<span class="chip chip-light"><svg class="icon"><use href="#${icon}" /></svg></span>${label}<small>${time}<svg class="icon"><use href="#i-check" /></svg></small>`
+  $('s1-rows').appendChild(el)
+  return el
+})
+
+// ── Cena 2: o quadro da agenda
+const board = $('s2-board')
+const SLOT = 29, BOARD_TOP = 58, COL_X = 86, COL_W = 270, COL_GAP = 12
+const PROS = [['A', 'Ana · banho', '#466fbd'], ['B', 'Bruno · tosa', '#7e5db1'], ['C', 'Dra. Carla', '#a94d79']]
+PROS.forEach(([ini, name, color], c) => {
+  const h = document.createElement('div')
+  h.className = 'col-head'
+  h.style.left = COL_X + c * (COL_W + COL_GAP) + 'px'
+  h.style.width = COL_W + 'px'
+  h.innerHTML = `<span class="avatar" style="background:${color}">${ini}</span>${name}`
+  board.appendChild(h)
+})
+for (let hr = 0; hr <= 7; hr++) {
+  const y = BOARD_TOP + hr * 2 * SLOT
+  const l = document.createElement('div'); l.className = 'hour'; l.style.top = y - 9 + 'px'; l.textContent = String(8 + hr).padStart(2, '0') + ':00'
+  const ln = document.createElement('div'); ln.className = 'hline'; ln.style.top = y + 'px'
+  board.appendChild(ln); board.appendChild(l)
+}
+const APPTS = [
+  // col, slot, span, nome, serviço, tom
+  [0, 0, 3, 'Thor', 'Banho · Golden', 'time'], [1, 1, 4, 'Luna', 'Banho e tosa · Poodle', 'people'], [2, 0, 2, 'Nina', 'Consulta', 'health'],
+  [0, 4, 2, 'Mel', 'Banho · Shih-tzu', 'time'], [2, 3, 2, 'Fred', 'Vacina V10', 'health'], [1, 6, 3, 'Bento', 'Tosa higiênica', 'people'],
+  [0, 7, 2, 'Pipoca', 'Hidratação', 'time'], [2, 6, 2, 'Amora', 'Retorno', 'health'], [0, 10, 2, 'Bidu', 'Banho · Lhasa', 'time'],
+  [1, 10, 3, 'Max', 'Tosa na tesoura', 'people'], [2, 9, 2, 'Zeca', 'Consulta', 'health'], [0, 12, 2, 'Nala', 'Banho · Spitz', 'time'],
+  [2, 12, 2, 'Lola', 'Vacina', 'health'], [1, 14, 2, 'Kiara', 'Tosa · Maltês', 'people'], [0, 14, 2, 'Toby', 'Banho · Beagle', 'time'],
+]
+const apptEls = APPTS.map(([c, s, span, name, svc, tone]) => {
+  const el = document.createElement('div')
+  el.className = `appt tone-${tone}`
+  el.style.left = COL_X + c * (COL_W + COL_GAP) + 'px'
+  el.style.width = COL_W + 'px'
+  el.style.top = BOARD_TOP + s * SLOT + 3 + 'px'
+  el.style.height = span * SLOT - 6 + 'px'
+  el.innerHTML = span >= 3 ? `<b>${name}</b><span>${svc}</span>` : `<b>${name} <span style="font-weight:400">· ${svc}</span></b>`
+  board.appendChild(el)
+  return el
+})
+const nowLine = document.createElement('div'); nowLine.className = 'now-line'; nowLine.style.top = BOARD_TOP + 5.3 * SLOT + 'px'; board.appendChild(nowLine)
+const APPT_START = 6.7, APPT_STEP = 0.29
+
+// ── Cena 3: a conversa
+const CHAT = [
+  // quem, html, instante (s na cena), digitando antes
+  ['in', 'Oi! Queria remarcar o banho do Thor de sábado 😕<time>14:02</time>', 0.5, 0],
+  ['out', 'Oi, Rafael! Claro 😊 Para o banho do Thor tenho sexta às 16h ou sábado às 11h, os dois com a Ana. Qual prefere?<time>14:02</time>', 1.9, 0.8],
+  ['in', 'Sexta às 16h<time>14:03</time>', 2.9, 0],
+  ['out', 'Confirma a troca?<div class="wa-card"><b>Banho · Thor</b>de sáb 10h → <b style="display:inline">sex 19/09 às 16h</b></div>Responda “sim” para eu confirmar.<time>14:03</time>', 4.0, 0.7],
+  ['in', 'sim<time>14:03</time>', 4.8, 0],
+  ['out', 'Feito! Thor remarcado para sexta às 16h. Te mando um lembrete na véspera 🐶<time>14:03</time>', 5.7, 0.6],
+]
+const body = $('s3-body')
+const chatEls = CHAT.map(([who, html]) => {
+  const wrap = document.createElement('div'); wrap.className = 'wa-wrap'
+  const typing = document.createElement('div'); typing.className = 'wa-msg wa-out typing'; typing.innerHTML = '<i></i><i></i><i></i>'
+  const msg = document.createElement('div'); msg.className = `wa-msg wa-${who}`; msg.innerHTML = html
+  wrap.appendChild(msg); body.appendChild(wrap)
+  return { wrap, msg, typing }
+})
+// altura natural de cada mensagem, medida uma vez
+let chatH = [], typingH = 0
+function measureChat() {
+  chatH = chatEls.map(({ wrap }) => wrap.getBoundingClientRect().height)
+  const probe = chatEls[0].typing.cloneNode(true); const w = document.createElement('div'); w.className = 'wa-wrap'; w.appendChild(probe); body.appendChild(w)
+  typingH = w.getBoundingClientRect().height; w.remove()
+}
+
+function render(t) {
+  // fundo
+  $('glow-a').style.transform = `translate(${-280 + Math.sin(t * 0.35) * 120}px, ${-300 + Math.cos(t * 0.27) * 140}px)`
+  $('glow-b').style.transform = `translate(${240 + Math.cos(t * 0.3) * 140}px, ${1100 + Math.sin(t * 0.22) * 160}px)`
+  $('progress').style.width = (clamp(t / DURATION) * 100).toFixed(3) + '%'
+
+  // ── Cena 1 (0–6)
+  const s1 = sceneAlpha(t, 0, 6, true, false)
+  $('s1').style.opacity = s1
+  if (s1 > 0) {
+    slide($('s1-eyebrow'), t, 0.05, 0.5, 30)
+    slide($('s1-l1'), t, 0.15)
+    slide($('s1-l2'), t, 0.35)
+    tileEls.forEach((el, i) => {
+      const x = prog(t, 0.75 + i * 0.16, 0.5)
+      const dim = 1 - 0.3 * easeInOut(prog(t, 3.0, 0.5))
+      el.style.opacity = clamp(x * 2.2) * dim
+      el.style.transform = `scale(${(0.8 + 0.2 * backOut(x)) * (1 - 0.04 * easeInOut(prog(t, 3.0, 0.5)))})`
+    })
+    slide($('s1-cap'), t, 3.0, 0.5, 30)
+    rowEls.forEach((el, i) => slideX(el, t, 3.35 + i * 0.38, 0.5, 120))
+  }
+
+  // ── Cena 2 (6–12)
+  const s2 = sceneAlpha(t, 6, 12)
+  $('s2').style.opacity = s2
+  if (s2 > 0) {
+    slide($('s2-l1'), t, 6.1)
+    slide($('s2-l2'), t, 6.28)
+    slide($('s2-counter'), t, 6.35, 0.5, 30)
+    slide($('s2-window'), t, 6.45, 0.7, 120)
+    let count = 0, last = -1
+    apptEls.forEach((el, i) => {
+      const a = APPT_START + i * APPT_STEP
+      pop(el, t, a, 0.42, 0.6)
+      if (t >= a) { count++; last = a }
+    })
+    const num = $('s2-num')
+    num.textContent = count
+    const bump = last > 0 ? 1 - prog(t, last, 0.25) : 0
+    num.style.transform = `scale(${1 + 0.12 * bump})`
+    num.style.color = bump > 0.05 ? `color-mix(in srgb, #5ccb88 ${Math.round(bump * 100)}%, #fff)` : '#fff'
+    const plus = $('s2-plus')
+    const pp = last > 0 ? prog(t, last, 0.5) : 1
+    plus.style.opacity = count ? 1 - pp : 0
+    plus.style.transform = `translateY(${-30 * pp}px)`
+    pop($('s2-float'), t, APPT_START + 13 * APPT_STEP - 0.05, 0.5, 0.7)
+  }
+
+  // ── Cena 3 (12–19)
+  const s3 = sceneAlpha(t, 12, 19)
+  $('s3').style.opacity = s3
+  if (s3 > 0) {
+    const L = t - 12
+    slide($('s3-l1'), t, 12.1)
+    slide($('s3-l2'), t, 12.28)
+    slide($('s3-phone'), t, 12.3, 0.7, 140)
+    let isTyping = false
+    CHAT.forEach(([who, , at, typ], i) => {
+      const { wrap, msg, typing } = chatEls[i]
+      const typingOn = typ > 0 && L >= at - typ && L < at
+      if (typingOn) {
+        isTyping = true
+        if (!typing.parentNode) wrap.appendChild(typing)
+        msg.style.display = 'none'
+        const x = easeOut(prog(L, at - typ, 0.25))
+        wrap.style.height = typingH * x + 'px'
+        typing.style.opacity = x
+        typing.querySelectorAll('i').forEach((d, k) => {
+          const ph = (L * 3.2 - k * 0.18) % 1
+          d.style.transform = `translateY(${-8 * Math.max(0, Math.sin(ph * Math.PI * 2))}px)`
+        })
+        return
+      }
+      if (typing.parentNode) typing.remove()
+      msg.style.display = ''
+      const x = prog(L, at, 0.38)
+      const e = easeOut(x)
+      const startH = typ > 0 ? typingH : 0
+      wrap.style.height = startH + (chatH[i] - startH) * e + 'px'
+      msg.style.opacity = clamp(x * 2)
+      msg.style.transform = `scale(${0.85 + 0.15 * backOut(x)})`
+    })
+    $('s3-status').textContent = isTyping ? 'digitando…' : 'online'
+    pop($('s3-badge-a'), t, 12 + 6.05, 0.5, 0.7)
+    pop($('s3-badge-b'), t, 12 + 6.3, 0.5, 0.7)
+  }
+
+  // ── Cena 4 (19–25)
+  const s4 = sceneAlpha(t, 19, 25)
+  $('s4').style.opacity = s4
+  if (s4 > 0) {
+    slide($('s4-l1'), t, 19.1)
+    slide($('s4-l2'), t, 19.28)
+    ;['s4-st0', 's4-st1', 's4-st2', 's4-st3'].forEach((id, i) => pop($(id), t, 19.4 + i * 0.14, 0.5, 0.85))
+    const c = (a) => easeOut(prog(t, a, 1.6))
+    $('s4-v0').textContent = Math.round(27 * c(19.6))
+    $('s4-v1').textContent = brl(1480 * c(19.75))
+    $('s4-v2').textContent = Math.round(38 * c(19.9))
+    $('s4-v3').textContent = Math.round(64 * c(20.05))
+    slide($('s4-bars'), t, 20.1, 0.6, 60)
+    document.querySelectorAll('#s4-barset i').forEach((b, i) => {
+      const h = parseFloat(b.style.getPropertyValue('--h'))
+      b.style.height = 200 * h * easeOut(prog(t, 20.4 + i * 0.1, 0.6)) + 'px'
+    })
+    slide($('s4-crm'), t, 20.6, 0.6, 60)
+    document.querySelectorAll('#s4-crm .pill').forEach((p, i) => pop(p, t, 21.0 + i * 0.22, 0.45, 0.6))
+  }
+
+  // ── Cena 5 (25–30)
+  const s5 = sceneAlpha(t, 25, 30, false, true)
+  $('s5').style.opacity = s5
+  if (s5 > 0) {
+    pop($('s5-logo'), t, 25.15, 0.6, 0.7)
+    slide($('s5-l1'), t, 25.45)
+    slide($('s5-l2'), t, 25.6)
+    slide($('s5-l3'), t, 26.1)
+    slide($('s5-l4'), t, 26.25)
+    pop($('s5-cta'), t, 26.9, 0.55, 0.75)
+    const pulse = t > 27.6 ? 1 + 0.025 * Math.sin((t - 27.6) * 4) : null
+    if (pulse) $('s5-cta').style.transform = `scale(${pulse})`
+    slide($('s5-notes'), t, 27.2, 0.5, 20)
+    slide($('s5-by'), t, 27.5, 0.5, 20)
+  }
+}
+
+window.renderAt = (t) => render(t)
+window.ready = document.fonts.ready.then(() => { measureChat(); render(0); return true })
+
+// pré-visualização em tempo real ao abrir no navegador
+if (!navigator.webdriver) {
+  window.ready.then(() => {
+    const t0 = performance.now()
+    const loop = () => { render(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop) }
+    loop()
+  })
+}
+</script>
+</body>
+</html>
