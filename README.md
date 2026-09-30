@@ -8,8 +8,12 @@ Fase 8 — a camada de agentes de IA. A consolidação do backend terminou: os d
 microserviços do SPEC são hoje módulos de um processo só, em `backend/app/src/modules/`
 — ver a seção "Backend" do `CLAUDE.md`.
 
-Os quinze PRDs de `docs/prd/` estão implementados. O que resta está em **O que ainda não
-existe**, no fim deste arquivo.
+Os dezessete PRDs de `docs/prd/` estão implementados — os quinze originais mais o estoque
+(`estoque_16.md`) e o caixa do dia (`caixa_17.md`). Por cima deles vieram a camada
+comercial (planos, assinatura pelo Asaas, teste gratuito e suspensão por atraso), o
+console da equipe em `/plataforma`, a página de Integrações por estabelecimento e o app
+Flutter do tutor, em `app/`. O que resta está em **O que ainda não existe**, no fim deste
+arquivo.
 
 ## Rodando localmente
 
@@ -25,10 +29,10 @@ pnpm dev
 
 | Processo | Porta | O que faz |
 |---|---|---|
-| app | 3000 | O backend inteiro: token do Clerk, tenant, permissões e os doze módulos de domínio |
-| frontend | 3002 | Admin, Portal do Tutor e site do estabelecimento (Next.js) |
+| app | 3000 | O backend inteiro: token do Clerk, tenant, permissões e todos os módulos de domínio |
+| frontend | 3002 | Admin, Portal do Tutor, site do estabelecimento e console da plataforma (Next.js) |
 
-**A consolidação fechou na fatia 11.** Eram doze microserviços; hoje são doze módulos de
+**A consolidação fechou na fatia 11.** Eram doze microserviços; hoje são módulos de
 um processo só, em `backend/app/src/modules/`, com fronteira explícita entre eles para que
 qualquer um possa voltar a ser serviço sem reescrever a lógica. A lista de
 `*_SERVICE_URL` que marcava o progresso esvaziou, e o `proxy.ts` saiu com ela.
@@ -64,13 +68,19 @@ backend/
     src/modules/        Um diretório por módulo (identity, tutors, pets, ledger, portal, …)
     src/worker/         Consumidores de evento e a grade de jobs de todos os módulos
 packages/
-  shared-types/         Schemas Zod, matriz de permissões, catálogo de erros, eventos
+  shared-types/         Schemas Zod, matriz de permissões, catálogo de erros, eventos, planos
   db/                   Prisma, migrations, RLS, criptografia de PII, suporte a testes
   service-auth/         O contexto de autorização, e o contrato HMAC de quem voltar a ser serviço
+  service-kit/          O mecanismo comum dos módulos (subida, erros, eventos)
+  job-scheduler/        A grade de jobs com lease por nome
+  pdf/, documents/      Geração de PDF e o registro de documentos emitidos
   api-client/           Cliente tipado do backend
   config/               Presets de tsconfig, eslint e vitest
-frontend/               Admin do tenant (Next.js App Router)
-infra/                  docker-compose do ambiente local
+frontend/               Next.js App Router: Admin, Portal, site do tenant e /plataforma
+  landing-page/         A landing de venda, HTML estático
+app/                    App Flutter do tutor (contrato em docs/app-flutter/)
+infra/                  docker-compose local, Swarm de produção e a borda (Caddyfile)
+scripts/                Publicar imagens, atualizar a VPS, conferir o ambiente
 docs/prd/               PRDs detalhados por módulo
 design/                 Biblioteca de padrões visuais
 ```
@@ -96,17 +106,19 @@ design/                 Biblioteca de padrões visuais
 
 ## O que ainda não existe
 
-- **Suspensão e encerramento de tenant (MOD-IDENT-10).** O tenant suspenso já é barrado
-  pela porta (`auth/session.ts` lê o status com TTL curto), mas ninguém o suspende: falta
-  o job de inadimplência, a tela de regularização e o encerramento com retenção legal.
+- **Encerramento de tenant (a outra metade do MOD-IDENT-10).** A suspensão existe — teste
+  vencido, atraso e carência mudam o estado por `shared/tenant-status.ts`, e a assinatura
+  é a tela de regularização —, mas nada grava `TERMINATED`: falta o encerramento com
+  retenção legal. Apagar o tenant hoje deixa órfãs as tabelas fora do cascade.
 - **Webhooks `organization.*` do Clerk.** Os de usuário e a saída de Organization estão
   ligados (MOD-IDENT-03); renomear ou excluir a Organization pelo painel do Clerk não
   chega ao tenant local.
-- **Importação de tutores por CSV (MOD-TUTOR-11).** O próprio PRD a classifica como
-  *nice to have* e a joga para depois.
-- **Espelho de `professionals` por papel (RN-06 de MOD-IDENT).** Atribuir `GROOMER`,
-  `BATHER`, `VET` ou `DRIVER` deveria criar ou reativar o profissional da agenda; os
-  eventos são publicados (`membership.papel_alterado`, `membership.suspenso`) e não há
-  consumidor. Hoje o profissional é cadastrado à mão em `/agenda/profissionais`.
-- **Zero data retention com a Anthropic.** Contratual, não técnico — e é o que trava a
-  ida do MOD-AI a produção.
+- **O convite de equipe sai por fora do motor do MOD-NOTIF.** `identity/mailer.ts` chama o
+  Resend direto — sem fila, sem retentativa e sem histórico no painel de entregas.
+- **Trocar de ciclo numa assinatura viva.** Mensal e anual se escolhem ao assinar; passar
+  de um para o outro depois exigiria mover o dinheiro de um ano no Asaas.
+- **Cobrança real conferida de ponta a ponta.** O PIX da assinatura e o da cobrança do
+  tutor foram pagos no sandbox; o cartão (Checkout) e a cobrança avulsa da subida de plano
+  anual ainda não, e a conta Asaas de produção da plataforma não está ligada.
+- **Zero data retention com a Anthropic.** Contratual, não técnico. Desde que o agente
+  usa a chave de cada estabelecimento, o acordo passa a ser entre o petshop e a Anthropic.
