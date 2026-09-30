@@ -8,13 +8,16 @@ const exe = path.join(process.env.HOME, 'Library/Caches/ms-playwright/chromium-1
 const browser = await chromium.launch({ executablePath: exe })
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 })
 page.on('pageerror', (e) => console.error('pageerror', e.message))
-await page.goto('file://' + path.resolve('reel.html'))
+// REEL escolhe a página: reel.html é o primeiro vídeo, reel-dores.html o das dores
+const html = process.env.REEL || 'reel.html'
+const prefix = html.replace(/\.html$/, '')
+await page.goto('file://' + path.resolve(html))
 await page.evaluate(() => window.ready)
 
 if (mode === 'frames') {
   for (const t of rest.map(Number)) {
     await page.evaluate((t) => window.renderAt(t), t)
-    await page.screenshot({ path: `shots/t${String(t).padStart(5, '0')}.png` })
+    await page.screenshot({ path: `shots/${prefix === 'reel' ? '' : prefix + '-'}t${String(t).padStart(5, '0')}.png` })
   }
 } else {
   const FPS = 60, DUR = await page.evaluate(() => DURATION), out = rest[0] || 'reel.mp4'

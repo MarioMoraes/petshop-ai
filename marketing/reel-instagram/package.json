@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "frames": "node render.mjs frames 4.4 14.2 26.4 34.9 43.3",
-    "render": "node render.mjs video reel-petshop-ai.mp4"
+    "render": "node render.mjs video reel-petshop-ai.mp4",
+    "frames:dores": "REEL=reel-dores.html node render.mjs frames 5.0 14.6 22.0 25.2 35.0 44.0 53.0",
+    "render:dores": "REEL=reel-dores.html node render.mjs video reel-dores-petshop-ai.mp4"
   },
   "dependencies": {
     "ffmpeg-static": "^5.3.0",
