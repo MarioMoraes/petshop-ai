@@ -151,6 +151,15 @@ export function PlataformaShell({ active, children }: { active: NavKey; children
           </p>
 
           <div className="flex min-w-0 items-center gap-3">
+            {/*
+              A volta do atalho da faixa do Admin. Aponta para `/dashboard`, e não tenta
+              reativar a Organization aqui: a sessão do console é a que não tem nenhuma, e
+              quem reativa é o `/onboarding` do Admin (`EnsureActiveOrganization`), que
+              já sabe o que fazer com um vínculo só e pergunta quando há dois.
+            */}
+            <ButtonLink href="/dashboard" variant="ghost">
+              Voltar ao petshop
+            </ButtonLink>
             <span className="avatar-ring">
               <UserButton
                 appearance={{
