@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import {
   CASH_METHOD_LABELS,
@@ -7,7 +8,14 @@ import {
   type CashSessionSummary,
 } from '@petshop/shared-types'
 import { Badge, Card, CardHead } from '@/components/ui'
-import { BanknoteIcon, ReceiptIcon, WalletIcon } from '@/components/icons'
+import {
+  BanknoteIcon,
+  CalendarIcon,
+  ReceiptIcon,
+  ScaleIcon,
+  WalletIcon,
+  type IconTone,
+} from '@/components/icons'
 
 /**
  * As peças de leitura do caixa do dia — do caixa aberto e de um fechamento antigo.
@@ -56,37 +64,55 @@ export function SessionNumbers({
   session: CashSessionSummary
   timeZone: string
 }) {
-  const facts = [
+  const facts: {
+    label: string
+    value: string
+    hint: string
+    icon: ReactNode
+    tone: IconTone
+  }[] = [
     {
       label: session.status === 'OPEN' ? 'Dinheiro na gaveta' : 'Dinheiro contado',
       value: formatBRL(cashInDrawer(session)),
       hint: `Troco inicial de ${formatBRL(session.openingFloatCents)}`,
+      icon: <BanknoteIcon />,
+      tone: 'icon-money',
     },
     {
       label: 'Recebido no caixa',
       value: formatBRL(session.receivedCents),
       hint: 'Vendas avulsas e pagamentos, menos estornos',
+      icon: <WalletIcon />,
+      tone: 'icon-money',
     },
     session.status === 'OPEN'
       ? {
           label: 'Aberto às',
           value: formatTime(session.openedAt, timeZone),
           hint: session.openedByName ? `por ${session.openedByName}` : 'Caixa aberto',
+          icon: <CalendarIcon />,
+          tone: 'icon-time',
         }
       : {
           label: 'Diferença',
           value: differenceText(session.differenceCents ?? 0),
           hint: session.closedByName ? `Fechado por ${session.closedByName}` : 'Caixa fechado',
+          icon: <ScaleIcon />,
+          tone: 'icon-metric',
         },
   ]
 
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       {facts.map((fact) => (
-        <Card key={fact.label}>
-          <p className="hint">{fact.label}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{fact.value}</p>
-          <p className="hint mt-1">{fact.hint}</p>
+        // Cada cartão desce do branco para o claro do seu assunto — dinheiro em verde,
+        // o horário em azul, a conferência em verde-azulado —, com o chip do mesmo tom.
+        // Nenhum grita sozinho: a fila inteira ganha cor, como o menu lateral.
+        <Card key={fact.label} className={`card-tint ${fact.tone}`}>
+          <span className={`icon-chip icon-chip-sm ${fact.tone}`}>{fact.icon}</span>
+          <p className="mt-4 text-3xl font-semibold tabular-nums">{fact.value}</p>
+          <p className="text-base font-semibold">{fact.label}</p>
+          <p className="hint mt-2">{fact.hint}</p>
         </Card>
       ))}
     </div>

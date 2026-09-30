@@ -37,6 +37,15 @@ const FOCALIZAVEIS = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
+/**
+ * As janelas abertas, a de cima por último.
+ *
+ * Uma janela pode abrir outra — o catálogo de produtos sobre a venda. As duas escutam o
+ * teclado no `document`, e sem a pilha o `Escape` fecharia as duas de uma vez e o `Tab`
+ * ficaria preso na de baixo. Só a do topo responde.
+ */
+const PILHA: symbol[] = []
+
 export interface ModalProps {
   open: boolean
   onClose: () => void
@@ -56,6 +65,11 @@ export interface ModalProps {
   onBack?: (() => void) | undefined
   /** Ação em andamento: trava o fechamento acidental. */
   busy?: boolean
+  /**
+   * Janela aberta **de dentro** de outra (o catálogo sobre a venda). Véu escuro e
+   * painel neutro, para ler como uma camada acima da de baixo e não como a mesma.
+   */
+  stacked?: boolean
   children: ReactNode
 }
 
@@ -70,6 +84,7 @@ export function Modal({
   footer,
   onBack,
   busy = false,
+  stacked = false,
   children,
 }: ModalProps) {
   const painel = useRef<HTMLDivElement>(null)
@@ -85,6 +100,8 @@ export function Modal({
     if (!open) return
 
     origem.current = document.activeElement as HTMLElement | null
+    const marca = Symbol('modal')
+    PILHA.push(marca)
 
     // Foca o painel, e não o primeiro botão: abrir uma janela com o "Cancelar" já
     // iluminado sugere que cancelar é o que se espera. Do painel, um `Tab` leva ao
@@ -95,6 +112,8 @@ export function Modal({
     document.body.style.overflow = 'hidden'
 
     function aoTeclar(event: KeyboardEvent) {
+      if (PILHA[PILHA.length - 1] !== marca) return
+
       if (event.key === 'Escape') {
         event.stopPropagation()
         fechar()
@@ -130,6 +149,7 @@ export function Modal({
 
     return () => {
       document.removeEventListener('keydown', aoTeclar, true)
+      PILHA.splice(PILHA.indexOf(marca), 1)
       document.body.style.overflow = overflow
       // O foco volta para o gatilho — o bloco do atendimento, no caso da agenda.
       origem.current?.focus?.()
@@ -140,7 +160,11 @@ export function Modal({
 
   return createPortal(
     <>
-      <div className="dialog-veil" onPointerDown={fechar} aria-hidden="true" />
+      <div
+        className={`dialog-veil ${stacked ? 'dialog-veil-stacked' : ''}`}
+        onPointerDown={fechar}
+        aria-hidden="true"
+      />
 
       <div
         ref={painel}
@@ -148,7 +172,7 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={tituloId}
         tabIndex={-1}
-        className="dialog-panel focus:outline-none"
+        className={`dialog-panel ${stacked ? 'dialog-panel-stacked' : ''} focus:outline-none`}
       >
         <div className="dialog-head">
           {onBack && (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   CASH_METHODS,
@@ -13,7 +13,15 @@ import {
 import { Modal } from '@/components/modal'
 import { useToast } from '@/components/toast'
 import { Alert, Button, Choice, Field, FormError, Segmented } from '@/components/ui'
-import { AlertTriangleIcon, PackageIcon, WalletIcon, XIcon } from '@/components/icons'
+import {
+  AlertTriangleIcon,
+  MinusIcon,
+  PackageIcon,
+  PlusIcon,
+  SearchIcon,
+  WalletIcon,
+  XIcon,
+} from '@/components/icons'
 import {
   createSaleAction,
   listSellableProductsAction,
@@ -45,7 +53,7 @@ export function SaleButton({
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Button icon={<WalletIcon />} onClick={() => setOpen(true)}>
+      <Button variant="accent" icon={<WalletIcon />} onClick={() => setOpen(true)}>
         Vender
       </Button>
       {open && (
@@ -260,29 +268,11 @@ function SaleDialog({
         {loadError ? (
           <FormError message={loadError} />
         ) : (
-          <Field label="Produto" htmlFor="sale-product">
-            <select
-              id="sale-product"
-              className="field"
-              value=""
-              onChange={(event) => addProduct(event.target.value)}
-              disabled={products === null}
-            >
-              <option value="">
-                {products === null ? 'Carregando…' : 'Escolha um produto para incluir'}
-              </option>
-              {(products ?? []).map((product) => (
-                <option
-                  key={product.id}
-                  value={product.id}
-                  disabled={Number(product.quantityOnHand) <= 0}
-                >
-                  {product.name} · {formatBRL(product.salePriceCents ?? 0)} ·{' '}
-                  {formatQuantity(product.quantityOnHand, product.unit)}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <ProductPicker
+            products={products}
+            chosen={lines.map((line) => line.productId)}
+            onPick={addProduct}
+          />
         )}
 
         {lines.length > 0 && (
@@ -299,15 +289,14 @@ function SaleDialog({
                       {formatQuantity(product.quantityOnHand, product.unit)} em estoque
                     </p>
                   </div>
-                  <input
-                    aria-label={`Quantidade de ${product.name}`}
-                    className="field field-inline w-20 text-right"
+                  <QuantityStepper
+                    label={product.name}
                     value={line.quantity}
-                    inputMode="decimal"
-                    onChange={(event) =>
+                    max={Number(product.quantityOnHand)}
+                    onChange={(quantity) =>
                       setLines((current) =>
                         current.map((item, position) =>
-                          position === index ? { ...item, quantity: event.target.value } : item,
+                          position === index ? { ...item, quantity } : item,
                         ),
                       )
                     }
@@ -425,5 +414,299 @@ function TutorPicker({
         </ul>
       )}
     </Field>
+  )
+}
+
+/** Tira acento e caixa: "racao" acha "Ração". */
+function normalize(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+/** Nome, SKU ou código de barras — o termo já chega normalizado. */
+function matchesProduct(product: ProductResponse, term: string): boolean {
+  return [product.name, product.sku, product.barcode].some(
+    (value) => value && normalize(value).includes(term),
+  )
+}
+
+const PRODUCT_RESULTS_LIMIT = 8
+
+/**
+ * A busca do produto: digita, e a lista embaixo filtra por nome, SKU ou código de barras.
+ *
+ * Os vendáveis já desceram inteiros quando a janela abriu, então o filtro é local e não
+ * espera servidor. O campo fica aberto depois da escolha — uma venda costuma ter mais de
+ * um item —, e o Enter inclui o primeiro da lista, que é o que o leitor de código de
+ * barras manda depois do número. O botão no canto abre o catálogo inteiro.
+ */
+function ProductPicker({
+  products,
+  chosen,
+  onPick,
+}: {
+  products: ProductResponse[] | null
+  chosen: readonly string[]
+  onPick: (productId: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [catalogOpen, setCatalogOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const term = normalize(query.trim())
+  const matches =
+    term && products
+      ? products
+          .filter((product) => !chosen.includes(product.id))
+          .filter((product) => matchesProduct(product, term))
+      : []
+  const shown = matches.slice(0, PRODUCT_RESULTS_LIMIT)
+  const firstAvailable = shown.find((product) => Number(product.quantityOnHand) > 0)
+
+  function pick(productId: string) {
+    onPick(productId)
+    setQuery('')
+    inputRef.current?.focus()
+  }
+
+  return (
+    <Field label="Produto" htmlFor="sale-product" hint="Nome, SKU ou código de barras.">
+      <div className="field-wrap">
+        <input
+          ref={inputRef}
+          id="sale-product"
+          className="field field-with-action"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            // Sem isto o Enter enviaria a venda pela metade.
+            if (event.key !== 'Enter') return
+            event.preventDefault()
+            if (firstAvailable) pick(firstAvailable.id)
+          }}
+          placeholder={products === null ? 'Carregando…' : 'Digite para buscar'}
+          disabled={products === null}
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          className="field-action icon-money"
+          onClick={() => setCatalogOpen(true)}
+          disabled={products === null}
+          aria-label="Ver todos os produtos"
+          title="Ver todos os produtos"
+        >
+          <PackageIcon />
+        </button>
+      </div>
+      {term && products && (
+        <ul className="mt-2 space-y-1">
+          {shown.length === 0 ? (
+            <li className="hint">Nenhum produto encontrado.</li>
+          ) : (
+            shown.map((product) => {
+              const outOfStock = Number(product.quantityOnHand) <= 0
+              return (
+                <li key={product.id}>
+                  <button
+                    type="button"
+                    className="option w-full text-left disabled:opacity-50"
+                    disabled={outOfStock}
+                    onClick={() => pick(product.id)}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="option-text block">{product.name}</span>
+                      <span className="hint mt-0.5 block">
+                        {formatBRL(product.salePriceCents ?? 0)} ·{' '}
+                        {outOfStock
+                          ? 'Sem saldo'
+                          : `${formatQuantity(product.quantityOnHand, product.unit)} em estoque`}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              )
+            })
+          )}
+          {matches.length > shown.length && (
+            <li className="hint">
+              Mais {matches.length - shown.length} — continue digitando para afinar.
+            </li>
+          )}
+        </ul>
+      )}
+      {catalogOpen && products && (
+        <ProductCatalogDialog
+          products={products}
+          chosen={chosen}
+          onPick={(productId) => {
+            setCatalogOpen(false)
+            pick(productId)
+          }}
+          onClose={() => setCatalogOpen(false)}
+        />
+      )}
+    </Field>
+  )
+}
+
+/**
+ * O catálogo inteiro, para quem prefere olhar a lista a lembrar o nome.
+ *
+ * Abre por cima da venda (o `Modal` empilha) e devolve um produto só: escolher fecha a
+ * janela e inclui o item, como a busca faz. A busca daqui é a mesma do campo, e a lista
+ * não tem teto — rolar é o motivo de ter aberto.
+ */
+function ProductCatalogDialog({
+  products,
+  chosen,
+  onPick,
+  onClose,
+}: {
+  products: ProductResponse[]
+  chosen: readonly string[]
+  onPick: (productId: string) => void
+  onClose: () => void
+}) {
+  const [query, setQuery] = useState('')
+  const term = normalize(query.trim())
+  const shown = [...products]
+    .filter((product) => !term || matchesProduct(product, term))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      icon={<PackageIcon />}
+      tone="icon-money"
+      eyebrow="Venda no balcão"
+      title="Produtos"
+      stacked
+      subtitle={`${products.length} ${products.length === 1 ? 'produto à venda' : 'produtos à venda'}`}
+    >
+      <div className="space-y-3">
+        <div className="field-wrap">
+          <span className="field-lead icon-money">
+            <SearchIcon />
+          </span>
+          <input
+            type="search"
+            className="field field-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Nome, SKU ou código de barras"
+            aria-label="Filtrar produtos"
+            autoComplete="off"
+          />
+        </div>
+
+        {shown.length === 0 ? (
+          <p className="hint">Nenhum produto encontrado.</p>
+        ) : (
+          <ul className="space-y-1">
+            {shown.map((product) => {
+              const outOfStock = Number(product.quantityOnHand) <= 0
+              const inSale = chosen.includes(product.id)
+              return (
+                <li key={product.id}>
+                  <button
+                    type="button"
+                    className="option w-full text-left disabled:opacity-50"
+                    disabled={outOfStock || inSale}
+                    onClick={() => onPick(product.id)}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="option-text block">{product.name}</span>
+                      <span className="hint mt-0.5 block">
+                        {formatBRL(product.salePriceCents ?? 0)} ·{' '}
+                        {inSale
+                          ? 'Já está na venda'
+                          : outOfStock
+                            ? 'Sem saldo'
+                            : `${formatQuantity(product.quantityOnHand, product.unit)} em estoque`}
+                        {product.sku && ` · SKU ${product.sku}`}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+/** `"2,5"` ou `"2.5"` → 2.5; o que não for número vira `NaN`. */
+function parseQuantity(text: string): number {
+  return Number(text.trim().replace(',', '.'))
+}
+
+/** 2.5 → `"2,5"`: volta ao campo como o balcão escreve, sem separador de milhar. */
+function quantityText(value: number): string {
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false })
+}
+
+/**
+ * A quantidade da linha: menos, o número, mais.
+ *
+ * O passo é 1 em toda unidade; o fracionado (ml, g) se digita no meio. O menos para em
+ * 1 — tirar o item é o X ao lado, e uma linha com zero seria venda de nada —, e o mais
+ * para no saldo, que é onde o servidor recusaria de qualquer jeito. Digitado, o número
+ * passa como veio: quem diz "não há saldo para tudo" continua sendo o servidor.
+ */
+function QuantityStepper({
+  label,
+  value,
+  max,
+  onChange,
+}: {
+  label: string
+  value: string
+  max: number
+  onChange: (quantity: string) => void
+}) {
+  const current = parseQuantity(value)
+  const valid = Number.isFinite(current)
+
+  function step(delta: number) {
+    const base = valid ? current : 1
+    const next = Math.min(Math.max(base + delta, 1), Math.max(max, 1))
+    onChange(quantityText(next))
+  }
+
+  return (
+    <div className="stepper shrink-0" role="group" aria-label={`Quantidade de ${label}`}>
+      <button
+        type="button"
+        className="stepper-button"
+        onClick={() => step(-1)}
+        disabled={valid && current <= 1}
+        aria-label={`Diminuir ${label}`}
+      >
+        <MinusIcon />
+      </button>
+      <input
+        className="stepper-input"
+        value={value}
+        inputMode="decimal"
+        onChange={(event) => onChange(event.target.value)}
+        onFocus={(event) => event.target.select()}
+        aria-label={`Quantidade de ${label}`}
+      />
+      <button
+        type="button"
+        className="stepper-button"
+        onClick={() => step(1)}
+        disabled={valid && current + 1 > max}
+        aria-label={`Aumentar ${label}`}
+      >
+        <PlusIcon />
+      </button>
+    </div>
   )
 }

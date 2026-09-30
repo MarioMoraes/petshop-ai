@@ -723,6 +723,25 @@ export function SearchIcon() {
 }
 
 /** Limpar o que foi digitado. Sem tom: é gramática do controle. */
+/** Aumentar a quantidade. Sem tom: é gramática do controle, como o "limpar". */
+export function PlusIcon() {
+  return (
+    <svg {...BASE} width={16} height={16} strokeWidth={2}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  )
+}
+
+/** Diminuir a quantidade. Par do `PlusIcon`. */
+export function MinusIcon() {
+  return (
+    <svg {...BASE} width={16} height={16} strokeWidth={2}>
+      <path d="M5 12h14" />
+    </svg>
+  )
+}
+
 export function XIcon() {
   return (
     <svg {...BASE} width={16} height={16}>

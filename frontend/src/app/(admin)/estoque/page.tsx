@@ -80,8 +80,8 @@ export default async function EstoquePage({ searchParams }: PageProps) {
   const headerActions =
     canWrite || canSell ? (
       <>
-        {canSell && <ButtonLink href="/estoque/vendas">Vendas</ButtonLink>}
         {canSell && <SaleButton canOverrideCredit={me.permissions.includes('finance:credit')} />}
+        {canSell && <ButtonLink href="/estoque/vendas">Vendas</ButtonLink>}
         {positionPdf}
         {newProduct}
       </>
