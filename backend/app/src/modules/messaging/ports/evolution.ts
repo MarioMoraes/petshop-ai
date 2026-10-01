@@ -98,6 +98,24 @@ export interface EvolutionPort {
    * muda e ela não. Sem isto não há como sair desse estado.
    */
   deleteInstance(instanceName: string, apiKey: string): Promise<void>
+  /**
+   * O conteúdo de uma mídia **recebida**, para a transcrição do agente.
+   *
+   * O webhook não traz o arquivo: o `base64` no payload depende de uma opção da
+   * instância que ninguém liga, e mesmo ligada faria todo áudio atravessar o webhook —
+   * que tem de responder 204 em milissegundos. Aqui o arquivo é pedido depois, por id,
+   * e só quando alguém vai ouvi-lo. `null` é "a Evolution não tem mais esta mídia".
+   */
+  fetchMedia(
+    instanceName: string,
+    apiKey: string,
+    messageId: string,
+  ): Promise<EvolutionMedia | null>
+}
+
+export interface EvolutionMedia {
+  base64: string
+  mimetype: string
 }
 
 const REQUEST_TIMEOUT_MS = 12_000
@@ -361,6 +379,26 @@ function createHttpPort(baseUrl: string, globalApiKey: string): EvolutionPort {
       return classifySendFailure(status, body, detailOf(body) || `HTTP ${status}`)
     },
 
+    async fetchMedia(instanceName, apiKey, messageId) {
+      const { status, body } = await request({
+        method: 'POST',
+        path: `/chat/getBase64FromMediaMessage/${encodeURIComponent(instanceName)}`,
+        apiKey,
+        body: { message: { key: { id: messageId } }, convertToMp4: false },
+      })
+      if (status === 404) return null
+      if (status >= 400) {
+        throw new EvolutionRequestError(status, detailOf(body) || `HTTP ${status}`)
+      }
+      const record = (body ?? {}) as Record<string, unknown>
+      const base64 = typeof record.base64 === 'string' ? record.base64 : ''
+      if (!base64) return null
+      return {
+        base64,
+        mimetype: typeof record.mimetype === 'string' ? record.mimetype : 'audio/ogg',
+      }
+    },
+
     async logout(instanceName, apiKey) {
       const { status, body } = await request({
         method: 'DELETE',
@@ -418,6 +456,7 @@ function createUnconfiguredPort(): EvolutionPort {
     fetchSession: fail,
     logout: fail,
     deleteInstance: fail,
+    fetchMedia: fail,
     async sendText() {
       return {
         ok: false,

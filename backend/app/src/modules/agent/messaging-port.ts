@@ -1,4 +1,5 @@
 import { EnqueueMessageSchema } from '@petshop/shared-types'
+import { downloadInboundAudio } from '../messaging/inbound.js'
 import { enqueueMessage } from '../messaging/messages.js'
 import type { ActorContext } from './actor.js'
 
@@ -28,6 +29,16 @@ export interface ReplyRequest {
 
 export interface AgentMessagingPort {
   sendReply(request: ReplyRequest): Promise<string>
+  /**
+   * O áudio que o cliente mandou, para a transcrição. `null` é "não há o que ouvir".
+   *
+   * Pela mensageria, e não direto na Evolution: o id do provedor e a chave da instância
+   * são do MOD-NOTIF, e o agente só conhece a linha de `messages` que o turno aponta.
+   */
+  downloadAudio(
+    tenantId: string,
+    messageId: string,
+  ): Promise<{ bytes: Buffer; mimetype: string } | null>
 }
 
 function createInProcessPort(): AgentMessagingPort {
@@ -60,6 +71,8 @@ function createInProcessPort(): AgentMessagingPort {
       const result = await enqueueMessage(request.actor, input)
       return result.id
     },
+
+    downloadAudio: downloadInboundAudio,
   }
 }
 

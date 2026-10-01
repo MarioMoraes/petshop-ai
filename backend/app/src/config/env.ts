@@ -85,6 +85,12 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
 
   /** O gerador de PDF (MOD-DOC). Sem ele o documento fica pendente e o job reprocessa. */
   GOTENBERG_URL: z.string().optional(),
+  /**
+   * O Whisper que transcreve os áudios do agente (MOD-AI). Vazio ou ausente, áudio vai
+   * para a fila da recepção. `string()` e não `url()`: a string vazia do compose é estado
+   * legítimo, e `url()` a recusaria derrubando a subida inteira.
+   */
+  WHISPER_URL: z.string().optional(),
   // ---- MOD-NOTIF / MOD-CRM-01 (fatia 4 da consolidação) ----
 
   /**

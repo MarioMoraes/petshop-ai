@@ -1,5 +1,6 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
+  AGENT_AUDIO_MAX_SECONDS,
   AGENT_SESSION_TTL_MIN,
   type AgentConversationStatus,
   type AgentHandoffReason,
@@ -13,6 +14,7 @@ import { getAgentMessagingPort } from './messaging-port.js'
 import { getModelPort } from './model-port.js'
 import { scheduleTurn } from './runner.js'
 import { loadSettings } from './settings.js'
+import { getTranscriptionPort } from './transcription.js'
 
 /**
  * A conversa (MOD-AI-02) e o que acontece quando uma mensagem chega (MOD-AI-01).
@@ -49,7 +51,7 @@ const LIVE: AgentConversationStatus[] = ['ACTIVE', 'HANDOFF', 'ASSIGNED']
 async function blockedReason(message: InboundMessage): Promise<AgentHandoffReason | null> {
   if (message.candidates.length === 0) return 'UNKNOWN_NUMBER'
   if (message.candidates.length > 1) return 'AMBIGUOUS'
-  if (message.kind !== 'TEXT') return 'MEDIA'
+  if (message.kind !== 'TEXT' && !isAudible(message)) return 'MEDIA'
 
   /**
    * O agente desligado é decidido **aqui**, e não no turno.
@@ -65,6 +67,20 @@ async function blockedReason(message: InboundMessage): Promise<AgentHandoffReaso
   if (!(await getModelPort(message.tenantId)).configured) return 'DISABLED'
 
   return null
+}
+
+/**
+ * O áudio que o agente ouve: há Whisper na instalação e ele cabe no teto de duração.
+ *
+ * A transcrição em si **não** acontece aqui — este caminho roda dentro do webhook, que
+ * responde em milissegundos. Ela é do runner, depois do 204; aqui só se decide se a
+ * conversa fica com o agente ou vai para a recepção. Áudio sem duração informada passa:
+ * quem o corta, se for longo demais, é o tempo-limite do próprio Whisper.
+ */
+function isAudible(message: InboundMessage): boolean {
+  if (message.kind !== 'AUDIO') return false
+  if (!getTranscriptionPort().configured) return false
+  return message.audioSeconds === null || message.audioSeconds <= AGENT_AUDIO_MAX_SECONDS
 }
 
 /**
@@ -199,7 +215,9 @@ export async function handleInbound(message: InboundMessage): Promise<void> {
     // AC-05 de MOD-AI-01: o áudio é respondido **uma vez**, dizendo que não dá para ouvir
     // por aqui. Só quando o agente está ligado — um petshop que nunca prometeu
     // atendimento automático não deve começar a mandar frases de robô.
-    if (result.reason === 'MEDIA') await warnAboutMedia(message, result.conversationId)
+    if (result.reason === 'MEDIA') {
+      await warnAboutMedia(message, result.conversationId, mediaWarning(message))
+    }
   }
 
   /**
@@ -221,13 +239,37 @@ export async function handleInbound(message: InboundMessage): Promise<void> {
   )
 }
 
+/** O que se diz da mídia que o agente não lê — a regra está em `warnAboutMedia`. */
+export const MEDIA_WARNING =
+  'Recebi seu arquivo, mas por aqui só consigo ler mensagens de texto. ' +
+  'Já estou chamando alguém da equipe para te atender.'
+
+/**
+ * O áudio longo demais ganha frase própria: dizer "só leio texto" a quem o agente
+ * ouviu ontem seria mentira, e o cliente mandaria o mesmo áudio de novo.
+ */
+export const LONG_AUDIO_WARNING =
+  'Recebi seu áudio, mas ele é longo demais para eu ouvir por aqui. ' +
+  'Já estou chamando alguém da equipe para te atender.'
+
+function mediaWarning(message: InboundMessage): string {
+  return message.kind === 'AUDIO' && getTranscriptionPort().configured
+    ? LONG_AUDIO_WARNING
+    : MEDIA_WARNING
+}
+
 /**
  * A única frase que o agente manda sem ter sido chamado (AC-05 de MOD-AI-01).
  *
- * Áudio, imagem e documento não se leem: o corpo não é guardado e não há o que responder.
- * Dizer isso uma vez evita o cliente ficar repetindo o áudio achando que não chegou.
+ * Imagem e documento não se leem, nem o áudio quando não há Whisper ou ele passa do
+ * teto: o corpo não é guardado e não há o que responder. Dizer isso uma vez evita o
+ * cliente ficar repetindo o arquivo achando que não chegou.
  */
-async function warnAboutMedia(message: InboundMessage, conversationId: string): Promise<void> {
+async function warnAboutMedia(
+  message: InboundMessage,
+  conversationId: string,
+  text: string,
+): Promise<void> {
   if (!message.tutorId) return
   const settings = await loadSettings(message.tenantId)
   if (!settings.enabled) return
@@ -237,9 +279,7 @@ async function warnAboutMedia(message: InboundMessage, conversationId: string): 
       actor: { tenantId: message.tenantId },
       tutorId: message.tutorId,
       conversationId,
-      text:
-        'Recebi seu arquivo, mas por aqui só consigo ler mensagens de texto. ' +
-        'Já estou chamando alguém da equipe para te atender.',
+      text,
       dedupeKey: `agent-media:${message.messageId}`,
     })
   } catch (error) {

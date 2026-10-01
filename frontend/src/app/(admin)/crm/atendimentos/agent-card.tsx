@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import {
+  AGENT_AUDIO_MAX_SECONDS,
   AGENT_PERSONA_NAME_MAX,
   AGENT_TONES,
   AGENT_TONE_LABELS,
@@ -226,6 +227,13 @@ export function AgentCard({ settings, podeConfigurar, personaNoPlano }: Props) {
       <p className="hint mt-4">
         A primeira resposta de cada conversa avisa ao cliente que ele fala com um atendimento
         automático. Esse aviso não se desliga.
+      </p>
+
+      {/* Não há o que configurar: o Whisper é da instalação. A linha só conta o que acontece. */}
+      <p className="hint mt-2">
+        {atual.audioTranscription
+          ? `Áudios de até ${AGENT_AUDIO_MAX_SECONDS / 60} minutos são transcritos e respondidos pelo agente; os mais longos vão para a fila.`
+          : 'Áudios vão para a fila da recepção: a transcrição não está ligada nesta instalação.'}
       </p>
 
       <ReguaDoMes gastoCents={atual.spentCents} tetoCents={atual.monthlyCapCents} />

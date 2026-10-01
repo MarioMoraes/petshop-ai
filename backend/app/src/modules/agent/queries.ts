@@ -241,10 +241,14 @@ function toSummary(
   }
 }
 
-/** Mídia não tem corpo guardado (AC-05): o que a tela mostra é o tipo. */
+/**
+ * Mídia não tem corpo guardado (AC-05): o que a tela mostra é o tipo. O áudio que o
+ * Whisper ouviu mostra o tipo **e** o texto — quem lê a fila precisa saber que aquilo é
+ * transcrição, e que um nome estranho pode ser erro dela e não do cliente.
+ */
 function contentOf(cipher: AgentCipher, payload: string, kind: string): string {
   const text = decryptOrPlaceholder(cipher, payload, '')
-  if (text) return text
+  if (text) return kind === 'AUDIO' ? `(${AGENT_INBOUND_LABELS.AUDIO}) ${text}` : text
   const label = AGENT_INBOUND_LABELS[kind as keyof typeof AGENT_INBOUND_LABELS]
   return label && kind !== 'TEXT' ? `(${label})` : ''
 }

@@ -13,7 +13,12 @@ impede migrar para orquestrador depois — as imagens são as mesmas.
 | `api-gateway` | 3000 | não — o backend inteiro |
 | `postgres` / `redis` / `rabbitmq` / `gotenberg` | — | não |
 | `evolution` | 8080 | não — **nem por rota no Caddy** |
+| `whisper` | 9000 | não — transcreve os áudios do agente; ~1 GB de RAM com o modelo `small` |
 | `migrator` | — | roda uma vez e morre |
+
+O `whisper` baixa o modelo (`ASR_MODEL`, padrão `small`) no primeiro boot para o
+volume `whisper-cache`, e por isso o healthcheck espera até 5 minutos. Trocar para
+`medium` melhora nomes próprios e pede ~2,5 GB — confira `free -h` antes.
 
 A Evolution API (canal WhatsApp, MOD-CRM-01) é a única dependência que merece uma
 frase à parte: ela envia mensagem pelo número do próprio petshop, então publicá-la

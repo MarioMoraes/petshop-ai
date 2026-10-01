@@ -145,9 +145,18 @@ export interface SentReply {
  * módulo precisa provar é que a resposta **passa pelo motor** e que o turno só nasce
  * depois de ele aceitar.
  */
-export function installFakeMessaging(): { sent: SentReply[]; failNext(): void } {
+export function installFakeMessaging(): {
+  sent: SentReply[]
+  failNext(): void
+  /** As mensagens cujo áudio o agente pediu para ouvir. */
+  audioDownloads: string[]
+  /** O próximo download devolve `null`: o provedor já descartou a mídia. */
+  loseNextAudio(): void
+} {
   const sent: SentReply[] = []
+  const audioDownloads: string[] = []
   let fail = false
+  let loseAudio = false
 
   setAgentMessagingPort({
     async sendReply(request) {
@@ -162,12 +171,24 @@ export function installFakeMessaging(): { sent: SentReply[]; failNext(): void } 
       })
       return randomUUID()
     },
+    async downloadAudio(_tenantId, messageId) {
+      audioDownloads.push(messageId)
+      if (loseAudio) {
+        loseAudio = false
+        return null
+      }
+      return { bytes: Buffer.from('OggS'), mimetype: 'audio/ogg; codecs=opus' }
+    },
   })
 
   return {
     sent,
     failNext() {
       fail = true
+    },
+    audioDownloads,
+    loseNextAudio() {
+      loseAudio = true
     },
   }
 }
@@ -177,7 +198,45 @@ export function resetPorts(): void {
   setModelPort(null)
   setAgentPortalPort(null)
   setTurnScheduler(null)
+  // Sem Whisper por padrão, e não "o que o `.env` disser": a suíte não pode passar a
+  // depender de um container de pé só porque alguém ligou a transcrição no ambiente.
+  installFakeTranscription(null)
   installAgentPort()
+}
+
+const { setTranscriptionPort, TranscriptionError } = await import(
+  '../../src/modules/agent/transcription.js'
+)
+
+/**
+ * O Whisper, dublado. Cada item do roteiro é a resposta de **uma** transcrição: o texto,
+ * ou `Error` para o serviço fora do ar. `null` instala a porta não configurada.
+ */
+export function installFakeTranscription(
+  ...roteiro: Array<string | Error> | [null]
+): { calls: { bytes: number; mimetype: string }[] } {
+  const calls: { bytes: number; mimetype: string }[] = []
+  if (roteiro[0] === null) {
+    setTranscriptionPort({
+      configured: false,
+      async transcribe() {
+        throw new TranscriptionError('não configurada')
+      },
+    })
+    return { calls }
+  }
+  const fila = [...(roteiro as Array<string | Error>)]
+  setTranscriptionPort({
+    configured: true,
+    async transcribe(bytes, mimetype) {
+      calls.push({ bytes: bytes.length, mimetype })
+      const proximo = fila.shift()
+      if (proximo === undefined) throw new Error('o roteiro da transcrição acabou')
+      if (proximo instanceof Error) throw proximo
+      return proximo
+    },
+  })
+  return { calls }
 }
 
 /**

@@ -318,6 +318,9 @@ export function installFakeEvolution(): FakeEvolution {
     async deleteInstance(instanceName) {
       deleted.push(instanceName)
     },
+    async fetchMedia() {
+      return { base64: 'T2dnUw==', mimetype: 'audio/ogg; codecs=opus' }
+    },
   }
 
   setEvolutionPort(port)

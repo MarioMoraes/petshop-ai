@@ -88,6 +88,8 @@ x-backend: &backend
     # equipe sem precisar de deploy.
     PLATFORM_ALERT_EMAILS: ${PLATFORM_ALERT_EMAILS:-}
     GOTENBERG_URL: http://gotenberg:3000
+    # A transcrição dos áudios do agente. Sem ela, áudio vai para a recepção como antes.
+    WHISPER_URL: http://whisper:9000
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     MAIL_FROM: ${MAIL_FROM:-}
     # ─── MOD-AI: o agente de atendimento (Fase 8) ───────────────────────────────
@@ -208,6 +210,39 @@ services:
         constraints: [node.role == manager]
       resources:
         limits: { memory: 512M }
+
+  whisper:
+    # A transcrição dos áudios do agente (MOD-AI). Serializa as transcrições atrás de
+    # uma trava, então uma réplica basta; o teto de memória é o do modelo `small` em
+    # int8 com folga para o ffmpeg. `medium` pede ~2,5 GB — conferir `free -h` antes.
+    image: onerahmet/openai-whisper-asr-webservice:v1.10.0
+    networks: [interna]
+    environment:
+      ASR_ENGINE: faster_whisper
+      ASR_MODEL: ${ASR_MODEL:-small}
+      ASR_QUANTIZATION: int8
+      ASR_MODEL_PATH: /data/whisper
+    volumes:
+      - whisper-cache:/data/whisper
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python3',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/docs', timeout=3)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 300s
+    deploy:
+      replicas: 1
+      restart_policy: *restart
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits: { memory: 1536M }
 
   evolution:
     # O canal WhatsApp (MOD-CRM-01). Tag fixa: uma sessão pareada é estado, e uma
@@ -496,3 +531,4 @@ volumes:
   evolution-instances:
   caddy-data:
   caddy-config:
+  whisper-cache:

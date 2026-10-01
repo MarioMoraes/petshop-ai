@@ -36,6 +36,7 @@ import {
 } from './proposals.js'
 import { loadSettings, monthlySpendCents, withinWindow } from './settings.js'
 import { AGENT_TOOLS, runTool } from './tools.js'
+import { getTranscriptionPort } from './transcription.js'
 
 /**
  * O turno do agente (MOD-AI-02, 03, 05 e 08).
@@ -218,6 +219,17 @@ async function respond(tenantId: string, conversationId: string): Promise<void> 
     await handoff(tenantId, conversationId, 'BUDGET', {
       say: AGENT_HANDOFF_SAY.BUDGET,
     })
+    return
+  }
+
+  // ─── O ouvido ─────────────────────────────────────────────────────────────
+
+  // O áudio vira texto **antes** do histórico ser lido: o modelo nunca vê um turno vazio.
+  const ouvido = await holdingClaim(tenantId, conversationId, () =>
+    transcribePending(tenantId, conversationId),
+  )
+  if (!ouvido) {
+    await handoff(tenantId, conversationId, 'MEDIA', { say: AGENT_HANDOFF_SAY.UNHEARD })
     return
   }
 
@@ -606,8 +618,13 @@ async function loadHistory(
 
     const messages: Anthropic.MessageParam[] = []
     for (const row of [...rows].reverse()) {
-      const content = decryptOrPlaceholder(cipher, row.contentEncrypted, '')
-      if (!content) continue
+      const decrypted = decryptOrPlaceholder(cipher, row.contentEncrypted, '')
+      if (!decrypted) continue
+      /**
+       * O áudio entra marcado. A transcrição erra justamente o que importa — o nome do
+       * pet, o dia, o horário —, e o modelo que sabe disso confirma em vez de presumir.
+       */
+      const content = row.kind === 'AUDIO' ? `[áudio transcrito] ${decrypted}` : decrypted
       messages.push({
         // A resposta da recepção entra como fala do próprio agente: do ponto de vista do
         // cliente, foi o petshop que respondeu — e o modelo precisa saber o que já foi
@@ -624,6 +641,118 @@ async function loadHistory(
       clientFirstName: firstNameOf(tutor),
     }
   })
+}
+
+/** Bem abaixo dos 90s do varredor: uma renovação perdida ainda não entrega a posse. */
+const CLAIM_RENEW_MS = 30_000
+
+/**
+ * Renova a posse (`pending_at`) enquanto uma tarefa longa roda.
+ *
+ * O varredor reassume a conversa cuja posse passou de 90 segundos — é o que recolhe o
+ * processo que morreu. A transcrição é a primeira etapa do turno que pode passar disso
+ * **com o processo vivo** (um minuto de áudio leva mais que isso no Whisper em CPU), e
+ * sem a renovação o varredor abriria um segundo turno em paralelo: o mesmo áudio
+ * transcrito duas vezes e duas respostas ao cliente.
+ */
+async function holdingClaim<T>(
+  tenantId: string,
+  conversationId: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  const timer = setInterval(() => {
+    void withTenant(tenantId, (tx) =>
+      tx.agentConversation.updateMany({
+        where: { id: conversationId, status: 'ACTIVE', pendingAt: { not: null } },
+        data: { pendingAt: new Date() },
+      }),
+    ).catch((error: unknown) => {
+      logger.warn({ err: error, tenantId, conversationId }, 'não foi possível renovar a posse')
+    })
+  }, CLAIM_RENEW_MS)
+  try {
+    return await task()
+  } finally {
+    clearInterval(timer)
+  }
+}
+
+/**
+ * Transcreve os áudios do cliente que ainda não têm texto. `false` é "um deles não se
+ * ouviu", e a conversa vai para a recepção.
+ *
+ * Roda aqui, sob a posse de `pending_at`, e não no webhook: transcrever leva segundos, e
+ * a Evolution reentrega o que não recebe 2xx depressa. A gravação é condicional ao turno
+ * ainda estar vazio, então o varredor que reassume uma conversa pela metade não
+ * transcreve o mesmo áudio duas vezes — e o que outro processo já gravou não é
+ * sobrescrito.
+ *
+ * O texto entra no **turno** (`agent_turns`), cifrado como qualquer fala do cliente e
+ * sujeito ao mesmo expurgo; a linha de `messages` continua `(áudio)` (AC-05).
+ */
+async function transcribePending(tenantId: string, conversationId: string): Promise<boolean> {
+  const pending = await withTenant(tenantId, async (tx) => {
+    const cipher = await openCipher(tx, tenantId)
+    /**
+     * Só o que chegou **depois da última resposta**. O áudio de antes dela já foi
+     * respondido por alguém — pela recepção, quando não havia Whisper —, e insistir nele
+     * mandaria de volta à fila, em laço, a conversa que a recepção devolveu ao agente.
+     */
+    const lastReply = await tx.agentTurn.findFirst({
+      where: { conversationId, role: { not: 'TUTOR' } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    })
+    const rows = await tx.agentTurn.findMany({
+      where: {
+        conversationId,
+        role: 'TUTOR',
+        kind: 'AUDIO',
+        messageId: { not: null },
+        ...(lastReply ? { createdAt: { gt: lastReply.createdAt } } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, messageId: true, contentEncrypted: true },
+    })
+    return rows.filter((row) => !decryptOrPlaceholder(cipher, row.contentEncrypted, ''))
+  })
+  if (pending.length === 0) return true
+
+  const transcription = getTranscriptionPort()
+  if (!transcription.configured) return false
+
+  for (const row of pending) {
+    const startedAt = Date.now()
+    try {
+      const audio = await getAgentMessagingPort().downloadAudio(tenantId, row.messageId as string)
+      if (!audio) {
+        logger.warn({ tenantId, conversationId, turnId: row.id }, 'áudio indisponível no provedor')
+        return false
+      }
+      const text = (await transcription.transcribe(audio.bytes, audio.mimetype)).slice(0, 4000)
+      if (!text) {
+        logger.warn({ tenantId, conversationId, turnId: row.id }, 'áudio sem fala reconhecível')
+        return false
+      }
+      await withTenant(tenantId, async (tx) => {
+        const cipher = await openCipher(tx, tenantId)
+        await tx.agentTurn.updateMany({
+          where: { id: row.id, contentEncrypted: row.contentEncrypted },
+          data: { contentEncrypted: cipher.encrypt(text) },
+        })
+      })
+      recordMetric({
+        metric: 'agent_transcription_ms',
+        tenantId,
+        value: Date.now() - startedAt,
+        unit: 'ms',
+      })
+    } catch (error) {
+      logger.error({ err: error, tenantId, conversationId, turnId: row.id }, 'transcrição falhou')
+      return false
+    }
+  }
+  return true
 }
 
 interface PersistedTurn {

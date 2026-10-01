@@ -9,6 +9,8 @@ import {
 import { logger } from '../../shared/logger.js'
 import { openCipher } from './crypto.js'
 import { getAgentInboundPort } from './ports/agent.js'
+import { getEvolutionPort } from './ports/evolution.js'
+import { whatsappCredentials } from './whatsapp.js'
 
 /**
  * A mensagem que **chega** (MOD-AI-01).
@@ -94,6 +96,7 @@ interface ParsedMessage {
   phone: string
   kind: AgentInboundKind
   text: string
+  audioSeconds: number | null
   receivedAt: Date
 }
 
@@ -122,8 +125,18 @@ function parseMessage(data: unknown): ParsedMessage | null {
     phone: toE164(digits),
     kind,
     text,
+    audioSeconds: kind === 'AUDIO' ? audioSecondsOf(raw.message) : null,
     receivedAt: toDate(raw.messageTimestamp),
   }
+}
+
+/** `audioMessage.seconds` — a duração que o próprio WhatsApp manda junto do áudio. */
+function audioSecondsOf(message: Record<string, unknown> | undefined): number | null {
+  const audio = message?.audioMessage ?? message?.pttMessage
+  if (!audio || typeof audio !== 'object') return null
+  const raw = (audio as { seconds?: unknown }).seconds
+  const seconds = typeof raw === 'string' ? Number.parseInt(raw, 10) : raw
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0 ? seconds : null
 }
 
 /**
@@ -243,8 +256,45 @@ async function store(tenantId: string, parsed: ParsedMessage): Promise<void> {
     candidates: result.candidates,
     kind: parsed.kind,
     text: parsed.text,
+    audioSeconds: parsed.audioSeconds,
     receivedAt: parsed.receivedAt,
   })
+}
+
+/**
+ * O áudio de uma mensagem recebida, para o agente transcrever.
+ *
+ * Mora aqui, e não no MOD-AI, pelo mesmo motivo do resto do arquivo: o id do provedor,
+ * a instância e a chave dela são vocabulário da Evolution, e o agente só conhece a linha
+ * de `messages`. `null` é "não há o que ouvir" — linha que não é `INBOUND`, canal
+ * desconectado ou mídia que o provedor já descartou —, e quem chama trata como falha.
+ */
+export async function downloadInboundAudio(
+  tenantId: string,
+  messageId: string,
+): Promise<{ bytes: Buffer; mimetype: string } | null> {
+  const row = await withTenant(tenantId, (tx) =>
+    tx.message.findFirst({
+      where: { id: messageId, direction: 'INBOUND' },
+      select: { providerMessageId: true },
+    }),
+  )
+  if (!row?.providerMessageId) return null
+
+  const credentials = await whatsappCredentials(tenantId)
+  if (!credentials) return null
+
+  const media = await getEvolutionPort().fetchMedia(
+    credentials.instanceName,
+    credentials.apiKey,
+    row.providerMessageId,
+  )
+  if (!media) return null
+
+  // Algumas versões devolvem o `data:` URI inteiro; o Whisper quer só os bytes.
+  const base64 = media.base64.replace(/^data:[^,]*,/, '')
+  const bytes = Buffer.from(base64, 'base64')
+  return bytes.length > 0 ? { bytes, mimetype: media.mimetype } : null
 }
 
 /**

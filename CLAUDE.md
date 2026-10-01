@@ -185,6 +185,19 @@ estabelecimento**, com a chave da Anthropic que ele cadastra em Integrações
 chave do ambiente só vale fora de produção —, e as sete leituras mais as três escritas atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o
 agente e a tela do tutor respondem a mesma pergunta com a mesma função.
 
+**O agente ouve áudio pelo Whisper da própria stack, e não por API paga.** O serviço
+`whisper` (`openai-whisper-asr-webservice`, `faster_whisper` em CPU) fica na rede interna
+como o Gotenberg, atrás de `agent/transcription.ts`; sem `WHISPER_URL` o áudio vai para a
+recepção como antes. A transcrição roda no **runner**, sob a posse de `pending_at`, e
+nunca no webhook; o arquivo é baixado pela `AgentMessagingPort`, porque o id do provedor
+é do MOD-NOTIF. O texto mora só no turno (`agent_turns`) — `messages` continua `(áudio)` —,
+e chega ao modelo como `[áudio transcrito]`, para ele confirmar nome e horário em vez de
+presumir. Teto de 120 s (`AGENT_AUDIO_MAX_SECONDS`), porque o Whisper serializa as
+transcrições de todos os petshops numa CPU e levou 1,6× a duração do áudio na medição. E a
+transcrição **renova a posse** a cada 30 s (`holdingClaim` em `runner.ts`): é a primeira
+etapa do turno que passa dos 90 s do varredor com o processo vivo, e sem a renovação ele
+abriria um segundo turno — o mesmo áudio transcrito duas vezes e duas respostas.
+
 **Nenhum instante chega ao modelo em UTC.** Um modelo repassa ao cliente o número que leu,
 e `2026-09-14T13:00:00.000Z` virava "13:00" para um horário das 10:00. Em `tools.ts`,
 `momento`, `horaDoDia` e `isoLocal` são a única forma de um horário sair do arquivo — e é

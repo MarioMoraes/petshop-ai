@@ -138,8 +138,40 @@ services:
       timeout: 5s
       retries: 12
 
+  whisper:
+    # Transcrição dos áudios que o cliente manda ao agente (MOD-AI). O Whisper roda
+    # aqui, e não numa API paga: o áudio do cliente não sai do nosso servidor, e o
+    # custo não cresce por minuto ouvido. O modelo é baixado no primeiro boot para o
+    # volume — daí o `start_period` longo.
+    image: onerahmet/openai-whisper-asr-webservice:v1.10.0
+    container_name: petshop-whisper
+    restart: unless-stopped
+    environment:
+      ASR_ENGINE: faster_whisper
+      ASR_MODEL: ${ASR_MODEL:-small}
+      ASR_QUANTIZATION: int8
+      ASR_MODEL_PATH: /data/whisper
+    ports:
+      - '9000:9000'
+    volumes:
+      - whisper-cache:/data/whisper
+    healthcheck:
+      # A imagem não traz `curl`; o Python dela, sim.
+      test:
+        [
+          'CMD',
+          'python3',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/docs', timeout=3)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 300s
+
 volumes:
   postgres-data:
   redis-data:
   rabbitmq-data:
   evolution-instances:
+  whisper-cache:

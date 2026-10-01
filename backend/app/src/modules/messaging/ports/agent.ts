@@ -32,6 +32,8 @@ export interface InboundMessage {
   kind: AgentInboundKind
   /** Vazio quando o que chegou não é texto — o corpo de mídia não se guarda (AC-05). */
   text: string
+  /** A duração do áudio, quando o provedor a informa. É o que decide se ele se ouve. */
+  audioSeconds: number | null
   receivedAt: Date
 }
 

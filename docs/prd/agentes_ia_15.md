@@ -120,11 +120,21 @@ e o MOD-CRM já tem o motor e o teto).
   handler responde 200, e o agente não é acionado duas vezes
 
 **AC-05 (Mídia)**
-- **Dado** uma mensagem que é áudio, imagem ou documento
+- **Dado** uma mensagem que é imagem, documento ou vídeo
 - **Quando** ela chega
 - **Então** a linha `INBOUND` guarda o tipo e **não** o conteúdo, o agente responde uma vez
-  dizendo que não entende aquele formato, e a conversa vai para a recepção. Transcrição de
-  áudio fica para a triagem clínica, que é outro agente
+  dizendo que não entende aquele formato, e a conversa vai para a recepção
+- **Dado** uma mensagem de **áudio** de até 2 minutos, numa instalação com o Whisper
+  (`WHISPER_URL`)
+- **Quando** ela chega
+- **Então** a linha `INBOUND` continua guardando só o tipo (`(áudio)`), a conversa fica com o
+  agente, e o runner — depois do 204, nunca no webhook — baixa o áudio pela mensageria,
+  transcreve no Whisper da própria instalação e grava o texto no turno do tutor
+  (`agent_turns`, cifrado, sujeito ao expurgo do §9). O modelo o lê marcado como
+  `[áudio transcrito]`. Áudio acima do teto, instalação sem Whisper ou transcrição que
+  falha seguem para a recepção, com frase própria
+- *Revisto em 2026-10-01: a transcrição era da triagem clínica; o atendimento passou a
+  ouvir áudio a pedido do produto, com Whisper próprio para o áudio não sair do servidor.*
 
 **AC-06 (Consentimento)**
 - **Dado** um tutor que revogou o consentimento de WhatsApp

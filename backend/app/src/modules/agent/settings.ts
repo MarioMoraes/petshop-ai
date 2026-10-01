@@ -20,6 +20,7 @@ import {
 import { loadSettings as loadMessagingSettings } from '../messaging/settings.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { getModelPort } from './model-port.js'
+import { getTranscriptionPort } from './transcription.js'
 
 /**
  * A configuração do agente (MOD-AI-07).
@@ -173,6 +174,7 @@ export async function getSettings(tenantId: string): Promise<AgentSettings> {
           }
         : null,
     providerConfigured: model.configured,
+    audioTranscription: getTranscriptionPort().configured,
   }
 }
 
