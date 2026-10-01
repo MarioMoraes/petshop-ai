@@ -16,7 +16,7 @@ import {
   type ServiceResponse,
 } from '@petshop/shared-types'
 import { z } from 'zod'
-import type { CreditCheckResponse } from '@petshop/shared-types'
+import type { CreditCheckResponse, PetResponse } from '@petshop/shared-types'
 import { serverApi } from '@/lib/api'
 
 /**
@@ -66,9 +66,7 @@ function toFailure(error: unknown): ActionFailure {
         ? { alerts: problem.alerts as ActionFailure['alerts'] }
         : {}),
       ...(problem?.requiresOverride === true ? { requiresOverride: true } : {}),
-      ...(typeof problem?.balanceCents === 'number'
-        ? { balanceCents: problem.balanceCents }
-        : {}),
+      ...(typeof problem?.balanceCents === 'number' ? { balanceCents: problem.balanceCents } : {}),
       ...(Array.isArray(problem?.suggestions)
         ? { suggestions: problem.suggestions as ActionFailure['suggestions'] }
         : {}),
@@ -315,30 +313,80 @@ export async function cancelAppointmentAction(
  * não podem ir para o browser. Devolve o mínimo que o seletor precisa — nome, tutor e
  * porte —, e não o cadastro inteiro.
  */
-export async function searchPetsAction(query: string): Promise<
-  ActionResult<
-    { id: string; name: string; tutorId: string | null; tutorName: string; sizeLabel: string }[]
-  >
-> {
+export async function searchPetsAction(query: string): Promise<ActionResult<PetOption[]>> {
   try {
     const result = await serverApi().listPets({ q: query, limit: 8 })
-    return {
-      ok: true,
-      data: result.data.map((pet) => ({
-        id: pet.id,
-        name: pet.name,
-        // O `tutorId` é o que permite consultar o débito antes de montar o
-        // agendamento inteiro. Pet sem responsável principal não tem a quem cobrar.
-        tutorId: pet.tutors.find((link) => link.role === 'PRIMARY')?.tutorId ?? null,
-        // O responsável principal é quem responde pelo agendamento; RN-16 admite
-        // cinco "Mel" no mesmo tenant, e é o nome do tutor que desfaz o empate.
-        tutorName:
-          pet.tutors.find((link) => link.role === 'PRIMARY')?.fullName ?? 'Sem responsável',
-        sizeLabel: pet.size.label,
-      })),
-    }
+    return { ok: true, data: result.data.map(toPetOption) }
   } catch (error) {
     return toFailure(error)
+  }
+}
+
+/**
+ * Um pet só, pelo id — o que chega em `/agenda/novo?petId=`.
+ *
+ * Procurá-lo dentro da busca vazia não serve: ela devolve os oito alterados mais
+ * recentemente, e o pet de quem voltou depois de um mês nunca estava entre eles.
+ */
+export async function getPetOptionAction(petId: string): Promise<ActionResult<PetOption>> {
+  try {
+    return { ok: true, data: toPetOption(await serverApi().getPet(petId)) }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export interface PetOption {
+  id: string
+  name: string
+  tutorId: string | null
+  tutorName: string
+  sizeId: string
+  sizeLabel: string
+}
+
+function toPetOption(pet: PetResponse): PetOption {
+  const primary = pet.tutors.find((link) => link.role === 'PRIMARY')
+  return {
+    id: pet.id,
+    name: pet.name,
+    // O `tutorId` é o que permite consultar o débito antes de montar o
+    // agendamento inteiro. Pet sem responsável principal não tem a quem cobrar.
+    tutorId: primary?.tutorId ?? null,
+    // O responsável principal é quem responde pelo agendamento; RN-16 admite
+    // cinco "Mel" no mesmo tenant, e é o nome do tutor que desfaz o empate.
+    tutorName: primary?.fullName ?? 'Sem responsável',
+    // O preço é por porte: sem o id, a tela só saberia somar o da primeira linha.
+    sizeId: pet.size.id,
+    sizeLabel: pet.size.label,
+  }
+}
+
+/**
+ * Os serviços do último atendimento concluído do pet, no último ano.
+ *
+ * O pet que toma "Banho + Tosa higiênica" todo mês volta pedindo o mesmo: a tela já
+ * oferece a combinação marcada, e a recepção só mexe quando o cliente pede outra
+ * coisa. Falha aqui não é erro — sem sugestão, o passo 2 começa vazio como antes.
+ */
+export async function lastServicesAction(
+  petId: string,
+): Promise<{ serviceIds: string[]; startsAt: string } | null> {
+  try {
+    const now = new Date()
+    const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+    const appointments = await serverApi().listAppointments({
+      petId,
+      status: 'COMPLETED',
+      from: yearAgo.toISOString(),
+      to: now.toISOString(),
+    })
+    // A listagem vem em ordem crescente de início: o último é o mais recente.
+    const last = appointments.at(-1)
+    if (!last) return null
+    return { serviceIds: last.items.map((item) => item.serviceId), startsAt: last.startsAt }
+  } catch {
+    return null
   }
 }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
+import { titleCase } from '@petshop/shared-types'
 import { AlertTriangleIcon, CheckIcon } from './icons'
 
 /**
@@ -21,6 +22,12 @@ import { AlertTriangleIcon, CheckIcon } from './icons'
  * que precisa ser corrigido: um erro que some sozinho em três segundos é um erro que
  * ninguém consegue ler até o fim. O tom `danger` existe para a falha que não tem campo
  * onde morar — e é raro de propósito.
+ *
+ * O texto sai em **Title Case**, como todo título e botão do sistema: a pílula é lida
+ * num relance, como um rótulo, e não como frase. A conversão é feita aqui, na entrada,
+ * para nenhuma tela precisar lembrar dela — `toast('Tutor cadastrado.')` aparece como
+ * "Tutor Cadastrado". O ponto final cai junto, porque rótulo não termina em ponto; a
+ * reticência fica, porque diz que algo continua.
  *
  * `role="status"` e `aria-live="polite"` na região, não em cada aviso: o leitor de tela
  * anuncia o que entra sem interromper o que estava lendo.
@@ -60,7 +67,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const notify = useCallback<Notify>(
     (message, tone = 'success') => {
       const id = nextId.current++
-      setToasts((list) => [...list, { id, message, tone, leaving: false }].slice(-MAX))
+      const label = titleCase(message.trim().replace(/(?<!\.)\.$/, ''))
+      setToasts((list) => [...list, { id, message: label, tone, leaving: false }].slice(-MAX))
       setTimeout(() => dismiss(id), VISIBLE_MS)
     },
     [dismiss],

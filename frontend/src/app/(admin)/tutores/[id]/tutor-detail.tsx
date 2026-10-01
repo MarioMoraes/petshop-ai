@@ -657,7 +657,7 @@ function PetsTab({ tutorId, pets }: { tutorId: string; pets: PetResponse[] }) {
           Nenhum pet vinculado a este tutor. Todo pet nasce com um responsável, então o cadastro do
           animal começa por aqui.
         </p>
-        <ButtonLink href="/pets/novo">Cadastrar pet</ButtonLink>
+        <ButtonLink href={`/pets/novo?tutorId=${tutorId}`}>Cadastrar pet</ButtonLink>
       </Card>
     )
   }
@@ -705,7 +705,7 @@ function PetsTab({ tutorId, pets }: { tutorId: string; pets: PetResponse[] }) {
         })}
       </ul>
 
-      <ButtonLink href="/pets/novo">Cadastrar outro pet</ButtonLink>
+      <ButtonLink href={`/pets/novo?tutorId=${tutorId}`}>Cadastrar outro pet</ButtonLink>
     </div>
   )
 }

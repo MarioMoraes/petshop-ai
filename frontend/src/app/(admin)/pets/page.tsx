@@ -51,7 +51,7 @@ export default async function PetsPage({ searchParams }: PageProps) {
 
       <ListSearch
         basePath="/pets"
-        placeholder="Buscar por nome, raça, cor ou microchip"
+        placeholder="Buscar por pet, tutor, telefone, raça ou microchip"
         ariaLabel="Buscar pets"
         initialQuery={params.q ?? ''}
         filterParam="speciesId"

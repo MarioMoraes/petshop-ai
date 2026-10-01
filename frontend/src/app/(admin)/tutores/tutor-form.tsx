@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -22,6 +22,8 @@ import {
   Segmented,
 } from '@/components/ui'
 import { useToast } from '@/components/toast'
+import { useFocusFirstError } from '@/components/use-focus-first-error'
+import { useLeaveGuard } from '@/components/leave-guard'
 import {
   AlertTriangleIcon,
   CakeIcon,
@@ -121,13 +123,30 @@ export function TutorForm({ tutor, prefill }: Props) {
   const [acknowledged, setAcknowledged] = useState(false)
   const [cepStatus, setCepStatus] = useState<'idle' | 'loading' | 'notfound'>('idle')
 
+  const formRef = useRef<HTMLFormElement>(null)
+  /**
+   * O que o salvar faz depois: abrir a ficha, ou já seguir para o pet do cliente. A ref
+   * é o que o envio lê; o estado só decide qual dos dois botões gira.
+   */
+  const nextStep = useRef<'detail' | 'pet'>('detail')
+  const [busyButton, setBusyButton] = useState<'detail' | 'pet'>('detail')
+  /** O último CEP consultado — completar os 8 dígitos e sair do campo não buscam duas vezes. */
+  const lastCep = useRef('')
+
   const fieldErrors = result?.ok === false ? result.fieldErrors : {}
+  useFocusFirstError(formRef, result?.ok === false ? result : null)
+  const { release, guard } = useLeaveGuard(formRef, 'icon-people')
 
   // ─── CEP ───────────────────────────────────────────────────────────────────
 
-  function handleCepBlur() {
-    const digits = address.zipCode.replace(/\D/g, '')
-    if (digits.length !== 8) return
+  /**
+   * Busca ao completar o oitavo dígito, sem esperar o Tab; achado o endereço, o cursor
+   * pula para o Número, que é o único campo da linha que o CEP não sabe.
+   */
+  function lookupCep(zipCode: string) {
+    const digits = zipCode.replace(/\D/g, '')
+    if (digits.length !== 8 || digits === lastCep.current) return
+    lastCep.current = digits
 
     setCepStatus('loading')
     void lookupCepAction(digits).then((found) => {
@@ -145,6 +164,8 @@ export function TutorForm({ tutor, prefill }: Props) {
         city: found.city,
         state: found.state,
       }))
+      // `window.document`: `document` aqui é o CPF/CNPJ do estado do formulário.
+      window.document.getElementById(found.street ? 'number' : 'street')?.focus()
     })
   }
 
@@ -221,7 +242,14 @@ export function TutorForm({ tutor, prefill }: Props) {
       }
 
       toast(isEditing ? 'Cadastro atualizado.' : 'Tutor cadastrado.')
-      router.push(`/tutores/${response.data.id}`)
+      // Cliente novo quase sempre chega com o pet: seguir direto para o cadastro dele,
+      // já com este tutor como responsável, poupa a volta pela ficha e a nova busca.
+      release()
+      router.push(
+        nextStep.current === 'pet'
+          ? `/pets/novo?tutorId=${response.data.id}`
+          : `/tutores/${response.data.id}`,
+      )
     })
   }
 
@@ -230,7 +258,7 @@ export function TutorForm({ tutor, prefill }: Props) {
   const visibleDuplicates = serverDuplicates ?? candidates
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5" noValidate>
       {result?.ok === false && !blockingConflict && !serverDuplicates && (
         <FormError message={result.message} />
       )}
@@ -307,6 +335,7 @@ export function TutorForm({ tutor, prefill }: Props) {
             onChange={(event) => setFullName(event.target.value)}
             onBlur={handleNameBlur}
             aria-invalid={Boolean(fieldErrors.fullName)}
+            autoFocus={!isEditing}
             required
           />
         </Field>
@@ -451,10 +480,12 @@ export function TutorForm({ tutor, prefill }: Props) {
                   className="field pr-10"
                   inputMode="numeric"
                   value={formatCEP(address.zipCode)}
-                  onChange={(event) =>
-                    setAddress({ ...address, zipCode: event.target.value.replace(/\D/g, '') })
-                  }
-                  onBlur={handleCepBlur}
+                  onChange={(event) => {
+                    const zipCode = event.target.value.replace(/\D/g, '').slice(0, 8)
+                    setAddress({ ...address, zipCode })
+                    lookupCep(zipCode)
+                  }}
+                  onBlur={() => lookupCep(address.zipCode)}
                 />
                 {cepStatus === 'loading' && (
                   <span className="field-tail text-subtle" aria-label="Buscando endereço">
@@ -593,10 +624,39 @@ export function TutorForm({ tutor, prefill }: Props) {
         <ButtonLink href={isEditing ? `/tutores/${tutor.id}` : '/tutores'} variant="ghost">
           Cancelar
         </ButtonLink>
-        <Button type="submit" busy={pending} busyLabel="Salvando…">
+        {/*
+          `type="button"` de propósito: o Enter num campo envia pelo primeiro botão de
+          envio do formulário, e o caminho do Enter tem de continuar sendo o de sempre.
+        */}
+        {!isEditing && (
+          <Button
+            busy={pending && busyButton === 'pet'}
+            disabled={pending}
+            busyLabel="Salvando…"
+            onClick={() => {
+              nextStep.current = 'pet'
+              setBusyButton('pet')
+              formRef.current?.requestSubmit()
+            }}
+          >
+            Cadastrar e adicionar pet
+          </Button>
+        )}
+        <Button
+          type="submit"
+          busy={pending && busyButton === 'detail'}
+          disabled={pending}
+          busyLabel="Salvando…"
+          onClick={() => {
+            nextStep.current = 'detail'
+            setBusyButton('detail')
+          }}
+        >
           {isEditing ? 'Salvar alterações' : 'Cadastrar tutor'}
         </Button>
       </FormActions>
+
+      {guard}
     </form>
   )
 }

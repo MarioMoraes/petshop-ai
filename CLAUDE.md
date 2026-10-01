@@ -15,7 +15,8 @@ O resumo que mais importa:
   `Modal`, `EmptyState`) aplicam `titleCase` sozinhas; `<h1>`–`<h3>` à mão chama a função;
   **botão também**: `Button`, `ButtonLink`, `Segmented` e o filtro em pílula convertem o
   rótulo (`components/title-case-node.ts`), e `<button>` à mão escreve o rótulo já em
-  Title Case — no app, `BotaoPrincipal`/`BotaoFlutuante` convertem sozinhos;
+  Title Case — no app, `BotaoPrincipal`/`BotaoFlutuante` convertem sozinhos; o **toast**
+  (`components/toast.tsx`) também converte, e tira o ponto final;
 - um tom de ícone por formulário de **um** assunto, o do domínio no menu lateral; tela
   que reúne assuntos (Configurações, Integrações) pinta cada cartão na cor do seu, como
   o menu;

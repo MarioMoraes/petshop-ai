@@ -1,5 +1,10 @@
-import { Prisma, type TenantTransaction } from '@petshop/db'
-import type { ListPetsQuery } from '@petshop/shared-types'
+import { hashSearchable, Prisma, type TenantTransaction } from '@petshop/db'
+import {
+  isValidPhoneBR,
+  normalizePhoneBR,
+  TUTOR_PHONE_HASH_NAMESPACE,
+  type ListPetsQuery,
+} from '@petshop/shared-types'
 import { hashMicrochip } from './crypto.js'
 
 /**
@@ -9,11 +14,15 @@ import { hashMicrochip } from './crypto.js'
  *   1. **15 dígitos** — é microchip. Vira hash e bate no índice único parcial. `LIKE`
  *      sobre texto cifrado não funcionaria: o mesmo número cifra diferente a cada
  *      gravação.
- *   2. **Texto** — `websearch_to_tsquery` sobre o `search_vector` (nome em 'A', raça
+ *   2. **Telefone** — é o do tutor. Vira o hash do MOD-TUTOR (o namespace é público, em
+ *      `shared-types`) e bate em `phone_hash`/`phone_alt_hash` pelo vínculo vivo.
+ *   3. **Texto** — `websearch_to_tsquery` sobre o `search_vector` (nome em 'A', raça
  *      em 'B', cor em 'C'), somado a similaridade trigram no nome. RN-16 admite cinco
  *      "Mel" no mesmo tenant, então a desambiguação é da UI; a busca só precisa
- *      trazer as cinco.
- *   3. **Vazio ou curto** — lista padrão por `updated_at DESC`.
+ *      trazer as cinco. O texto também casa com o **nome do tutor**: no balcão o
+ *      cliente se apresenta ("sou a Maria"), e o pet dele precisa aparecer. A ordem
+ *      põe o nome do pet na frente — quem casou só pelo tutor vem depois.
+ *   4. **Vazio ou curto** — lista padrão por `updated_at DESC`.
  *
  * Nada é concatenado no SQL: o texto vai por parâmetro e passa por
  * `websearch_to_tsquery`, que trata `&`, `|`, `!` e `:` como texto comum.
@@ -26,6 +35,7 @@ export interface SearchResult {
 
 type QueryShape =
   | { kind: 'microchip'; hash: string }
+  | { kind: 'phone'; hash: string }
   | { kind: 'text'; value: string }
   | { kind: 'none' }
 
@@ -38,6 +48,15 @@ export function classifyQuery(raw: string | undefined): QueryShape {
   // solto continua sendo busca por nome.
   if (digits.length === 15 && digits.length === term.replace(/[\s.-]/g, '').length) {
     return { kind: 'microchip', hash: hashMicrochip(digits) }
+  }
+
+  // Mesmo critério do MOD-TUTOR: telefone só quando o texto é essencialmente numérico.
+  const mostlyDigits = digits.length >= term.replace(/[\s.\-/()+]/g, '').length
+  if (mostlyDigits && isValidPhoneBR(term)) {
+    return {
+      kind: 'phone',
+      hash: hashSearchable(TUTOR_PHONE_HASH_NAMESPACE, normalizePhoneBR(term)),
+    }
   }
 
   return { kind: 'text', value: term }
@@ -100,10 +119,31 @@ function buildWhere(query: ListPetsQuery, shape: QueryShape): Prisma.Sql {
     case 'microchip':
       conditions.push(Prisma.sql`p."microchip_hash" = ${shape.hash}`)
       break
+    case 'phone':
+      conditions.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM "pet_tutors" pt
+        JOIN "tutors" t ON t."id" = pt."tutor_id"
+        WHERE pt."pet_id" = p."id"
+          AND pt."unlinked_at" IS NULL
+          AND t."deleted_at" IS NULL
+          AND (t."phone_hash" = ${shape.hash} OR t."phone_alt_hash" = ${shape.hash})
+      )`)
+      break
     case 'text':
       conditions.push(Prisma.sql`(
         p."search_vector" @@ websearch_to_tsquery('portuguese', unaccent(${shape.value}))
         OR p."name" % ${shape.value}
+        OR EXISTS (
+          SELECT 1 FROM "pet_tutors" pt
+          JOIN "tutors" t ON t."id" = pt."tutor_id"
+          WHERE pt."pet_id" = p."id"
+            AND pt."unlinked_at" IS NULL
+            AND t."deleted_at" IS NULL
+            AND (
+              t."search_vector" @@ websearch_to_tsquery('portuguese', unaccent(${shape.value}))
+              OR t."full_name" % ${shape.value}
+            )
+        )
       )`)
       break
     case 'none':

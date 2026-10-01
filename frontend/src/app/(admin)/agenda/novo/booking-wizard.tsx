@@ -14,8 +14,11 @@ import {
   availabilityAction,
   createAppointmentAction,
   creditCheckAction,
+  getPetOptionAction,
+  lastServicesAction,
   searchPetsAction,
   type ActionFailure,
+  type PetOption,
 } from '../actions'
 
 /**
@@ -35,14 +38,6 @@ interface Props {
   professionals: ProfessionalResponse[]
   initialDate: string
   initialPetId: string | null
-}
-
-interface PetOption {
-  id: string
-  name: string
-  tutorId: string | null
-  tutorName: string
-  sizeLabel: string
 }
 
 interface Slot {
@@ -82,6 +77,26 @@ function dayLabel(iso: string, timezone: string): string {
   })
 }
 
+function shortDate(iso: string, timezone: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: timezone,
+  })
+}
+
+/** `YYYY-MM-DD` + n dias, sem passar por fuso: é aritmética de calendário. */
+function addDays(key: string, days: number): string {
+  const date = new Date(`${key}T12:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+/** 0 = domingo … 6 = sábado, do dia civil. */
+function weekday(key: string): number {
+  return new Date(`${key}T12:00:00.000Z`).getUTCDay()
+}
+
 /** O dia civil de um instante, no fuso do petshop — a chave do seletor de data. */
 function dayKey(iso: string, timezone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -110,7 +125,31 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
   const [notes, setNotes] = useState('')
   const [failure, setFailure] = useState<ActionFailure | null>(null)
   const [overrideReason, setOverrideReason] = useState('')
+  /** Data do atendimento de onde veio a sugestão de serviços; some quando a recepção mexe. */
+  const [suggestedFrom, setSuggestedFrom] = useState<string | null>(null)
   const slotsRequestId = useRef(0)
+  /** A recepção já mexeu nos serviços deste pet: a sugestão atrasada não a atropela. */
+  const servicesTouched = useRef(false)
+
+  // O pet escolhido traz os serviços do último atendimento já marcados.
+  useEffect(() => {
+    servicesTouched.current = false
+    setSuggestedFrom(null)
+    if (!pet) return
+    let active = true
+    void lastServicesAction(pet.id).then((last) => {
+      if (!active || !last || servicesTouched.current) return
+      const activeIds = new Set(services.filter((item) => item.active).map((item) => item.id))
+      const ids = last.serviceIds.filter((id) => activeIds.has(id))
+      if (ids.length === 0) return
+      setServiceIds(ids)
+      setSuggestedFrom(last.startsAt)
+    })
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pet?.id])
 
   const activeServices = services.filter((service) => service.active)
   const chosenServices = activeServices.filter((service) => serviceIds.includes(service.id))
@@ -192,10 +231,15 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
     })
   }
 
-  const total = chosenServices.reduce((sum, service) => {
-    const price = service.pricing[0]?.priceCents ?? 0
-    return sum + price
-  }, 0)
+  // O preço é a linha do porte **deste** pet. Com o horário escolhido, vale o que o
+  // servidor calculou para ele — é o mesmo número que vai ser lançado.
+  const total =
+    chosen?.priceCents ??
+    chosenServices.reduce(
+      (sum, service) =>
+        sum + (service.pricing.find((item) => item.sizeId === pet?.sizeId)?.priceCents ?? 0),
+      0,
+    )
 
   return (
     <div className="space-y-4">
@@ -239,17 +283,25 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
                       ? 'border-accent bg-accent/10 text-fg'
                       : 'border-line text-subtle hover:text-fg'
                   }`}
-                  onClick={() =>
+                  onClick={() => {
+                    servicesTouched.current = true
+                    setSuggestedFrom(null)
                     setServiceIds((current) =>
                       on ? current.filter((id) => id !== service.id) : [...current, service.id],
                     )
-                  }
+                  }}
                 >
                   {service.name}
                 </button>
               )
             })}
           </div>
+          {suggestedFrom && (
+            <p className="hint mt-3">
+              Os mesmos do último atendimento, em {shortDate(suggestedFrom, timezone)}. Ajuste se o
+              cliente pedir outra coisa.
+            </p>
+          )}
           {activeServices.length === 0 && (
             <p className="hint mt-3">
               Nenhum serviço ativo. Cadastre um em Serviços antes de agendar.
@@ -273,6 +325,8 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
                 onChange={(event) => setDate(event.target.value)}
               />
             </Field>
+
+            <DayShortcuts date={date} timezone={timezone} onPick={setDate} />
 
             <Field label="Profissional" htmlFor="agenda-prof">
               <select
@@ -302,29 +356,13 @@ export function BookingWizard({ services, professionals, initialDate, initialPet
             {pending && slots === null ? (
               <p className="hint">Procurando horários…</p>
             ) : slots && slots.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {slots.map((slot) => {
-                  const on =
-                    chosen?.startsAt === slot.startsAt &&
-                    chosen.professionalId === slot.professionalId
-                  return (
-                    <button
-                      key={`${slot.professionalId}-${slot.startsAt}`}
-                      type="button"
-                      aria-pressed={on}
-                      className={`rounded-2xl border px-3 py-2 text-sm transition-colors ${
-                        on ? 'border-accent bg-accent/10' : 'border-line hover:border-accent/50'
-                      }`}
-                      onClick={() => setChosen(slot)}
-                    >
-                      <span className="font-medium">{hour(slot.startsAt, timezone)}</span>
-                      {!professionalId && (
-                        <span className="hint block text-xs">{slot.professionalName}</span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
+              <SlotGrid
+                slots={slots}
+                chosen={chosen}
+                showProfessionals={!professionalId}
+                timezone={timezone}
+                onChoose={setChosen}
+              />
             ) : (
               <div className="hint">
                 <p>Nenhum horário livre neste dia.</p>
@@ -524,6 +562,150 @@ function GateBanner({
 
 // ─── Peças ───────────────────────────────────────────────────────────────────
 
+const PILL = 'rounded-full border px-3 py-1.5 text-sm transition-colors'
+const PILL_ON = 'border-accent bg-accent/10 text-fg'
+const PILL_OFF = 'border-line text-subtle hover:text-fg'
+
+/**
+ * Hoje, Amanhã e o próximo sábado — os três dias que o balcão mais marca, a um toque.
+ * O calendário nativo continua ao lado para o resto. "Hoje" é o dia **do petshop**.
+ */
+function DayShortcuts({
+  date,
+  timezone,
+  onPick,
+}: {
+  date: string
+  timezone: string
+  onPick: (date: string) => void
+}) {
+  const today = dayKey(new Date().toISOString(), timezone)
+  const shortcuts = [
+    { label: 'Hoje', value: today },
+    { label: 'Amanhã', value: addDays(today, 1) },
+  ]
+  const untilSaturday = (6 - weekday(today) + 7) % 7
+  // Sábado só quando não é hoje nem amanhã — aí ele já está na fila com o próprio nome.
+  if (untilSaturday > 1) shortcuts.push({ label: 'Sábado', value: addDays(today, untilSaturday) })
+
+  return (
+    <div className="flex flex-wrap gap-2 pb-1" role="group" aria-label="Atalhos de dia">
+      {shortcuts.map((item) => (
+        <button
+          key={item.label}
+          type="button"
+          aria-pressed={date === item.value}
+          className={`${PILL} ${date === item.value ? PILL_ON : PILL_OFF}`}
+          onClick={() => onPick(item.value)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * A grade do dia, um botão por **horário** e agrupada por período.
+ *
+ * O servidor devolve um slot por par horário × profissional; com "Qualquer um
+ * disponível", desenhar cada par era uma parede de botões em que o mesmo 10:00
+ * aparecia quatro vezes. Aqui o horário aparece uma vez, e quem atende se escolhe
+ * depois, numa linha só — já com o primeiro livre marcado, que é o "qualquer um".
+ */
+function SlotGrid({
+  slots,
+  chosen,
+  showProfessionals,
+  timezone,
+  onChoose,
+}: {
+  slots: Slot[]
+  chosen: Slot | null
+  showProfessionals: boolean
+  timezone: string
+  onChoose: (slot: Slot) => void
+}) {
+  const byStart = new Map<string, Slot[]>()
+  for (const slot of slots) {
+    const group = byStart.get(slot.startsAt)
+    if (group) group.push(slot)
+    else byStart.set(slot.startsAt, [slot])
+  }
+
+  const periods = [
+    { label: 'Manhã', starts: [] as string[] },
+    { label: 'Tarde', starts: [] as string[] },
+    { label: 'Noite', starts: [] as string[] },
+  ]
+  for (const startsAt of [...byStart.keys()].sort()) {
+    const h = Number(hour(startsAt, timezone).slice(0, 2))
+    periods[h < 12 ? 0 : h < 18 ? 1 : 2]!.starts.push(startsAt)
+  }
+
+  const sameHour = chosen ? (byStart.get(chosen.startsAt) ?? []) : []
+
+  return (
+    <div className="space-y-4">
+      {periods
+        .filter((period) => period.starts.length > 0)
+        .map((period) => (
+          <div key={period.label}>
+            <p className="hint mb-2 text-xs font-medium uppercase tracking-wide">{period.label}</p>
+            <div className="flex flex-wrap gap-2">
+              {period.starts.map((startsAt) => {
+                const group = byStart.get(startsAt)!
+                const on = chosen?.startsAt === startsAt
+                return (
+                  <button
+                    key={startsAt}
+                    type="button"
+                    aria-pressed={on}
+                    className={`rounded-2xl border px-3 py-2 text-sm transition-colors ${
+                      on ? 'border-accent bg-accent/10' : 'border-line hover:border-accent/50'
+                    }`}
+                    onClick={() => {
+                      if (!on) onChoose(group[0]!)
+                    }}
+                  >
+                    <span className="font-medium">{hour(startsAt, timezone)}</span>
+                    {showProfessionals && (
+                      <span className="hint block text-xs">
+                        {group.length === 1 ? group[0]!.professionalName : `${group.length} livres`}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+
+      {showProfessionals && chosen && sameHour.length > 1 && (
+        <div>
+          <p className="hint mb-2">Com quem, às {hour(chosen.startsAt, timezone)}:</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Profissional">
+            {sameHour.map((slot) => {
+              const on = slot.professionalId === chosen.professionalId
+              return (
+                <button
+                  key={slot.professionalId}
+                  type="button"
+                  aria-pressed={on}
+                  className={`${PILL} ${on ? PILL_ON : PILL_OFF}`}
+                  onClick={() => onChoose(slot)}
+                >
+                  {slot.professionalName}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StepTitle({ n, title, done }: { n: number; title: string; done: boolean }) {
   return (
     <div className="flex items-center gap-2">
@@ -585,11 +767,8 @@ function PetPicker({
   useEffect(() => {
     if (!initialPetId) return
     startTransition(async () => {
-      const result = await searchPetsAction('')
-      if (result.ok) {
-        const found = result.data.find((pet) => pet.id === initialPetId)
-        if (found) onPick(found)
-      }
+      const result = await getPetOptionAction(initialPetId)
+      if (result.ok) onPick(result.data)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPetId])
@@ -598,7 +777,7 @@ function PetPicker({
     <div className="mt-3">
       <input
         className="field"
-        placeholder="Buscar pet por nome…"
+        placeholder="Pet, tutor ou telefone…"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         aria-label="Buscar pet"

@@ -277,6 +277,27 @@ gruda no cartão, não na tela.
 
 ---
 
+## Praticidade no balcão
+
+O visual acima diz como o formulário **parece**; isto diz como ele **anda**, com o
+cliente na frente. Vale para todo cadastro de página inteira.
+
+- **Cursor no primeiro campo** ao abrir um cadastro novo (`autoFocus`, nunca na edição).
+- **Nada de botão cinza mudo.** O envio valida no cliente e devolve o que falta pelo
+  mesmo `fieldErrors` do servidor; o botão de gravar só trava enquanto grava.
+- **O erro leva ao campo:** `useFocusFirstError(formRef, falha)`
+  (`components/use-focus-first-error.ts`) rola até o primeiro `aria-invalid` e põe o
+  cursor nele. O sinal é o objeto da falha, nunca um `{}` recriado a cada render.
+- **Sair pela metade pergunta:** `useLeaveGuard(formRef, tom)`
+  (`components/leave-guard.tsx`) acorda na primeira tecla, intercepta link interno e
+  `beforeunload`; quem grava chama `release()` antes do `router.push` do sucesso.
+- **Uma tela leva à seguinte.** Quem chega de um registro traz o contexto na URL
+  (`/pets/novo?tutorId=`, `/agenda/novo?petId=`) e a tela o usa; o tutor novo tem
+  "Cadastrar e adicionar pet". Botão extra no `<FormActions>` é `type="button"` com
+  `requestSubmit()`, para o Enter continuar no caminho de sempre.
+- **Duas ou três opções exclusivas são `<Segmented>`** também no meio da ficha (sexo,
+  castrado), e não `<select>`.
+
 ## Telas de leitura: listagem e ficha
 
 Não são formulário, mas usam as mesmas peças.

@@ -63,6 +63,8 @@ export default async function PetPage({ params }: PageProps) {
   ])
 
   const canUpdate = me.permissions.includes('pet:update')
+  const canBook = me.permissions.includes('schedule:write_all')
+  const editable = pet.status !== 'DECEASED' && pet.status !== 'TRANSFERRED_OUT'
   const primary = pet.tutors.find((tutor) => tutor.role === 'PRIMARY') ?? pet.tutors[0]
 
   return (
@@ -91,11 +93,17 @@ export default async function PetPage({ params }: PageProps) {
           .filter(Boolean)
           .join(' · ')}
         actions={
-          // Falecido e transferido não se editam — é a mesma regra que a aba Dados seguia.
-          canUpdate &&
-          pet.status !== 'DECEASED' &&
-          pet.status !== 'TRANSFERRED_OUT' && (
-            <ButtonLink href={`/pets/${pet.id}/editar`}>Editar</ButtonLink>
+          // Falecido e transferido não se editam nem se agendam — é a mesma regra que a
+          // aba Dados seguia. "Marcar horário" leva o pet já escolhido: é daqui que a
+          // recepção sai quando o cliente pede o próximo banho no balcão.
+          editable &&
+          (canUpdate || canBook) && (
+            <>
+              {canBook && pet.status === 'ACTIVE' && (
+                <ButtonLink href={`/agenda/novo?petId=${pet.id}`}>Marcar horário</ButtonLink>
+              )}
+              {canUpdate && <ButtonLink href={`/pets/${pet.id}/editar`}>Editar</ButtonLink>}
+            </>
           )
         }
         facts={[

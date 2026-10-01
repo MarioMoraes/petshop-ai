@@ -380,6 +380,34 @@ describe('MOD-PET-01 — busca e listagem', () => {
     expect(gatos.json().total).toBe(1)
   })
 
+  it('encontra o pet pelo nome e pelo telefone do tutor', async () => {
+    // No balcão o cliente se apresenta — "sou a Joana, 11 98765-4321" —, e o pet dele
+    // tem de aparecer sem que ninguém lembre o nome do animal.
+    const joana = await givenTutor(tenant, 'Joana Prado', '+5511987654321')
+    await createPet(petPayload({ name: 'Bidu', tutors: [{ tutorId: joana, role: 'PRIMARY' }] }))
+    await createPet(petPayload({ name: 'Rex' }))
+
+    const byTutorName = await callApi({ ...asAdmin(tenant), method: 'GET', url: '/v1/pets?q=joana' })
+    expect(byTutorName.json().data.map((pet: { name: string }) => pet.name)).toEqual(['Bidu'])
+
+    const byPhone = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: `/v1/pets?q=${encodeURIComponent('(11) 98765-4321')}`,
+    })
+    expect(byPhone.json().total).toBe(1)
+    expect(byPhone.json().data[0].name).toBe('Bidu')
+  })
+
+  it('põe quem casou pelo nome do pet antes de quem casou só pelo tutor', async () => {
+    const thor = await givenTutor(tenant, 'Thor Almeida')
+    await createPet(petPayload({ name: 'Pipoca', tutors: [{ tutorId: thor, role: 'PRIMARY' }] }))
+    await createPet(petPayload({ name: 'Thor' }))
+
+    const response = await callApi({ ...asAdmin(tenant), method: 'GET', url: '/v1/pets?q=thor' })
+    expect(response.json().data.map((pet: { name: string }) => pet.name)).toEqual(['Thor', 'Pipoca'])
+  })
+
   it('trata operador de tsquery como texto comum', async () => {
     await createPet()
 

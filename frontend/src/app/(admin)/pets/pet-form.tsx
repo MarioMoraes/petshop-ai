@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type {
   Breed,
@@ -22,6 +22,8 @@ import {
   Segmented,
 } from '@/components/ui'
 import { useToast } from '@/components/toast'
+import { useFocusFirstError } from '@/components/use-focus-first-error'
+import { useLeaveGuard } from '@/components/leave-guard'
 import {
   AlertTriangleIcon,
   CakeIcon,
@@ -61,6 +63,8 @@ interface Props {
   /** Raças da espécie já selecionada; vazio no cadastro novo. */
   initialBreeds?: Breed[]
   pet?: PetResponse
+  /** Quem chega da ficha do tutor já sabe de quem é o pet: ele entra como principal. */
+  initialTutor?: TutorOption
 }
 
 /** Responsável em montagem, antes do pet existir. */
@@ -84,7 +88,22 @@ const AGE_MODES = [
   { value: 'estimated', label: 'Sei a idade aproximada' },
 ] as const satisfies readonly { value: AgeMode; label: string }[]
 
-export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Props) {
+/** Três opções exclusivas são `<Segmented>`, não um `<select>` de dois cliques. */
+const SEXES = [
+  { value: 'UNKNOWN', label: 'Não informado' },
+  { value: 'MALE', label: 'Macho' },
+  { value: 'FEMALE', label: 'Fêmea' },
+] as const satisfies readonly { value: PetSex; label: string }[]
+
+type Neutered = 'unknown' | 'yes' | 'no'
+
+const NEUTERED = [
+  { value: 'unknown', label: 'Não informado' },
+  { value: 'yes', label: 'Sim' },
+  { value: 'no', label: 'Não' },
+] as const satisfies readonly { value: Neutered; label: string }[]
+
+export function PetForm({ species, sizes, coats, initialBreeds = [], pet, initialTutor }: Props) {
   const router = useRouter()
   const toast = useToast()
   const isEditing = pet !== undefined
@@ -101,9 +120,19 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
 
   const [ageMode, setAgeMode] = useState<AgeMode>(initialAgeMode(pet))
   const [birthDate, setBirthDate] = useState(pet?.birthDate ?? '')
-  const [estimatedAgeMonths, setEstimatedAgeMonths] = useState(
-    pet?.birthDatePrecision === 'ESTIMATED' ? String(pet.ageMonths ?? '') : '',
+  // Idade aproximada em anos e meses: "uns 2 anos e meio" é como o tutor responde, e
+  // a conta para meses é da tela, não de quem está no balcão.
+  const initialMonths = pet?.birthDatePrecision === 'ESTIMATED' ? pet.ageMonths : null
+  const [estimatedYears, setEstimatedYears] = useState(
+    initialMonths == null ? '' : String(Math.floor(initialMonths / 12)),
   )
+  const [estimatedMonths, setEstimatedMonths] = useState(
+    initialMonths == null ? '' : String(initialMonths % 12),
+  )
+  const estimatedAgeMonths =
+    estimatedYears === '' && estimatedMonths === ''
+      ? null
+      : Number(estimatedYears || 0) * 12 + Number(estimatedMonths || 0)
 
   const [weightKg, setWeightKg] = useState(
     pet?.weightKg === null ? '' : String(pet?.weightKg ?? ''),
@@ -112,10 +141,25 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
   const [microchip, setMicrochip] = useState('')
   const [notes, setNotes] = useState(pet?.notes ?? '')
 
-  const [tutors, setTutors] = useState<TutorDraft[]>([])
+  const [tutors, setTutors] = useState<TutorDraft[]>(
+    initialTutor
+      ? [
+          {
+            tutorId: initialTutor.id,
+            displayName: initialTutor.displayName,
+            phoneMasked: initialTutor.phoneMasked,
+            role: 'PRIMARY',
+            relationship: '',
+          },
+        ]
+      : [],
+  )
   const [result, setResult] = useState<ActionResult<PetResponse> | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
   const fieldErrors = result?.ok === false ? result.fieldErrors : {}
+  useFocusFirstError(formRef, result?.ok === false ? result : null)
+  const { release, guard } = useLeaveGuard(formRef, 'icon-pet')
 
   // ─── Catálogo encadeado ────────────────────────────────────────────────────
 
@@ -195,24 +239,40 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
     ageMode === 'exact'
       ? { birthDate: birthDate || undefined }
       : ageMode === 'estimated'
-        ? { estimatedAgeMonths: estimatedAgeMonths === '' ? undefined : Number(estimatedAgeMonths) }
+        ? { estimatedAgeMonths: estimatedAgeMonths ?? undefined }
         : {}
 
   const missingAge = ageMode === 'unknown' || Object.values(ageFields)[0] === undefined
 
   /**
+   * O que falta, apontado no campo — e não um botão cinza que não diz por quê.
+   *
    * O cadastro exige idade e ao menos um responsável; a edição, não. `UpdatePetSchema`
-   * é inteiramente parcial, e travar o botão porque o pet foi cadastrado sem data de
-   * nascimento impediria corrigir até o nome dele.
+   * é inteiramente parcial, e exigir a data de nascimento de um pet cadastrado sem ela
+   * impediria corrigir até o nome dele.
    */
-  const canSubmit =
-    name.trim().length > 0 &&
-    speciesId !== '' &&
-    sizeId !== '' &&
-    (isEditing || (!missingAge && tutors.length > 0))
+  function missingFields(): Record<string, string> {
+    const errors: Record<string, string> = {}
+    if (!name.trim()) errors.name = 'Informe o nome do pet.'
+    if (!speciesId) errors.speciesId = 'Escolha a espécie.'
+    if (!sizeId) errors.sizeId = 'Escolha o porte.'
+    if (!isEditing && missingAge) {
+      errors[ageMode === 'estimated' ? 'estimatedAgeMonths' : 'birthDate'] =
+        ageMode === 'estimated' ? 'Informe a idade aproximada.' : 'Informe a data de nascimento.'
+    }
+    if (!isEditing && tutors.length === 0) errors.tutors = 'Escolha o responsável principal.'
+    return errors
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+
+    const missing = missingFields()
+    if (Object.keys(missing).length > 0) {
+      // Sem `message`: o aviso é o campo apontado, e o foco já vai até ele.
+      setResult({ ok: false, message: '', fieldErrors: missing })
+      return
+    }
     setResult(null)
 
     startTransition(async () => {
@@ -232,10 +292,7 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
             ...(ageMode === 'exact'
               ? { birthDate: birthDate || null }
               : ageMode === 'estimated'
-                ? {
-                    estimatedAgeMonths:
-                      estimatedAgeMonths === '' ? null : Number(estimatedAgeMonths),
-                  }
+                ? { estimatedAgeMonths }
                 : { birthDate: null }),
           })
         : await createPetAction({
@@ -264,6 +321,7 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
       // onde o cadastro leva — não há o que confirmar aqui.
       if (response.ok) {
         toast(isEditing ? 'Cadastro atualizado.' : 'Pet cadastrado.')
+        release()
         router.push(`/pets/${response.data.id}`)
       }
     })
@@ -272,7 +330,7 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
   const conflict = result?.ok === false ? result.existingPet : undefined
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5" noValidate>
       {result?.ok === false && !conflict && <FormError message={result.message} />}
 
       {conflict && (
@@ -305,6 +363,7 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={60}
+            autoFocus={!isEditing}
             aria-invalid={Boolean(fieldErrors.name)}
             required
           />
@@ -400,16 +459,7 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Sexo" htmlFor="sex" error={fieldErrors.sex}>
-            <select
-              id="sex"
-              className="field"
-              value={sex}
-              onChange={(event) => setSex(event.target.value as PetSex)}
-            >
-              <option value="UNKNOWN">Não informado</option>
-              <option value="MALE">Macho</option>
-              <option value="FEMALE">Fêmea</option>
-            </select>
+            <Segmented ariaLabel="Sexo" options={SEXES} value={sex} onChange={setSex} />
           </Field>
 
           <Field label="Cor / pelagem visível" htmlFor="color" error={fieldErrors.color}>
@@ -458,17 +508,30 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
             label="Idade aproximada"
             htmlFor="estimatedAgeMonths"
             error={fieldErrors.estimatedAgeMonths}
-            hint="Em meses. Um pet de 2 anos são 24 meses."
           >
             <div className="flex items-center gap-2">
               <input
                 id="estimatedAgeMonths"
                 type="number"
-                className="field w-32"
+                inputMode="numeric"
+                className="field w-24"
                 min={0}
-                max={360}
-                value={estimatedAgeMonths}
-                onChange={(event) => setEstimatedAgeMonths(event.target.value)}
+                max={30}
+                value={estimatedYears}
+                onChange={(event) => setEstimatedYears(event.target.value)}
+                aria-invalid={Boolean(fieldErrors.estimatedAgeMonths)}
+                aria-label="Anos"
+              />
+              <span className="hint">anos</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                className="field ml-2 w-24"
+                min={0}
+                max={11}
+                value={estimatedMonths}
+                onChange={(event) => setEstimatedMonths(event.target.value)}
+                aria-label="Meses"
               />
               <span className="hint">meses</span>
             </div>
@@ -511,18 +574,12 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
           </Field>
 
           <Field label="Castrado" htmlFor="neutered">
-            <select
-              id="neutered"
-              className="field"
-              value={neutered === null ? '' : String(neutered)}
-              onChange={(event) =>
-                setNeutered(event.target.value === '' ? null : event.target.value === 'true')
-              }
-            >
-              <option value="">Não informado</option>
-              <option value="true">Sim</option>
-              <option value="false">Não</option>
-            </select>
+            <Segmented
+              ariaLabel="Castrado"
+              options={NEUTERED}
+              value={neutered === null ? 'unknown' : neutered ? 'yes' : 'no'}
+              onChange={(value) => setNeutered(value === 'unknown' ? null : value === 'yes')}
+            />
           </Field>
         </div>
 
@@ -661,10 +718,12 @@ export function PetForm({ species, sizes, coats, initialBreeds = [], pet }: Prop
         <ButtonLink href={isEditing ? `/pets/${pet.id}` : '/pets'} variant="ghost">
           Cancelar
         </ButtonLink>
-        <Button type="submit" busy={pending} disabled={!canSubmit} busyLabel="Salvando…">
+        <Button type="submit" busy={pending} busyLabel="Salvando…">
           {isEditing ? 'Salvar alterações' : 'Cadastrar pet'}
         </Button>
       </FormActions>
+
+      {guard}
     </form>
   )
 }

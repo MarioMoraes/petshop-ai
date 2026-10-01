@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   formatCentsInput,
@@ -22,6 +22,8 @@ import {
   Segmented,
 } from '@/components/ui'
 import { useToast } from '@/components/toast'
+import { useFocusFirstError } from '@/components/use-focus-first-error'
+import { useLeaveGuard } from '@/components/leave-guard'
 import { PackageIcon, ScaleIcon, WalletIcon } from '@/components/icons'
 import { ButtonLink } from '@/components/links'
 import { createProductAction, updateProductAction, type ActionFailure } from './actions'
@@ -87,6 +89,9 @@ export function ProductForm({ product }: { product?: ProductDetailResponse }) {
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
 
   const fieldErrors = { ...(failure?.fieldErrors ?? {}), ...localErrors }
+  const formRef = useRef<HTMLFormElement>(null)
+  useFocusFirstError(formRef, failure ?? (Object.keys(localErrors).length > 0 ? localErrors : null))
+  const { release, guard } = useLeaveGuard(formRef, 'icon-money')
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -126,12 +131,13 @@ export function ProductForm({ product }: { product?: ProductDetailResponse }) {
         return
       }
       toast(isEditing ? 'Produto atualizado.' : 'Produto cadastrado.')
+      release()
       router.push(`/estoque/${response.data.id}`)
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5" noValidate>
       {failure && Object.keys(failure.fieldErrors).length === 0 && (
         <FormError message={failure.message} />
       )}
@@ -308,6 +314,8 @@ export function ProductForm({ product }: { product?: ProductDetailResponse }) {
           {isEditing ? 'Salvar alterações' : 'Cadastrar produto'}
         </Button>
       </FormActions>
+
+      {guard}
     </form>
   )
 }

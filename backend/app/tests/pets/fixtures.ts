@@ -74,12 +74,17 @@ export async function givenTenant(name = 'Petshop Teste'): Promise<TenantFixture
  * a linha existir com o telefone cifrado de verdade, para o mascaramento do mapper
  * ser exercitado.
  */
-export async function givenTutor(fixture: TenantFixture, fullName = 'Maria Silva'): Promise<string> {
+export async function givenTutor(
+  fixture: TenantFixture,
+  fullName = 'Maria Silva',
+  /** Em E.164. Sem ele, um celular aleatório — o teste de busca por telefone passa o seu. */
+  phoneE164?: string,
+): Promise<string> {
   const { encryptWithKey, getTenantKey, hashSearchable } = await import('@petshop/db')
 
   return withTenant(fixture.tenantId, async (tx) => {
     const key = await getTenantKey(tx, fixture.tenantId)
-    const phone = `+5511${Math.floor(900000000 + Math.random() * 99999999)}`
+    const phone = phoneE164 ?? `+5511${Math.floor(900000000 + Math.random() * 99999999)}`
     const tutor = await tx.tutor.create({
       data: {
         tenantId: fixture.tenantId,
