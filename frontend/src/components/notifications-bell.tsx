@@ -198,6 +198,7 @@ export function NotificationsBell({
                 <li key={p.key} className="border-b border-line last:border-b-0">
                   <Link
                     href={p.href}
+                    prefetch={false}
                     onClick={() => setAberto(false)}
                     className="flex items-center gap-3 px-4 py-3 transition hover:bg-black/[0.03]"
                   >

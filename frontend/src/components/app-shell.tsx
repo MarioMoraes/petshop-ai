@@ -323,6 +323,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
               // O selo leva a assinar para quem pode; para os outros é só a contagem.
               <Link
                 href={me.permissions.includes('tenant:configure') ? '/assinatura' : '/dashboard'}
+                prefetch={false}
                 className="shrink-0"
               >
                 <Badge tone="accent">
@@ -652,7 +653,12 @@ function Sidebar({
 }) {
   return (
     <aside className="sticky top-0 hidden h-[100svh] w-[260px] shrink-0 flex-col border-r border-line px-4 py-5 lg:flex">
-      <Link href="/dashboard" aria-label="Ir para o início" className="block min-w-0 px-2 py-1">
+      <Link
+        href="/dashboard"
+        prefetch={false}
+        aria-label="Ir para o início"
+        className="block min-w-0 px-2 py-1"
+      >
         <Logo name={tenantName} />
       </Link>
 

@@ -49,6 +49,17 @@ export function LinkSpinner({
 }
 
 /**
+ * **Sem prefetch, nos dois itens de menu.** Cada seção do Admin tem o próprio
+ * `layout.tsx` com a moldura (`AppShell`), e o `loading.tsx` mora no mesmo nível: o
+ * prefetch do Next 15 vai até essa fronteira, o que **executa o layout do destino** —
+ * `/v1/me`, as configurações e as nove fontes do sino. Com doze itens no menu, cada tela
+ * aberta disparava ~130 chamadas que ninguém via, e duas ou três navegações num minuto
+ * estouravam o rate limit de 300 por usuário (429, "Application error" na tela). A espera
+ * do clique quem mostra é o giro do `LinkSpinner` e a barra de rota. Vale também para
+ * todo `<Link>` da moldura que leve a outra seção — o logo, o selo do teste, as linhas
+ * do sino.
+ */
+/**
  * Item do menu lateral.
  *
  * O tom não muda com o estado — azul é Agenda em repouso, em hover, ativa e carregando.
@@ -74,6 +85,7 @@ export function NavLink<T extends string>({
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
+      prefetch={false}
       className={`nav-item ${active ? 'nav-item-active' : ''}`}
     >
       <LinkSpinner className={`icon-tint ${tone}`}>{icon}</LinkSpinner>
@@ -103,6 +115,7 @@ export function NavPill<T extends string>({
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
+      prefetch={false}
       className={`btn btn-ghost shrink-0 px-3 py-1.5 ${active ? 'bg-card text-ink' : ''}`}
     >
       <LinkSpinnerVazio />
