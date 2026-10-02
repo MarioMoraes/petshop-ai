@@ -180,23 +180,32 @@ muda.
 logo depois do 204 — e `pending_at` é ao mesmo tempo o "desde quando espera" e a **posse**
 de quem está respondendo, então o job `agent.sweep-pending` recolhe o que um processo
 derrubado deixou pela metade. O provedor fica atrás de `model-port.ts` — **uma porta por
-estabelecimento**, com a chave da Anthropic que ele cadastra em Integrações
+estabelecimento**, com a chave do **Google Gemini** que ele cadastra em Integrações
 (`agent/api-key.ts`, cifrada com a DEK); sem ela o agente responde como desligado, e a
-chave do ambiente só vale fora de produção —, e as sete leituras mais as três escritas atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o
+chave do ambiente (`GEMINI_API_KEY`) só vale fora de produção —, e as sete leituras mais as três escritas atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o
 agente e a tela do tutor respondem a mesma pergunta com a mesma função.
 
-**O agente ouve áudio pelo Whisper da própria stack, e não por API paga.** O serviço
-`whisper` (`openai-whisper-asr-webservice`, `faster_whisper` em CPU) fica na rede interna
-como o Gotenberg, atrás de `agent/transcription.ts`; sem `WHISPER_URL` o áudio vai para a
-recepção como antes. A transcrição roda no **runner**, sob a posse de `pending_at`, e
+**O provedor é o Gemini desde 2026-10-02, e o prompt não mudou com ele.** O contrato da
+porta (`model-contract.ts`) continua no vocabulário da Anthropic, que foi o provedor até
+ali: o runner, as tools e o prompt falam esse dialeto, e `model-gemini.ts` traduz nas duas
+pontas — o `thoughtSignature` dentro do id da chamada, a saída estruturada como instrução
+anexada **ao fim** do prompt, porque o Gemini não a combina com tools. O 400 só conta como
+chave recusada quando fala da chave, porque é o status que o Google dá a `API_KEY_INVALID`.
+
+**O agente ouve áudio pelo mesmo Gemini, com a mesma chave.** `agent/transcription.ts`
+manda o áudio inline (`createGeminiTranscriber`) — o Whisper da stack saiu junto com a
+Anthropic —; sem chave o áudio vai para a recepção como antes, e a chave recusada no áudio
+vira o mesmo aviso de tela da recusa no turno. O custo da transcrição (`transcriptionCost`, com o token
+de áudio à tarifa própria) é gravado no **turno do cliente** e somado na conversa — o teto
+mensal soma `cost_millicents` de todos os papéis, então ele conta sem regra a mais; e o
+áudio sem fala também cobra, porque o Google ouviu do mesmo jeito. A transcrição roda no **runner**, sob a posse de `pending_at`, e
 nunca no webhook; o arquivo é baixado pela `AgentMessagingPort`, porque o id do provedor
 é do MOD-NOTIF. O texto mora só no turno (`agent_turns`) — `messages` continua `(áudio)` —,
 e chega ao modelo como `[áudio transcrito]`, para ele confirmar nome e horário em vez de
-presumir. Teto de 120 s (`AGENT_AUDIO_MAX_SECONDS`), porque o Whisper serializa as
-transcrições de todos os petshops numa CPU e levou 1,6× a duração do áudio na medição. E a
-transcrição **renova a posse** a cada 30 s (`holdingClaim` em `runner.ts`): é a primeira
-etapa do turno que passa dos 90 s do varredor com o processo vivo, e sem a renovação ele
-abriria um segundo turno — o mesmo áudio transcrito duas vezes e duas respostas.
+presumir. Teto de 120 s (`AGENT_AUDIO_MAX_SECONDS`): áudio mais longo é história que pede
+gente. E a transcrição **renova a posse** a cada 30 s (`holdingClaim` em `runner.ts`): é a
+etapa do turno que pode passar dos 90 s do varredor com o processo vivo, e sem a renovação
+ele abriria um segundo turno — o mesmo áudio transcrito duas vezes e duas respostas.
 
 **Nenhum instante chega ao modelo em UTC.** Um modelo repassa ao cliente o número que leu,
 e `2026-09-14T13:00:00.000Z` virava "13:00" para um horário das 10:00. Em `tools.ts`,

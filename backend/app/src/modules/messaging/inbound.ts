@@ -291,7 +291,7 @@ export async function downloadInboundAudio(
   )
   if (!media) return null
 
-  // Algumas versões devolvem o `data:` URI inteiro; o Whisper quer só os bytes.
+  // Algumas versões devolvem o `data:` URI inteiro; a transcrição quer só os bytes.
   const base64 = media.base64.replace(/^data:[^,]*,/, '')
   const bytes = Buffer.from(base64, 'base64')
   return bytes.length > 0 ? { bytes, mimetype: media.mimetype } : null

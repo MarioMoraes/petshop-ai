@@ -3,14 +3,13 @@ import type Anthropic from '@anthropic-ai/sdk'
 /**
  * O contrato dos provedores de modelo — o ponto de troca do módulo.
  *
- * Ficava dentro de `model-port.ts` enquanto havia um implementador só. Com o segundo
- * (Gemini), deixar o contrato no arquivo que também **escolhe** o provedor criaria um
- * ciclo: o seletor importa os clientes, e os clientes importariam o seletor de volta só
- * para alcançar os tipos. Aqui os dois clientes são pares, e nenhum depende do outro.
+ * Mora fora de `model-port.ts` porque o seletor importa o cliente, e o cliente
+ * importaria o seletor de volta só para alcançar os tipos.
  *
- * **O vocabulário é o da Anthropic**, e isso é deliberado. Um formato neutro inventado
- * aqui obrigaria os dois clientes a traduzir, e o de produção pagaria tradução para nada.
- * O cliente do Gemini traduz nas duas pontas; o custo fica em quem é a exceção.
+ * **O vocabulário é o da Anthropic**, herdado de quando ela era o provedor de produção
+ * (até 2026-10-02). O runner, as tools e os testes falam esse dialeto, e o cliente do
+ * Gemini traduz nas duas pontas — trocar o vocabulário junto com o provedor mexeria em
+ * tudo o que já estava afinado para ganhar nada que o usuário veja.
  */
 
 export interface ModelUsage {
@@ -49,7 +48,8 @@ export function ratesFor(usdPerMTok: TokenRates): TokenRates {
 }
 
 /**
- * O preço da Anthropic é o **padrão** de quem não declara o seu.
+ * O preço do `claude-opus-5`, que era o provedor de produção, é o **padrão** de quem não
+ * declara o seu.
  *
  * Vale para os dublês da suíte, que implementam a porta sem tarifa: os testes de custo
  * foram escritos contra estes números, e um dublê sem preço passaria a custar zero em
@@ -59,7 +59,7 @@ export function ratesFor(usdPerMTok: TokenRates): TokenRates {
 export const DEFAULT_RATES = ratesFor({ input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 })
 
 export interface ModelRequest {
-  /** O prefixo estável: prompt de sistema + contexto do tenant. Vai com `cache_control`. */
+  /** O prefixo estável: prompt de sistema + contexto do tenant. */
   system: string
   tools: Anthropic.Tool[]
   messages: Anthropic.MessageParam[]
@@ -75,7 +75,7 @@ export interface ModelResponse {
 
 export interface ModelPort {
   configured: boolean
-  /** A tarifa do provedor. Ausente, vale a da Anthropic — ver `DEFAULT_RATES`. */
+  /** A tarifa do provedor. Ausente, vale a de `DEFAULT_RATES`. */
   rates?: TokenRates
   complete(request: ModelRequest): Promise<ModelResponse>
 }

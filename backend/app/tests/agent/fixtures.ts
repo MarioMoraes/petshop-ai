@@ -198,23 +198,29 @@ export function resetPorts(): void {
   setModelPort(null)
   setAgentPortalPort(null)
   setTurnScheduler(null)
-  // Sem Whisper por padrão, e não "o que o `.env` disser": a suíte não pode passar a
+  // Sem transcrição por padrão, e não "o que o `.env` disser": a suíte não pode passar a
   // depender de um container de pé só porque alguém ligou a transcrição no ambiente.
   installFakeTranscription(null)
   installAgentPort()
 }
 
-const { setTranscriptionPort, TranscriptionError } = await import(
-  '../../src/modules/agent/transcription.js'
-)
+const { setTranscriptionPort, TranscriptionError } =
+  await import('../../src/modules/agent/transcription.js')
+
+/** Uma transcrição roteirizada com custo, para provar que ele chega ao teto. */
+export interface FakeHeard {
+  text: string
+  costMillicents: number
+}
 
 /**
- * O Whisper, dublado. Cada item do roteiro é a resposta de **uma** transcrição: o texto,
- * ou `Error` para o serviço fora do ar. `null` instala a porta não configurada.
+ * A transcrição, dublada. Cada item do roteiro é a resposta de **uma** transcrição: o texto
+ * (de custo zero), `{ text, costMillicents }`, ou `Error` para o serviço fora do ar. `null`
+ * instala a porta não configurada.
  */
-export function installFakeTranscription(
-  ...roteiro: Array<string | Error> | [null]
-): { calls: { bytes: number; mimetype: string }[] } {
+export function installFakeTranscription(...roteiro: Array<string | FakeHeard | Error> | [null]): {
+  calls: { bytes: number; mimetype: string }[]
+} {
   const calls: { bytes: number; mimetype: string }[] = []
   if (roteiro[0] === null) {
     setTranscriptionPort({
@@ -225,7 +231,7 @@ export function installFakeTranscription(
     })
     return { calls }
   }
-  const fila = [...(roteiro as Array<string | Error>)]
+  const fila = [...(roteiro as Array<string | FakeHeard | Error>)]
   setTranscriptionPort({
     configured: true,
     async transcribe(bytes, mimetype) {
@@ -233,7 +239,8 @@ export function installFakeTranscription(
       const proximo = fila.shift()
       if (proximo === undefined) throw new Error('o roteiro da transcrição acabou')
       if (proximo instanceof Error) throw proximo
-      return proximo
+      const heard = typeof proximo === 'string' ? { text: proximo, costMillicents: 0 } : proximo
+      return { ...heard, inputTokens: 0, outputTokens: 0 }
     },
   })
   return { calls }

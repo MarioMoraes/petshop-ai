@@ -85,12 +85,6 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
 
   /** O gerador de PDF (MOD-DOC). Sem ele o documento fica pendente e o job reprocessa. */
   GOTENBERG_URL: z.string().optional(),
-  /**
-   * O Whisper que transcreve os áudios do agente (MOD-AI). Vazio ou ausente, áudio vai
-   * para a fila da recepção. `string()` e não `url()`: a string vazia do compose é estado
-   * legítimo, e `url()` a recusaria derrubando a subida inteira.
-   */
-  WHISPER_URL: z.string().optional(),
   // ---- MOD-NOTIF / MOD-CRM-01 (fatia 4 da consolidação) ----
 
   /**
@@ -276,43 +270,22 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),
 
   /**
-   * MOD-AI — a chave do provedor do modelo, **só para desenvolvimento**.
+   * MOD-AI — a chave do Google AI Studio (https://aistudio.google.com/apikey), **só para
+   * desenvolvimento**.
    *
-   * Desde 2026-09-27 cada estabelecimento cadastra a própria chave em Configurações ›
-   * Integrações e paga o próprio consumo (`modules/agent/api-key.ts`). Esta variável, como
-   * o Gemini de `AI_PROVIDER`, só vale com `NODE_ENV` diferente de `production`: é o que
-   * deixa o `pnpm dev` exercitar o agente sem cadastrar nada. Em produção ela é ignorada —
-   * um petshop sem chave cadastrada teria o atendimento pago pelo crédito da plataforma.
-   */
-  ANTHROPIC_API_KEY: z.string().optional(),
-
-  /**
-   * MOD-AI — qual provedor atende o agente.
-   *
-   * `anthropic` é o alvo de produção. `gemini` existe para **desenvolvimento**: o free
-   * tier do Google AI Studio deixa exercitar o agente ponta a ponta — tools, propostas,
-   * confirmação — sem conta paga. Os dois implementam a mesma `ModelPort`, então nada
-   * acima da porta sabe qual está atendendo.
-   *
-   * A escolha é do processo, e não do estabelecimento: é decisão de quem opera a
-   * instalação, não de quem usa o produto. Um seletor por tenant faria dois petshops do
-   * mesmo servidor receberem qualidade de atendimento diferente sem que ninguém tivesse
-   * pedido isso.
-   */
-  AI_PROVIDER: z.enum(['anthropic', 'gemini']).default('anthropic'),
-
-  /**
-   * A chave do Google AI Studio (https://aistudio.google.com/apikey).
-   *
-   * Opcional pelo mesmo motivo da chave da Anthropic: sem ela, com `AI_PROVIDER=gemini`,
-   * o agente se comporta como desligado em vez de derrubar a subida.
+   * Cada estabelecimento cadastra a própria chave em Configurações › Integrações e paga o
+   * próprio consumo (`modules/agent/api-key.ts`). Esta variável só vale com `NODE_ENV`
+   * diferente de `production`: é o que deixa o `pnpm dev` exercitar o agente — o turno e
+   * a transcrição do áudio — sem cadastrar nada. Em produção ela é ignorada: um petshop
+   * sem chave cadastrada teria o atendimento pago pelo crédito da plataforma.
    */
   GEMINI_API_KEY: z.string().optional(),
 
   /**
-   * O free tier tem cota por minuto, e ela é o que decide este padrão — não a qualidade.
-   * Trocar por um modelo maior faz o segundo cliente do dia levar 429, que o runner lê
-   * como provedor fora do ar e manda a conversa para a recepção.
+   * O modelo do turno e da transcrição. O mesmo do projeto da imobiliária, onde o
+   * atendimento com tools foi validado; o free tier tem cota por minuto, e um modelo
+   * maior faz o 429 chegar antes — o runner o lê como provedor fora do ar e manda a
+   * conversa para a recepção.
    */
   GEMINI_MODEL: z.string().default('gemini-3.5-flash-lite'),
 

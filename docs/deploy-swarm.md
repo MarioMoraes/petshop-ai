@@ -116,8 +116,7 @@ separa dois níveis:
   deixado como está, senha de role com caractere que o `ALTER ROLE` não aceita,
   registro de DNS em nuvem laranja);
 - **aviso** — o deploy funciona com um recurso **desligado em silêncio**, e ele
-  diz qual: sem `ANTHROPIC_API_KEY` o agente de IA não responde ninguém embora a
-  tela deixe ligá-lo; sem `RESEND_API_KEY` todo e-mail vira log e consta como
+  diz qual: sem `RESEND_API_KEY` todo e-mail vira log e consta como
   enviado; sem `CLERK_WEBHOOK_SECRET` a sincronização de usuário recusa tudo
   com 401.
 

@@ -142,7 +142,7 @@ export async function disconnectOnlineBillingAction(): Promise<ActionResult<Onli
 // ─── Assistente de IA ────────────────────────────────────────────────────────
 
 /**
- * A chave da Anthropic. `tenant:configure` no backend, que a confere na Anthropic antes
+ * A chave do Google Gemini. `tenant:configure` no backend, que a confere no Google antes
  * de gravar — a recusa volta aqui como erro de campo.
  */
 export async function saveAgentApiKeyAction(apiKey: string): Promise<ActionResult<AgentSettings>> {

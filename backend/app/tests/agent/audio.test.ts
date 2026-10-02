@@ -22,14 +22,14 @@ import {
 } from './fixtures.js'
 
 const { answer } = await import('../../src/modules/agent/runner.js')
-const { LONG_AUDIO_WARNING, MEDIA_WARNING } = await import(
-  '../../src/modules/agent/conversations.js'
-)
+const { ModelKeyRejectedError } = await import('../../src/modules/agent/model-port.js')
+const { LONG_AUDIO_WARNING, MEDIA_WARNING } =
+  await import('../../src/modules/agent/conversations.js')
 
 /**
- * O agente ouvindo áudio — o Whisper da instalação transcreve, e o turno segue.
+ * O agente ouvindo áudio — o Gemini transcreve com a chave do petshop, e o turno segue.
  *
- * O Whisper é dublado (`installFakeTranscription`), como o modelo: o que se prova aqui é
+ * A transcrição é dublada (`installFakeTranscription`), como o modelo: o que se prova aqui é
  * o caminho do lado de cá — quem decide que o áudio fica com o agente, quando a
  * transcrição roda, onde o texto é gravado e para onde vai a conversa quando ela falha.
  */
@@ -99,11 +99,12 @@ describe('MOD-AI-01 AC-05 — o áudio que o agente ouve', () => {
     expect(mensagem.templateKey).toBe('inbound')
 
     // A recepção vê que aquilo é transcrição.
-    const detalhe = await callAsStaff(tenant, { method: 'GET', url: `/v1/agent/conversations/${id}` })
+    const detalhe = await callAsStaff(tenant, {
+      method: 'GET',
+      url: `/v1/agent/conversations/${id}`,
+    })
     expect(detalhe.statusCode).toBe(200)
-    expect(detalhe.json().turns[0].content).toBe(
-      '(áudio) quero marcar um banho pro Thor amanhã',
-    )
+    expect(detalhe.json().turns[0].content).toBe('(áudio) quero marcar um banho pro Thor amanhã')
   })
 
   it('o varredor que reassume não transcreve o mesmo áudio duas vezes', async () => {
@@ -119,7 +120,7 @@ describe('MOD-AI-01 AC-05 — o áudio que o agente ouve', () => {
     expect(whisper.calls).toHaveLength(1)
   })
 
-  it('sem Whisper, o áudio vai para a recepção como antes', async () => {
+  it('sem transcrição, o áudio vai para a recepção como antes', async () => {
     const id = await givenAudio()
 
     const row = await conversa(id)
@@ -138,7 +139,7 @@ describe('MOD-AI-01 AC-05 — o áudio que o agente ouve', () => {
     expect(whisper.calls).toHaveLength(0)
   })
 
-  it('o Whisper fora do ar manda para a recepção, e o cliente sabe por quê', async () => {
+  it('a transcrição fora do ar manda para a recepção, e o cliente sabe por quê', async () => {
     installFakePortal()
     installFakeTranscription(new Error('ECONNREFUSED'))
     const modelo = installFakeModel()
@@ -151,6 +152,73 @@ describe('MOD-AI-01 AC-05 — o áudio que o agente ouve', () => {
     expect(row.handoffReason).toBe('MEDIA')
     expect(motor.sent.at(-1)?.text).toBe(AGENT_HANDOFF_SAY.UNHEARD)
     expect(modelo.calls).toHaveLength(0)
+  })
+
+  it('a chave recusada no áudio vira aviso na tela, como no turno', async () => {
+    installFakePortal()
+    const chave = { apiKeyEncrypted: 'cifrado', apiKeyLast4: 'WXYZ', apiKeyVerifiedAt: new Date() }
+    await ownerPrisma.agentSettings.upsert({
+      where: { tenantId: tenant.tenantId },
+      create: { tenantId: tenant.tenantId, ...chave },
+      update: chave,
+    })
+    installFakeTranscription(new ModelKeyRejectedError('O Google recusou a chave (400)'))
+    installFakeModel()
+
+    const id = await givenAudio()
+    await answer(tenant.tenantId, id)
+
+    expect((await conversa(id)).handoffReason).toBe('MEDIA')
+    const settings = await ownerPrisma.agentSettings.findUniqueOrThrow({
+      where: { tenantId: tenant.tenantId },
+    })
+    expect(settings.apiKeyError).toBe('O Google recusou a chave (400)')
+  })
+
+  it('o custo da transcrição fica no turno do cliente e soma na conversa', async () => {
+    installFakePortal()
+    installFakeTranscription({ text: 'oi, tudo bem?', costMillicents: 1_234 })
+    const sem = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
+    installFakeModel({ reply: 'Tudo ótimo!', usage: sem })
+
+    const id = await givenAudio()
+    await answer(tenant.tenantId, id)
+
+    const turnoDoCliente = await ownerPrisma.agentTurn.findFirstOrThrow({
+      where: { conversationId: id, role: 'TUTOR' },
+    })
+    expect(turnoDoCliente.costMillicents).toBe(1_234)
+    expect((await conversa(id)).costMillicents).toBe(1_234)
+  })
+
+  it('áudio sem fala também cobra: o provedor ouviu do mesmo jeito', async () => {
+    installFakePortal()
+    installFakeTranscription({ text: '', costMillicents: 500 })
+    installFakeModel()
+
+    const id = await givenAudio()
+    await answer(tenant.tenantId, id)
+
+    expect((await conversa(id)).handoffReason).toBe('MEDIA')
+    expect((await conversa(id)).costMillicents).toBe(500)
+  })
+
+  it('AC-02 de MOD-AI-08: o gasto da transcrição conta para o teto do mês', async () => {
+    await enableAgent(tenant, { monthlyCapCents: 1 })
+    installFakePortal()
+    // Só a transcrição custa: dois centavos, e o teto é um.
+    installFakeTranscription({ text: 'oi', costMillicents: 2_000 })
+    const sem = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
+    installFakeModel({ reply: 'Oi!', usage: sem }, { reply: 'De novo oi!', usage: sem })
+
+    const id = await givenAudio()
+    await answer(tenant.tenantId, id)
+    expect((await conversa(id)).status).toBe('ACTIVE')
+
+    await callWebhook(token, upsertPayload({ text: 'de novo' }))
+    await answer(tenant.tenantId, id)
+
+    expect((await conversa(id)).handoffReason).toBe('BUDGET')
   })
 
   it('a mídia que o provedor já descartou vai para a recepção', async () => {

@@ -60,7 +60,7 @@ export async function readStats(tenantId: string, query: AgentStatsQuery): Promi
   const window = resolveWindow(query)
 
   return withTenant(tenantId, async (tx) => {
-    const [desfechos, turnos, propostas, resposta] = await Promise.all([
+    const [desfechos, turnos, gasto, propostas, resposta] = await Promise.all([
       /**
        * Uma linha por motivo, mais a linha de `handoff_reason` nulo — que é justamente
        * a das resolvidas. Um `groupBy` e não duas contagens: a soma das linhas **é** o
@@ -74,9 +74,17 @@ export async function readStats(tenantId: string, query: AgentStatsQuery): Promi
         _sum: { costMillicents: true },
       }),
 
-      tx.agentTurn.aggregate({
+      tx.agentTurn.count({
         where: { role: 'AGENT', createdAt: { gte: window.from, lt: window.to } },
-        _count: { _all: true },
+      }),
+
+      /**
+       * O gasto é de **todos** os papéis, e não só das respostas: a transcrição do áudio
+       * grava o custo no turno do cliente. Contar só `AGENT` faria o painel mostrar menos
+       * que o teto mensal, que soma o mesmo período sem filtro de papel.
+       */
+      tx.agentTurn.aggregate({
+        where: { createdAt: { gte: window.from, lt: window.to } },
         _sum: { costMillicents: true },
       }),
 
@@ -121,8 +129,8 @@ export async function readStats(tenantId: string, query: AgentStatsQuery): Promi
       resolutionRate: conversations === 0 ? 0 : Math.round((resolved / conversations) * 1000) / 10,
       handoffs,
       avgResponseSeconds: resposta,
-      turns: turnos._count._all,
-      costMillicents: turnos._sum.costMillicents ?? 0,
+      turns: turnos,
+      costMillicents: gasto._sum.costMillicents ?? 0,
       avgCostMillicents: conversations === 0 ? 0 : Math.round(closedCostMillicents / conversations),
       writes: funnel(propostas),
     }

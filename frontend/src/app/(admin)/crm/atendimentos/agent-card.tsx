@@ -84,7 +84,7 @@ function ReguaDoMes({ gastoCents, tetoCents }: { gastoCents: number; tetoCents: 
 }
 
 /**
- * A chave da Anthropic, dita onde o efeito dela aparece.
+ * A chave do Gemini, dita onde o efeito dela aparece.
  *
  * O cadastro mora em Configurações › Integrações, com as outras credenciais do petshop;
  * aqui fica só o aviso, porque é nesta tela que se percebe que o agente parou. Sem chave
@@ -100,9 +100,9 @@ function ChaveDaIa({ settings }: { settings: AgentSettings }) {
 
   if (settings.apiKey?.error) {
     return (
-      <Alert tone="danger" icon={<AlertTriangleIcon />} title="A Anthropic recusou a chave">
-        As conversas estão indo para a fila. Confira no painel da Anthropic se a chave está ativa e
-        se a conta tem crédito, e cadastre-a de novo em {link}.
+      <Alert tone="danger" icon={<AlertTriangleIcon />} title="O Google recusou a chave">
+        As conversas estão indo para a fila. Confira no Google AI Studio se a chave está ativa e se
+        o projeto tem faturamento, e cadastre-a de novo em {link}.
       </Alert>
     )
   }
@@ -113,7 +113,7 @@ function ChaveDaIa({ settings }: { settings: AgentSettings }) {
         tone="accent"
         role="status"
         icon={<AlertTriangleIcon />}
-        title="O agente precisa da chave da Anthropic"
+        title="O agente precisa da chave do Google Gemini"
       >
         O consumo do modelo é cobrado direto na conta do petshop. Cadastre a chave em {link}.
       </Alert>
@@ -229,11 +229,11 @@ export function AgentCard({ settings, podeConfigurar, personaNoPlano }: Props) {
         automático. Esse aviso não se desliga.
       </p>
 
-      {/* Não há o que configurar: o Whisper é da instalação. A linha só conta o que acontece. */}
+      {/* Não há o que configurar: a transcrição usa a mesma chave do modelo. A linha só conta o que acontece. */}
       <p className="hint mt-2">
         {atual.audioTranscription
           ? `Áudios de até ${AGENT_AUDIO_MAX_SECONDS / 60} minutos são transcritos e respondidos pelo agente; os mais longos vão para a fila.`
-          : 'Áudios vão para a fila da recepção: a transcrição não está ligada nesta instalação.'}
+          : 'Áudios vão para a fila da recepção: a transcrição usa a chave do Gemini, que ainda não está cadastrada.'}
       </p>
 
       <ReguaDoMes gastoCents={atual.spentCents} tetoCents={atual.monthlyCapCents} />

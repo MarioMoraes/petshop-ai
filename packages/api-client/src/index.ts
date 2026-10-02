@@ -2341,7 +2341,7 @@ export function createApiClient(options: ApiClientOptions) {
       }),
 
     /**
-     * A chave da Anthropic do estabelecimento. O servidor a confere na Anthropic antes de
+     * A chave do Google Gemini do estabelecimento. O servidor a confere no Google antes de
      * gravar, e devolve a configuração inteira — só os quatro últimos caracteres voltam.
      */
     setAgentApiKey: (apiKey: string) =>

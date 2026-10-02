@@ -51,7 +51,7 @@ const LIVE: AgentConversationStatus[] = ['ACTIVE', 'HANDOFF', 'ASSIGNED']
 async function blockedReason(message: InboundMessage): Promise<AgentHandoffReason | null> {
   if (message.candidates.length === 0) return 'UNKNOWN_NUMBER'
   if (message.candidates.length > 1) return 'AMBIGUOUS'
-  if (message.kind !== 'TEXT' && !isAudible(message)) return 'MEDIA'
+  if (message.kind !== 'TEXT' && !(await isAudible(message))) return 'MEDIA'
 
   /**
    * O agente desligado é decidido **aqui**, e não no turno.
@@ -70,17 +70,18 @@ async function blockedReason(message: InboundMessage): Promise<AgentHandoffReaso
 }
 
 /**
- * O áudio que o agente ouve: há Whisper na instalação e ele cabe no teto de duração.
+ * O áudio que o agente ouve: há chave do Gemini para transcrevê-lo e ele cabe no teto de
+ * duração.
  *
  * A transcrição em si **não** acontece aqui — este caminho roda dentro do webhook, que
  * responde em milissegundos. Ela é do runner, depois do 204; aqui só se decide se a
  * conversa fica com o agente ou vai para a recepção. Áudio sem duração informada passa:
- * quem o corta, se for longo demais, é o tempo-limite do próprio Whisper.
+ * quem o corta, se for longo demais, é o tempo-limite da transcrição.
  */
-function isAudible(message: InboundMessage): boolean {
+async function isAudible(message: InboundMessage): Promise<boolean> {
   if (message.kind !== 'AUDIO') return false
-  if (!getTranscriptionPort().configured) return false
-  return message.audioSeconds === null || message.audioSeconds <= AGENT_AUDIO_MAX_SECONDS
+  if (message.audioSeconds !== null && message.audioSeconds > AGENT_AUDIO_MAX_SECONDS) return false
+  return (await getTranscriptionPort(message.tenantId)).configured
 }
 
 /**
@@ -216,7 +217,7 @@ export async function handleInbound(message: InboundMessage): Promise<void> {
     // por aqui. Só quando o agente está ligado — um petshop que nunca prometeu
     // atendimento automático não deve começar a mandar frases de robô.
     if (result.reason === 'MEDIA') {
-      await warnAboutMedia(message, result.conversationId, mediaWarning(message))
+      await warnAboutMedia(message, result.conversationId, await mediaWarning(message))
     }
   }
 
@@ -252,8 +253,8 @@ export const LONG_AUDIO_WARNING =
   'Recebi seu áudio, mas ele é longo demais para eu ouvir por aqui. ' +
   'Já estou chamando alguém da equipe para te atender.'
 
-function mediaWarning(message: InboundMessage): string {
-  return message.kind === 'AUDIO' && getTranscriptionPort().configured
+async function mediaWarning(message: InboundMessage): Promise<string> {
+  return message.kind === 'AUDIO' && (await getTranscriptionPort(message.tenantId)).configured
     ? LONG_AUDIO_WARNING
     : MEDIA_WARNING
 }
@@ -261,7 +262,7 @@ function mediaWarning(message: InboundMessage): string {
 /**
  * A única frase que o agente manda sem ter sido chamado (AC-05 de MOD-AI-01).
  *
- * Imagem e documento não se leem, nem o áudio quando não há Whisper ou ele passa do
+ * Imagem e documento não se leem, nem o áudio quando não há chave para transcrevê-lo ou ele passa do
  * teto: o corpo não é guardado e não há o que responder. Dizer isso uma vez evita o
  * cliente ficar repetindo o arquivo achando que não chegou.
  */

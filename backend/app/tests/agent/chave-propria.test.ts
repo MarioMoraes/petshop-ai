@@ -25,14 +25,14 @@ const { ModelKeyRejectedError, getModelPort, setModelPort } =
 const { answer } = await import('../../src/modules/agent/runner.js')
 
 /**
- * A chave da Anthropic do estabelecimento (Configurações › Integrações).
+ * A chave do Google Gemini do estabelecimento (Configurações › Integrações).
  *
- * O verificador é dublado: a suíte não fala com a Anthropic. O que se prova é o que é
+ * O verificador é dublado: a suíte não fala com o Google. O que se prova é o que é
  * nosso — a recusa que não grava, a cifra, a trilha sem o valor, o corte de permissão e a
  * recusa no meio da conversa que vira aviso na tela.
  */
 
-const CHAVE = 'sk-ant-api03-chave-de-teste-que-termina-em-WXYZ'
+const CHAVE = 'AIzaSy-chave-de-teste-que-termina-em-WXYZ'
 
 let tenant: TenantFixture
 let aceita: boolean
@@ -84,7 +84,7 @@ describe('a chave própria da IA', () => {
     expect(trilha.after).toEqual({ last4: 'WXYZ' })
   })
 
-  it('a chave que a Anthropic recusa não é gravada', async () => {
+  it('a chave que o Google recusa não é gravada', async () => {
     aceita = false
     const response = await cadastrar()
 
@@ -95,7 +95,7 @@ describe('a chave própria da IA', () => {
     expect(linha?.apiKeyEncrypted ?? null).toBeNull()
   })
 
-  it('o que não parece chave da Anthropic nem chega a ser conferido', async () => {
+  it('o que não parece chave do Google nem chega a ser conferido', async () => {
     let conferiu = false
     setKeyVerifier(async () => {
       conferiu = true
@@ -165,7 +165,7 @@ describe('a chave recusada no meio da conversa', () => {
     setModelPort({
       configured: true,
       async complete() {
-        throw new ModelKeyRejectedError('A Anthropic recusou a chave (401)')
+        throw new ModelKeyRejectedError('O Google recusou a chave (400)')
       },
     })
 
@@ -181,7 +181,7 @@ describe('a chave recusada no meio da conversa', () => {
     expect(depois.status).toBe('HANDOFF')
 
     const settings = await callApi({ ...asAdmin(tenant), method: 'GET', url: '/v1/agent/settings' })
-    expect(settings.json().apiKey.error).toContain('401')
+    expect(settings.json().apiKey.error).toContain('400')
 
     // Cadastrar de novo é o que prova que a chave voltou a servir, e apaga o aviso.
     const recadastro = await cadastrar()

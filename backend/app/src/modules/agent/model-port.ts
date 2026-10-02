@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto'
 import { loadEnv } from '../../config/env.js'
 import { readTenantApiKey } from './api-key.js'
 import { providerUnavailable } from './errors.js'
-import { createAnthropicPort } from './model-anthropic.js'
 import { createGeminiPort } from './model-gemini.js'
 import { DEFAULT_RATES, type ModelPort, type ModelUsage } from './model-contract.js'
 
@@ -19,12 +18,14 @@ import { DEFAULT_RATES, type ModelPort, type ModelUsage } from './model-contract
  * porta que embrulhasse o laço inteiro esconderia justamente o que este módulo faz de
  * arriscado — e o dublê não conseguiria exercitar as tools de verdade.
  *
- * **A porta é por estabelecimento.** Cada petshop cadastra a própria chave da Anthropic
- * em Configurações › Integrações e paga o próprio consumo; sem ela, o agente responde
- * como desligado. A chave da instalação (`ANTHROPIC_API_KEY`, ou o Gemini de
- * `AI_PROVIDER=gemini`) **só vale fora de produção** — é o que deixa o `pnpm dev` exercitar
- * o agente sem cadastrar nada, e o que impede um petshop de gastar o crédito da
- * plataforma por esquecimento de configuração.
+ * **A porta é por estabelecimento.** Cada petshop cadastra a própria chave do Google
+ * Gemini em Configurações › Integrações e paga o próprio consumo; sem ela, o agente
+ * responde como desligado. A chave da instalação (`GEMINI_API_KEY`) **só vale fora de
+ * produção** — é o que deixa o `pnpm dev` exercitar o agente sem cadastrar nada, e o que
+ * impede um petshop de gastar o crédito da plataforma por esquecimento de configuração.
+ *
+ * A mesma chave transcreve o áudio (`transcription.ts`), e é `resolveModelKey` que
+ * decide qual vale para as duas coisas.
  */
 
 export {
@@ -55,23 +56,35 @@ const unconfiguredPort: ModelPort = {
   },
 }
 
+export interface ModelKey {
+  apiKey: string
+  /** Identifica o cliente já montado: muda quando a chave muda. */
+  fingerprint: string
+}
+
 /**
- * A chave da instalação, só para desenvolvimento.
+ * A chave que responde por este estabelecimento: a dele, ou — fora de produção — a da
+ * instalação.
  *
- * Cada cliente devolve `null` quando lhe falta a chave, e não uma porta que estoura na
- * primeira chamada: a ausência de credencial é estado legítimo (AC-02 de MOD-AI-07).
+ * A ausência é estado legítimo (AC-02 de MOD-AI-07), e não erro: quem chama devolve uma
+ * porta não configurada.
  */
-function createDevelopmentPort(): ModelPort | null {
+export async function resolveModelKey(tenantId: string): Promise<ModelKey | null> {
+  const tenantKey = await readTenantApiKey(tenantId)
+  if (tenantKey) {
+    return {
+      apiKey: tenantKey.apiKey,
+      fingerprint: createHash('sha256').update(tenantKey.encrypted).digest('hex'),
+    }
+  }
+
   const env = loadEnv()
-  if (env.NODE_ENV === 'production') return null
-  if (env.AI_PROVIDER === 'gemini') return createGeminiPort()
-  return env.ANTHROPIC_API_KEY ? createAnthropicPort(env.ANTHROPIC_API_KEY) : null
+  if (env.NODE_ENV === 'production' || !env.GEMINI_API_KEY) return null
+  return { apiKey: env.GEMINI_API_KEY, fingerprint: 'development' }
 }
 
 /** O dublê dos testes: quando presente, responde por todos os tenants. */
 let override: ModelPort | null = null
-
-let development: ModelPort | null | undefined
 
 /**
  * Um cliente por chave, e não por chamada.
@@ -86,25 +99,20 @@ const MAX_CACHED_CLIENTS = 500
 export async function getModelPort(tenantId: string): Promise<ModelPort> {
   if (override) return override
 
-  const tenantKey = await readTenantApiKey(tenantId)
-  if (tenantKey) {
-    const fingerprint = createHash('sha256').update(tenantKey.encrypted).digest('hex')
-    let port = byKey.get(fingerprint)
-    if (!port) {
-      if (byKey.size >= MAX_CACHED_CLIENTS) byKey.clear()
-      port = createAnthropicPort(tenantKey.apiKey)
-      byKey.set(fingerprint, port)
-    }
-    return port
-  }
+  const key = await resolveModelKey(tenantId)
+  if (!key) return unconfiguredPort
 
-  if (development === undefined) development = createDevelopmentPort()
-  return development ?? unconfiguredPort
+  let port = byKey.get(key.fingerprint)
+  if (!port) {
+    if (byKey.size >= MAX_CACHED_CLIENTS) byKey.clear()
+    port = createGeminiPort(key.apiKey)
+    byKey.set(key.fingerprint, port)
+  }
+  return port
 }
 
 /** Injeta um dublê. Usado pelos testes; nunca em produção. */
 export function setModelPort(next: ModelPort | null): void {
   override = next
-  development = undefined
   byKey.clear()
 }

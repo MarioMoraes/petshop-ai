@@ -4082,7 +4082,7 @@ model AgentSettings {
   personaName String?   @map("persona_name") @db.VarChar(24)
   tone        AgentTone @default(CORDIAL)
 
-  /// A chave da Anthropic do estabelecimento, cifrada com a DEK. Sem ela o agente não fala.
+  /// A chave do Google Gemini do estabelecimento, cifrada com a DEK. Sem ela o agente não fala nem ouve áudio.
   apiKeyEncrypted  String?   @map("api_key_encrypted")
   apiKeyLast4      String?   @map("api_key_last4") @db.VarChar(4)
   apiKeyVerifiedAt DateTime? @map("api_key_verified_at") @db.Timestamptz(6)

@@ -9,10 +9,10 @@ import { useToast } from '@/components/toast'
 import { removeAgentApiKeyAction, saveAgentApiKeyAction } from './actions'
 
 /**
- * A chave da Anthropic do estabelecimento.
+ * A chave do Google Gemini do estabelecimento.
  *
- * **Sem ela o agente não responde**: o consumo do modelo é do petshop, cobrado direto na
- * conta dele na Anthropic. A chave é conferida lá antes de gravar e nunca volta para a
+ * **Sem ela o agente não responde nem ouve áudio**: o consumo do modelo é do petshop,
+ * cobrado direto na conta dele no Google. A chave é conferida lá antes de gravar e nunca volta para a
  * tela — o cartão mostra só os quatro últimos caracteres, e trocar é colar outra.
  *
  * O campo é `type="password"` e começa vazio mesmo com chave cadastrada: preenchê-lo com
@@ -49,7 +49,7 @@ export function AiKeyCard({ settings, canEdit }: Props) {
         return
       }
       setApiKey('')
-      toast('Chave da Anthropic salva.')
+      toast('Chave do Gemini salva.')
       router.refresh()
     })
   }
@@ -75,8 +75,8 @@ export function AiKeyCard({ settings, canEdit }: Props) {
           icon={<SparkleIcon />}
           tone="icon-people"
           eyebrow="Assistente de IA"
-          title="Chave da Anthropic"
-          description="O agente que responde no WhatsApp usa a conta do petshop na Anthropic, e o consumo é cobrado direto nela. Sem chave, toda conversa vai para a fila da recepção."
+          title="Chave do Google Gemini"
+          description="O agente que responde no WhatsApp — e transcreve os áudios do cliente — usa a conta do petshop no Google, e o consumo é cobrado direto nela. Sem chave, toda conversa vai para a fila da recepção."
         />
         <Badge tone={key?.error ? 'danger' : key ? 'success' : 'neutral'}>
           {key?.error ? 'Recusada' : key ? 'Conectada' : 'Sem chave'}
@@ -84,9 +84,9 @@ export function AiKeyCard({ settings, canEdit }: Props) {
       </div>
 
       {key?.error && (
-        <Alert tone="danger" icon={<AlertTriangleIcon />} title="A Anthropic recusou a chave">
-          {key.error}. Confira no painel da Anthropic se a chave está ativa e se a conta tem
-          crédito, e cadastre-a de novo abaixo.
+        <Alert tone="danger" icon={<AlertTriangleIcon />} title="O Google recusou a chave">
+          {key.error}. Confira no Google AI Studio se a chave está ativa e se o projeto tem
+          faturamento, e cadastre-a de novo abaixo.
         </Alert>
       )}
 
@@ -103,12 +103,12 @@ export function AiKeyCard({ settings, canEdit }: Props) {
         <>
           <Field
             label={key ? 'Trocar a chave' : 'Chave da API'}
-            htmlFor="anthropicKey"
-            hint="Gere em console.anthropic.com › API Keys. Começa com sk-ant-."
+            htmlFor="geminiKey"
+            hint="Gere em aistudio.google.com › Get API key. Começa com AIza."
             error={fieldError}
           >
             <input
-              id="anthropicKey"
+              id="geminiKey"
               type="password"
               autoComplete="off"
               spellCheck={false}
@@ -116,7 +116,7 @@ export function AiKeyCard({ settings, canEdit }: Props) {
               value={apiKey}
               disabled={saving || removing}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder="sk-ant-…"
+              placeholder="AIza…"
             />
           </Field>
 
@@ -158,7 +158,7 @@ export function AiKeyCard({ settings, canEdit }: Props) {
         </>
       ) : (
         <p className="text-sm text-muted">
-          Cadastrar a chave da Anthropic é uma ação do administrador do estabelecimento.
+          Cadastrar a chave do Gemini é uma ação do administrador do estabelecimento.
         </p>
       )}
     </Card>

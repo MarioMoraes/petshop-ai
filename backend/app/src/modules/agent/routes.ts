@@ -132,7 +132,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
   )
 
   /**
-   * A chave da Anthropic do estabelecimento (Configurações › Integrações).
+   * A chave do Google Gemini do estabelecimento (Configurações › Integrações).
    *
    * `tenant:configure`, e não `crm:configure`: a chave é um contrato de pagamento com um
    * terceiro, do mesmo peso da assinatura — quem configura o atendimento não é
@@ -144,7 +144,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
     {
       preHandler: requirePermission(
         'tenant:configure',
-        'Cadastrar a chave da Anthropic é uma ação do administrador do estabelecimento',
+        'Cadastrar a chave do Gemini é uma ação do administrador do estabelecimento',
       ),
     },
     async (request) => {
@@ -160,7 +160,7 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
     {
       preHandler: requirePermission(
         'tenant:configure',
-        'Remover a chave da Anthropic é uma ação do administrador do estabelecimento',
+        'Remover a chave do Gemini é uma ação do administrador do estabelecimento',
       ),
     },
     async (request) => {

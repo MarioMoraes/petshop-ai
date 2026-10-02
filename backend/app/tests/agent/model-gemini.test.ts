@@ -11,7 +11,7 @@ import {
 } from '../../src/modules/agent/model-gemini.js'
 
 /**
- * A tradução do provedor alternativo (`AI_PROVIDER=gemini`).
+ * A tradução do provedor do modelo (Google Gemini).
  *
  * **O que estes testes protegem é o encaixe, não o modelo.** O vocabulário da porta é o
  * da Anthropic, e o cliente do Gemini traduz nas duas pontas; um erro de tradução não
@@ -239,5 +239,31 @@ describe('cerca de markdown', () => {
 
   it('tira a cerca sem rótulo de linguagem', () => {
     expect(stripFence('```\n{"a":1}\n```')).toBe('{"a":1}')
+  })
+})
+
+describe('o custo da transcrição', () => {
+  it('o token de áudio custa o triplo do de texto, e o raciocínio conta como saída', async () => {
+    const { MediaModality } = await import('@google/genai')
+    const { transcriptionCost } = await import('../../src/modules/agent/model-gemini.js')
+
+    const custo = transcriptionCost({
+      promptTokenCount: 1_100,
+      promptTokensDetails: [
+        { modality: MediaModality.AUDIO, tokenCount: 1_000 },
+        { modality: MediaModality.TEXT, tokenCount: 100 },
+      ],
+      candidatesTokenCount: 40,
+      thoughtsTokenCount: 10,
+    })
+
+    expect(custo).toMatchObject({ audioTokens: 1_000, inputTokens: 1_100, outputTokens: 50 })
+    // US$ 0,30/M áudio + 0,10/M texto + 0,40/M saída, a R$ 5,50, em milésimos de centavo.
+    expect(custo.costMillicents).toBe(Math.round(1_000 * 0.165 + 100 * 0.055 + 50 * 0.22))
+  })
+
+  it('sem metadados, custa zero em vez de quebrar', async () => {
+    const { transcriptionCost } = await import('../../src/modules/agent/model-gemini.js')
+    expect(transcriptionCost(undefined).costMillicents).toBe(0)
   })
 })

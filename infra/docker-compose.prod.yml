@@ -53,8 +53,6 @@ x-backend: &backend
     MAIL_FROM: ${MAIL_FROM:-}
     # MOD-AI — sem chave o agente se comporta como desligado e toda conversa vai para
     # a recepção (AC-02 de MOD-AI-07). Ver o comentário longo no compose do swarm.
-    AI_PROVIDER: ${AI_PROVIDER:-anthropic}
-    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     GEMINI_API_KEY: ${GEMINI_API_KEY:-}
   networks: [interna]
 

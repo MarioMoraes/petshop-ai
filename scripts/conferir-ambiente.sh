@@ -256,17 +256,8 @@ obrigatoria EVOLUTION_API_KEY "o container da Evolution não sobe sem ela (é \$
 
 # ── Agente de IA ──────────────────────────────────────────────────────────────
 titulo "Agente de atendimento (MOD-AI)"
-case "${AI_PROVIDER:-anthropic}" in
-  anthropic)
-    ok "AI_PROVIDER=anthropic"
-    opcional ANTHROPIC_API_KEY "o agente se comporta como DESLIGADO — a tela deixa ligar o atendimento automático, o interruptor acende e nenhuma mensagem é respondida"
-    ;;
-  gemini)
-    aviso "AI_PROVIDER=gemini — o provedor de desenvolvimento (free tier); produção é 'anthropic'"
-    opcional GEMINI_API_KEY "o agente se comporta como desligado"
-    ;;
-  *) erro "AI_PROVIDER='${AI_PROVIDER}' não existe; use 'anthropic' ou 'gemini'" ;;
-esac
+ok "provedor: Google Gemini — em produção, a chave é a de cada petshop (Integrações)"
+opcional GEMINI_API_KEY "só vale fora de produção; sem ela, no pnpm dev o agente se comporta como desligado"
 
 # ── Plataforma ────────────────────────────────────────────────────────────────
 titulo "Console da plataforma (MOD-ADMIN)"

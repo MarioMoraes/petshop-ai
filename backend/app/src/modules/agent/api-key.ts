@@ -5,29 +5,30 @@ import { logger } from '../../shared/logger.js'
 import { CACHE_KEYS, cacheDelete } from '../../shared/redis.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { invalid } from './errors.js'
-import { verifyAnthropicKey } from './model-anthropic.js'
+import { verifyGeminiKey } from './model-gemini.js'
 
 /**
- * A chave da Anthropic do estabelecimento (Configurações › Integrações).
+ * A chave do Google Gemini do estabelecimento (Configurações › Integrações).
  *
  * **Sem ela o agente não fala** — decisão de produto de 2026-09-27: o consumo do modelo é
  * do petshop, e não da plataforma. A chave mora em `agent_settings`, cifrada com a DEK do
  * tenant como todo segredo por tenant, e a tela só recebe os quatro últimos caracteres.
+ * A mesma chave responde o turno e transcreve o áudio do cliente.
  *
- * **Gravar exige que a Anthropic a aceite antes.** Uma chave colada pela metade seria
+ * **Gravar exige que o Google a aceite antes.** Uma chave colada pela metade seria
  * descoberta no primeiro cliente que escrevesse, e ele receberia "vou chamar alguém" sem
  * que ninguém na loja soubesse por quê. A trilha registra quem trocou e os quatro últimos
  * caracteres, nunca o valor.
  */
 
-/** A conferência na Anthropic, atrás de um ponto de troca para a suíte rodar sem rede. */
+/** A conferência no Google, atrás de um ponto de troca para a suíte rodar sem rede. */
 export type KeyVerifier = (apiKey: string) => Promise<boolean>
 
-let verifier: KeyVerifier = verifyAnthropicKey
+let verifier: KeyVerifier = verifyGeminiKey
 
 /** Injeta um dublê. Usado pelos testes; nunca em produção. */
 export function setKeyVerifier(next: KeyVerifier | null): void {
-  verifier = next ?? verifyAnthropicKey
+  verifier = next ?? verifyGeminiKey
 }
 
 /**
@@ -54,10 +55,9 @@ export async function readTenantApiKey(
 
 export async function setApiKey(actor: ActorContext, input: SetAgentApiKeyInput): Promise<void> {
   if (!(await verifier(input.apiKey))) {
-    throw invalid(
-      'A Anthropic recusou esta chave. Confira se ela está ativa e se a conta tem crédito.',
-      [{ field: 'apiKey', message: 'Chave recusada pela Anthropic' }],
-    )
+    throw invalid('O Google recusou esta chave. Confira no Google AI Studio se ela está ativa.', [
+      { field: 'apiKey', message: 'Chave recusada pelo Google' },
+    ])
   }
 
   const last4 = input.apiKey.slice(-4)
@@ -141,7 +141,7 @@ export async function removeApiKey(actor: ActorContext): Promise<void> {
 }
 
 /**
- * A Anthropic recusou a chave no meio de uma conversa.
+ * O Google recusou a chave no meio de uma conversa.
  *
  * A chave **fica**: quem a revogou por engano e a reativou no painel não precisa colá-la
  * de novo, e a próxima conversa que der certo não apaga o aviso — só um novo cadastro

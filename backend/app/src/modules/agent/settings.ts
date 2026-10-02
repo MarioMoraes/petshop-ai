@@ -137,7 +137,7 @@ export async function loadSettings(tenantId: string): Promise<ResolvedAgentSetti
 }
 
 export async function getSettings(tenantId: string): Promise<AgentSettings> {
-  const [resolved, spentCents, key, model] = await Promise.all([
+  const [resolved, spentCents, key, model, transcription] = await Promise.all([
     withTenant(tenantId, (tx) => readSettings(tx, tenantId)),
     monthlySpendCents(tenantId),
     withTenant(tenantId, (tx) =>
@@ -147,6 +147,7 @@ export async function getSettings(tenantId: string): Promise<AgentSettings> {
       }),
     ),
     getModelPort(tenantId),
+    getTranscriptionPort(tenantId),
   ])
 
   return {
@@ -174,7 +175,7 @@ export async function getSettings(tenantId: string): Promise<AgentSettings> {
           }
         : null,
     providerConfigured: model.configured,
-    audioTranscription: getTranscriptionPort().configured,
+    audioTranscription: transcription.configured,
   }
 }
 

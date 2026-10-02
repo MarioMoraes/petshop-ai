@@ -98,7 +98,7 @@ export const AgentSentimentSchema = z.enum(AGENT_SENTIMENTS)
 export type AgentSentiment = z.infer<typeof AgentSentimentSchema>
 
 /**
- * O tipo do que chegou. O agente lê `TEXT` e, quando há Whisper, `AUDIO`.
+ * O tipo do que chegou. O agente lê `TEXT` e, quando há chave do Gemini, `AUDIO`.
  *
  * O AC-05 de MOD-AI-01: a linha de `messages` guarda **o tipo e não o conteúdo** — o
  * áudio continua `(áudio)` lá. A transcrição mora só no turno da conversa
@@ -113,9 +113,9 @@ export type AgentInboundKind = z.infer<typeof AgentInboundKindSchema>
  * O áudio mais longo que o agente transcreve, em segundos.
  *
  * Dois minutos cobrem o "áudio de recado" do cliente. Acima disso a conversa vai para
- * a recepção: o Whisper roda em CPU e serializa as transcrições de todos os petshops, e
- * levou 1,6× a duração do áudio na medição — três minutos de áudio seguravam a fila de
- * todo mundo por quase cinco.
+ * a recepção: quem manda um áudio de cinco minutos está contando uma história que pede
+ * gente, e não um horário. O teto nasceu quando o Whisper rodava em CPU e serializava os
+ * áudios de todos os petshops; com o Gemini ele ficou pelo motivo de atendimento.
  */
 export const AGENT_AUDIO_MAX_SECONDS = 120
 
@@ -418,7 +418,7 @@ export const AGENT_HANDOFF_SAY = {
   /** O provedor fora do ar, que chega ao cliente como recado e nunca como erro (RN-09). */
   ERROR:
     'Tive um problema para consultar isso agora. Já estou chamando alguém da equipe para te ajudar.',
-  /** O áudio que não se ouviu: a mídia sumiu, o Whisper caiu, ou não havia fala nele. */
+  /** O áudio que não se ouviu: a mídia sumiu, a transcrição falhou, ou não havia fala nele. */
   UNHEARD:
     'Não consegui ouvir seu áudio agora. Já estou chamando alguém da equipe para te atender.',
 } as const
@@ -498,10 +498,10 @@ export const AgentSettingsSchema = z.object({
   /** `false` quando o motor de mensagens está desligado: o agente não teria como falar. */
   canEnable: z.boolean(),
   /**
-   * A chave da Anthropic do estabelecimento — só o que a tela pode ver dela.
+   * A chave do Google Gemini do estabelecimento — só o que a tela pode ver dela.
    *
    * `null` é "não cadastrada". O valor nunca volta: quem esqueceu a chave gera outra no
-   * painel da Anthropic, como faria com qualquer segredo.
+   * Google AI Studio, como faria com qualquer segredo.
    */
   apiKey: z
     .object({
@@ -516,7 +516,7 @@ export const AgentSettingsSchema = z.object({
    * a chave de desenvolvimento do ambiente também conta.
    */
   providerConfigured: z.boolean(),
-  /** Se há Whisper na instalação. Sem ele, áudio vai para a recepção. */
+  /** Se há quem transcreva o áudio — a mesma chave do modelo. Sem ela, áudio vai para a recepção. */
   audioTranscription: z.boolean(),
 })
 export type AgentSettings = z.infer<typeof AgentSettingsSchema>
@@ -524,8 +524,8 @@ export type AgentSettings = z.infer<typeof AgentSettingsSchema>
 /**
  * O cadastro da chave (Configurações › Integrações).
  *
- * O prefixo confere a colagem, e não a validade: quem responde se a chave serve é a
- * própria Anthropic, numa chamada feita antes de gravar.
+ * O prefixo confere a colagem, e não a validade: quem responde se a chave serve é o
+ * próprio Google, numa chamada feita antes de gravar.
  */
 export const SetAgentApiKeySchema = z.strictObject({
   apiKey: z
@@ -533,7 +533,7 @@ export const SetAgentApiKeySchema = z.strictObject({
     .trim()
     .min(20, 'Cole a chave inteira')
     .max(300)
-    .regex(/^sk-ant-/, 'A chave da Anthropic começa com sk-ant-'),
+    .regex(/^AIza/, 'A chave do Google AI Studio começa com AIza'),
 })
 export type SetAgentApiKeyInput = z.output<typeof SetAgentApiKeySchema>
 

@@ -88,8 +88,6 @@ x-backend: &backend
     # equipe sem precisar de deploy.
     PLATFORM_ALERT_EMAILS: ${PLATFORM_ALERT_EMAILS:-}
     GOTENBERG_URL: http://gotenberg:3000
-    # A transcrição dos áudios do agente. Sem ela, áudio vai para a recepção como antes.
-    WHISPER_URL: http://whisper:9000
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     MAIL_FROM: ${MAIL_FROM:-}
     # ─── MOD-AI: o agente de atendimento (Fase 8) ───────────────────────────────
@@ -99,11 +97,10 @@ x-backend: &backend
     # deixa ligar o atendimento automático, o interruptor acende, e nenhuma mensagem
     # de cliente é respondida. Foi o que faltava passar até 2026-09-14.
     #
-    # `gemini` existe para desenvolvimento (free tier do AI Studio); produção é
-    # `anthropic`. `GEMINI_MODEL` não é interpolado de propósito: o padrão mora no
-    # schema, e repeti-lo aqui criaria dois lugares para mudar o mesmo valor.
-    AI_PROVIDER: ${AI_PROVIDER:-anthropic}
-    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    # O provedor é o Google Gemini, e em produção a chave é a de cada petshop
+    # (Integrações) — esta só vale fora de produção. `GEMINI_MODEL` não é interpolado
+    # de propósito: o padrão mora no schema, e repeti-lo aqui criaria dois lugares para
+    # mudar o mesmo valor. A mesma chave transcreve os áudios do cliente.
     GEMINI_API_KEY: ${GEMINI_API_KEY:-}
   deploy: &backend-deploy
     replicas: 1
@@ -210,39 +207,6 @@ services:
         constraints: [node.role == manager]
       resources:
         limits: { memory: 512M }
-
-  whisper:
-    # A transcrição dos áudios do agente (MOD-AI). Serializa as transcrições atrás de
-    # uma trava, então uma réplica basta; o teto de memória é o do modelo `small` em
-    # int8 com folga para o ffmpeg. `medium` pede ~2,5 GB — conferir `free -h` antes.
-    image: onerahmet/openai-whisper-asr-webservice:v1.10.0
-    networks: [interna]
-    environment:
-      ASR_ENGINE: faster_whisper
-      ASR_MODEL: ${ASR_MODEL:-small}
-      ASR_QUANTIZATION: int8
-      ASR_MODEL_PATH: /data/whisper
-    volumes:
-      - whisper-cache:/data/whisper
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'python3',
-          '-c',
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/docs', timeout=3)",
-        ]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 300s
-    deploy:
-      replicas: 1
-      restart_policy: *restart
-      placement:
-        constraints: [node.role == manager]
-      resources:
-        limits: { memory: 1536M }
 
   evolution:
     # O canal WhatsApp (MOD-CRM-01). Tag fixa: uma sessão pareada é estado, e uma
@@ -531,4 +495,3 @@ volumes:
   evolution-instances:
   caddy-data:
   caddy-config:
-  whisper-cache:

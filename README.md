@@ -120,5 +120,7 @@ design/                 Biblioteca de padrões visuais
 - **Cobrança real conferida de ponta a ponta.** O PIX da assinatura e o da cobrança do
   tutor foram pagos no sandbox; o cartão (Checkout) e a cobrança avulsa da subida de plano
   anual ainda não, e a conta Asaas de produção da plataforma não está ligada.
-- **Zero data retention com a Anthropic.** Contratual, não técnico. Desde que o agente
-  usa a chave de cada estabelecimento, o acordo passa a ser entre o petshop e a Anthropic.
+- **Retenção de dados no Google.** Contratual, não técnico. O agente (e a transcrição do
+  áudio) usa a chave Gemini de cada estabelecimento, então o acordo é entre o petshop e o
+  Google — e o free tier do AI Studio pode usar o conteúdo para treino; com faturamento
+  ligado, não.

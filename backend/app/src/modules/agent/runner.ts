@@ -651,7 +651,7 @@ const CLAIM_RENEW_MS = 30_000
  *
  * O varredor reassume a conversa cuja posse passou de 90 segundos — é o que recolhe o
  * processo que morreu. A transcrição é a primeira etapa do turno que pode passar disso
- * **com o processo vivo** (um minuto de áudio leva mais que isso no Whisper em CPU), e
+ * **com o processo vivo** (a transcrição de um áudio longo, num provedor lento), e
  * sem a renovação o varredor abriria um segundo turno em paralelo: o mesmo áudio
  * transcrito duas vezes e duas respostas ao cliente.
  */
@@ -695,7 +695,7 @@ async function transcribePending(tenantId: string, conversationId: string): Prom
     const cipher = await openCipher(tx, tenantId)
     /**
      * Só o que chegou **depois da última resposta**. O áudio de antes dela já foi
-     * respondido por alguém — pela recepção, quando não havia Whisper —, e insistir nele
+     * respondido por alguém — pela recepção, quando não havia transcrição —, e insistir nele
      * mandaria de volta à fila, em laço, a conversa que a recepção devolveu ao agente.
      */
     const lastReply = await tx.agentTurn.findFirst({
@@ -718,7 +718,7 @@ async function transcribePending(tenantId: string, conversationId: string): Prom
   })
   if (pending.length === 0) return true
 
-  const transcription = getTranscriptionPort()
+  const transcription = await getTranscriptionPort(tenantId)
   if (!transcription.configured) return false
 
   for (const row of pending) {
@@ -729,18 +729,43 @@ async function transcribePending(tenantId: string, conversationId: string): Prom
         logger.warn({ tenantId, conversationId, turnId: row.id }, 'áudio indisponível no provedor')
         return false
       }
-      const text = (await transcription.transcribe(audio.bytes, audio.mimetype)).slice(0, 4000)
+      const heard = await transcription.transcribe(audio.bytes, audio.mimetype)
+      const text = heard.text.slice(0, 4000)
+      /**
+       * **O custo entra no turno do cliente**, e não num turno à parte: é a linha que a
+       * transcrição produziu, e o teto mensal soma `cost_millicents` de todos os turnos,
+       * qualquer que seja o papel. Grava-se mesmo sem fala reconhecida — o Google cobrou
+       * do mesmo jeito. A conversa só soma quando a linha foi de fato escrita, para o
+       * varredor que perdeu a corrida não contar o mesmo áudio duas vezes.
+       */
+      await withTenant(tenantId, async (tx) => {
+        const cipher = await openCipher(tx, tenantId)
+        const written = await tx.agentTurn.updateMany({
+          where: { id: row.id, contentEncrypted: row.contentEncrypted },
+          data: {
+            ...(text ? { contentEncrypted: cipher.encrypt(text) } : {}),
+            inputTokens: { increment: heard.inputTokens },
+            outputTokens: { increment: heard.outputTokens },
+            costMillicents: { increment: heard.costMillicents },
+          },
+        })
+        if (written.count === 1 && heard.costMillicents > 0) {
+          await tx.agentConversation.update({
+            where: { id: conversationId },
+            data: { costMillicents: { increment: heard.costMillicents } },
+          })
+        }
+      })
+      recordMetric({
+        metric: 'agent_transcription_cost_millicents',
+        tenantId,
+        value: heard.costMillicents,
+        unit: 'millicents',
+      })
       if (!text) {
         logger.warn({ tenantId, conversationId, turnId: row.id }, 'áudio sem fala reconhecível')
         return false
       }
-      await withTenant(tenantId, async (tx) => {
-        const cipher = await openCipher(tx, tenantId)
-        await tx.agentTurn.updateMany({
-          where: { id: row.id, contentEncrypted: row.contentEncrypted },
-          data: { contentEncrypted: cipher.encrypt(text) },
-        })
-      })
       recordMetric({
         metric: 'agent_transcription_ms',
         tenantId,
@@ -749,6 +774,8 @@ async function transcribePending(tenantId: string, conversationId: string): Prom
       })
     } catch (error) {
       logger.error({ err: error, tenantId, conversationId, turnId: row.id }, 'transcrição falhou')
+      // A chave recusada no áudio é a mesma do turno: a tela precisa dizer por quê.
+      if (error instanceof ModelKeyRejectedError) await recordKeyRejection(tenantId, error.message)
       return false
     }
   }
