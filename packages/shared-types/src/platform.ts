@@ -221,7 +221,11 @@ export type ChangeTenantPlanInput = z.output<typeof ChangeTenantPlanSchema>
 export const UpdatePlanPriceSchema = z.strictObject({
   monthlyCents: z.number().int().min(100).max(MAX_MONEY_CENTS),
   yearlyCents: z.number().int().min(100).max(MAX_MONEY_CENTS),
-  reason: z.string().trim().min(10).max(300),
+  reason: z
+    .string()
+    .trim()
+    .min(10, 'Escreva o motivo com pelo menos 10 caracteres.')
+    .max(300, 'O motivo pode ter no máximo 300 caracteres.'),
 })
 export type UpdatePlanPriceInput = z.output<typeof UpdatePlanPriceSchema>
 

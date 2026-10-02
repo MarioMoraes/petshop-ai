@@ -92,9 +92,24 @@ export function Modal({
   const origem = useRef<HTMLElement | null>(null)
   const tituloId = useId()
 
+  /**
+   * `onClose` e `busy` por ref, e não como dependência do efeito abaixo.
+   *
+   * Quase todo chamador passa `onClose={() => …}`, uma função nova a cada render — e o
+   * efeito que dependia dela rodava de novo a **cada tecla** digitada num campo da
+   * janela: a limpeza devolvia o foco ao gatilho atrás dela, e a montagem o punha no
+   * painel. O campo perdia o foco depois de cada caractere.
+   */
+  const aoFechar = useRef(onClose)
+  const ocupado = useRef(busy)
+  useEffect(() => {
+    aoFechar.current = onClose
+    ocupado.current = busy
+  })
+
   const fechar = useCallback(() => {
-    if (!busy) onClose()
-  }, [busy, onClose])
+    if (!ocupado.current) aoFechar.current()
+  }, [])
 
   useEffect(() => {
     if (!open) return
