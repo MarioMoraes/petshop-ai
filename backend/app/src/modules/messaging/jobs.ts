@@ -97,6 +97,7 @@ export async function purgeExpiredBodies(now: Date = new Date()): Promise<{ purg
             toEncrypted: '',
             fallbackSubjectEncrypted: null,
             fallbackBodyEncrypted: null,
+            mediaEncrypted: null,
             // O aviso que nunca saiu — push desligado, mensagem bloqueada no despacho.
             pushTitleEncrypted: null,
             pushBodyEncrypted: null,

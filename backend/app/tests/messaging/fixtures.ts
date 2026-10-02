@@ -43,6 +43,8 @@ const { setWhatsAppPort } = await import('../../src/modules/messaging/ports/what
 const { setEvolutionPort, EvolutionRequestError } =
   await import('../../src/modules/messaging/ports/evolution.js')
 type EvolutionPort = import('../../src/modules/messaging/ports/evolution.js').EvolutionPort
+type EvolutionMediaMessage =
+  import('../../src/modules/messaging/ports/evolution.js').EvolutionMediaMessage
 
 export interface SentMessage {
   to: string
@@ -220,6 +222,8 @@ export interface FakeEvolution {
   loggedOut: string[]
   /** Instâncias apagadas no provedor — a identidade vai junto, e é o ponto. */
   deleted: string[]
+  /** O que se pediu para baixar: a mensagem como chegou à Evolution. */
+  mediaRequests: EvolutionMediaMessage[]
   /** Faz o próximo `sendText` falhar. `WHATSAPP_BANNED` derruba a instância (AC-05). */
   failNextSend(errorCode: string, detail?: string): void
   /** Faz a próxima criação de instância falhar, como um provedor fora do ar. */
@@ -258,6 +262,7 @@ export function installFakeEvolution(): FakeEvolution {
   const sent: FakeEvolution['sent'] = []
   const loggedOut: string[] = []
   const deleted: string[] = []
+  const mediaRequests: EvolutionMediaMessage[] = []
   let nextFailure: { errorCode: string; detail: string } | null = null
   let nextCreateFailure: string | null = null
   let createHook: ((input: { webhookToken: string }) => Promise<void>) | null = null
@@ -318,7 +323,8 @@ export function installFakeEvolution(): FakeEvolution {
     async deleteInstance(instanceName) {
       deleted.push(instanceName)
     },
-    async fetchMedia() {
+    async fetchMedia(_instanceName, _apiKey, message) {
+      mediaRequests.push(message)
       return { base64: 'T2dnUw==', mimetype: 'audio/ogg; codecs=opus' }
     },
   }
@@ -332,6 +338,7 @@ export function installFakeEvolution(): FakeEvolution {
     sent,
     loggedOut,
     deleted,
+    mediaRequests,
     failNextSend(errorCode, detail = 'falha injetada') {
       nextFailure = { errorCode, detail }
     },

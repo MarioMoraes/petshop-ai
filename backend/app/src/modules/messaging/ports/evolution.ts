@@ -103,14 +103,30 @@ export interface EvolutionPort {
    *
    * O webhook não traz o arquivo: o `base64` no payload depende de uma opção da
    * instância que ninguém liga, e mesmo ligada faria todo áudio atravessar o webhook —
-   * que tem de responder 204 em milissegundos. Aqui o arquivo é pedido depois, por id,
-   * e só quando alguém vai ouvi-lo. `null` é "a Evolution não tem mais esta mídia".
+   * que tem de responder 204 em milissegundos. Aqui o arquivo é pedido depois, e só
+   * quando alguém vai ouvi-lo. `null` é "a Evolution não tem mais esta mídia".
+   *
+   * Vai a mensagem **inteira** como o webhook a trouxe, e não só o id: com o id a
+   * Evolution procura a mensagem no banco dela, que não guarda nenhuma
+   * (`DATABASE_SAVE_DATA_NEW_MESSAGE=false`), e responde "Message not found". Com o
+   * `message`, ela baixa e decifra direto do WhatsApp.
    */
   fetchMedia(
     instanceName: string,
     apiKey: string,
-    messageId: string,
+    message: EvolutionMediaMessage,
   ): Promise<EvolutionMedia | null>
+}
+
+/**
+ * A mensagem recebida como o WhatsApp a descreve: `key` + o conteúdo com a mídia.
+ *
+ * Sem `message` — e nunca com `{}`, que a Evolution toma por mensagem completa e sem
+ * mídia —, ela volta a procurar pelo id no próprio banco.
+ */
+export interface EvolutionMediaMessage {
+  key: { id: string; remoteJid?: string; fromMe?: boolean }
+  message?: Record<string, unknown>
 }
 
 export interface EvolutionMedia {
@@ -344,8 +360,7 @@ function createHttpPort(baseUrl: string, globalApiKey: string): EvolutionPort {
         apiKey,
       })
       const instance = ((body ?? {}) as Record<string, unknown>).instance as
-        | Record<string, unknown>
-        | undefined
+        Record<string, unknown> | undefined
 
       const state = (instance?.state as EvolutionState | undefined) ?? 'close'
       // `ownerJid` chega como `5511988887777@s.whatsapp.net`.
@@ -365,8 +380,7 @@ function createHttpPort(baseUrl: string, globalApiKey: string): EvolutionPort {
 
       if (status < 400) {
         const key = ((body ?? {}) as Record<string, unknown>).key as
-          | Record<string, unknown>
-          | undefined
+          Record<string, unknown> | undefined
         return {
           ok: true,
           providerMessageId: (key?.id as string | undefined) ?? null,
@@ -379,12 +393,12 @@ function createHttpPort(baseUrl: string, globalApiKey: string): EvolutionPort {
       return classifySendFailure(status, body, detailOf(body) || `HTTP ${status}`)
     },
 
-    async fetchMedia(instanceName, apiKey, messageId) {
+    async fetchMedia(instanceName, apiKey, message) {
       const { status, body } = await request({
         method: 'POST',
         path: `/chat/getBase64FromMediaMessage/${encodeURIComponent(instanceName)}`,
         apiKey,
-        body: { message: { key: { id: messageId } }, convertToMp4: false },
+        body: { message, convertToMp4: false },
       })
       if (status === 404) return null
       if (status >= 400) {

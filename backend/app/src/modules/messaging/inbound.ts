@@ -9,7 +9,7 @@ import {
 import { logger } from '../../shared/logger.js'
 import { openCipher } from './crypto.js'
 import { getAgentInboundPort } from './ports/agent.js'
-import { getEvolutionPort } from './ports/evolution.js'
+import { getEvolutionPort, type EvolutionMediaMessage } from './ports/evolution.js'
 import { whatsappCredentials } from './whatsapp.js'
 
 /**
@@ -97,6 +97,8 @@ interface ParsedMessage {
   kind: AgentInboundKind
   text: string
   audioSeconds: number | null
+  /** O áudio como o WhatsApp o descreve, para a Evolution baixá-lo depois. */
+  media: EvolutionMediaMessage | null
   receivedAt: Date
 }
 
@@ -126,6 +128,10 @@ function parseMessage(data: unknown): ParsedMessage | null {
     kind,
     text,
     audioSeconds: kind === 'AUDIO' ? audioSecondsOf(raw.message) : null,
+    media:
+      kind === 'AUDIO' && raw.message
+        ? { key: { id: key.id, remoteJid: key.remoteJid, fromMe: false }, message: raw.message }
+        : null,
     receivedAt: toDate(raw.messageTimestamp),
   }
 }
@@ -226,6 +232,8 @@ async function store(tenantId: string, parsed: ParsedMessage): Promise<void> {
           toEncrypted: cipher.encrypt(parsed.phone),
           toHash: phoneHash,
           bodyEncrypted: cipher.encrypt(body),
+          // A chave de decifra do áudio é tão sensível quanto o áudio: cifrada como o corpo.
+          ...(parsed.media ? { mediaEncrypted: cipher.encrypt(JSON.stringify(parsed.media)) } : {}),
           status: 'DELIVERED',
           deliveredAt: parsed.receivedAt,
           dedupeKey: `inbound:${parsed.providerMessageId}`.slice(0, 120),
@@ -273,28 +281,33 @@ export async function downloadInboundAudio(
   tenantId: string,
   messageId: string,
 ): Promise<{ bytes: Buffer; mimetype: string } | null> {
-  const row = await withTenant(tenantId, (tx) =>
-    tx.message.findFirst({
+  const media = await withTenant(tenantId, async (tx) => {
+    const row = await tx.message.findFirst({
       where: { id: messageId, direction: 'INBOUND' },
-      select: { providerMessageId: true },
-    }),
-  )
-  if (!row?.providerMessageId) return null
+      select: { providerMessageId: true, mediaEncrypted: true },
+    })
+    if (!row?.providerMessageId) return null
+    // Linha de antes da coluna: só o id, que a Evolution sem banco de mensagens não acha.
+    if (!row.mediaEncrypted) return { key: { id: row.providerMessageId } }
+    const cipher = await openCipher(tx, tenantId)
+    return JSON.parse(cipher.decrypt(row.mediaEncrypted)) as EvolutionMediaMessage
+  })
+  if (!media) return null
 
   const credentials = await whatsappCredentials(tenantId)
   if (!credentials) return null
 
-  const media = await getEvolutionPort().fetchMedia(
+  const file = await getEvolutionPort().fetchMedia(
     credentials.instanceName,
     credentials.apiKey,
-    row.providerMessageId,
+    media,
   )
-  if (!media) return null
+  if (!file) return null
 
   // Algumas versões devolvem o `data:` URI inteiro; a transcrição quer só os bytes.
-  const base64 = media.base64.replace(/^data:[^,]*,/, '')
+  const base64 = file.base64.replace(/^data:[^,]*,/, '')
   const bytes = Buffer.from(base64, 'base64')
-  return bytes.length > 0 ? { bytes, mimetype: media.mimetype } : null
+  return bytes.length > 0 ? { bytes, mimetype: file.mimetype } : null
 }
 
 /**

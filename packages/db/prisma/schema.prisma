@@ -3041,6 +3041,11 @@ model Message {
 
   provider          String? @db.VarChar(20)
   providerMessageId String? @map("provider_message_id") @db.VarChar(120)
+  /// O áudio **recebido**, como o WhatsApp o descreve (`key` + `message`, com a chave de
+  /// decifra da mídia), cifrado. É o que o agente entrega à Evolution para baixar o
+  /// arquivo: ela não guarda mensagem (`DATABASE_SAVE_DATA_NEW_MESSAGE=false`), então
+  /// pedir só pelo id responde "Message not found". Nulo em tudo que não é áudio.
+  mediaEncrypted String? @map("media_encrypted")
 
   /// Em claro: é o que o painel de falhas mostra, e não carrega dado do tutor.
   errorCode   String? @map("error_code") @db.VarChar(60)

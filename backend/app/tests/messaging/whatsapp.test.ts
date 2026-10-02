@@ -73,7 +73,11 @@ async function enqueue(tutorId: string, overrides: Record<string, unknown> = {})
       tutorId,
       templateKey: 'appointment_reminder',
       dedupeKey: `reminder:${tutorId}:${Math.random()}`,
-      variables: { 'pets.lista': 'Thor', 'agendamento.data': 'quinta', 'agendamento.hora': '09:00' },
+      variables: {
+        'pets.lista': 'Thor',
+        'agendamento.data': 'quinta',
+        'agendamento.hora': '09:00',
+      },
       ...overrides,
     },
   })
@@ -286,6 +290,59 @@ describe('webhook (RN-11)', () => {
   })
 })
 
+describe('áudio recebido (MOD-AI-01 AC-05)', () => {
+  it('pede o download com a mensagem inteira, porque a Evolution não guarda mensagem', async () => {
+    await pair()
+    const { downloadInboundAudio } = await import('../../src/modules/messaging/inbound.js')
+    const audioMessage = { url: 'https://mmg.whatsapp.net/x', mediaKey: 'chave', seconds: 2 }
+
+    const response = await callWebhook(evolution.lastToken(), {
+      event: 'messages.upsert',
+      data: {
+        key: { id: 'AUDIO-1', remoteJid: '5511988887777@s.whatsapp.net', fromMe: false },
+        messageType: 'audioMessage',
+        message: { audioMessage },
+      },
+    })
+    expect(response.statusCode).toBe(204)
+
+    const row = await withTenant(fixture.tenantId, (tx) =>
+      tx.message.findFirstOrThrow({ where: { providerMessageId: 'AUDIO-1' } }),
+    )
+    // A chave de decifra da mídia não fica em claro.
+    expect(row.mediaEncrypted).toBeTruthy()
+    expect(row.mediaEncrypted).not.toContain('chave')
+
+    const audio = await downloadInboundAudio(fixture.tenantId, row.id)
+
+    expect(audio?.bytes.toString()).toBe('OggS')
+    // Só com o id, a Evolution procura no banco dela — vazio por decisão — e responde
+    // "Message not found": todo áudio ia para a recepção.
+    expect(evolution.mediaRequests).toEqual([
+      {
+        key: { id: 'AUDIO-1', remoteJid: '5511988887777@s.whatsapp.net', fromMe: false },
+        message: { audioMessage },
+      },
+    ])
+  })
+
+  it('texto não guarda descrição de mídia', async () => {
+    await pair()
+    await callWebhook(evolution.lastToken(), {
+      event: 'messages.upsert',
+      data: {
+        key: { id: 'TEXTO-1', remoteJid: '5511988887777@s.whatsapp.net', fromMe: false },
+        messageType: 'conversation',
+        message: { conversation: 'boa tarde' },
+      },
+    })
+    const row = await withTenant(fixture.tenantId, (tx) =>
+      tx.message.findFirstOrThrow({ where: { providerMessageId: 'TEXTO-1' } }),
+    )
+    expect(row.mediaEncrypted).toBeNull()
+  })
+})
+
 describe('refazer a conexão (recuperação)', () => {
   async function recreate() {
     return callApi({
@@ -468,7 +525,11 @@ describe('disponibilidade por tenant', () => {
         tutorId: semWhatsapp,
         templateKey: 'appointment_reminder',
         dedupeKey: `reminder:${semWhatsapp}`,
-        variables: { 'pets.lista': 'Mel', 'agendamento.data': 'sexta', 'agendamento.hora': '10:00' },
+        variables: {
+          'pets.lista': 'Mel',
+          'agendamento.data': 'sexta',
+          'agendamento.hora': '10:00',
+        },
       },
     })
 
@@ -649,7 +710,9 @@ describe('agrupamento por janela (RN-08)', () => {
     })
     expect(reentrega.statusCode).toBe(200)
 
-    const total = await withTenant(fixture.tenantId, (tx) => tx.message.count({ where: { tutorId } }))
+    const total = await withTenant(fixture.tenantId, (tx) =>
+      tx.message.count({ where: { tutorId } }),
+    )
     expect(total).toBe(2)
   })
 })
