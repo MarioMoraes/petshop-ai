@@ -524,8 +524,10 @@ export type AgentSettings = z.infer<typeof AgentSettingsSchema>
 /**
  * O cadastro da chave (Configurações › Integrações).
  *
- * O prefixo confere a colagem, e não a validade: quem responde se a chave serve é o
- * próprio Google, numa chamada feita antes de gravar.
+ * Não há conferência de prefixo: o Google AI Studio emite mais de um formato (`AIza…` e,
+ * desde 2026, `AQ.…`), e um prefixo fixo recusou uma chave válida no primeiro cadastro
+ * real. Aqui só se barra a colagem quebrada — curta demais ou com espaço no meio —; quem
+ * responde se a chave serve é o próprio Google, numa chamada feita antes de gravar.
  */
 export const SetAgentApiKeySchema = z.strictObject({
   apiKey: z
@@ -533,7 +535,7 @@ export const SetAgentApiKeySchema = z.strictObject({
     .trim()
     .min(20, 'Cole a chave inteira')
     .max(300)
-    .regex(/^AIza/, 'A chave do Google AI Studio começa com AIza'),
+    .regex(/^\S+$/, 'A chave não tem espaços: confira se colou só ela'),
 })
 export type SetAgentApiKeyInput = z.output<typeof SetAgentApiKeySchema>
 

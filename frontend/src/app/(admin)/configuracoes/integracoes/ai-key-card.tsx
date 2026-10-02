@@ -104,7 +104,7 @@ export function AiKeyCard({ settings, canEdit }: Props) {
           <Field
             label={key ? 'Trocar a chave' : 'Chave da API'}
             htmlFor="geminiKey"
-            hint="Gere em aistudio.google.com › Get API key. Começa com AIza."
+            hint="Gere em aistudio.google.com › Get API key."
             error={fieldError}
           >
             <input
@@ -116,7 +116,7 @@ export function AiKeyCard({ settings, canEdit }: Props) {
               value={apiKey}
               disabled={saving || removing}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder="AIza…"
+              placeholder="Cole a chave do Google AI Studio"
             />
           </Field>
 

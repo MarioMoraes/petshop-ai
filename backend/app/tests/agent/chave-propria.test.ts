@@ -95,14 +95,19 @@ describe('a chave própria da IA', () => {
     expect(linha?.apiKeyEncrypted ?? null).toBeNull()
   })
 
-  it('o que não parece chave do Google nem chega a ser conferido', async () => {
+  it('aceita os dois formatos do Google AI Studio', async () => {
+    expect((await cadastrar('AQ.Ab8-chave-de-teste-no-formato-novo-WXYZ')).statusCode).toBe(200)
+    expect((await cadastrar(CHAVE)).statusCode).toBe(200)
+  })
+
+  it('a colagem quebrada nem chega a ser conferida', async () => {
     let conferiu = false
     setKeyVerifier(async () => {
       conferiu = true
       return true
     })
 
-    const response = await cadastrar('chave-de-outro-provedor-1234567890')
+    const response = await cadastrar('AQ.Ab8RN6L7F7bSzzDN2 GyGbhuHW93OD25MKTdN7Xl')
 
     expect(response.statusCode).toBe(422)
     expect(conferiu).toBe(false)
