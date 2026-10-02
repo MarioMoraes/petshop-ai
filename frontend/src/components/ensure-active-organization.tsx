@@ -47,6 +47,37 @@ import { Button } from '@/components/ui'
 const MAX_BUSCAS = 6
 const INTERVALO_BUSCA_MS = 1200
 
+/**
+ * Recarregar a página quando a Organization já está ativa e o servidor ainda não a viu.
+ *
+ * É a volta do console da plataforma: a sessão de lá não tem Organization, o `setActive`
+ * daqui a reativa, e o `router.refresh()` seguinte às vezes ainda chega ao servidor com o
+ * cookie de sessão antigo — `/v1/me` sem estabelecimento, e esta tela de novo. Na segunda
+ * passada a Organization **já é a ativa**, e o efeito saía sem fazer nada: "Preparando…"
+ * para sempre. Um recarregamento inteiro faz o Clerk renovar o cookie no caminho.
+ *
+ * Com teto, guardado na aba: se nem recarregando o servidor enxerga o estabelecimento, o
+ * problema é outro, e o cartão "Quase Lá" diz isso em vez de recarregar em laço.
+ */
+const RECARGA_CHAVE = 'petshop:reativar-organizacao'
+const MAX_RECARGAS = 2
+const JANELA_RECARGA_MS = 60_000
+
+function recarregarSePuder(): boolean {
+  try {
+    const agora = Date.now()
+    const antes = (JSON.parse(sessionStorage.getItem(RECARGA_CHAVE) ?? '[]') as number[]).filter(
+      (instante) => agora - instante < JANELA_RECARGA_MS,
+    )
+    if (antes.length >= MAX_RECARGAS) return false
+    sessionStorage.setItem(RECARGA_CHAVE, JSON.stringify([...antes, agora]))
+  } catch {
+    // Sem armazenamento da aba não há como contar; uma tentativa só, a desta passada.
+  }
+  window.location.reload()
+  return true
+}
+
 export function EnsureActiveOrganization({
   slug,
   redirectTo,
@@ -77,6 +108,7 @@ export function EnsureActiveOrganization({
   const router = useRouter()
   const [escolhido, setEscolhido] = useState<string | null>(null)
   const [buscas, setBuscas] = useState(0)
+  const [semRecarga, setSemRecarga] = useState(false)
   const { organization: ativa } = useOrganization()
   const { isLoaded, setActive, userMemberships } = useOrganizationList({
     userMemberships: { infinite: true },
@@ -104,6 +136,7 @@ export function EnsureActiveOrganization({
     // página, de novo e de novo.
     if (organization.id === ativa?.id) {
       if (redirectTo) router.replace(redirectTo)
+      else if (waiting && !recarregarSePuder()) setSemRecarga(true)
       return
     }
 
@@ -123,6 +156,7 @@ export function EnsureActiveOrganization({
     escolhido,
     ativa?.id,
     knownSlugs,
+    waiting,
   ])
 
   /*
@@ -197,7 +231,7 @@ export function EnsureActiveOrganization({
    * sozinha. Nos dois, recarregar é o que resolve — e dizer isso é melhor que deixar
    * "Preparando…" girando para sempre, que foi como este bug apareceu.
    */
-  if (desistiu && waiting) {
+  if ((desistiu || semRecarga) && waiting) {
     return (
       <div className="card w-full max-w-md px-6 py-8 text-center">
         <h1 className="text-xl font-semibold">Quase Lá</h1>
