@@ -10,6 +10,7 @@ import {
   givenTenantWithAdmin,
   ownerPrisma,
   platformAuditLines,
+  registeredPaths,
   resetDatabase,
   type PlatformUser,
   type TenantWithAdmin,
@@ -206,39 +207,11 @@ describe('as superfícies do cliente do petshop', () => {
   })
 })
 
-/**
- * Os caminhos completos, a partir da árvore que o Fastify imprime.
- *
- * A árvore é de prefixo: `/v1/messaging/` numa linha e `whatsapp` noutra, abaixo dela. Cada
- * nível ocupa quatro colunas (`│   `, `├── `), e o caminho é a soma dos rótulos do topo
- * até a linha. Com mais de um método registrado, o Fastify imprime uma árvore por método.
- */
-function caminhosRegistrados(arvore: string): string[] {
-  const pilha: string[] = []
-  const caminhos: string[] = []
-
-  for (const linha of arvore.split('\n')) {
-    const marca = linha.search(/[├└]── /)
-    if (marca < 0) continue
-    const nivel = marca / 4
-    // A raiz de cada árvore de método sai como `(empty root node)`, e não é segmento.
-    const rotulo = linha
-      .slice(marca + 4)
-      .replace(/^\(empty root node\)$/, '')
-      .replace(/ \(.*\)$/, '')
-    pilha.length = nivel
-    pilha.push(rotulo)
-    caminhos.push(pilha.join(''))
-  }
-
-  return caminhos
-}
-
 describe('a tabela de prefixos', () => {
   it('todo prefixo bloqueado casa com ao menos uma rota registrada', async () => {
     // Um prefixo com erro de digitação não bloquearia nada, e nada acusaria.
     const app = await getApp()
-    const caminhos = caminhosRegistrados(app.printRoutes())
+    const caminhos = registeredPaths(app)
 
     for (const gate of PLAN_GATES) {
       const casa = caminhos.some(

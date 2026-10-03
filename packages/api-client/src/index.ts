@@ -315,7 +315,7 @@ import {
   type CloseCashSessionInput,
   InventorySettingsSchema,
   InventoryPositionReportSchema,
-  ProductUsedSchema,
+  type ProductUsedSchema,
   type CreateProductSchema,
   type InternalUseSchema,
   type CreateSaleSchema,

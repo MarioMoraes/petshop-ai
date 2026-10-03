@@ -1,0 +1,99 @@
+# Verificação de todo push na main e de todo pull request.
+#
+# Dois jobs, que não dependem um do outro:
+#
+# - `monorepo` — lint, typecheck e as suítes de todos os pacotes. Três delas (`backend/app`,
+#   `packages/db`, `packages/job-scheduler`) precisam de Postgres e criam o próprio banco
+#   (`TEST_DATABASE_NAME` de cada `vitest.config.ts`); broker, Redis e agendador ficam
+#   desligados pela suíte, então o Postgres é o único serviço. A do backend leva ~40 min.
+# - `app` — a suíte do app Flutter, que inclui `recorte_da_borda_test.dart`: a lista de
+#   caminhos que a borda publica comparada com os que o app chama.
+#
+# Nenhum segredo real: o ambiente é o `.env.example`, com a KEK gerada na hora porque o
+# valor de exemplo não é base64 de 32 bytes. O token do Clerk é dublado pela suíte.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Um push novo cancela a verificação do anterior no mesmo ramo: o que interessa é o estado
+# do último commit, e a suíte do backend é longa.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  monorepo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    services:
+      postgres:
+        # A mesma imagem do `infra/docker-compose.yml`; `pg_trgm` e `unaccent` vêm nela.
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: petshop
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d petshop"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A versão do pnpm sai do `packageManager` do package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Ambiente de teste
+        run: |
+          cp .env.example .env
+          kek="$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")"
+          sed -i "s|^ENCRYPTION_KEK=.*|ENCRYPTION_KEK=\"${kek}\"|" .env
+
+      - run: pnpm install --frozen-lockfile
+
+      # O typecheck do `packages/db` lê o cliente gerado, e o turbo só builda as
+      # dependências de um pacote antes dele (`^build`), não o próprio pacote.
+      - run: pnpm db:generate
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.38.2
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - run: flutter test

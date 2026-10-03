@@ -391,3 +391,32 @@ export async function grantPermission(
     data: { tenantId: fixture.tenantId, roleKey, permissionKey, granted: true },
   })
 }
+
+/**
+ * Os caminhos completos, a partir da árvore que o Fastify imprime.
+ *
+ * A árvore é de prefixo: `/v1/messaging/` numa linha e `whatsapp` noutra, abaixo dela. Cada
+ * nível ocupa quatro colunas (`│   `, `├── `), e o caminho é a soma dos rótulos do topo
+ * até a linha. Com mais de um método registrado, o Fastify imprime uma árvore por método.
+ */
+export function registeredPaths(app: FastifyInstance): string[] {
+  const arvore = app.printRoutes()
+  const pilha: string[] = []
+  const caminhos: string[] = []
+
+  for (const linha of arvore.split('\n')) {
+    const marca = linha.search(/[├└]── /)
+    if (marca < 0) continue
+    const nivel = marca / 4
+    // A raiz de cada árvore de método sai como `(empty root node)`, e não é segmento.
+    const rotulo = linha
+      .slice(marca + 4)
+      .replace(/^\(empty root node\)$/, '')
+      .replace(/ \(.*\)$/, '')
+    pilha.length = nivel
+    pilha.push(rotulo)
+    caminhos.push(pilha.join(''))
+  }
+
+  return caminhos
+}

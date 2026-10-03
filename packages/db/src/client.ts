@@ -80,6 +80,9 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   'LedgerAccount',
   'LedgerEntry',
   'Payment',
+  // Integrações por tenant (2026-09-27): a cobrança online do tutor e o domínio de
+  // e-mail. Ficaram uma semana com RLS no banco e fora daqui, com este teste vermelho.
+  'TutorCharge',
   'PaymentAllocation',
   'ServicePackage',
   'PackagePurchase',
@@ -112,6 +115,7 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   'MessageEvent',
   'MessageTemplate',
   'MessagingSettings',
+  'EmailDomain',
   'MessagingSuppression',
   'Automation',
   // MOD-CRM fatia 3: campanhas. As três carregam `tenant_id` próprio, inclusive a de
