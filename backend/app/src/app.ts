@@ -10,6 +10,7 @@ import { InvalidTokenError, verifySessionToken, type SessionClaims } from './aut
 import { resolvePortalSession, resolvePortalTenant } from './auth/portal-session.js'
 import { resolveSession } from './auth/session.js'
 import { listFromEnv, loadEnv } from './config/env.js'
+import { isInternalCall } from './gateway/pending.js'
 import { registerPlanGates } from './gateway/plan-gates.js'
 import { registerModules } from './gateway/routes.js'
 import { isPlatformPath } from './modules/platform/routes.js'
@@ -126,7 +127,9 @@ export async function buildApp(): Promise<FastifyInstance> {
      */
     allowList: (request: FastifyRequest) => {
       const path = request.url.split('?')[0] ?? ''
-      return path.startsWith(PUBLIC_PREFIX)
+      // As chamadas que o sino faz por dentro (`gateway/pending.ts`): quem navegou fez
+      // uma chamada só, e é ela que conta.
+      return path.startsWith(PUBLIC_PREFIX) || isInternalCall(request)
     },
     /**
      * MOD-SEC-09 — o webhook tem teto próprio, e mais folgado.

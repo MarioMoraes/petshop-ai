@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify'
 import { requireTenantContext } from '../auth.js'
 import { getPlatform } from '../platform-port.js'
 import { getEffectivePermissions } from '../rbac/service.js'
-import { getPrimaryColor } from '../settings/service.js'
+import { getShellSettings } from '../settings/service.js'
 import { getTenant } from '../tenants/service.js'
 import { ensureLocalUser } from '../users/service.js'
 import { markPortalBookingsSeen, readPortalBookingsSeenAt } from './service.js'
@@ -34,11 +34,11 @@ export async function registerMeRoutes(app: FastifyInstance): Promise<void> {
     const tenantId = request.auth.tenantId
     // As três consultas do tenant corrente são independentes entre si — em paralelo
     // por causa do SLO de p95 120ms desta rota.
-    const [currentTenant, effective, primaryColor, portalBookingsSeenAt] = tenantId
+    const [currentTenant, effective, shell, portalBookingsSeenAt] = tenantId
       ? await Promise.all([
           getTenant(tenantId),
           getEffectivePermissions(tenantId, user.id),
-          getPrimaryColor(tenantId),
+          getShellSettings(tenantId),
           readPortalBookingsSeenAt(tenantId, user.id),
         ])
       : [null, null, null, null]
@@ -53,7 +53,8 @@ export async function registerMeRoutes(app: FastifyInstance): Promise<void> {
         mfaEnabled: user.mfaEnabled,
       },
       currentTenant,
-      primaryColor,
+      primaryColor: shell?.primaryColor ?? null,
+      timezone: shell?.timezone ?? null,
       memberships: memberships.map((membership) => ({
         tenantId: membership.tenantId,
         tenantName: membership.tenantName,

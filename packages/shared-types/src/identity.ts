@@ -444,6 +444,12 @@ export const MeResponseSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, 'Use uma cor no formato #RRGGBB')
     .nullable(),
+  /**
+   * O fuso do tenant corrente, para a saudação da moldura. `null` sem tenant corrente.
+   * Vem aqui, e não de `/v1/tenants/me/settings`, porque aquela rota exige
+   * `tenant:read_settings` e a moldura é de todo perfil.
+   */
+  timezone: z.string().nullable(),
   memberships: z.array(MembershipSummarySchema),
   permissions: z.array(z.string()),
   permVersion: z.number().int(),

@@ -2,13 +2,13 @@ import Link from 'next/link'
 import type { CSSProperties, ReactNode } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import {
+  DEFAULT_TIMEZONE,
   PLAN_CATALOG,
   minimumPlanFor,
   type MeResponse,
   type PermissionKey,
   type PlanFeature,
 } from '@petshop/shared-types'
-import { serverApi } from '@/lib/api'
 import { montarPendencias } from '@/lib/pendencias'
 import { marcarAgendamentosVistos } from '@/lib/pendencias-actions'
 import { carregarPendencias } from '@/lib/pendencias.server'
@@ -257,26 +257,20 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
   )
 
   /*
-   * As duas leituras da moldura, juntas.
+   * A única leitura da moldura além do `/v1/me`: o sino, numa chamada só.
    *
    * A moldura é servidor: as pendências chegam ao sino como props já resolvidas, e o
-   * browser nunca fala com o gateway. Cada fonte falha para `null` por conta própria
-   * (ver `lib/pendencias.ts`), então isto não tem como derrubar a tela.
+   * browser nunca fala com o gateway. A falha vira `null` (ver `lib/pendencias.server.ts`),
+   * então isto não tem como derrubar a tela.
    *
    * O fuso da saudação é o do estabelecimento, e não o do servidor: um petshop em Rio
    * Branco seria cumprimentado com "boa tarde" às 9h locais porque o Node roda em UTC.
-   * Falha para `null` pela mesma regra do sino — a saudação cai no fuso padrão, e nenhuma
-   * tela do Admin cai junto com as Configurações. Quem não tem `tenant:read_settings`
-   * recebe 403 e passa por este mesmo caminho.
+   * Vem no `/v1/me` desde 2026-10-03. Antes era uma chamada a `getSettings`, que responde
+   * 403 a quem não tem `tenant:read_settings` — a recepção caía no fuso padrão, e cada
+   * navegação gravava uma negação na trilha.
    */
-  const [pendenciasBrutas, settings] = await Promise.all([
-    carregarPendencias(me),
-    serverApi()
-      .getSettings()
-      .catch(() => null),
-  ])
-  const pendencias = montarPendencias(pendenciasBrutas)
-  const timezone = settings?.timezone ?? 'America/Sao_Paulo'
+  const pendencias = montarPendencias(await carregarPendencias(me))
+  const timezone = me.timezone ?? DEFAULT_TIMEZONE
 
   // Só quem está em TRIAL conta dias de teste. `trialEndsAt` não é zerado quando o
   // estabelecimento assina — a data fica no cadastro como registro do que foi o

@@ -1,5 +1,7 @@
 import {
   MeResponseSchema,
+  PendingCountsSchema,
+  type PendingCountsQuery,
   OnboardingStateSchema,
   InvitationPreviewSchema,
   InvitationResponseSchema,
@@ -17,7 +19,7 @@ import {
   type UpdateTenantSettingsInput,
 } from '@petshop/shared-types'
 import { z } from 'zod'
-import { type Transport } from '../transport.js'
+import { toQueryString, type Transport } from '../transport.js'
 
 export function identityEndpoints({ request }: Transport) {
   return {
@@ -35,6 +37,17 @@ export function identityEndpoints({ request }: Transport) {
         path: '/v1/me/portal-bookings-seen',
         body: {},
         schema: z.object({ seenAt: z.iso.datetime() }),
+      }),
+
+    /**
+     * O sino da moldura numa chamada só — as nove fontes, contadas pelo backend. Ver
+     * `backend/app/src/gateway/pending.ts`.
+     */
+    getPendingCounts: (query: PendingCountsQuery = {}) =>
+      request({
+        method: 'GET',
+        path: `/v1/me/pending${toQueryString(query)}`,
+        schema: PendingCountsSchema,
       }),
 
     createTenant: (input: {

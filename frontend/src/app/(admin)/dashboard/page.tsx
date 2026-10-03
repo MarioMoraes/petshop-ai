@@ -1,24 +1,19 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import {
-  TAXI_FAILURE_REASON_LABELS,
+  DEFAULT_TIMEZONE,
   formatBRL,
   todayIn,
-  type BookingSources,
   type CriticalPets,
   type FinanceIndicators,
   type NoShowReport,
-  type PortalAdoption,
   type PortfolioQuality,
-  type TaxiOperationReport,
 } from '@petshop/shared-types'
 import { CardBloom } from '@/components/atmosphere'
 import {
   HeartPulseIcon,
   PawPrintIcon,
-  SmartphoneIcon,
   UsersIcon,
-  VanIcon,
   WalletIcon,
   type IconTone,
 } from '@/components/icons'
@@ -49,7 +44,9 @@ import { STAT_GRID, STAT_MIN_HEIGHT } from './stat-grid'
  * O roadmap do que os PRDs pedem e ainda não tem dado ("Em breve") saiu em 2026-09-15, a
  * pedido: o painel mostra o que responde. Os três indicadores que esperam o dado ser
  * gravado — vacinas atrasadas, bloqueios por alergia e bloqueios do self-service do
- * Portal — voltam como cartão quando existirem, e não como promessa.
+ * Portal — voltam como cartão quando existirem, e não como promessa. As faixas do Taxi Dog
+ * e do Portal do tutor saíram em 2026-10-03, também a pedido; os relatórios do backend
+ * que as alimentavam continuam de pé.
  *
  * **A grade é de três, e toda faixa fecha a linha.** Cartão de número tem altura mínima
  * própria (`STAT_MIN_HEIGHT`), para que a régua seja a mesma de uma faixa para a outra e
@@ -63,11 +60,11 @@ import { STAT_GRID, STAT_MIN_HEIGHT } from './stat-grid'
 export const dynamic = 'force-dynamic'
 
 /**
- * A janela das duas faixas de baixo.
+ * A janela da faixa do Financeiro.
  *
- * Trinta dias, e não sete como o gráfico: aderência, funil e adoção são proporções, e
- * uma semana de um petshop médio não tem corrida nem vínculo em número que sustente
- * uma porcentagem — a barra do gráfico sobrevive a um dia fraco, o percentual não.
+ * Trinta dias, e não sete como o gráfico: os indicadores são médias e proporções, e uma
+ * semana de um petshop médio não tem movimento que as sustente — a barra do gráfico
+ * sobrevive a um dia fraco, o percentual não.
  */
 const REPORT_DAYS = 30
 
@@ -84,12 +81,7 @@ interface Stat {
    */
   iconTone: IconTone
   href?:
-    | '/tutores'
-    | '/pets'
-    | '/agenda/dia'
-    | '/financeiro/configuracoes'
-    | '/configuracoes/pacotes'
-    | '/taxi'
+    '/tutores' | '/pets' | '/agenda/dia' | '/financeiro/configuracoes' | '/configuracoes/pacotes'
   /** Destaca o número quando ele pede ação — dívida vencida, dia lotado. */
   tone?: 'danger'
 }
@@ -100,10 +92,14 @@ export default async function DashboardPage() {
 
   const can = (permission: string): boolean => me.permissions.includes(permission)
 
-  const settings = await serverApi()
-    .getSettings()
-    .catch(() => null)
-  const timezone = settings?.timezone ?? 'America/Sao_Paulo'
+  // Só a multa de falta sai das configurações, e só a faixa do Financeiro a mostra: pedir
+  // a quem não tem `tenant:read_settings` era um 403 e uma negação na trilha por visita.
+  const settings = can('tenant:read_settings')
+    ? await serverApi()
+        .getSettings()
+        .catch(() => null)
+    : null
+  const timezone = me.timezone ?? DEFAULT_TIMEZONE
   // "Hoje" é o dia do estabelecimento, não o do servidor: um petshop em Rio Branco
   // veria a agenda do dia seguinte a partir das 21h se isto viesse de UTC.
   const hoje = todayIn(timezone)
@@ -124,9 +120,6 @@ export default async function DashboardPage() {
     movement,
     receivables,
     cashflow,
-    taxi,
-    bookingSources,
-    portal,
     portfolio,
     critical,
     finance,
@@ -153,28 +146,6 @@ export default async function DashboardPage() {
     can('finance:configure')
       ? serverApi()
           .getCashflow()
-          .catch(() => null)
-      : Promise.resolve(null),
-    /*
-     * As três leituras de baixo caem para `null` também quando o **módulo** está
-     * desligado, e não só quando o serviço não respondeu: o relatório do Taxi recusa
-     * com o módulo desligado (RN-22), e a faixa inteira some. É de propósito — "0% de
-     * aderência" é um resultado ruim, e não fazer leva-e-traz não é resultado nenhum.
-     */
-    can('taxi:configure')
-      ? serverApi()
-          .getTaxiOperationReport({ days: REPORT_DAYS })
-          .catch(() => null)
-      : Promise.resolve(null),
-    // A adoção do Portal é pergunta de quem o ligou, e o gate é o mesmo interruptor.
-    can('tenant:configure')
-      ? serverApi()
-          .getBookingSources({ days: REPORT_DAYS })
-          .catch(() => null)
-      : Promise.resolve(null),
-    can('tenant:configure')
-      ? serverApi()
-          .getPortalAdoption({ days: REPORT_DAYS })
           .catch(() => null)
       : Promise.resolve(null),
     // O preenchimento da carteira é de quem vê a carteira — o mesmo gate da contagem.
@@ -285,8 +256,6 @@ export default async function DashboardPage() {
   if (finance) base.push(packagesCard(finance))
 
   const financeStats = financeCards(finance, noShows, settings?.noShowFeePercent ?? null)
-  const taxiStats = taxi ? taxiCards(taxi) : []
-  const portalStats = portalCards(bookingSources, portal)
 
   return (
     <>
@@ -307,22 +276,11 @@ export default async function DashboardPage() {
           }
         />
       )}
-      <StatSection title="Sua base" stats={base} />
-
       {financeStats.length > 0 && (
         <StatSection title="Financeiro" note={`Últimos ${REPORT_DAYS} dias`} stats={financeStats} />
       )}
 
-      {taxiStats.length > 0 && (
-        <StatSection title="Taxi Dog" note={`Últimos ${REPORT_DAYS} dias`} stats={taxiStats} />
-      )}
-      {portalStats.length > 0 && (
-        <StatSection
-          title="Portal do tutor"
-          note={`Últimos ${REPORT_DAYS} dias`}
-          stats={portalStats}
-        />
-      )}
+      <StatSection title="Sua base" stats={base} />
     </>
   )
 }
@@ -421,120 +379,6 @@ function StatSection({
 }
 
 /**
- * A faixa do Taxi Dog: a promessa cumprida, o que a quebrou e onde ela foi mal feita.
- *
- * Os três números são a mesma pergunta em profundidades diferentes — se a janela está
- * sendo cumprida, por que não, e em que zona ela nasceu apertada demais. Por isso vêm
- * juntos: a aderência sozinha diz que há um problema e não deixa fazer nada com ele.
- *
- * Nenhum deles sai em vermelho, ao contrário da dívida vencida lá em cima. Marcar
- * exigiria um limite — 80%? 90%? —, e o PRD não fixa nenhum. Um número inventado aqui
- * viraria meta do petshop na primeira semana.
- */
-function taxiCards(report: TaxiOperationReport): Stat[] {
-  const pior = report.legsByZone[0]
-
-  return [
-    {
-      label: 'Aderência à janela',
-      value: report.adherenceRate === null ? null : formatPercent(report.adherenceRate),
-      hint:
-        report.adherenceRate === null
-          ? 'Nenhuma corrida entregue no período.'
-          : `${report.onTime} de ${report.delivered} entregues dentro da janela prometida.`,
-      icon: <VanIcon />,
-      iconTone: 'icon-time',
-      href: '/taxi',
-    },
-    {
-      label: 'Corridas que falharam',
-      value: format(report.failed),
-      hint: failuresHint(report),
-      icon: <VanIcon />,
-      iconTone: 'icon-time',
-      href: '/taxi',
-    },
-    {
-      label: 'Tempo médio de perna',
-      value:
-        report.averageLegMinutes === null ? null : `${formatDecimal(report.averageLegMinutes)} min`,
-      hint:
-        report.averageLegMinutes === null
-          ? 'Sem corrida entregue com hora de saída registrada.'
-          : pior && report.legsByZone.length > 1
-            ? `Da saída da van à entrega. A mais lenta é ${pior.zoneName}, com ${formatDecimal(pior.averageMinutes)} min.`
-            : 'Da saída da van até a entrega — é o que dimensiona a janela padrão.',
-      icon: <VanIcon />,
-      iconTone: 'icon-time',
-      href: '/taxi',
-    },
-  ]
-}
-
-/** O motivo que mais custou corrida no período — mesmo molde da forma de pagamento. */
-function failuresHint(report: TaxiOperationReport): string {
-  if (report.failed === 0) return 'Nenhuma corrida falhou no período.'
-
-  const top = report.failuresByReason[0]
-  if (!top) return 'Sem motivo registrado.'
-
-  return `A maior parte por "${TAXI_FAILURE_REASON_LABELS[top.reason].toLowerCase()}".`
-}
-
-/**
- * A faixa do Portal: quanto o tutor está se servindo sozinho, e por que não mais.
- *
- * Os dois lados vêm de serviços diferentes — a fatia de agendamentos do
- * scheduling-service, o funil e o retorno do tutor-service — e cada um entra sozinho.
- * Um serviço fora do ar tira o cartão dele, e não a faixa: dos três, dois ainda
- * respondem a pergunta.
- */
-function portalCards(sources: BookingSources | null, adoption: PortalAdoption | null): Stat[] {
-  const cards: Stat[] = []
-
-  if (sources) {
-    cards.push({
-      label: 'Agendamentos pelo Portal',
-      value: sources.total === 0 ? null : formatPercent(sources.portal / sources.total),
-      hint:
-        sources.total === 0
-          ? 'Nenhum agendamento marcado no período.'
-          : `${sources.portal} de ${sources.total} marcados pelo próprio tutor, sem passar pelo balcão.`,
-      icon: <SmartphoneIcon />,
-      iconTone: 'icon-people',
-    })
-  }
-
-  if (adoption) {
-    const { requested, completed } = adoption.linking
-
-    cards.push({
-      label: 'Vínculos concluídos',
-      value: requested === 0 ? null : formatPercent(completed / requested),
-      hint:
-        requested === 0
-          ? 'Ninguém pediu código de acesso no período.'
-          : `${completed} de ${requested} pedidos de código chegaram ao fim.`,
-      icon: <SmartphoneIcon />,
-      iconTone: 'icon-people',
-    })
-
-    cards.push({
-      label: 'Tutores que voltaram',
-      value: format(adoption.tutors.active),
-      hint:
-        adoption.tutors.total === 0
-          ? 'Nenhum tutor ativo na carteira.'
-          : `${formatPercent(adoption.tutors.active / adoption.tutors.total)} da carteira ativa abriu o Portal.`,
-      icon: <SmartphoneIcon />,
-      iconTone: 'icon-people',
-    })
-  }
-
-  return cards
-}
-
-/**
  * Os dois números de preenchimento da carteira, na faixa "Sua base".
  *
  * Os dois dividem pelo `active` que veio na mesma resposta, e não pelo "Tutores ativos"
@@ -596,7 +440,7 @@ function criticalCard(critical: CriticalPets): Stat {
  * A faixa do Financeiro: quanto se espera para receber, e o que se perdeu por pacote
  * vencido e por falta — os três olhando para os últimos 30 dias.
  *
- * As duas origens entram sozinhas, como na faixa do Portal: os dois primeiros números
+ * As duas origens entram sozinhas: os dois primeiros números
  * vêm do financeiro, o das faltas vem da agenda, e um serviço fora do ar tira só o
  * cartão dele.
  *
@@ -685,7 +529,7 @@ function plural(count: number, singular: string, pluralForm: string): string {
   return `${count.toLocaleString('pt-BR')} ${count === 1 ? singular : pluralForm}`
 }
 
-/** "12,5 dias", e "1 dia" — o mesmo arredondamento de uma casa das médias do Taxi. */
+/** "12,5 dias", e "1 dia": uma casa decimal. */
 function formatDays(days: number): string {
   const rounded = Math.round(days * 10) / 10
   return `${formatDecimal(rounded)} ${rounded === 1 ? 'dia' : 'dias'}`

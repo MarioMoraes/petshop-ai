@@ -45,6 +45,7 @@ import { registerTaxiRoutes } from '../modules/taxi/routes.js'
 import { registerTermRoutes } from '../modules/terms/routes.js'
 import { registerTutorRoutes } from '../modules/tutors/routes.js'
 import { registerModuleAuth } from '../shared/auth-context.js'
+import { registerPendingRoute } from './pending.js'
 
 /**
  * Composição das rotas dos módulos que já vivem neste processo.
@@ -79,6 +80,18 @@ export async function registerModules(app: FastifyInstance): Promise<void> {
   await registerCashModule(app)
   await registerPlatformModule(app)
   await registerSubscriptionModule(app)
+  await registerPendingModule(app)
+}
+
+/**
+ * O sino do Admin numa chamada só. Não é módulo de domínio: compõe as rotas dos outros
+ * por dentro, e por isso recebe o app inteiro além do escopo. Ver `pending.ts`.
+ */
+async function registerPendingModule(app: FastifyInstance): Promise<void> {
+  await app.register(async (scope) => {
+    registerModuleAuth(scope)
+    registerPendingRoute(scope, app)
+  })
 }
 
 /**

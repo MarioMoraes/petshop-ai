@@ -3,6 +3,7 @@ import {
   BrandingSchema,
   BusinessHoursSchema,
   DEFAULT_BRANDING,
+  DEFAULT_TIMEZONE,
   IDENTITY_ROUTING_KEYS,
   type Branding,
   type BusinessHours,
@@ -38,24 +39,33 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
 }
 
 /**
- * `branding.primaryColor` do tenant, resolvido com o padrão do sistema quando ele
- * ainda não tem `TenantSettings` (onboarding em andamento).
+ * O que a moldura do Admin precisa das configurações: a cor da marca e o fuso da
+ * saudação, resolvidos com o padrão do sistema quando o tenant ainda não tem
+ * `TenantSettings` (onboarding em andamento).
  *
  * Existe separado de `getSettings` porque quem chama é `/v1/me` — a primeira
  * requisição de toda sessão (SLO de p95 120ms) e sem `tenant:read_settings` na
  * maioria dos perfis. Reaproveita o mesmo cache de `getSettings` quando já está
- * quente; no frio, um `select` só de `branding` evita validar a grade de horários e o
- * resto das configurações para devolver uma cor.
+ * quente; no frio, um `select` só das duas colunas evita validar a grade de horários.
+ *
+ * O fuso entrou em 2026-10-03. Antes a moldura o pedia a `getSettings`, que responde
+ * 403 a quem não tem `tenant:read_settings`: a recepção era saudada no fuso de São
+ * Paulo, e cada navegação gravava uma negação de permissão na trilha.
  */
-export async function getPrimaryColor(tenantId: string): Promise<string> {
+export async function getShellSettings(
+  tenantId: string,
+): Promise<{ primaryColor: string; timezone: string }> {
   const cached = await cacheGet<TenantSettings>(CACHE_KEYS.tenantSettings(tenantId))
-  if (cached) return cached.branding.primaryColor
+  if (cached) return { primaryColor: cached.branding.primaryColor, timezone: cached.timezone }
 
   const row = await withTenant(tenantId, (tx) =>
-    tx.tenantSettings.findUnique({ where: { tenantId }, select: { branding: true } }),
+    tx.tenantSettings.findUnique({
+      where: { tenantId },
+      select: { branding: true, timezone: true },
+    }),
   )
-  if (!row) return DEFAULT_BRANDING.primaryColor
-  return parseBranding(row.branding).primaryColor
+  if (!row) return { primaryColor: DEFAULT_BRANDING.primaryColor, timezone: DEFAULT_TIMEZONE }
+  return { primaryColor: parseBranding(row.branding).primaryColor, timezone: row.timezone }
 }
 
 export interface UpdateSettingsParams {

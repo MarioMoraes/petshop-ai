@@ -1,4 +1,9 @@
-import { AGENT_SLA_MIN, type CashAlerts, type InventoryAlerts } from '@petshop/shared-types'
+import {
+  AGENT_SLA_MIN,
+  PENDING_MESSAGE_WINDOW_HOURS,
+  type CashAlerts,
+  type InventoryAlerts,
+} from '@petshop/shared-types'
 import type { Route } from 'next'
 
 /**
@@ -156,11 +161,11 @@ export interface ContagemPendencias {
 /**
  * Janela das falhas de mensagem: 24 horas corridas, e não o dia do calendário.
  *
- * Exportada porque a linha do painel **anuncia** a janela ("nas últimas 24 horas") e
- * quem consulta o serviço a **aplica**. Se o número morasse nos dois lugares, o
- * primeiro ajuste deixaria o texto mentindo sobre o próprio dado.
+ * Do contrato, e não daqui: quem **aplica** a janela é o servidor (`/v1/me/pending`), e
+ * a linha do painel só a **anuncia**. Se o número morasse nos dois lugares, o primeiro
+ * ajuste deixaria o texto mentindo sobre o próprio dado.
  */
-export const JANELA_HORAS = 24
+export const JANELA_HORAS = PENDING_MESSAGE_WINDOW_HOURS
 
 /**
  * Quanto uma conversa pode esperar na fila antes de virar pendência (MOD-AI-06).
