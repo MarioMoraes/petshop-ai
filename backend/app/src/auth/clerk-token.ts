@@ -14,7 +14,16 @@ import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../shared/red
  *
  * Se o JWKS não estiver disponível, cai para a verificação pela `secretKey`, que
  * resolve a chave por conta própria. Mais lenta, mas mantém o gateway de pé quando o
- * cache está frio ou o Redis fora.
+ * Clerk não responde.
+ *
+ * **Token não decide quando o processo vai à rede.** O `kid` sai do header do JWT, que
+ * quem chama escreve como quiser. Até 2026-10-03 um `kid` fora do conjunto caía no
+ * `secretKey`, e o `@clerk/backend` busca o JWKS de novo a cada `kid` que não conhece:
+ * cada token inventado virava uma ida à API do Clerk, antes de qualquer rate limit. E
+ * com o Redis fora, `cacheGet` nunca acertava, e era uma ida por requisição de todo
+ * mundo. Agora o conjunto também mora na memória do processo, e o `kid` desconhecido
+ * força **uma** releitura por minuto — a rotação de chave do Clerk entra por ela — e,
+ * se ainda não estiver lá, é recusado sem rede.
  */
 
 export interface SessionClaims {
@@ -59,10 +68,43 @@ interface JwkSet {
 
 export class InvalidTokenError extends Error {}
 
-async function fetchJwks(): Promise<JwkSet | null> {
-  const cached = await cacheGet<JwkSet>(CACHE_KEYS.jwks)
-  if (cached) return cached
+/** Cópia do conjunto na memória do processo, para o Redis fora não virar rede. */
+let memo: { jwks: JwkSet; until: number } | null = null
+/** Última releitura forçada por `kid` desconhecido. */
+let lastForcedAt = 0
+const FORCED_REFRESH_INTERVAL_MS = 60_000
 
+/** Esvazia as duas memórias. Usado pelos testes. */
+export function resetJwksMemo(): void {
+  memo = null
+  lastForcedAt = 0
+}
+
+async function fetchJwks(): Promise<JwkSet | null> {
+  if (memo && memo.until > Date.now()) return memo.jwks
+
+  const cached = await cacheGet<JwkSet>(CACHE_KEYS.jwks)
+  if (cached) {
+    memo = { jwks: cached, until: Date.now() + CACHE_TTL_SECONDS.jwks * 1000 }
+    return cached
+  }
+  return downloadJwks()
+}
+
+/**
+ * Releitura pedida por um `kid` que o conjunto não tem: a rotação de chave do Clerk.
+ *
+ * No máximo uma por minuto por processo, venha de quantos tokens vier — fora da janela
+ * devolve `null` e quem chamou recusa o token com o conjunto que já tem.
+ */
+async function refreshJwks(): Promise<JwkSet | null> {
+  const now = Date.now()
+  if (now - lastForcedAt < FORCED_REFRESH_INTERVAL_MS) return null
+  lastForcedAt = now
+  return downloadJwks()
+}
+
+async function downloadJwks(): Promise<JwkSet | null> {
   try {
     const response = await fetch('https://api.clerk.com/v1/jwks', {
       headers: { Authorization: `Bearer ${loadEnv().CLERK_SECRET_KEY}` },
@@ -72,6 +114,7 @@ async function fetchJwks(): Promise<JwkSet | null> {
       return null
     }
     const jwks = (await response.json()) as JwkSet
+    memo = { jwks, until: Date.now() + CACHE_TTL_SECONDS.jwks * 1000 }
     await cacheSet(CACHE_KEYS.jwks, jwks, CACHE_TTL_SECONDS.jwks)
     return jwks
   } catch (error) {
@@ -142,7 +185,14 @@ async function verifyWithClerk(
 
   const kid = readKid(token)
   const jwks = kid ? await fetchJwks() : null
-  const jwk = jwks?.keys.find((key) => key.kid === kid)
+  let jwk = jwks?.keys.find((key) => key.kid === kid)
+
+  // Conjunto em mãos e `kid` fora dele: ou a chave girou, ou o token foi inventado. A
+  // releitura decide, e o `secretKey` fica só para quando o Clerk não respondeu.
+  if (jwks && !jwk) {
+    jwk = (await refreshJwks())?.keys.find((key) => key.kid === kid)
+    if (!jwk) throw new InvalidTokenError('kid desconhecido')
+  }
 
   let payload: Record<string, unknown>
   try {

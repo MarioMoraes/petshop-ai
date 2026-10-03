@@ -5,6 +5,7 @@ import { getPrisma, setDbLogger } from '@petshop/db'
 import { SERVICE_HEADERS, type ServiceAuthContext } from '@petshop/service-auth'
 import { AppError, ROLE_PERMISSIONS } from '@petshop/shared-types'
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
+import { createAuthFailureGuard } from './auth/auth-failures.js'
 import { InvalidTokenError, verifySessionToken, type SessionClaims } from './auth/clerk-token.js'
 import { resolvePortalSession, resolvePortalTenant } from './auth/portal-session.js'
 import { resolveSession } from './auth/session.js'
@@ -165,17 +166,44 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   registerErrorHandler(app)
 
+  const authFailures = createAuthFailureGuard({
+    max: env.AUTH_FAILURE_MAX,
+    windowMs: env.RATE_LIMIT_WINDOW_MS,
+  })
+
   app.addHook('onRequest', async (request: FastifyRequest) => {
     const path = request.url.split('?')[0] ?? ''
     if (PUBLIC_PATHS.has(path) || path.startsWith(PUBLIC_PREFIX)) return
     if (path.startsWith(WEBHOOK_PREFIX)) return
     if (request.method === 'OPTIONS') return
 
-    const context = isPlatformPath(path)
-      ? await resolvePlatformRequest(request, path)
-      : isPortalPath(path)
-        ? await resolvePortalRequest(request, path)
-        : await resolveAdminRequest(request, path)
+    /**
+     * O teto de recusas vale só para o Portal. O `/v1` e o `/platform/v1` não têm
+     * endereço na internet (`infra/Caddyfile`): quem os chama é o servidor do Next, e
+     * contar por IP ali poria o Admin de todos os petshops num balde só — um soluço do
+     * Clerk trancaria todo mundo. O Portal é o que o app alcança direto, pela borda.
+     */
+    const failureKey = isPortalPath(path) ? `${portalSlugOf(request)}:${request.ip}` : null
+    if (failureKey && authFailures.isBlocked(failureKey)) {
+      throw new AppError('ERR_RATE_LIMITED', 'Você fez muitas requisições. Aguarde um instante.')
+    }
+
+    let context: ServiceAuthContext
+    try {
+      context = isPlatformPath(path)
+        ? await resolvePlatformRequest(request, path)
+        : isPortalPath(path)
+          ? await resolvePortalRequest(request, path)
+          : await resolveAdminRequest(request, path)
+    } catch (error) {
+      // Token apresentado e recusado. O ausente sai com o mesmo código, e não conta.
+      const rejected =
+        error instanceof AppError &&
+        error.code === 'ERR_IDENT_005' &&
+        readBearerToken(request) !== null
+      if (failureKey && rejected) authFailures.record(failureKey)
+      throw error
+    }
 
     request.authContext = context
 
@@ -409,8 +437,7 @@ const SUPPORT_READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
  * tem sessão a apresentar.
  */
 async function resolvePortalRequest(request: FastifyRequest, path: string) {
-  const raw = request.headers[TENANT_SLUG_HEADER]
-  const slug = (Array.isArray(raw) ? raw[0] : raw)?.trim().toLowerCase() ?? ''
+  const slug = portalSlugOf(request)
   if (!slug) throw new AppError('ERR_PORTAL_001', 'Estabelecimento não informado')
 
   if (PORTAL_PUBLIC_PATHS.has(path)) {
@@ -458,6 +485,11 @@ async function verifyBearer(
     }
     throw error
   }
+}
+
+function portalSlugOf(request: FastifyRequest): string {
+  const raw = request.headers[TENANT_SLUG_HEADER]
+  return (Array.isArray(raw) ? raw[0] : raw)?.trim().toLowerCase() ?? ''
 }
 
 function readBearerToken(request: FastifyRequest): string | null {

@@ -56,6 +56,11 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  /**
+   * Tokens recusados por chave na mesma janela, antes de a chave levar 429 sem
+   * verificação (`auth/auth-failures.ts`). Só no Portal, a superfície que a internet alcança.
+   */
+  AUTH_FAILURE_MAX: z.coerce.number().int().positive().default(20),
 
   // ---- MOD-SITE (fatia 1 da consolidação) ----
 
