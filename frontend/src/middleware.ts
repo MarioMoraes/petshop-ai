@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server'
-import { exigeEstabelecimento, routeFor, SITE_PREFIX } from '@/lib/host'
+import { exigeEstabelecimento, publicUrl, routeFor, SITE_PREFIX } from '@/lib/host'
 
 /**
  * Roteamento por host, e depois por estado da conta.
@@ -60,13 +60,6 @@ const isAuthPage = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)'])
 const APP_DOMAIN = process.env.APP_DOMAIN ?? 'localhost:3002'
 
 /**
- * Caddy termina o TLS e conversa com o Next em HTTP, então `nextUrl.protocol` diria
- * `http:` e o 301 devolveria o visitante a uma URL sem cifra. O esquema vem do
- * domínio: só uma instalação local não é HTTPS.
- */
-const REDIRECT_PROTOCOL = APP_DOMAIN.startsWith('localhost') ? 'http:' : 'https:'
-
-/**
  * O Admin: quem não tem sessão vai ao login, quem tem não fica nele — e quem tem sessão
  * sem estabelecimento ativo não chega a uma tela que precisa de um.
  */
@@ -74,7 +67,15 @@ const withClerk = clerkMiddleware(async (auth, request) => {
   const { userId, orgId } = await auth()
 
   if (!userId && !isPublicRoute(request)) {
-    return (await auth()).redirectToSignIn({ returnBackUrl: request.url })
+    // `request.url` traz o endereço interno do Next (`0.0.0.0:3002`), e o login
+    // devolveria o visitante para lá — ver `publicUrl`.
+    const { pathname, search } = request.nextUrl
+    const returnBackUrl = publicUrl(
+      request.headers.get('host') ?? '',
+      pathname + search,
+      APP_DOMAIN,
+    )
+    return (await auth()).redirectToSignIn({ returnBackUrl })
   }
 
   if (userId && isAuthPage(request)) {
@@ -133,8 +134,10 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
     // WHATWG só troca a porta se o valor trouxer uma, e `app.meupetshop.com.br` não
     // traz. O visitante receberia um endereço com porta que a borda não publica.
     // Caminho e query são preservados: o link salvo continua levando ao mesmo lugar.
+    // O esquema também não vem de `nextUrl`: o Caddy termina o TLS, o Next vê `http:`, e
+    // o 301 devolveria o visitante a uma URL sem cifra.
     const { pathname, search } = request.nextUrl
-    const target = new URL(`${REDIRECT_PROTOCOL}//${decision.host}${pathname}${search}`)
+    const target = new URL(publicUrl(decision.host, pathname + search, APP_DOMAIN))
     return NextResponse.redirect(target, decision.permanent ? 301 : 307)
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { exigeEstabelecimento, isAdminPath, resolveHost, routeFor } from './host.js'
+import { exigeEstabelecimento, isAdminPath, publicUrl, resolveHost, routeFor } from './host.js'
 
 /** Roteamento por host (MOD-SITE-11). */
 
@@ -233,5 +233,17 @@ describe('routeFor — APP_DOMAIN com mais de duas labels', () => {
       host: `app.${domain}`,
       permanent: true,
     })
+  })
+})
+
+describe('publicUrl', () => {
+  it('monta o endereço do host pedido, e não o interno do Next', () => {
+    expect(publicUrl(`app.${DOMAIN}`, '/tutores?aba=pets', DOMAIN)).toBe(
+      `https://app.${DOMAIN}/tutores?aba=pets`,
+    )
+  })
+
+  it('só a instalação local fica em HTTP', () => {
+    expect(publicUrl('localhost:3002', '/', 'localhost:3002')).toBe('http://localhost:3002/')
   })
 })

@@ -243,3 +243,19 @@ export function routeFor(host: string, pathname: string, appDomain: string): Rou
   if (!resolved.slug) return { action: 'admin' }
   return { action: 'site', slug: resolved.slug }
 }
+
+/**
+ * O endereço que o visitante vê, montado do host pedido, e não de `request.url`.
+ *
+ * Atrás do Caddy, o Next standalone monta `request.url` com o endereço em que **ele**
+ * escuta (`HOSTNAME`:3002): `https://0.0.0.0:3002/tutores`. Os redirecionamentos do
+ * próprio Next sobrevivem, porque ele relativiza o `Location` de mesma origem; o que
+ * não sobrevive é a URL **dentro** de um parâmetro, como o `redirect_url` do login, que
+ * mandava quem entrava por um link para um endereço sem rota nenhuma. O esquema vem do
+ * domínio, porque a borda termina o TLS e o Next só vê HTTP: só uma instalação local
+ * não é HTTPS.
+ */
+export function publicUrl(host: string, pathAndSearch: string, appDomain: string): string {
+  const protocol = appDomain.startsWith('localhost') ? 'http:' : 'https:'
+  return `${protocol}//${host}${pathAndSearch}`
+}
