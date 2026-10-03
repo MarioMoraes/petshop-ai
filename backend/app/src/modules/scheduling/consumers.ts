@@ -1,8 +1,6 @@
-import { connect, type Channel, type ChannelModel, type ConsumeMessage } from 'amqplib'
 import { withTenant } from '@petshop/db'
-import { EVENTS_DLX, EVENTS_EXCHANGE } from '@petshop/shared-types'
 import { z } from 'zod'
-import { loadEnv } from '../../config/env.js'
+import type { ConsumerSpec } from '../../shared/event-consumer.js'
 import { recordAudit } from '../../shared/audit.js'
 import { logger } from '../../shared/logger.js'
 import { OCCUPYING_STATUSES } from './conflicts.js'
@@ -147,61 +145,10 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
 
 // ─── Consumo ─────────────────────────────────────────────────────────────────
 
-let connection: ChannelModel | null = null
-let channel: Channel | null = null
-
-export async function startSchedulingConsumers(): Promise<void> {
-  if (loadEnv().DISABLE_EVENTS) {
-    logger.debug('consumo de eventos desabilitado')
-    return
-  }
-
-  connection = await connect(loadEnv().RABBITMQ_URL)
-  channel = await connection.createChannel()
-
-  await channel.assertExchange(EVENTS_EXCHANGE, 'topic', { durable: true })
-  await channel.assertExchange(EVENTS_DLX, 'topic', { durable: true })
-  await channel.assertQueue(QUEUE, {
-    durable: true,
-    deadLetterExchange: EVENTS_DLX,
-  })
-
-  for (const routingKey of Object.keys(HANDLERS)) {
-    await channel.bindQueue(QUEUE, EVENTS_EXCHANGE, routingKey)
-  }
-
-  await channel.consume(QUEUE, (message) => void handleMessage(message))
-  logger.info({ queue: QUEUE, keys: Object.keys(HANDLERS) }, 'consumidores da agenda no ar')
-}
-
-async function handleMessage(message: ConsumeMessage | null): Promise<void> {
-  if (!message || !channel) return
-
-  const routingKey = message.fields.routingKey
-  const handler = HANDLERS[routingKey]
-  if (!handler) {
-    channel.ack(message)
-    return
-  }
-
-  try {
-    await handler(JSON.parse(message.content.toString()))
-    channel.ack(message)
-  } catch (error) {
-    logger.error({ err: error, routingKey }, 'falha ao processar evento')
-    // `requeue: false` manda para a DLX, que tem o backoff. Reenfileirar aqui
-    // criaria um laço apertado contra um erro que não vai se resolver sozinho.
-    channel.nack(message, false, false)
-  }
-}
-
-export async function stopSchedulingConsumers(): Promise<void> {
-  try {
-    await channel?.close()
-    await connection?.close()
-  } catch {
-    // Encerramento best-effort.
-  }
-  channel = null
-  connection = null
+export const schedulingConsumer: ConsumerSpec = {
+  queue: QUEUE,
+  label: 'agenda',
+  handlers: HANDLERS,
+  // Sem `prefetch`, como sempre foi: os três handlers só reescrevem a posse de
+  // agendamentos, e nenhum depende do anterior.
 }

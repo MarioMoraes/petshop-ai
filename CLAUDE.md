@@ -80,6 +80,13 @@ que ela deixou:
 - `src/worker/` reúne os consumidores de evento e a grade de jobs de todos os módulos,
   num agendador só. O lease é por nome do job, então juntar as grades não muda quem
   roda o quê.
+- **O consumo de eventos é um mecanismo só** (`src/shared/event-consumer.ts`): cada módulo
+  declara uma `ConsumerSpec` (fila, handlers, `prefetch`) e o mecanismo dá a conexão, a
+  reconexão e a decisão sobre a falha. Falha transitória (conexão, tempo, conflito) é
+  repetida **com a mensagem retida** — 1, 2, 4 e 8 s —, e não numa fila de retry, porque a
+  fila de retry entregaria fora de ordem: o `lancamento.criado` grava o saldo absoluto, e
+  o velho chegaria atrás do novo. O que não passa vai à DLX, onde agora há uma fila ligada,
+  `petshop.events.dead` — até 2026-10-03 não havia, e o evento que falhava sumia.
 - **Chamada entre módulos passa por uma porta declarada**, nunca por import solto de
   serviço a serviço. O MOD-PORTAL tem cinco (`modules/portal/*-port.ts`), o MOD-CRM tem
   uma, o MOD-PET tem a da agenda. Cada uma é uma interface + a implementação em processo

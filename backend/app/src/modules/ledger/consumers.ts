@@ -1,8 +1,6 @@
-import { connect, type Channel, type ChannelModel, type ConsumeMessage } from 'amqplib'
 import { Prisma, withTenant } from '@petshop/db'
-import { EVENTS_DLX, EVENTS_EXCHANGE } from '@petshop/shared-types'
 import { z } from 'zod'
-import { loadEnv } from '../../config/env.js'
+import type { ConsumerSpec } from '../../shared/event-consumer.js'
 import { recordAudit } from '../../shared/audit.js'
 import { publishEvent } from '../../shared/events.js'
 import { logger, recordMetric } from '../../shared/logger.js'
@@ -469,81 +467,28 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'mensagem.enviada': handleMensagemEnviada,
 }
 
-let connection: ChannelModel | null = null
-let channel: Channel | null = null
-
-export async function startLedgerConsumers(): Promise<void> {
-  if (loadEnv().DISABLE_EVENTS) {
-    logger.debug('consumo de eventos desabilitado')
-    return
-  }
-
-  try {
-    connection = await connect(loadEnv().RABBITMQ_URL)
-    channel = await connection.createChannel()
-
-    await channel.assertExchange(EVENTS_EXCHANGE, 'topic', { durable: true })
-    await channel.assertExchange(EVENTS_DLX, 'topic', { durable: true })
-    await channel.assertQueue(QUEUE, { durable: true, deadLetterExchange: EVENTS_DLX })
-
-    for (const routingKey of Object.keys(HANDLERS)) {
-      await channel.bindQueue(QUEUE, EVENTS_EXCHANGE, routingKey)
-    }
-
-    // Um por vez: os handlers travam a conta e a ordem entre eventos do mesmo tutor
-    // importa. Processar em paralelo só aumentaria a contenção no mesmo `FOR UPDATE`.
-    await channel.prefetch(1)
-    await channel.consume(QUEUE, (message) => void handleMessage(message))
-
-    logger.info({ queue: QUEUE, keys: Object.keys(HANDLERS) }, 'consumidores do financeiro no ar')
-  } catch (error) {
-    // Não derruba o serviço: a API do financeiro continua funcionando sem o broker.
-    logger.error({ err: error }, 'falha ao iniciar os consumidores de evento')
-  }
+export const ledgerConsumer: ConsumerSpec = {
+  queue: QUEUE,
+  label: 'financeiro',
+  handlers: HANDLERS,
+  // Um por vez: os handlers travam a conta e a ordem entre eventos do mesmo tutor
+  // importa. Processar em paralelo só aumentaria a contenção no mesmo `FOR UPDATE`.
+  prefetch: 1,
+  isAlreadyApplied: isDuplicateEvent,
 }
 
-async function handleMessage(message: ConsumeMessage | null): Promise<void> {
-  if (!message || !channel) return
-
-  const routingKey = message.fields.routingKey
-  const handler = HANDLERS[routingKey]
-  if (!handler) {
-    channel.ack(message)
-    return
-  }
-
-  try {
-    await handler(JSON.parse(message.content.toString()))
-    channel.ack(message)
-  } catch (error) {
-    // AC-02 de MOD-LEDGER-02 — a reentrega esbarrou no índice único de idempotência.
-    // Isso é **sucesso**: o débito já existe e a conta não foi corrompida. Dar nack
-    // mandaria para a DLQ um evento que foi processado corretamente da primeira vez.
-    if (isDuplicateEvent(error)) {
-      recordMetric({ metric: 'ledger_duplicate_event_total', value: 1, unit: 'count' })
-      logger.info({ routingKey }, 'evento reentregue barrado pela idempotência')
-      channel.ack(message)
-      return
-    }
-
-    logger.error({ err: error, routingKey }, 'falha ao processar evento')
-    // `requeue: false` manda para a DLX, que tem o backoff. Reenfileirar aqui criaria
-    // um laço apertado contra um erro que não vai se resolver sozinho.
-    channel.nack(message, false, false)
-  }
-}
-
+/**
+ * AC-02 de MOD-LEDGER-02 — a reentrega esbarrou no índice único de idempotência.
+ *
+ * Isso é **sucesso**: o débito já existe e a conta não foi corrompida. Tratá-lo como
+ * falha mandaria ao estacionamento um evento que foi processado corretamente da
+ * primeira vez.
+ */
 function isDuplicateEvent(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
-}
-
-export async function stopLedgerConsumers(): Promise<void> {
-  try {
-    await channel?.close()
-    await connection?.close()
-  } catch {
-    // Encerramento best-effort.
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+    return false
   }
-  channel = null
-  connection = null
+  recordMetric({ metric: 'ledger_duplicate_event_total', value: 1, unit: 'count' })
+  logger.info('evento reentregue barrado pela idempotência')
+  return true
 }

@@ -10,10 +10,12 @@ import type { TermKind } from './terms.js'
 import type { ConsentChannel, ConsentPurpose } from './tutor.js'
 
 export const EVENTS_EXCHANGE = 'petshop.events'
+/**
+ * Para onde vai o evento que o consumidor desistiu de processar. A fila ligada a ela é
+ * `petshop.events.dead`, e as tentativas antes disso são do consumidor
+ * (`backend/app/src/shared/event-consumer.ts`), não do broker.
+ */
 export const EVENTS_DLX = 'petshop.events.dlx'
-
-/** Backoff exponencial do DLX; após a 4ª tentativa a mensagem vai para a DLQ. */
-export const EVENT_RETRY_DELAYS_MS = [1_000, 5_000, 30_000, 300_000] as const
 
 export const IDENTITY_ROUTING_KEYS = {
   tenantCriado: 'tenant.criado',

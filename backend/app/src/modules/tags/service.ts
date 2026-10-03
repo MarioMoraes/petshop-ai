@@ -201,9 +201,10 @@ export async function setSystemTag(
      *
      * O evento que chega aqui foi publicado no passado e a fila é durável: entre a
      * publicação e o consumo, a ficha pode ter sido excluída. Sem esta guarda o `create`
-     * viola a FK, o handler dá `nack`, e um desfecho normal vai para a DLX — que não tem
-     * fila ligada e o descarta. O sintoma é um `prisma:error` no log de quem sobe o app
-     * com fila acumulada.
+     * viola a FK, o handler dá `nack`, e um desfecho normal vai parar no estacionamento
+     * (`petshop.events.dead`) como se fosse falha — até 2026-10-03 era pior: a DLX não
+     * tinha fila ligada e o descartava. O sintoma é um `prisma:error` no log de quem sobe
+     * o app com fila acumulada.
      *
      * É o idioma que os outros handlers deste módulo já usam sem perceber:
      * `handleLancamentoCriado` escreve com `updateMany`, `handleAtendimentoConcluido`

@@ -1,8 +1,5 @@
-import { connect, type Channel, type ChannelModel, type ConsumeMessage } from 'amqplib'
-import { EVENTS_DLX, EVENTS_EXCHANGE } from '@petshop/shared-types'
 import { z } from 'zod'
-import { loadEnv } from '../../config/env.js'
-import { logger } from '../../shared/logger.js'
+import type { ConsumerSpec } from '../../shared/event-consumer.js'
 import { refreshSite } from './revalidate.js'
 
 /**
@@ -68,63 +65,11 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'agenda.servico.alterado': handleServiceChanged,
 }
 
-let connection: ChannelModel | null = null
-let channel: Channel | null = null
-
-export async function startSiteConsumers(): Promise<void> {
-  if (loadEnv().DISABLE_EVENTS) {
-    logger.debug('consumo de eventos desabilitado')
-    return
-  }
-
-  try {
-    connection = await connect(loadEnv().RABBITMQ_URL)
-    channel = await connection.createChannel()
-
-    await channel.assertExchange(EVENTS_EXCHANGE, 'topic', { durable: true })
-    await channel.assertExchange(EVENTS_DLX, 'topic', { durable: true })
-    await channel.assertQueue(QUEUE, { durable: true, deadLetterExchange: EVENTS_DLX })
-    for (const routingKey of Object.keys(HANDLERS)) {
-      await channel.bindQueue(QUEUE, EVENTS_EXCHANGE, routingKey)
-    }
-
-    await channel.prefetch(5)
-    await channel.consume(QUEUE, (message) => void handleMessage(message))
-
-    logger.info({ queue: QUEUE }, 'consumidores de evento no ar')
-  } catch (error) {
-    // Não derruba o serviço: a página continua sendo servida e se atualiza pelo TTL.
-    logger.error({ err: error }, 'falha ao iniciar os consumidores de evento')
-  }
-}
-
-async function handleMessage(message: ConsumeMessage | null): Promise<void> {
-  if (!message || !channel) return
-
-  const routingKey = message.fields.routingKey
-  const handler = HANDLERS[routingKey]
-  if (!handler) {
-    channel.ack(message)
-    return
-  }
-
-  try {
-    await handler(JSON.parse(message.content.toString()))
-    channel.ack(message)
-  } catch (error) {
-    // `requeue: false` manda para o DLX, que aplica o backoff exponencial do §8.
-    logger.error({ err: error, routingKey }, 'falha ao processar evento')
-    channel.nack(message, false, false)
-  }
-}
-
-export async function stopSiteConsumers(): Promise<void> {
-  try {
-    await channel?.close()
-    await connection?.close()
-  } catch {
-    // Encerramento best-effort.
-  }
-  channel = null
-  connection = null
+export const siteConsumer: ConsumerSpec = {
+  queue: QUEUE,
+  label: 'site',
+  handlers: HANDLERS,
+  // Cinco por vez: os handlers só invalidam cache e revalidam a página, e a ordem entre
+  // eles não muda o resultado — a página relida é sempre a de agora.
+  prefetch: 5,
 }

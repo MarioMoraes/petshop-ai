@@ -1,10 +1,8 @@
-import { connect, type Channel, type ChannelModel, type ConsumeMessage } from 'amqplib'
 import { withTenant, type TenantTransaction } from '@petshop/db'
-import { EVENTS_DLX, EVENTS_EXCHANGE, TUTOR_ROUTING_KEYS } from '@petshop/shared-types'
+import { TUTOR_ROUTING_KEYS } from '@petshop/shared-types'
 import { z } from 'zod'
-import { loadEnv } from '../../config/env.js'
+import type { ConsumerSpec } from '../../shared/event-consumer.js'
 import { publishEvent } from '../../shared/events.js'
-import { logger } from '../../shared/logger.js'
 import { invalidateTutor } from '../../shared/redis.js'
 import { setSystemTag } from '../tags/service.js'
 import { recordConsentsIn } from '../consents/service.js'
@@ -271,69 +269,11 @@ const HANDLERS: Record<string, (payload: unknown) => Promise<unknown>> = {
   'pet.vinculo.alterado': handlePetVinculoAlterado,
 }
 
-let connection: ChannelModel | null = null
-let channel: Channel | null = null
-
-export async function startTutorConsumers(): Promise<void> {
-  if (loadEnv().DISABLE_EVENTS) {
-    logger.debug('consumo de eventos desabilitado')
-    return
-  }
-
-  try {
-    connection = await connect(loadEnv().RABBITMQ_URL)
-    channel = await connection.createChannel()
-
-    await channel.assertExchange(EVENTS_EXCHANGE, 'topic', { durable: true })
-    await channel.assertExchange(EVENTS_DLX, 'topic', { durable: true })
-    await channel.assertQueue(QUEUE, {
-      durable: true,
-      deadLetterExchange: EVENTS_DLX,
-    })
-    for (const routingKey of Object.keys(HANDLERS)) {
-      await channel.bindQueue(QUEUE, EVENTS_EXCHANGE, routingKey)
-    }
-
-    // Um por vez: os handlers escrevem em transação e a ordem entre eventos do
-    // mesmo tutor importa (dois lançamentos seguidos, o último é que vale).
-    await channel.prefetch(1)
-    await channel.consume(QUEUE, (message) => void handleMessage(message))
-
-    logger.info({ queue: QUEUE }, 'consumidores de evento no ar')
-  } catch (error) {
-    // Não derruba o serviço: a API de tutores continua funcionando sem o broker.
-    logger.error({ err: error }, 'falha ao iniciar os consumidores de evento')
-  }
-}
-
-async function handleMessage(message: ConsumeMessage | null): Promise<void> {
-  if (!message || !channel) return
-
-  const routingKey = message.fields.routingKey
-  const handler = HANDLERS[routingKey]
-  if (!handler) {
-    channel.ack(message)
-    return
-  }
-
-  try {
-    await handler(JSON.parse(message.content.toString()))
-    channel.ack(message)
-  } catch (error) {
-    // `requeue: false` manda para o DLX, que aplica o backoff exponencial do §8.
-    // Reenfileirar aqui produziria loop apertado sobre a mesma falha.
-    logger.error({ err: error, routingKey }, 'falha ao processar evento')
-    channel.nack(message, false, false)
-  }
-}
-
-export async function stopTutorConsumers(): Promise<void> {
-  try {
-    await channel?.close()
-    await connection?.close()
-  } catch {
-    // Encerramento best-effort.
-  }
-  channel = null
-  connection = null
+export const tutorConsumer: ConsumerSpec = {
+  queue: QUEUE,
+  label: 'tutores',
+  handlers: HANDLERS,
+  // Um por vez: os handlers escrevem em transação e a ordem entre eventos do
+  // mesmo tutor importa (dois lançamentos seguidos, o último é que vale).
+  prefetch: 1,
 }

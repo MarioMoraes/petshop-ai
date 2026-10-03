@@ -1,17 +1,15 @@
 import { createJobScheduler } from '@petshop/job-scheduler'
 import { loadEnv } from '../config/env.js'
 import { logger, recordMetric } from '../shared/logger.js'
-import { startCrmConsumers, stopCrmConsumers } from '../modules/crm/consumers.js'
-import { startLedgerConsumers, stopLedgerConsumers } from '../modules/ledger/consumers.js'
-import { startPetConsumers, stopPetConsumers } from '../modules/pets/consumers.js'
-import { startRecordConsumers, stopRecordConsumers } from '../modules/attendances/consumers.js'
-import {
-  startSchedulingConsumers,
-  stopSchedulingConsumers,
-} from '../modules/scheduling/consumers.js'
-import { startTutorConsumers, stopTutorConsumers } from '../modules/tutors/consumers.js'
-import { startSiteConsumers, stopSiteConsumers } from '../modules/site/consumers.js'
-import { startTaxiConsumers, stopTaxiConsumers } from '../modules/taxi/consumers.js'
+import { crmConsumer } from '../modules/crm/consumers.js'
+import { ledgerConsumer } from '../modules/ledger/consumers.js'
+import { petConsumer } from '../modules/pets/consumers.js'
+import { recordConsumer } from '../modules/attendances/consumers.js'
+import { schedulingConsumer } from '../modules/scheduling/consumers.js'
+import { tutorConsumer } from '../modules/tutors/consumers.js'
+import { siteConsumer } from '../modules/site/consumers.js'
+import { taxiConsumer } from '../modules/taxi/consumers.js'
+import { startEventConsumers, stopEventConsumers } from '../shared/event-consumer.js'
 import { agentJobs } from './agent-jobs.js'
 import { crmJobs } from './crm-jobs.js'
 import { identityJobs } from './identity-jobs.js'
@@ -63,33 +61,28 @@ export const { startJobs, stopJobs, runJobNow, describeJobs } = createJobSchedul
   ],
 })
 
+const CONSUMERS = [
+  siteConsumer,
+  taxiConsumer,
+  crmConsumer,
+  petConsumer,
+  tutorConsumer,
+  recordConsumer,
+  schedulingConsumer,
+  ledgerConsumer,
+]
+
 /**
- * Liga os consumidores de evento dos módulos.
+ * Liga os consumidores de evento dos módulos (o mecanismo é `shared/event-consumer.ts`).
  *
  * Falha de broker não derruba o processo: sem os consumidores do site, o horário
  * corrigido no Admin às 9h só aparece na página quando o TTL de 10 minutos vencer —
- * degradado, não indisponível.
+ * degradado, não indisponível. E o broker que volta é reencontrado sozinho.
  */
-export async function startConsumers(): Promise<void> {
-  await startSiteConsumers()
-  await startTaxiConsumers()
-  await startCrmConsumers()
-  await startPetConsumers()
-  await startTutorConsumers()
-  await startRecordConsumers()
-  await startSchedulingConsumers()
-  await startLedgerConsumers()
+export function startConsumers(): Promise<void> {
+  return startEventConsumers(CONSUMERS)
 }
 
-export async function stopConsumers(): Promise<void> {
-  await Promise.all([
-    stopSiteConsumers(),
-    stopTaxiConsumers(),
-    stopCrmConsumers(),
-    stopPetConsumers(),
-    stopTutorConsumers(),
-    stopRecordConsumers(),
-    stopSchedulingConsumers(),
-    stopLedgerConsumers(),
-  ])
+export function stopConsumers(): Promise<void> {
+  return stopEventConsumers()
 }
