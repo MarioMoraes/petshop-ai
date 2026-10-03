@@ -447,8 +447,11 @@ export const ListTaxiRidesQuerySchema = z.object({
   driverId: z.uuid().optional(),
   tutorId: z.uuid().optional(),
   appointmentId: z.uuid().optional(),
-  /** `true` traz só a fila sem dono — a faixa do topo do painel. */
-  unassigned: z.coerce.boolean().optional(),
+  /**
+   * `true` traz só a fila sem dono — a faixa do topo do painel. `stringbool`, e não
+   * `coerce.boolean`: este lia `?unassigned=false` como verdadeiro.
+   */
+  unassigned: z.stringbool().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })

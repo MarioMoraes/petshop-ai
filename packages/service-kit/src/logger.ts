@@ -1,4 +1,4 @@
-import { pino, type Logger, type LoggerOptions } from 'pino'
+import { pino, stdSerializers, type Logger, type LoggerOptions } from 'pino'
 
 /**
  * Pino, JSON estruturado (SPEC §8). As métricas de negócio dos PRDs §10 saem por
@@ -11,6 +11,33 @@ import { pino, type Logger, type LoggerOptions } from 'pino'
  * entre os dois é quem precisa ser avisado quando acontece.
  */
 export const ALWAYS_REDACTED = ['req.headers.authorization'] as const
+
+/**
+ * O erro como sai no log: a mensagem e o código em chaves que nenhuma lista de redação
+ * cobre.
+ *
+ * Os serviços redigem `*.message`, `*.code` e `*.name` — o corpo da mensagem ao tutor,
+ * o código que ele digita no Portal, o nome dele —, e o curinga de topo do pino não
+ * distingue `lead.message` de `err.message`. Com o serializador padrão todo erro saía
+ * `"message": "[redacted]"`, e o `code` do Prisma (`P2002`) também. A redação nem
+ * protegia nada: a primeira linha do `stack` repete a mensagem.
+ *
+ * O pino redige **depois** de serializar, então renomear aqui é o que basta. O resto
+ * das propriedades do erro (o `meta` do Prisma, o `cause`) segue como o padrão as dá, e
+ * continua sob a redação de sempre.
+ */
+export function serializeError(err: unknown): unknown {
+  // `{ err: 'texto' }` também passa por aqui, e o serializador padrão o devolve como veio.
+  const serialized: unknown = stdSerializers.err(err as Error)
+  if (typeof serialized !== 'object' || serialized === null) return serialized
+
+  const { message, code, name: _name, ...rest } = serialized as Record<string, unknown>
+  return {
+    ...rest,
+    reason: message,
+    ...(code !== undefined ? { errorCode: code } : {}),
+  }
+}
 
 export interface BusinessMetric {
   metric: string
@@ -71,6 +98,7 @@ export function createLogger(config: LoggerConfig): ServiceLogger {
     // interessa é a asserção, não a saída.
     level: process.env.NODE_ENV === 'test' ? 'silent' : config.level,
     base: { service: config.service },
+    serializers: { err: serializeError },
     redact: {
       paths: [...ALWAYS_REDACTED, ...(config.redact ?? [])],
       censor: '[redacted]',

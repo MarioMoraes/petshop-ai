@@ -1,4 +1,4 @@
-import { defineEnv, serviceEnvShape } from '@petshop/service-kit'
+import { defineEnv, envFlag, serviceEnvShape } from '@petshop/service-kit'
 import { z } from 'zod'
 
 /**
@@ -78,7 +78,7 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   // ---- MOD-TUTOR (fatia 6 da consolidação) ----
   VIACEP_BASE_URL: z.string().url().default('https://viacep.com.br/ws'),
   /** Desliga a consulta de CEP na suíte, que roda sem rede. */
-  DISABLE_CEP_LOOKUP: z.coerce.boolean().default(false),
+  DISABLE_CEP_LOOKUP: envFlag(),
   CEP_LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
   /** Dias sem atendimento para um tutor entrar na régua de inatividade. */
   INACTIVITY_THRESHOLD_DAYS: z.coerce.number().int().positive().default(90),

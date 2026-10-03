@@ -12,6 +12,16 @@ import { z } from 'zod'
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const
 
 /**
+ * Interruptor lido do ambiente: `true`/`false` (e `1`/`0`, `yes`/`no`, `on`/`off`).
+ *
+ * **Nunca `z.coerce.boolean()`.** Ele é `Boolean(valor)`, e toda string não vazia é
+ * verdadeira — `DISABLE_JOBS=false` desligava a grade de jobs, que é o contrário do
+ * que a linha diz. Um valor fora da lista derruba a subida com o nome da variável, em
+ * vez de virar `true` em silêncio.
+ */
+export const envFlag = () => z.stringbool().default(false)
+
+/**
  * O que todo processo precisa — inclusive o gateway, que não fala com o broker nem
  * cifra nada.
  */
@@ -26,7 +36,7 @@ export const baseEnvShape = {
 
   INTERNAL_SERVICE_SECRET: z.string().min(16),
 
-  DISABLE_REDIS: z.coerce.boolean().default(false),
+  DISABLE_REDIS: envFlag(),
 } as const
 
 /**
@@ -43,13 +53,13 @@ export const serviceEnvShape = {
   EMAIL_HASH_PEPPER: z.string().min(1),
 
   /** Desligam broker e cache em teste, onde ambos são substituídos por dublês. */
-  DISABLE_EVENTS: z.coerce.boolean().default(false),
+  DISABLE_EVENTS: envFlag(),
   /**
    * Desliga o agendador de jobs. A suíte o liga por `process.env`, como faz com
    * `DISABLE_EVENTS` e `DISABLE_REDIS`: um `setInterval` de um minuto rodando durante
    * os testes é intermitência garantida.
    */
-  DISABLE_JOBS: z.coerce.boolean().default(false),
+  DISABLE_JOBS: envFlag(),
 } as const
 
 /**

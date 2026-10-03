@@ -654,16 +654,35 @@ function FotosTab({ pet, album, canUploadPhoto, canUpdate }: Props) {
     if (files.length === 0) return
 
     setError(null)
-    const form = new FormData()
-    for (const file of files) form.append('files', file)
+    if (files.length > MAX_PHOTOS_PER_UPLOAD) {
+      input.value = ''
+      setError(`Escolha até ${MAX_PHOTOS_PER_UPLOAD} fotos por vez.`)
+      return
+    }
 
+    // Uma foto por chamada. O middleware do Next corta o corpo de toda requisição que
+    // passa por ele (`middlewareClientMaxBodySize`, em next.config.ts), e três fotos de
+    // celular juntas já passavam do teto — o envio chegava truncado ao Server Action.
     startTransition(async () => {
-      const result = await uploadPhotosAction(pet.id, form)
+      let enviadas = 0
+      let falha: string | null = null
+      for (const file of files) {
+        const form = new FormData()
+        form.append('files', file)
+        const result = await uploadPhotosAction(pet.id, form)
+        if (!result.ok) {
+          falha = result.message
+          break
+        }
+        enviadas += 1
+      }
       // O input é limpo de qualquer jeito: senão, escolher o mesmo arquivo de novo
       // depois de um erro não dispararia `change`.
       input.value = ''
-      if (result.ok) router.refresh()
-      else setError(result.message)
+      if (enviadas > 0) router.refresh()
+      if (falha) {
+        setError(enviadas > 0 ? `${enviadas} de ${files.length} fotos enviadas. ${falha}` : falha)
+      }
     })
   }
 

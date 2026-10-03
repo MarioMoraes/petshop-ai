@@ -1,6 +1,9 @@
 import path from 'node:path'
 import type { NextConfig } from 'next'
 
+/** Uma foto do pet (10 MB) e a folga do multipart. Ver `experimental` abaixo. */
+const ACTION_BODY_LIMIT = '11mb'
+
 const config: NextConfig = {
   reactStrictMode: true,
   /**
@@ -50,14 +53,15 @@ const config: NextConfig = {
     ]
   },
   experimental: {
-    serverActions: {
-      // `uploadPhotosAction` (MOD-PET-04) recebe o FormData inteiro na Server Action
-      // antes de qualquer validação nossa rodar. O padrão do Next é 1 MB, bem abaixo
-      // do que MAX_PHOTO_BYTES × MAX_PHOTOS_PER_UPLOAD (shared-types/pet.ts) permite:
-      // 10 MB por foto, até 10 fotos por envio. Sem isto o upload morre com "Body
-      // exceeded 1 MB limit" antes mesmo de chegar ao gateway.
-      bodySizeLimit: '100mb',
-    },
+    // O maior corpo legítimo de Server Action é **uma** foto do pet (MAX_PHOTO_BYTES,
+    // 10 MB, shared-types/pet.ts) mais o envelope do multipart — o álbum envia uma por
+    // chamada. A importação e a galeria do site ficam em 8 MB.
+    //
+    // Os dois tetos andam juntos. O do middleware corta (não recusa) o corpo de toda
+    // requisição que o `matcher` pega, e com o padrão de 10 MB uma foto de 10 MB
+    // chegava truncada; o `100mb` que morava aqui nunca valeu por causa dele.
+    serverActions: { bodySizeLimit: ACTION_BODY_LIMIT },
+    middlewareClientMaxBodySize: ACTION_BODY_LIMIT,
   },
   webpack: (webpackConfig) => {
     // O código dos pacotes usa import ESM com extensão (`./identity.js`), que é o

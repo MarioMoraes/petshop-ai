@@ -85,6 +85,30 @@ describe('defineEnv', () => {
     })
   })
 
+  /**
+   * `z.coerce.boolean()` é `Boolean(valor)`: `DISABLE_JOBS=false`, a linha que o
+   * `.env.example` trazia, desligava a grade de jobs.
+   */
+  describe('interruptor do ambiente', () => {
+    it('lê `false` como falso e `true` como verdadeiro', () => {
+      const { loadEnv, resetEnvCache } = defineEnv('teste', serviceEnvShape)
+
+      expect(loadEnv({ ...VALID, DISABLE_JOBS: 'false' }).DISABLE_JOBS).toBe(false)
+      resetEnvCache()
+      expect(loadEnv({ ...VALID, DISABLE_JOBS: '0' }).DISABLE_JOBS).toBe(false)
+      resetEnvCache()
+      expect(loadEnv({ ...VALID, DISABLE_JOBS: 'true' }).DISABLE_JOBS).toBe(true)
+      resetEnvCache()
+      expect(loadEnv({ ...VALID, DISABLE_EVENTS: '1' }).DISABLE_EVENTS).toBe(true)
+    })
+
+    it('recusa na subida o valor que não é nem sim nem não', () => {
+      const { loadEnv } = defineEnv('teste', serviceEnvShape)
+
+      expect(() => loadEnv({ ...VALID, DISABLE_REDIS: 'talvez' })).toThrow(/DISABLE_REDIS/)
+    })
+  })
+
   it('memoiza a leitura, e `resetEnvCache` a solta de novo', () => {
     const { loadEnv, resetEnvCache } = defineEnv('teste', serviceEnvShape)
 

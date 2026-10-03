@@ -349,6 +349,42 @@ describe('RN-19 — o motorista opera só as próprias corridas', () => {
     expect(mine.json().items[0].driverId).toBe(joao)
   })
 
+  it('`?unassigned=false` não filtra — o `coerce.boolean` o lia como verdadeiro', async () => {
+    await enableTaxi(tenant)
+    const pedro = await givenDriver(tenant, { name: 'Pedro' })
+    const appointment = await givenAppointment(tenant)
+    await callApi({
+      ...asAdmin(tenant),
+      method: 'POST',
+      url: '/v1/taxi/rides',
+      payload: {
+        appointmentId: appointment.appointmentId,
+        legs: [
+          {
+            leg: 'PICKUP',
+            windowStartsAt: new Date(appointment.startsAt.getTime() - 90 * 60_000).toISOString(),
+            windowEndsAt: new Date(appointment.startsAt.getTime() - 30 * 60_000).toISOString(),
+            driverId: pedro,
+          },
+        ],
+      },
+    })
+
+    const semFiltro = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: '/v1/taxi/rides?unassigned=false',
+    })
+    expect(semFiltro.json().total).toBe(1)
+
+    const soSemDono = await callApi({
+      ...asAdmin(tenant),
+      method: 'GET',
+      url: '/v1/taxi/rides?unassigned=true',
+    })
+    expect(soSemDono.json().total).toBe(0)
+  })
+
   it('AC-04 de MOD-TAXI-04: a corrida do colega devolve 404, não 403', async () => {
     await enableTaxi(tenant)
     const joaoUserId = await givenUser(tenant, 'DRIVER')
