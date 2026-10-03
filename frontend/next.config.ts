@@ -25,6 +25,13 @@ const config: NextConfig = {
   transpilePackages: ['@petshop/shared-types', '@petshop/api-client'],
   typedRoutes: true,
   /**
+   * O otimizador de imagem fica desligado: nenhuma tela usa `next/image` — as fotos são
+   * URLs assinadas e efêmeras, que o otimizador buscaria de novo depois de vencidas —, e
+   * o `/_next/image` responde mesmo sem uso, a qualquer host, inclusive o site público.
+   * Um endpoint que o produto não chama é só superfície: foi nele a RCE da 15.5.23.
+   */
+  images: { unoptimized: true },
+  /**
    * Os endereços que mudaram quando o Financeiro juntou o dinheiro num lugar só
    * (2026-09-26): a Cobrança era um item próprio do menu, e os Pacotes, uma aba do
    * Financeiro. Favorito, link colado numa conversa e aba aberta de ontem

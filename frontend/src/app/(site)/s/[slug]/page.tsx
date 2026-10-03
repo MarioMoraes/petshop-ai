@@ -9,6 +9,7 @@ import {
 import { fetchPublicSite, SiteNotFoundError } from '@/lib/site-api'
 import { paletteOf, rgba, type SitePalette } from './branding'
 import { groupBusinessHours } from './hours'
+import { jsonLdSeguro } from './json-ld'
 import { LeadForm } from './lead-form'
 import { OpenNow } from './open-now'
 
@@ -529,9 +530,11 @@ function SiteFooter({ site }: { site: PublicSiteResponse }) {
  * Dados estruturados (AC-02 de MOD-SITE-10).
  *
  * É o que permite ao buscador mostrar horário e endereço direto no resultado — e é a
- * razão prática de o MOD-SITE-02 existir. O objeto é serializado com `JSON.stringify`,
- * que escapa o conteúdo: nome e endereço são texto do admin, e texto do admin nunca
- * entra como marcação.
+ * razão prática de o MOD-SITE-02 existir. Nome e endereço são texto do admin, e texto do
+ * admin nunca entra como marcação — só que `JSON.stringify` **não** garante isso dentro
+ * de um `<script>`: ele não escapa `<`, e um nome com `</script>` fecharia a tag e
+ * abriria outra no host do petshop, que é o mesmo do Portal. Daí `jsonLdSeguro`
+ * (`./json-ld.ts`).
  */
 function JsonLd({ site }: { site: PublicSiteResponse }) {
   const prices = site.services
@@ -573,7 +576,7 @@ function JsonLd({ site }: { site: PublicSiteResponse }) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: jsonLdSeguro(data) }}
     />
   )
 }
