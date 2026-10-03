@@ -17,6 +17,12 @@ export default mergeConfig(
         DISABLE_EVENTS: 'true',
         DISABLE_JOBS: 'true',
         DISABLE_REDIS: 'true',
+        // Gotenberg desligado: vazio é ausente (`semVazias`), e o `dotenv` não sobrescreve
+        // o que já está aqui. Com o `GOTENBERG_URL` do `.env`, a saúde da plataforma
+        // perguntava ao container da máquina de quem roda a suíte — no CI ele não existe,
+        // a regra `dependency_down` acendia, e os alertas contavam um e-mail a mais. Quem
+        // testa PDF usa o dublê da porta.
+        GOTENBERG_URL: '',
       },
       globalSetup: ['./tests/global-setup.ts'],
       fileParallelism: false,
