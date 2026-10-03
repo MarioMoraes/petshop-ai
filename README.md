@@ -21,8 +21,9 @@ Requer Node 22+, pnpm 11+ e Docker.
 
 ```bash
 pnpm install
+pnpm db:generate              # o cliente do Prisma, que o migrate não gera
 pnpm infra:up                 # Postgres, Redis e RabbitMQ
-cp .env.example .env          # e preencha as chaves do Clerk
+cp .env.example .env          # e preencha as chaves do Clerk e a ENCRYPTION_KEK
 pnpm db:migrate && pnpm db:seed
 pnpm dev
 ```
@@ -53,6 +54,10 @@ Os testes de banco sobem contra o Postgres do `docker compose`, cada pacote no s
 próprio banco (`petshop_test_db` e `petshop_test_gateway`), criado automaticamente na
 primeira execução. A suíte do backend fica por módulo, em `backend/app/tests/<modulo>/`.
 
+O mesmo trio roda no CI (`.github/workflows/ci.yml`) em todo push na `main` e em todo
+pull request, contra um Postgres de serviço e com o `.env.example`, junto da suíte do app
+Flutter.
+
 Para conferir o isolamento RLS à mão, conectado como a role da aplicação e **sem**
 contexto de tenant — deve devolver zero linhas:
 
@@ -73,7 +78,7 @@ packages/
   service-kit/          O mecanismo comum dos módulos (subida, erros, eventos, guardas de autorização)
   job-scheduler/        A grade de jobs com lease por nome
   pdf/, documents/      Geração de PDF e o registro de documentos emitidos
-  api-client/           Cliente tipado do backend
+  api-client/           Cliente tipado do backend, um arquivo de endpoints por domínio
   config/               Presets de tsconfig, eslint e vitest
 frontend/               Next.js App Router: Admin, Portal, site do tenant e /plataforma
   landing-page/         A landing de venda, HTML estático
@@ -102,6 +107,11 @@ design/                 Biblioteca de padrões visuais
 - **Erros em `application/problem+json`** com códigos por módulo (`ERR_IDENT_00N`,
   `ERR_TUTOR_00N`), catálogo único em `packages/shared-types/src/errors.ts`.
 - **Eventos de domínio** no exchange topic `petshop.events`, nomeados `dominio.acao`.
+
+Decisões mais recentes — o consumo de eventos com retentativa retida, o limite de tokens
+recusados, o sino numa chamada só — estão no registro da refatoração de 2026-10,
+**[docs/refatoracao-2026-10.md](docs/refatoracao-2026-10.md)**, com as pendências que ela
+deixou.
 
 ## O que ainda não existe
 

@@ -57,6 +57,17 @@ a sessão da plataforma é justamente a que não traz Organization. Toda tela de
 `ADMIN_ROUTE_PREFIXES` (`lib/host.ts`) ou nasce pública no host de todo tenant;
 `admin-routes.test.ts` compara a lista com o disco.
 
+**Endpoint novo entra em `packages/api-client/src/endpoints/<domínio>.ts`**, e não no
+`index.ts`, que só espalha os domínios num objeto plano; o transporte (teto, token,
+`problem+json`) é um só, em `transport.ts`. Era um arquivo de três mil linhas até
+2026-10-03, e `ApiClient` continua sendo o mesmo tipo para quem importa.
+
+**Corpo de Server Action tem teto de 11 MB, e o do middleware anda junto**
+(`next.config.ts`). O middleware do Next **trunca** — não recusa — todo corpo que o
+`matcher` pega acima de `middlewareClientMaxBodySize`, e foi por isso que o `100mb` antigo
+nunca valeu. O maior corpo legítimo é **uma** foto do pet: o álbum envia uma por chamada.
+Envio novo de arquivo que precise de mais não sobe o teto — divide o envio.
+
 ## Backend — o monólito modular
 
 O `SPEC.md` e os PRDs descrevem um alvo de doze microserviços. **O repositório
@@ -426,6 +437,51 @@ a matriz de papéis: rota administrativa nova não nasce publicada por engano, e
 do Portal já nasce alcançável pelo app. O recorte está no matcher `@api` do
 `infra/Caddyfile`, e `app/test/recorte_da_borda_test.dart` compara a lista com os
 caminhos que o app de fato chama.
+
+**O sino do Admin é uma chamada só, e ela chama as outras por dentro.** `GET
+/v1/me/pending` (`src/gateway/pending.ts`) faz as nove contagens com `app.inject` nas
+rotas de sempre, com o token de quem pediu — a contagem, a permissão, o gate de plano e o
+RLS são os da rota dona, e nenhuma regra é copiada nem importada entre módulos. Antes de
+cada chamada ele confere permissão e plano, porque pedir e levar 403 grava
+`PERMISSION_DENIED` na trilha. As chamadas internas levam `x-petshop-internal-call` com um
+UUID gerado na subida do processo, e é por ele que o rate limit não as conta: a navegação
+conta uma vez. Fonte nova do sino entra em `SOURCES`, e não como chamada nova na moldura.
+A moldura faz duas leituras por navegação — `/v1/me`, que traz também o fuso, e esta.
+
+**O rate limit conta depois da autenticação; a recusa de token, antes.** O
+`@fastify/rate-limit` é hook de rota, e o Fastify roda o de rota depois do hook de auth da
+instância: o 401 nunca chegava a ele. `src/auth/auth-failures.ts` conta o token
+**apresentado e recusado** por petshop×IP (`AUTH_FAILURE_MAX`), **só no Portal** — o
+`/v1` é chamado pelo Next, um IP para todos os petshops, e contar ali trancaria o Admin
+inteiro num soluço do Clerk. Token ausente não conta: é quem saiu da sessão. E o `kid`
+desconhecido não vira ida à rede (`auth/clerk-token.ts`): o JWKS fica também na memória do
+processo, e uma releitura por minuto é o que admite a rotação de chave do Clerk.
+
+**Interruptor de ambiente é `envFlag()`, nunca `z.coerce.boolean()`.** O `coerce` é
+`Boolean(valor)`: `DISABLE_JOBS=false` desligava a grade. `envFlag` (`service-kit/env.ts`)
+aceita `true/false`, `1/0` e derruba a subida com qualquer outro valor. Em query string, a
+mesma armadilha pede `z.stringbool()` — `?unassigned=false` filtrava como `true`.
+
+**O erro no log sai como `reason` e `errorCode`.** A redação de PII (`*.message`,
+`*.code`, `*.name`) alcançava o `err` também — todo erro saía `[redacted]`, e o `P2002`
+junto. O serializador de `err` do `createLogger` renomeia as duas chaves; o pino redige
+**depois** de serializar. Logue erro sempre como `{ err }`.
+
+**Três testes protegem o que nenhuma tela mostra.** `packages/db/tests/rls-catalog.test.ts`
+confere no banco migrado que toda tabela com `tenant_id` tem `ENABLE`, `FORCE` e política
+por `current_tenant_id()` — a guarda estática lê o texto das migrations e não vê um `FORCE`
+ausente nem o `DISABLE` que o Prisma gera. `backend/app/tests/anonymous-routes.test.ts`
+chama toda rota registrada sem token e exige 401, salvo a lista `ANONIMAS`: rota nova sob
+`/public/` ou `/internal/` entra nela por decisão, ou o teste falha. E
+`rls-models-sync.test.ts` continua sendo o que liga `RLS_MODELS` às migrations — ficou uma
+semana vermelho sem ninguém ver, e foi o CI que o achou.
+
+**O CI roda em todo push na `main` e em todo pull request** (`.github/workflows/ci.yml`):
+lint, typecheck e a suíte inteira contra um Postgres de serviço, com o `.env.example` e a
+KEK gerada na hora, e a suíte do app Flutter num job à parte. O que só um checkout limpo
+mostra mora nos scripts, e não no CI: o typecheck do frontend roda `next typegen` antes
+(com `NEXT_DIST_DIR=.next-build`, para não reescrever o `next-env.d.ts` versionado), e o
+cliente do Prisma precisa de `pnpm db:generate`.
 
 ## O grafo do repositório (graphify)
 
