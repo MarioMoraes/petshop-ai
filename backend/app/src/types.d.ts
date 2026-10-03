@@ -1,4 +1,4 @@
-import type { ServiceAuthContext } from '@petshop/service-auth'
+import type { ServiceAuthContext } from '@petshop/service-kit'
 import type { MfaState } from '@petshop/shared-types'
 
 /**

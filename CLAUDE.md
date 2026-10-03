@@ -100,8 +100,9 @@ que ela deixou:
 **Nomes que atravessam processo não acompanharam a migração**: fila do RabbitMQ, chave
 de cache e nome de job são identidade em infraestrutura. Renomeá-los junto com o código
 cria fila órfã e cache frio, e o sintoma nunca é um erro no log. É por isso que as filas
-ainda se chamam `<serviço>-service.events` e que `INTERNAL_SERVICE_SECRET` continua
-exigido na subida sem ter leitor.
+ainda se chamam `<serviço>-service.events`. O `INTERNAL_SERVICE_SECRET` e o pacote
+`service-auth`, o HMAC entre serviços, saíram em 2026-10-03: os composes ainda passam a
+variável, opcional, só para o rollback a uma imagem anterior que a exige na subida.
 
 **Salto HTTP entre módulos virou chamada de função, passando pelo mesmo schema Zod que a
 rota usava.** O schema não só valida: ele preenche defaults — `source` do aceite de

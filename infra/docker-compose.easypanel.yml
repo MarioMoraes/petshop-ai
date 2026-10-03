@@ -51,7 +51,9 @@ x-backend-env: &backend-env
   RABBITMQ_URL: amqp://petshop:${RABBITMQ_PASSWORD:?}@rabbitmq:5672
   ENCRYPTION_KEK: ${ENCRYPTION_KEK:?}
   EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:?}
-  INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?}
+  # Sem leitor desde 2026-10-03 (Fase 6). Passa só para o rollback a uma imagem
+  # anterior, que ainda a exige na subida; sai quando nenhuma for mais candidata.
+  INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-}
   FRONTEND_INTERNAL_URL: http://frontend:3002
   # As duas pontas do mesmo segredo — ver o serviço `frontend`.
   SITE_REVALIDATE_SECRET: ${SITE_REVALIDATE_SECRET:?}

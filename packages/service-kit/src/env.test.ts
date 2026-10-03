@@ -8,7 +8,6 @@ const VALID = {
   DATABASE_MAINTENANCE_URL: 'postgres://localhost/x',
   REDIS_URL: 'redis://localhost:6379',
   RABBITMQ_URL: 'amqp://localhost',
-  INTERNAL_SERVICE_SECRET: 'x'.repeat(32),
   ENCRYPTION_KEK: 'kek',
   EMAIL_HASH_PEPPER: 'pepper',
 } satisfies NodeJS.ProcessEnv
@@ -34,14 +33,6 @@ describe('defineEnv', () => {
 
     expect(() => loadEnv(semBroker)).toThrow(/scheduling-service/)
     expect(() => loadEnv(semBroker)).toThrow(/RABBITMQ_URL/)
-  })
-
-  it('recusa segredo de serviço curto demais — o contrato HMAC depende dele', () => {
-    const { loadEnv } = defineEnv('teste', serviceEnvShape)
-
-    expect(() => loadEnv({ ...VALID, INTERNAL_SERVICE_SECRET: 'curto' })).toThrow(
-      /INTERNAL_SERVICE_SECRET/,
-    )
   })
 
   /**

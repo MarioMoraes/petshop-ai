@@ -350,22 +350,23 @@ describe('as portas de entrada', () => {
   })
 
   /**
-   * A porta de dentro continua sendo verificada, e continua sendo a mesma função.
-   * `resolveInternalRequest` reconhece que **há** assinatura, falha ao conferi-la e
-   * recusa — em vez de descartar os headers e ir procurar um token que não existe.
+   * O contexto do contrato antigo, em headers, não abre porta nenhuma: o tenant e as
+   * permissões só saem do token. É o que restou de quando os serviços aceitavam esses
+   * headers com assinatura HMAC — e o pacote que os conferia saiu com a última porta.
    */
-  it('recusa assinatura de serviço forjada com outro segredo', async () => {
-    const { signServiceHeaders } = await import('@petshop/service-auth')
+  it('recusa o contexto declarado em headers, sem token', async () => {
     const { getApp } = await import('./fixtures.js')
     const app = await getApp()
 
     const response = await app.inject({
       method: 'POST',
       url: '/v1/tenants',
-      headers: signServiceHeaders(
-        { clerkUserId: 'user_forjado', permissions: [] },
-        'segredo-errado',
-      ),
+      headers: {
+        'x-petshop-clerk-user-id': 'user_forjado',
+        'x-petshop-permissions': 'tenant:create',
+        'x-petshop-timestamp': String(Date.now()),
+        'x-petshop-signature': 'f'.repeat(64),
+      },
       payload: validPayload,
     })
 

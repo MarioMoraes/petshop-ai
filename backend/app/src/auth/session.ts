@@ -12,7 +12,7 @@ import {
   type PermissionKey,
   type RoleKey,
 } from '@petshop/shared-types'
-import type { ServiceAuthContext } from '@petshop/service-auth'
+import type { ServiceAuthContext } from '@petshop/service-kit'
 import { logger, recordMetric } from '../shared/logger.js'
 import { recordSecurityEvent } from '../shared/security-events.js'
 import { mfaRequired } from '../modules/security/errors.js'
@@ -89,11 +89,9 @@ export interface ResolveSessionResult {
   /**
    * O estado de MFA desta sessão (MOD-SEC-02 AC-04).
    *
-   * **Fica fora do `ServiceAuthContext` de propósito.** Aquele é o contrato assinado
-   * que atravessa para os serviços ainda não migrados, e o segundo fator é uma
-   * condição da **porta**, verificada aqui, antes de qualquer roteamento. Um serviço
-   * atrás dela não tem decisão a tomar com esse dado, e acrescentá-lo ao payload
-   * canônico mudaria a assinatura HMAC sem que ninguém a lesse.
+   * **Fica fora do `ServiceAuthContext` de propósito.** Aquele é o que os guardas das
+   * rotas leem, e o segundo fator é uma condição da **porta**, verificada aqui, antes
+   * de qualquer roteamento. Nenhum módulo atrás dela tem decisão a tomar com esse dado.
    */
   mfa: MfaState
 }

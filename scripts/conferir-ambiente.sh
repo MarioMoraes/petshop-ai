@@ -203,10 +203,6 @@ done
 titulo "Criptografia de PII"
 obrigatoria ENCRYPTION_KEK "é a raiz de tudo que é cifrado no banco"
 obrigatoria EMAIL_HASH_PEPPER "sem ele as buscas por CPF/telefone/e-mail não acham nada"
-obrigatoria INTERNAL_SERVICE_SECRET "exigido na subida (mínimo 16 caracteres)"
-if [ -n "${INTERNAL_SERVICE_SECRET:-}" ] && [ ${#INTERNAL_SERVICE_SECRET} -lt 16 ]; then
-  erro "INTERNAL_SERVICE_SECRET tem ${#INTERNAL_SERVICE_SECRET} caracteres; o schema exige 16"
-fi
 
 # ── O par que precisa bater ───────────────────────────────────────────────────
 titulo "Revalidação do site (a mesma variável nos dois containers)"

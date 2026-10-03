@@ -70,8 +70,7 @@ backend/
 packages/
   shared-types/         Schemas Zod, matriz de permissões, catálogo de erros, eventos, planos
   db/                   Prisma, migrations, RLS, criptografia de PII, suporte a testes
-  service-auth/         O contexto de autorização, e o contrato HMAC de quem voltar a ser serviço
-  service-kit/          O mecanismo comum dos módulos (subida, erros, eventos)
+  service-kit/          O mecanismo comum dos módulos (subida, erros, eventos, guardas de autorização)
   job-scheduler/        A grade de jobs com lease por nome
   pdf/, documents/      Geração de PDF e o registro de documentos emitidos
   api-client/           Cliente tipado do backend

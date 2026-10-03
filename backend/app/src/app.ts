@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import { getPrisma, setDbLogger } from '@petshop/db'
-import { SERVICE_HEADERS, type ServiceAuthContext } from '@petshop/service-auth'
+import type { ServiceAuthContext } from '@petshop/service-kit'
 import { AppError, ROLE_PERMISSIONS } from '@petshop/shared-types'
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
 import { createAuthFailureGuard } from './auth/auth-failures.js'
@@ -80,9 +80,9 @@ const TENANT_SLUG_HEADER = 'x-petshop-tenant-slug'
  * só existe se houver `support_access_grant` vivo daquele suporte naquele tenant, e o grant
  * é o estabelecimento que o cria.
  *
- * Não confundir com `x-petshop-tenant-id`, que o `proxy.ts` descartava e que o
- * `auditForgedTenantHeader` ainda vigia: aquele era um contexto forjado; este é um pedido
- * de contexto, que a autorização do tenant concede ou não.
+ * Não confundir com `x-petshop-tenant-id`, que o `auditForgedTenantHeader` vigia: aquele
+ * era um contexto forjado; este é um pedido de contexto, que a autorização do tenant
+ * concede ou não.
  */
 const PLATFORM_TENANT_HEADER = 'x-petshop-acting-tenant'
 
@@ -279,21 +279,22 @@ async function resolvePlatformRequest(
 /**
  * AC-01 de MOD-SEC-07 — o cliente que se declara de outro estabelecimento.
  *
- * O `proxy.ts` **descarta** os headers `x-petshop-*` que chegam de fora antes de
- * encaminhar, e é isso que torna a tentativa inofensiva. Só que descartar em silêncio
- * também a torna invisível: alguém pode varrer a instalação a semana inteira mandando
- * `x-petshop-tenant-id` de terceiros e não deixar rastro nenhum.
+ * `x-petshop-tenant-id` era o header em que o contexto viajava, assinado, do gateway aos
+ * serviços. Nada mais o lê — o tenant sai do token —, então mandá-lo não alcança outro
+ * estabelecimento. Só que ignorar em silêncio também torna a tentativa invisível:
+ * alguém pode varrer a instalação a semana inteira mandando o tenant de terceiros e não
+ * deixar rastro nenhum.
  *
- * Uma requisição legítima **nunca** carrega esse header pela porta de fora — quem o
- * envia com assinatura válida entra por `resolveInternalRequest`, que retorna antes
- * daqui. Então a presença dele já é a anomalia; o `!==` só separa o engano de
- * configuração da tentativa de alcançar outro tenant.
+ * Nenhum cliente legítimo o envia, então a presença dele já é a anomalia; o `!==` só
+ * separa o engano de configuração da tentativa de alcançar outro tenant.
  */
+const FORGED_TENANT_HEADER = 'x-petshop-tenant-id'
+
 async function auditForgedTenantHeader(
   request: FastifyRequest,
   context: ServiceAuthContext,
 ): Promise<void> {
-  const raw = request.headers[SERVICE_HEADERS.tenantId]
+  const raw = request.headers[FORGED_TENANT_HEADER]
   const claimed = (Array.isArray(raw) ? raw[0] : raw)?.trim()
   if (!claimed || claimed === context.tenantId) return
 

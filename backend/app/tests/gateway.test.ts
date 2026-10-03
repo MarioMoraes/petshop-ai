@@ -1,5 +1,4 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { SERVICE_HEADERS } from '@petshop/service-auth'
 import {
   closeHarness,
   getApp,
@@ -230,9 +229,10 @@ describe('resolução do contexto da sessão', () => {
       url: '/v1/services',
       token,
       headers: {
-        [SERVICE_HEADERS.tenantId]: outro.tenantId,
-        [SERVICE_HEADERS.role]: 'TENANT_ADMIN',
-        [SERVICE_HEADERS.permissions]: 'tutor:delete,schedule:manage_catalog',
+        // Os headers em que o contexto viajava, assinado, até a fatia 11.
+        'x-petshop-tenant-id': outro.tenantId,
+        'x-petshop-role': 'TENANT_ADMIN',
+        'x-petshop-permissions': 'tutor:delete,schedule:manage_catalog',
       },
     })
 

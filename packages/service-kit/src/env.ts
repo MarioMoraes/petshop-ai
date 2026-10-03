@@ -5,7 +5,7 @@ import { z } from 'zod'
  *
  * Cada serviço declara **só o que é seu** (a porta, as chaves de integração, os
  * limites de negócio) e recebe pronto o núcleo que ninguém consegue rodar sem: banco,
- * Redis, segredo do contrato de serviço. Validar na subida, com o nome da variável
+ * Redis. Validar na subida, com o nome da variável
  * faltante, é muito melhor do que descobrir a ausência no meio de uma requisição.
  */
 
@@ -33,8 +33,6 @@ export const baseEnvShape = {
   DATABASE_MAINTENANCE_URL: z.string().min(1),
 
   REDIS_URL: z.string().min(1),
-
-  INTERNAL_SERVICE_SECRET: z.string().min(16),
 
   DISABLE_REDIS: envFlag(),
 } as const

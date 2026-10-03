@@ -5,7 +5,7 @@ import {
   ROLE_PERMISSIONS,
   type PermissionKey,
 } from '@petshop/shared-types'
-import type { ServiceAuthContext } from '@petshop/service-auth'
+import type { ServiceAuthContext } from '@petshop/service-kit'
 import { logger } from '../shared/logger.js'
 import { tenantHasFeature } from '../shared/plan.js'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../shared/redis.js'

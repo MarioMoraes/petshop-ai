@@ -33,14 +33,6 @@ export function createModuleAuth(catalog: {
   unauthorized: (detail?: string) => AppError
 }): ServiceAuth {
   return createAuthContext({
-    /**
-     * **Sem leitor desde a fatia 11.** O `getSecret` só é usado pelo `registerAuthContext`
-     * do kit, que verifica o HMAC na porta de um serviço — e não existe mais serviço a
-     * chamar. Devolver a string vazia deixa isso explícito: se alguém religar aquele hook
-     * um dia, ele falha na primeira requisição em vez de verificar contra um segredo que
-     * ninguém mais assina.
-     */
-    getSecret: () => '',
     forbidden: catalog.forbidden,
     unauthorized: catalog.unauthorized,
     recordAudit,
@@ -54,8 +46,8 @@ export function createModuleAuth(catalog: {
  * **É o hook que separa superfície autenticada de superfície pública**, e o lugar
  * exato onde a consolidação pode errar feio: uma rota administrativa registrada fora
  * deste escopo nasce sem autenticação nenhuma. Ele fica no escopo, e não no app, pela
- * mesma razão que o `registerAuthContext` do kit ficava — para que a rota pública seja
- * a exceção declarada, e não o esquecimento.
+ * mesma razão que o hook de HMAC de cada serviço ficava — para que a rota pública seja a
+ * exceção declarada, e não o esquecimento.
  */
 export function registerModuleAuth(app: FastifyInstance): void {
   app.addHook('onRequest', async (request: FastifyRequest) => {

@@ -1,21 +1,44 @@
-import { verifyServiceHeaders, type ServiceAuthContext } from '@petshop/service-auth'
-import type { AppError, PermissionKey } from '@petshop/shared-types'
+import type { AppError, PermissionKey, RoleKey } from '@petshop/shared-types'
 import { withTenant, type TenantTransaction } from '@petshop/db'
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 import type { AuditEntry } from './audit.js'
 import type { SecurityEventInput } from './security-events.js'
 
 /**
- * Autenticação de serviço: confere a assinatura do gateway e expõe o contexto.
+ * Os guardas de autorização das rotas: tenant, tutor, escopo `_own` e permissão.
  *
- * O serviço nunca vê o JWT do Clerk — quem valida token é o gateway. O que chega aqui
- * é o resultado já resolvido (usuário, tenant, permissões), assinado com HMAC. Sem
- * assinatura válida a requisição não passa: alcançar a porta do serviço direto,
- * pulando o gateway, não deve valer nada.
+ * O contexto chega pronto em `request.auth` — quem o resolve é o hook do processo, a
+ * partir do token do Clerk (`backend/app/src/app.ts`). Até a fatia 11 da consolidação
+ * ele chegava por headers assinados com HMAC (`@petshop/service-auth`), verificados na
+ * porta de cada serviço; o pacote saiu com a última porta que o verificava.
  *
- * O contrato é o mesmo para todo serviço; o que muda entre eles é apenas para onde
+ * O contrato é o mesmo para todo módulo; o que muda entre eles é apenas para onde
  * apontam o catálogo de erro e a trilha de auditoria — daí os parâmetros.
  */
+
+/** Quem está chamando, já resolvido: usuário, tenant, papel e permissões. */
+export interface ServiceAuthContext {
+  clerkUserId: string
+  /** UUID local. Ausente antes do primeiro acesso, quando o espelho ainda não existe. */
+  userId?: string
+  /** Ausente quando o usuário ainda não tem tenant — é o caso de `POST /v1/tenants`. */
+  tenantId?: string
+  role?: RoleKey
+  /**
+   * A ficha de tutor deste usuário, quando a sessão é do Portal (MOD-PORTAL-02).
+   *
+   * Sem ele, `tutor:read_own` é indistinguível de `tutor:read` — a permissão diria
+   * "só os próprios" sem que houvesse de quem. É o campo que dá sentido às nove
+   * permissões `_own` que existem desde o MOD-IDENT-04 e nunca foram exigidas.
+   *
+   * Presente **somente** na sessão do Portal. Uma sessão de equipe nunca o carrega,
+   * nem a de quem é funcionário e cliente do mesmo petshop: são duas sessões, com dois
+   * escopos, e a do Portal não amplia por o usuário ter membership.
+   */
+  tutorId?: string
+  permissions: PermissionKey[]
+  permVersion?: number
+}
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -58,22 +81,14 @@ export function isOwnPermission(permission: string): boolean {
   return permission.endsWith('_own')
 }
 
-/** Rotas que não exigem autenticação de serviço. */
-export const DEFAULT_PUBLIC_PATHS = ['/health', '/ready', '/docs', '/docs/json'] as const
-
 export interface AuthContextConfig {
-  /** Lido a cada requisição: `loadEnv()` é memoizado sob demanda e resetado em teste. */
-  getSecret: () => string
   forbidden: (detail: string) => AppError
   unauthorized: (detail?: string) => AppError
   recordAudit: (tx: TenantTransaction, entry: AuditEntry) => Promise<void>
   recordSecurityEvent: (input: SecurityEventInput) => Promise<void>
-  /** Substitui — não acrescenta — a lista padrão, para o serviço que precisar. */
-  publicPaths?: readonly string[]
 }
 
 export interface ServiceAuth {
-  registerAuthContext: (app: FastifyInstance) => void
   requireTenantContext: (request: FastifyRequest) => TenantScopedAuth
   requireTutorContext: (request: FastifyRequest) => TutorScopedAuth
   requireOwnScope: (request: FastifyRequest) => OwnScope
@@ -86,7 +101,6 @@ export interface ServiceAuth {
 
 export function createAuthContext(config: AuthContextConfig): ServiceAuth {
   const { forbidden, unauthorized, recordAudit, recordSecurityEvent } = config
-  const publicPaths = new Set<string>(config.publicPaths ?? DEFAULT_PUBLIC_PATHS)
 
   function requireTenantContext(request: FastifyRequest): TenantScopedAuth {
     if (!request.auth?.tenantId) {
@@ -128,22 +142,6 @@ export function createAuthContext(config: AuthContextConfig): ServiceAuth {
   }
 
   return {
-    registerAuthContext(app: FastifyInstance): void {
-      app.addHook('onRequest', async (request: FastifyRequest) => {
-        if (publicPaths.has(request.url.split('?')[0] ?? '')) return
-
-        const result = verifyServiceHeaders(request.headers, config.getSecret())
-        if (!result.ok) {
-          request.log.warn(
-            { reason: result.reason, path: request.url },
-            'assinatura de serviço inválida',
-          )
-          throw unauthorized('Requisição não autenticada')
-        }
-        request.auth = result.context
-      })
-    },
-
     requireTenantContext,
     requireTutorContext,
     requireOwnScope,
@@ -157,7 +155,7 @@ export function createAuthContext(config: AuthContextConfig): ServiceAuth {
      * `auth_permission_denied_total`.
      *
      * **Permissão terminada em `_own` faz mais do que autorizar** (RN-02 do MOD-PORTAL):
-     * ela exige o `tutorId` do contexto assinado e deixa o recorte em `request.ownScope`,
+     * ela exige o `tutorId` do contexto da sessão e deixa o recorte em `request.ownScope`,
      * de onde o handler o lê. Ter a permissão e não ter a ficha não é acesso amplo — é
      * sessão inválida, e responde 401.
      */

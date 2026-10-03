@@ -24,7 +24,6 @@
     "@petshop/documents": "workspace:*",
     "@petshop/job-scheduler": "workspace:*",
     "@petshop/pdf": "workspace:*",
-    "@petshop/service-auth": "workspace:*",
     "@petshop/service-kit": "workspace:*",
     "@petshop/shared-types": "workspace:*",
     "amqplib": "^0.10.9",
