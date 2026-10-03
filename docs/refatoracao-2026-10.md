@@ -37,7 +37,9 @@ o histórico, com o motivo de cada decisão.
 
 ## Pendências
 
-- **Tirar `INTERNAL_SERVICE_SECRET` dos três composes** (`infra/docker-compose.*.yml`).
+- **Tirar `INTERNAL_SERVICE_SECRET` dos três composes** (`infra/docker-compose.*.yml`) **e
+  do `.env.production.example`, juntos** — o `conferir-ambiente.sh` cobra no exemplo toda
+  variável que um compose lê, e foi isso que barrou o primeiro deploy da 0.1.27.
   Ficou como opcional (`${…:-}`) porque as imagens anteriores à Fase 6 ainda o exigem na
   subida, e um rollback para elas não subiria sem ele. Sai quando nenhuma for mais
   candidata a rollback.
