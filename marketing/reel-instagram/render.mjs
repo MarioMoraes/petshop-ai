@@ -2,6 +2,7 @@ import { chromium } from 'playwright-core'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import ffmpegPath from 'ffmpeg-static'
+import { gerarTrilha } from './trilha.mjs'
 
 const [mode = 'frames', ...rest] = process.argv.slice(2)
 const exe = path.join(process.env.HOME, 'Library/Caches/ms-playwright/chromium-1217/chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing')
@@ -20,10 +21,19 @@ if (mode === 'frames') {
     await page.screenshot({ path: `shots/${prefix === 'reel' ? '' : prefix + '-'}t${String(t).padStart(5, '0')}.png` })
   }
 } else {
-  const FPS = 60, DUR = await page.evaluate(() => DURATION), out = rest[0] || 'reel.mp4'
-  const ff = spawn(ffmpegPath, ['-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'png', '-i', '-',
+  // a trilha sai da mesma página, então os cortes do áudio são os do vídeo
+  const { DUR, cortes } = await page.evaluate(() => ({ DUR: DURATION, cortes: INICIO.slice(1) }))
+  const wav = `${prefix}-trilha.wav`
+  // a trilha só do reel principal; o das dores não tem
+  const comAudio = prefix === 'reel'
+  if (comAudio) gerarTrilha({ duracao: DUR, cortes, arquivo: wav })
+  if (mode === 'trilha') { await browser.close(); process.exit(0) }
+  const FPS = 60, out = rest[0] || 'reel.mp4'
+  const audioIn = comAudio ? ['-i', wav] : []
+  const audioOut = comAudio ? ['-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '192k', '-shortest'] : ['-an']
+  const ff = spawn(ffmpegPath, ['-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'png', '-i', '-', ...audioIn,
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.2',
-    '-r', String(FPS), '-movflags', '+faststart', '-an', out], { stdio: ['pipe', 'ignore', 'inherit'] })
+    '-r', String(FPS), '-movflags', '+faststart', ...audioOut, out], { stdio: ['pipe', 'ignore', 'inherit'] })
   const total = FPS * DUR
   for (let f = 0; f < total; f++) {
     await page.evaluate((t) => window.renderAt(t), f / FPS)

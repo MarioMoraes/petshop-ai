@@ -66,23 +66,15 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 .chip-light { background: var(--tone-soft); color: var(--tone); box-shadow: 0 0 0 1px var(--tone-ring) inset; }
 
 /* ── Cena 1: recursos ── */
-.tile { position: absolute; width: 300px; height: 140px; padding: 20px 24px; border-radius: 28px;
+.tile { position: absolute; width: 300px; height: 184px; padding: 24px 26px; border-radius: 28px;
   background: linear-gradient(180deg, rgb(255 255 255 / 0.085), rgb(255 255 255 / 0.04));
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.11) inset, 0 30px 50px -30px rgb(0 0 0 / 0.6);
   display: flex; flex-direction: column; justify-content: space-between; }
-.tile .chip { width: 60px; height: 60px; font-size: 32px; }
+.tile .chip { width: 66px; height: 66px; font-size: 36px; }
 .tile b { font-size: 30px; font-weight: 600; letter-spacing: -0.01em; }
-.auto-cap { font-size: 40px; font-weight: 600; letter-spacing: -0.02em; }
-.auto-cap .serif { color: var(--gold-2); font-size: 1.15em; }
-.auto-row { position: absolute; left: 66px; width: 948px; height: 70px; padding: 0 22px 0 14px; border-radius: 22px;
-  background: #fff; color: var(--ink); display: flex; align-items: center; gap: 18px;
-  box-shadow: 0 24px 40px -26px rgb(0 0 0 / 0.7); font-size: 27px; font-weight: 500; }
-.auto-row .chip { width: 46px; height: 46px; border-radius: 14px; font-size: 26px; }
-.auto-row small { margin-left: auto; font-size: 22px; color: var(--subtle); font-weight: 500; display: flex; align-items: center; gap: 8px; }
-.auto-row small .icon { color: var(--t-money); font-size: 26px; }
 
 /* ── Cena 2: agenda ── */
-.counter { position: absolute; left: 66px; width: 948px; height: 132px; top: 478px; border-radius: 30px; padding: 0 34px;
+.counter { position: absolute; left: 66px; width: 948px; height: 132px; top: 510px; border-radius: 30px; padding: 0 34px;
   background: rgb(255 255 255 / 0.07); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12) inset;
   display: flex; align-items: center; gap: 24px; }
 .counter .chip { width: 74px; height: 74px; font-size: 40px; border-radius: 22px; }
@@ -91,7 +83,7 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 .counter .num { margin-left: auto; font-size: 96px; font-weight: 700; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; color: #fff; }
 .counter .plus { position: absolute; right: 150px; top: 18px; font-size: 34px; font-weight: 700; color: var(--d-money); }
 
-.window { position: absolute; left: 44px; top: 640px; width: 992px; height: 890px; border-radius: 36px; background: #fff; overflow: hidden; color: var(--ink);
+.window { position: absolute; left: 44px; top: 672px; width: 992px; height: 890px; border-radius: 36px; background: #fff; overflow: hidden; color: var(--ink);
   box-shadow: 0 60px 120px -40px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.2); }
 .window-bar { height: 58px; display: flex; align-items: center; gap: 18px; padding: 0 24px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #fbfbfc, #f6f7f9); }
 .dots { display: flex; gap: 9px; } .dots i { width: 14px; height: 14px; border-radius: 50%; background: #dcdde0; }
@@ -124,7 +116,7 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 .float strong, .float b { display: block; font-size: 26px; font-weight: 600; color: var(--ink-strong); }
 
 /* ── Cena 3: WhatsApp ── */
-.phone { position: absolute; left: 230px; top: 486px; width: 620px; height: 1044px; padding: 16px; border-radius: 76px;
+.phone { position: absolute; left: 230px; top: 518px; width: 620px; height: 1044px; padding: 16px; border-radius: 76px;
   background: linear-gradient(180deg, #2b2c30, #0f0f11); box-shadow: 0 0 0 2px rgb(255 255 255 / 0.1) inset, 0 80px 140px -50px rgb(0 0 0 / 0.9); }
 .phone-screen { width: 100%; height: 100%; border-radius: 62px; overflow: hidden; background: #efeae2; display: flex; flex-direction: column; color: #111; }
 .wa-top { display: flex; align-items: center; gap: 16px; padding: 60px 28px 20px; background: #0f6b52; color: #fff; flex: none; }
@@ -171,10 +163,27 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 .cta { display: inline-flex; align-items: center; gap: 16px; padding: 30px 48px; border-radius: 999px; font-size: 38px; font-weight: 600; color: var(--ink-strong);
   background: linear-gradient(180deg, #fff, #eceae6); box-shadow: 0 30px 60px -24px rgb(0 0 0 / 0.8); }
 .cta .icon { font-size: 40px; color: var(--accent); }
+a.cta { text-decoration: none; }
+.site { display: inline-flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 500; color: var(--gold-2); text-decoration: none; }
+.site .icon { font-size: 32px; }
 .notes { display: flex; justify-content: center; gap: 36px; font-size: 27px; color: rgb(255 255 255 / 0.72); }
 .notes span { display: inline-flex; align-items: center; gap: 10px; } .notes .icon { color: var(--d-money); font-size: 30px; }
 .by { font-size: 26px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(255 255 255 / 0.55); }
 .by b { color: var(--gold-2); font-weight: 600; }
+
+/* ── motion graphics: partículas e a cortina entre cenas ── */
+#particles { position: absolute; inset: 0; pointer-events: none; }
+.pt { position: absolute; left: 0; top: 0; border-radius: 50%; }
+.pt-paw { position: absolute; left: 0; top: 0; color: #fff; }
+#wipe { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.bar { position: absolute; top: -200px; left: 0; height: 2320px; opacity: 0; }
+#bar-a { width: 2160px; background: linear-gradient(90deg, #c93a24, var(--accent-2)); }
+#bar-b { width: 1960px; background: linear-gradient(90deg, var(--gold-1), var(--gold-2)); }
+#bar-c { width: 1760px; background: linear-gradient(180deg, #1d1e22, #121214); }
+#stinger { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
+#stinger .mark { position: absolute; left: -80px; top: -80px; width: 160px; height: 160px; border-radius: 48px; display: grid; place-items: center;
+  font-size: 88px; color: #fff; background: linear-gradient(180deg, #f05a3c, #c93a24); box-shadow: 0 30px 70px -20px rgb(227 74 50 / 0.9); }
+#stinger .ring { position: absolute; left: -130px; top: -130px; width: 260px; height: 260px; border-radius: 50%; border: 6px solid var(--gold-2); }
 
 /* barra de progresso */
 #progress-track { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: rgb(255 255 255 / 0.08); }
@@ -199,6 +208,8 @@ svg.icon.fill { fill: currentColor; stroke: none; }
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol>
   <symbol id="i-box" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73Z" /><path d="M12 22V12" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="m7.5 4.27 9 5.15" /></symbol>
   <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" /><path d="M12 18h.01" /></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></symbol>
   <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></symbol>
 </svg>
 
@@ -206,8 +217,9 @@ svg.icon.fill { fill: currentColor; stroke: none; }
   <div id="glow-a" class="glow"></div>
   <div id="glow-b" class="glow"></div>
   <div id="grain"></div>
+  <div id="particles"></div>
 
-  <!-- ═══ Cena 1 · 0–9,7s · o software ═══ -->
+  <!-- ═══ Cena 1 · 0–8,3s · o software ═══ -->
   <section class="scene" id="s1">
     <div class="abs center-x" style="top: 280px"><span class="eyebrow" id="s1-eyebrow"><svg class="icon"><use href="#i-spark" /></svg>Gestão + Atendimento com IA</span></div>
     <h1 class="abs center-x h1" style="top: 380px">
@@ -215,11 +227,9 @@ svg.icon.fill { fill: currentColor; stroke: none; }
       <span class="line serif" id="s1-l2">num Lugar Só</span>
     </h1>
     <div id="s1-tiles"></div>
-    <div class="abs center-x auto-cap" id="s1-cap" style="top: 1124px">Tarefa repetitiva, <span class="serif">no automático</span></div>
-    <div id="s1-rows"></div>
   </section>
 
-  <!-- ═══ Cena 2 · 9,7–19,5s · a agenda enchendo ═══ -->
+  <!-- ═══ Cena 2 · 8,3–18,1s · a agenda enchendo ═══ -->
   <section class="scene" id="s2">
     <h1 class="abs center-x h1" style="top: 262px">
       <span class="line" id="s2-l1">Agenda Cheia,</span>
@@ -247,13 +257,13 @@ svg.icon.fill { fill: currentColor; stroke: none; }
       </div>
       <div class="board" id="s2-board"></div>
     </div>
-    <div class="float" id="s2-float" style="left: 470px; top: 690px">
+    <div class="float" id="s2-float" style="left: 470px; top: 722px">
       <span class="chip chip-light tone-brand"><svg class="icon fill"><use href="#i-wa" /></svg></span>
       <div><small>Marcado pelo WhatsApp</small><strong>Kiara · 15h com Bruno ✓</strong></div>
     </div>
   </section>
 
-  <!-- ═══ Cena 3 · 19,5–31,7s · o atendente automático ═══ -->
+  <!-- ═══ Cena 3 · 18,1–39,3s · o atendente automático ═══ -->
   <section class="scene" id="s3">
     <h1 class="abs center-x h1" style="top: 262px">
       <span class="line" id="s3-l1">Atendente de IA</span>
@@ -268,43 +278,43 @@ svg.icon.fill { fill: currentColor; stroke: none; }
         <div class="wa-body" id="s3-body"></div>
       </div>
     </div>
-    <div class="float" id="s3-badge-b" style="left: 520px; top: 560px">
+    <div class="float" id="s3-badge-b" style="left: 520px; top: 592px">
       <span class="chip chip-light tone-system"><svg class="icon"><use href="#i-spark" /></svg></span>
       <div><small>Resolvido pelo agente</small><b>sem ninguém da equipe</b></div>
     </div>
-    <div class="float" id="s3-badge-a" style="left: 30px; top: 760px">
+    <div class="float" id="s3-badge-a" style="left: 30px; top: 792px">
       <span class="chip chip-light tone-time"><svg class="icon"><use href="#i-cal" /></svg></span>
       <div><small>Agenda atualizada</small><b>Sex · 16:00 · Ana</b></div>
     </div>
   </section>
 
-  <!-- ═══ Cena 4 · 31,7–40,2s · o resultado ═══ -->
+  <!-- ═══ Cena 4 · 39,3–47,8s · o resultado ═══ -->
   <section class="scene" id="s4">
     <h1 class="abs center-x h1" style="top: 262px">
       <span class="line" id="s4-l1">Menos Tarefa,</span>
       <span class="line serif" id="s4-l2">mais Pet Atendido</span>
     </h1>
-    <div class="stat tone-time" id="s4-st0" style="left: 66px; top: 500px">
+    <div class="stat tone-time" id="s4-st0" style="left: 66px; top: 520px">
       <div class="top"><span class="chip chip-light"><svg class="icon"><use href="#i-paw" /></svg></span>Atendimentos hoje</div>
       <div class="val" id="s4-v0">0</div>
     </div>
-    <div class="stat tone-money" id="s4-st1" style="left: 552px; top: 500px">
+    <div class="stat tone-money" id="s4-st1" style="left: 552px; top: 520px">
       <div class="top"><span class="chip chip-light"><svg class="icon"><use href="#i-wallet" /></svg></span>Recebido hoje</div>
       <div class="val" id="s4-v1">R$ 0</div>
     </div>
-    <div class="stat tone-brand" id="s4-st2" style="left: 66px; top: 730px">
+    <div class="stat tone-brand" id="s4-st2" style="left: 66px; top: 750px">
       <div class="top"><span class="chip chip-light"><svg class="icon"><use href="#i-bell" /></svg></span>Lembretes enviados</div>
       <div class="val" id="s4-v2">0</div>
     </div>
-    <div class="stat tone-system" id="s4-st3" style="left: 552px; top: 730px">
+    <div class="stat tone-system" id="s4-st3" style="left: 552px; top: 750px">
       <div class="top"><span class="chip chip-light"><svg class="icon"><use href="#i-spark" /></svg></span>Conversas da IA</div>
       <div class="val" id="s4-v3">0</div>
     </div>
-    <div class="card-w tone-money" id="s4-bars" style="top: 962px; height: 340px">
+    <div class="card-w tone-money" id="s4-bars" style="top: 982px; height: 340px">
       <h4><span class="chip chip-light"><svg class="icon"><use href="#i-trend" /></svg></span>Movimento da semana</h4>
       <div class="bars" id="s4-barset"><i style="--h:.44"></i><i style="--h:.62"></i><i style="--h:.38"></i><i style="--h:.80"></i><i style="--h:.58"></i><i style="--h:.92"></i><i class="today" style="--h:1"></i></div>
     </div>
-    <div class="card-w tone-brand" id="s4-crm" style="top: 1326px; height: 186px">
+    <div class="card-w tone-brand" id="s4-crm" style="top: 1346px; height: 186px">
       <h4><span class="chip chip-light"><svg class="icon"><use href="#i-bell" /></svg></span>Mensagens que saem sozinhas</h4>
       <div class="pills">
         <span class="pill tone-time"><svg class="icon"><use href="#i-check" /></svg>Confirmação</span>
@@ -315,7 +325,7 @@ svg.icon.fill { fill: currentColor; stroke: none; }
     </div>
   </section>
 
-  <!-- ═══ Cena 5 · 40,2–48,2s · tagline e chamada ═══ -->
+  <!-- ═══ Cena 5 · 47,8–56,1s · tagline e chamada ═══ -->
   <section class="scene" id="s5">
     <div class="abs center-x" style="top: 400px"><span class="logo" id="s5-logo"><span class="mark"><svg class="icon"><use href="#i-paw" /></svg></span>PetShop AI</span></div>
     <div class="abs center-x tag" style="top: 640px">
@@ -324,13 +334,19 @@ svg.icon.fill { fill: currentColor; stroke: none; }
       <span class="line serif" id="s5-l3">A gente cuida</span>
       <span class="line serif" id="s5-l4">do resto.</span>
     </div>
-    <div class="abs center-x" style="top: 1190px"><span class="cta" id="s5-cta">Teste Grátis por 14 Dias<svg class="icon"><use href="#i-arrow" /></svg></span></div>
-    <div class="abs notes" id="s5-notes" style="top: 1340px; left: 0; right: 0">
+    <div class="abs center-x" style="top: 1190px"><a class="cta" id="s5-cta" href="https://petshop.officestecnologia.com.br" target="_blank" rel="noopener">Teste Grátis por 14 Dias<svg class="icon"><use href="#i-arrow" /></svg></a></div>
+    <div class="abs center-x" style="top: 1330px"><a class="site" id="s5-site" href="https://petshop.officestecnologia.com.br" target="_blank" rel="noopener"><svg class="icon"><use href="#i-globe" /></svg>petshop.officestecnologia.com.br</a></div>
+    <div class="abs notes" id="s5-notes" style="top: 1420px; left: 0; right: 0">
       <span><svg class="icon"><use href="#i-check" /></svg>Sem cartão de crédito</span>
       <span><svg class="icon"><use href="#i-check" /></svg>Cancele quando quiser</span>
     </div>
-    <div class="abs center-x by" id="s5-by" style="top: 1480px">um produto <b>Offices Aplicativos</b></div>
+    <div class="abs center-x by" id="s5-by" style="top: 1550px">um produto <b>Offices Aplicativos</b></div>
   </section>
+
+  <div id="wipe">
+    <div class="bar" id="bar-a"></div><div class="bar" id="bar-b"></div><div class="bar" id="bar-c"></div>
+    <div id="stinger"><div class="ring" id="stinger-ring"></div><span class="mark" id="stinger-mark"><svg class="icon"><use href="#i-paw" /></svg></span></div>
+  </div>
 
   <div id="progress-track"><div id="progress"></div></div>
 </div>
@@ -340,7 +356,7 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 const PAUSA = 5
 // quando o último elemento de cada cena termina de entrar (tempo local, em segundos) —
 // se mudar a animação de uma cena, confira este número
-const PRONTA = [4.3, 4.4, 6.8, 3.1, 3.0]
+const PRONTA = [2.9, 4.4, 15.8, 3.1, 3.3]
 const FADE = 0.4
 // duração de cada cena: montar + pausa + sair (a última não sai)
 const CENAS = PRONTA.map((p, i) => p + PAUSA + (i < PRONTA.length - 1 ? FADE : 0))
@@ -363,46 +379,86 @@ function pop(el, t, a, d = 0.5, from = 0.82) {
   el.style.opacity = clamp(x * 2.2)
   el.style.transform = `scale(${from + (1 - from) * backOut(x)})`
 }
-function slideX(el, t, a, d = 0.55, dx = 80) {
-  const x = easeOut(prog(t, a, d))
-  el.style.opacity = x
-  el.style.transform = `translateX(${(1 - x) * dx}px)`
-}
-// L é o tempo local da cena i: a entrada e a saída são fades de 0,4 s nas pontas
+// L é o tempo local da cena i: a troca é um corte seco, escondido pela cortina
 function sceneAlpha(L, i) {
-  const inA = i === 0 ? 1 : easeInOut(prog(L, 0, FADE))
-  const outA = i === CENAS.length - 1 ? 1 : 1 - easeInOut(prog(L, CENAS[i] - FADE, FADE))
-  return inA * outA
+  return L >= 0 && (i === CENAS.length - 1 || L < CENAS[i]) ? 1 : 0
 }
 const brl = (n) => 'R$ ' + Math.round(n).toLocaleString('pt-BR')
+
+// ── fundo: partículas e patinhas subindo, sempre no mesmo lugar para o mesmo t
+let seed = 7
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+const PT_COLORS = ['242 210 122', '240 90 60', '134 169 240', '255 255 255']
+const particles = Array.from({ length: 34 }, (_, i) => {
+  const paw = i < 7
+  const el = document.createElement('div')
+  const size = paw ? 30 + rnd() * 26 : 3 + rnd() * 6
+  if (paw) {
+    el.className = 'pt-paw'
+    el.style.fontSize = size + 'px'
+    el.style.opacity = (0.06 + rnd() * 0.06).toFixed(3)
+    el.innerHTML = '<svg class="icon"><use href="#i-paw" /></svg>'
+  } else {
+    el.className = 'pt'
+    el.style.width = el.style.height = size + 'px'
+    el.style.background = `rgb(${PT_COLORS[i % PT_COLORS.length]} / ${(0.18 + rnd() * 0.3).toFixed(2)})`
+    el.style.boxShadow = `0 0 ${size * 2}px rgb(${PT_COLORS[i % PT_COLORS.length]} / 0.35)`
+  }
+  $('particles').appendChild(el)
+  return { el, x: rnd() * 1080, y: rnd() * 2100, v: (paw ? 22 : 30) + rnd() * 50, sway: 10 + rnd() * 30, ph: rnd() * 6.28, rot: (rnd() - 0.5) * 40 }
+})
+function renderParticles(t) {
+  particles.forEach((p) => {
+    const y = ((p.y - t * p.v) % 2100 + 2100) % 2100 - 90
+    const x = p.x + Math.sin(t * 0.6 + p.ph) * p.sway
+    p.el.style.transform = `translate(${x}px, ${y}px) rotate(${p.rot * Math.sin(t * 0.4 + p.ph)}deg)`
+  })
+}
+
+// ── cortina entre cenas: três faixas inclinadas cruzam a tela, a escura cobre o corte
+const WIPE = 1.1
+function renderWipe(t) {
+  let k = -1
+  for (let i = 1; i < INICIO.length; i++) if (Math.abs(t - INICIO[i]) < WIPE / 2) k = i
+  const bars = [['bar-a', 2160], ['bar-b', 1960], ['bar-c', 1760]]
+  if (k < 0) {
+    bars.forEach(([id]) => ($(id).style.opacity = 0))
+    $('stinger').style.opacity = 0
+    return
+  }
+  const p = (t - INICIO[k]) / WIPE + 0.5
+  const u = 2 * p - 1
+  const dir = k % 2 ? 1 : -1
+  // rápida nas pontas, quase parada no meio: é o meio que esconde o corte
+  const cx = 540 + dir * 2040 * Math.sign(u) * Math.pow(Math.abs(u), 3)
+  bars.forEach(([id, w]) => {
+    const el = $(id)
+    el.style.opacity = 1
+    el.style.transform = `translateX(${cx - w / 2}px) skewX(${-12 * dir}deg)`
+  })
+  const s = $('stinger')
+  s.style.opacity = 1
+  const m = prog(p, 0.3, 0.16), out = prog(p, 0.6, 0.08)
+  $('stinger-mark').style.transform = `scale(${backOut(m) * (1 - out)}) rotate(${(1 - m) * -40}deg)`
+  const r = prog(p, 0.42, 0.24)
+  $('stinger-ring').style.opacity = r > 0 && r < 1 ? 1 - r : 0
+  $('stinger-ring').style.transform = `scale(${0.6 + 1.6 * easeOut(r)})`
+}
 
 // ── Cena 1: monta os cartões de recurso e as linhas do automático
 const TILES = [
   ['Agenda', 'i-cal', 'time'], ['Tutores e Pets', 'i-paw', 'pet'], ['Prontuário', 'i-heart', 'health'],
   ['Financeiro', 'i-wallet', 'money'], ['Mensagens', 'i-bell', 'brand'], ['Taxi Dog', 'i-van', 'metric'],
   ['Estoque', 'i-box', 'money'], ['Caixa', 'i-cash', 'money'], ['Agente de IA', 'i-spark', 'system'],
+  ['Portal do Tutor', 'i-users', 'people'], ['App do Tutor', 'i-phone', 'brand'], ['Site do Petshop', 'i-globe', 'metric'],
 ]
 const tileEls = TILES.map(([label, icon, tone], i) => {
   const el = document.createElement('div')
   el.className = `tile tone-${tone}`
   el.style.left = 66 + (i % 3) * 324 + 'px'
-  el.style.top = 636 + Math.floor(i / 3) * 156 + 'px'
+  el.style.top = 660 + Math.floor(i / 3) * 208 + 'px'
   el.innerHTML = `<span class="chip chip-dark"><svg class="icon"><use href="#${icon}" /></svg></span><b>${label}</b>`
   $('s1-tiles').appendChild(el)
-  return el
-})
-const ROWS = [
-  ['Lembrete de véspera enviado', 'i-bell', 'brand', '07:30'],
-  ['Cobrança enviada ao tutor', 'i-receipt', 'money', '08:00'],
-  ['Recibo em PDF gerado', 'i-wallet', 'money', '11:15'],
-  ['Estoque baixo avisado no sino', 'i-box', 'pet', '12:40'],
-]
-const rowEls = ROWS.map(([label, icon, tone, time], i) => {
-  const el = document.createElement('div')
-  el.className = `auto-row tone-${tone}`
-  el.style.top = 1226 + i * 82 + 'px'
-  el.innerHTML = `<span class="chip chip-light"><svg class="icon"><use href="#${icon}" /></svg></span>${label}<small>${time}<svg class="icon"><use href="#i-check" /></svg></small>`
-  $('s1-rows').appendChild(el)
   return el
 })
 
@@ -449,12 +505,12 @@ const APPT_START = 0.6, APPT_STEP = 0.24
 // ── Cena 3: a conversa
 const CHAT = [
   // quem, html, instante (s na cena), digitando antes
-  ['in', 'Oi! Queria remarcar o banho do Thor de sábado 😕<time>14:02</time>', 0.5, 0],
-  ['out', 'Oi, Rafael! Claro 😊 Para o banho do Thor tenho sexta às 16h ou sábado às 11h, os dois com a Ana. Qual prefere?<time>14:02</time>', 1.9, 0.8],
-  ['in', 'Sexta às 16h<time>14:03</time>', 2.9, 0],
-  ['out', 'Confirma a troca?<div class="wa-card"><b>Banho · Thor</b>de sáb 10h → <b style="display:inline">sex 19/09 às 16h</b></div>Responda “sim” para eu confirmar.<time>14:03</time>', 4.0, 0.7],
-  ['in', 'sim<time>14:03</time>', 4.8, 0],
-  ['out', 'Feito! Thor remarcado para sexta às 16h. Te mando um lembrete na véspera 🐶<time>14:03</time>', 5.7, 0.6],
+  ['in', 'Oi! Queria remarcar o banho do Thor de sábado 😕<time>14:02</time>', 0.8, 0],
+  ['out', 'Oi, Rafael! Claro 😊 Para o banho do Thor tenho sexta às 16h ou sábado às 11h, os dois com a Ana. Qual prefere?<time>14:02</time>', 3.2, 1.0],
+  ['in', 'Sexta às 16h<time>14:03</time>', 6.6, 0],
+  ['out', 'Confirma a troca?<div class="wa-card"><b>Banho · Thor</b>de sáb 10h → <b style="display:inline">sex 19/09 às 16h</b></div>Responda “sim” para eu confirmar.<time>14:03</time>', 8.8, 1.0],
+  ['in', 'sim<time>14:03</time>', 12.0, 0],
+  ['out', 'Feito! Thor remarcado para sexta às 16h. Te mando um lembrete na véspera 🐶<time>14:03</time>', 14.0, 1.0],
 ]
 const body = $('s3-body')
 const chatEls = CHAT.map(([who, html]) => {
@@ -477,9 +533,17 @@ function render(t) {
   $('glow-a').style.transform = `translate(${-280 + Math.sin(t * 0.35) * 120}px, ${-300 + Math.cos(t * 0.27) * 140}px)`
   $('glow-b').style.transform = `translate(${240 + Math.cos(t * 0.3) * 140}px, ${1100 + Math.sin(t * 0.22) * 160}px)`
   $('progress').style.width = (clamp(t / DURATION) * 100).toFixed(3) + '%'
+  renderParticles(t)
+  renderWipe(t)
 
   // cada cena anima no seu tempo local L (0 = início da cena)
-  const cena = (i) => { const L = t - INICIO[i]; const a = sceneAlpha(L, i); $('s' + (i + 1)).style.opacity = a; return a > 0 ? L : null }
+  const cena = (i) => {
+    const L = t - INICIO[i], a = sceneAlpha(L, i), el = $('s' + (i + 1))
+    el.style.opacity = a
+    // aproximação lenta da câmera ao longo da cena
+    el.style.transform = `scale(${1 + 0.03 * easeInOut(clamp(L / CENAS[i]))})`
+    return a > 0 ? L : null
+  }
 
   // ── Cena 1 · recursos
   let L = cena(0)
@@ -487,14 +551,7 @@ function render(t) {
     slide($('s1-eyebrow'), L, 0.05, 0.5, 30)
     slide($('s1-l1'), L, 0.15)
     slide($('s1-l2'), L, 0.35)
-    tileEls.forEach((el, i) => {
-      const x = prog(L, 0.75 + i * 0.12, 0.5)
-      const dim = 1 - 0.3 * easeInOut(prog(L, 2.6, 0.5))
-      el.style.opacity = clamp(x * 2.2) * dim
-      el.style.transform = `scale(${(0.8 + 0.2 * backOut(x)) * (1 - 0.04 * easeInOut(prog(L, 2.6, 0.5)))})`
-    })
-    slide($('s1-cap'), L, 2.6, 0.5, 30)
-    rowEls.forEach((el, i) => slideX(el, L, 2.9 + i * 0.3, 0.5, 120))
+    tileEls.forEach((el, i) => pop(el, L, 0.75 + i * 0.15, 0.5, 0.8))
   }
 
   // ── Cena 2 · agenda
@@ -555,8 +612,8 @@ function render(t) {
       msg.style.transform = `scale(${0.85 + 0.15 * backOut(x)})`
     })
     $('s3-status').textContent = isTyping ? 'digitando…' : 'online'
-    pop($('s3-badge-a'), L, 6.05, 0.5, 0.7)
-    pop($('s3-badge-b'), L, 6.3, 0.5, 0.7)
+    pop($('s3-badge-a'), L, 15.0, 0.5, 0.7)
+    pop($('s3-badge-b'), L, 15.3, 0.5, 0.7)
   }
 
   // ── Cena 4 · resultados
@@ -590,8 +647,9 @@ function render(t) {
     pop($('s5-cta'), L, 1.9, 0.55, 0.75)
     const pulse = L > 2.6 ? 1 + 0.025 * Math.sin((L - 2.6) * 4) : null
     if (pulse) $('s5-cta').style.transform = `scale(${pulse})`
-    slide($('s5-notes'), L, 2.2, 0.5, 20)
-    slide($('s5-by'), L, 2.5, 0.5, 20)
+    slide($('s5-site'), L, 2.2, 0.5, 20)
+    slide($('s5-notes'), L, 2.45, 0.5, 20)
+    slide($('s5-by'), L, 2.75, 0.5, 20)
   }
 }
 
