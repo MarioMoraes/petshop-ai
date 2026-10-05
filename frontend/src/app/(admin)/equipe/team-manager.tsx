@@ -482,7 +482,7 @@ function DialogoDeRemocao({
  */
 function AgendamentosBloqueando({ itens }: { itens: BlockingAppointment[] }) {
   return (
-    <div className="card-soft rounded-xl p-4">
+    <div className="rounded-xl border border-panel-line bg-card p-4">
       <p className="text-sm font-semibold">
         {itens.length === 1
           ? 'Há 1 agendamento futuro no nome desta pessoa'

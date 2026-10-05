@@ -7,8 +7,9 @@ leia antes [`docs/design-formularios.md`](docs/design-formularios.md) e siga o p
 
 O resumo que mais importa:
 
-- ficha com campos é `Card tone="soft"`; cartão de conteúdo (lista, detalhe, números)
-  continua branco;
+- todo cartão é cinza (`--color-panel`, desde 2026-10-05) e o campo é branco; ficha com
+  campos continua `Card tone="soft"`, que hoje só marca — os personalizados (`.card-tint`,
+  alerta em `bg-danger-soft`) ficam com o fundo deles;
 - toda seção abre com `<SectionHead>`, nunca um `<h2>` solto — título no *Título 4*
   (Inter 18px/600), **nunca serifa**;
 - todo título sai em **Title Case** — as peças (`PageHeader`, `SectionHead`, `CardHead`,

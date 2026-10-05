@@ -48,17 +48,21 @@ a forma que tem; aqui fica só a regra de uso.
 
 ## As nove regras
 
-### 1. Ficha é `Card tone="soft"`. Conteúdo é `Card` branco.
+### 1. Todo cartão é cinza; o campo é branco. Ficha leva `tone="soft"`.
 
-`tone="soft"` dá ao cartão o gradiente cinza frio e a elevação de três camadas. Use em
-cartão que **contém campos**. Cartão que contém conteúdo para ler — lista, detalhe,
-painel de números, estado vazio — fica no branco padrão.
+Desde 2026-10-05 o cartão (`.card`) é cinza slate — `--color-panel` (#f1f3f6) com aresta
+`--color-panel-line` (#e2e8f0) — sobre o fundo quase branco da moldura (`--color-surface`,
+#f8fafc). Vale para lista, detalhe, painel de números e ficha. A exceção é o cartão
+**personalizado**: o tingido do Caixa (`.card-tint`) e o alerta em `bg-danger-soft`
+continuam com o fundo deles.
 
-A razão é funcional, não decorativa: `.field` é branco, e campo branco em cartão branco
-some. O cartão é a mesa; o campo é o papel sobre ela. Não podem ser da mesma cor.
+A razão é funcional, não decorativa: `.field` é branco, e é o cartão cinza que o recorta.
+O cartão é a mesa; o campo é o papel sobre ela. Não podem ser da mesma cor.
 
-Numa tela mista — o prontuário do pet, por exemplo — conviver os dois é **correto**: o
-resumo de alertas é leitura e fica branco, as três seções editáveis ficam soft.
+`tone="soft"` continua marcando o cartão que **contém campos**, mas hoje não muda a cor:
+é a marca de "aqui se digita" e o gancho para quando a ficha precisar de diferença de
+novo. Até 2026-10-05 o conteúdo era branco e só a ficha era cinza (em degradê); o usuário
+viu as opções lado a lado e escolheu o cinza para tudo, no molde da Imobiliária.
 
 ### 2. Toda seção abre com `SectionHead`.
 
@@ -253,7 +257,7 @@ Antes dele, esses formulários abriam dentro do cartão que os originou, na larg
 uma coluna.
 
 O diálogo tem três faixas: **cabeçalho** (chip do domínio, olho-de-boi, título e a
-linha de contexto), **corpo rolável** com o papel de `.card-soft`, e **rodapé** de
+linha de contexto), **corpo rolável** no cinza do cartão (`--color-panel`), e **rodapé** de
 ações. As duas pontas não rolam, e a razão é funcional: o cabeçalho é o que diz de qual
 registro se trata, e vê-lo sumir enquanto se digita é como se preenche a ficha errada.
 
@@ -304,7 +308,7 @@ Não são formulário, mas usam as mesmas peças.
 
 - **Listagem de cadastro** (`/pets`, `/tutores`) é `components/record-list.tsx` +
   `components/list-search.tsx`: busca com lupa e o "limpar", fila de pílulas de filtro
-  com "Todos" na frente, e grade de cartões brancos com rosto, meta e um pé separado por
+  com "Todos" na frente, e grade de cartões com rosto, meta e um pé separado por
   fio. Cadastro novo com listagem usa as mesmas peças.
 - **Ficha do registro** (`/tutores/[id]`, `/pets/[id]`) abre com `<RecordHero>`
   (`components/record-hero.tsx`): o rosto grande, o nome, os selos, a ação Editar e uma
@@ -338,7 +342,7 @@ Era #86888d, que rendia 3,55:1 sobre branco e 3,03:1 sobre a lateral — reprova
 WCAG (4,5:1) em toda tela. Por um tempo só a ficha tinha a correção (#6b6d72 no escopo de
 `.card-soft` e do corpo do diálogo), mas esse valor ainda caía para 4,42:1 sobre
 `--color-canvas`. #686a6f é o primeiro degrau que passa sobre **todos** os fundos: branco
-5,41 · surface 4,96 · canvas 4,62 · pé da ficha 4,74 · chip 5,05.
+5,41 · cartão (#f1f3f6) 4,87 · surface (#f8fafc) 5,17 · canvas 4,62 · chip 5,05.
 
 **Não redefina `--color-subtle` num escopo.** O valor global já passa em todo fundo do
 sistema; uma cópia local só serve para os dois divergirem. Fundo novo mais escuro que
@@ -401,7 +405,7 @@ Está aqui para não voltar:
 | Remoção de membro da equipe (só o diálogo) | `app/(admin)/equipe/team-manager.tsx` |
 
 Ainda **não** aplicado, por serem telas de lista com formulário embutido — o cartão
-branco de conteúdo continua correto nelas, e forçar seção numerada seria errado:
+de conteúdo continua correto nelas, e forçar seção numerada seria errado:
 `agenda/servicos`, `agenda/profissionais`, `financeiro/pacotes`, `equipe`,
 `taxi/configuracoes` (frota e zonas), `configuracoes/breed-catalog`. O que **é** da
 regra 8 nelas entra como diálogo, e não como painel dentro do cartão: a confirmação de

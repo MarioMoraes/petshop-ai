@@ -17,7 +17,7 @@ export default async function TaxiLayout({ children }: { children: React.ReactNo
 
   return (
     <AppShell active="taxi" me={me}>
-      <div className="mx-auto max-w-5xl">{children}</div>
+      <div className="mx-auto max-w-6xl">{children}</div>
     </AppShell>
   )
 }

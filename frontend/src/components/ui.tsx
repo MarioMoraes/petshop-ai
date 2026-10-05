@@ -36,11 +36,11 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 /**
- * `tone="soft"` troca o branco chapado pelo gradiente cinza de `.card-soft`.
+ * `tone="soft"` marca a ficha de formulário (`.card-soft`).
  *
- * É a ficha de formulário: onde o card não é fundo de leitura e sim a mesa em que
- * os campos estão apoiados, ele precisa ser de outra cor que os campos. Em card de
- * conteúdo — lista, detalhe, painel — o branco continua sendo o certo.
+ * Desde 2026-10-05 todo cartão é cinza (`--color-panel`) e o campo branco se recorta
+ * dele, então a ficha e o cartão de conteúdo têm a mesma cor. A marca fica para a
+ * regra 1 de `docs/design-formularios.md` continuar legível no código.
  */
 export function Card({
   children,

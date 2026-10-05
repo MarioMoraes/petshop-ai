@@ -1,9 +1,15 @@
 import { PetAvatar, SpeciesIcon } from '@/components/pet-avatar'
-import { AlertTriangleIcon, PawPrintIcon, UsersIcon } from '@/components/icons'
+import { PawPrintIcon, UsersIcon } from '@/components/icons'
 import { Badge, EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { ListSearch } from '@/components/list-search'
-import { Pagination, RecordCard, RecordFact, RecordGrid, topAlert } from '@/components/record-list'
+import {
+  Pagination,
+  RecordCard,
+  RecordFact,
+  RecordFootLink,
+  RecordGrid,
+} from '@/components/record-list'
 import { serverApi } from '@/lib/api'
 
 /**
@@ -89,7 +95,6 @@ export default async function PetsPage({ searchParams }: PageProps) {
         <RecordGrid>
           {result.data.map((pet) => {
             const primary = pet.tutors.find((tutor) => tutor.role === 'PRIMARY') ?? pet.tutors[0]
-            const alert = topAlert(pet.alerts)
 
             return (
               <RecordCard
@@ -110,34 +115,26 @@ export default async function PetsPage({ searchParams }: PageProps) {
                   .filter(Boolean)
                   .join(' · ')}
                 badges={
-                  (pet.status !== 'ACTIVE' || alert) && (
+                  pet.status !== 'ACTIVE' && (
                     <>
                       {pet.status === 'INACTIVE' && <Badge>Inativo</Badge>}
                       {pet.status === 'DECEASED' && <Badge tone="danger">Falecido</Badge>}
                       {pet.status === 'TRANSFERRED_OUT' && <Badge>Transferido</Badge>}
-                      {alert && (
-                        // O alerta mais grave do prontuário, antes de abrir a ficha: é o
-                        // que o banhista precisa saber ao pegar o pet no colo.
-                        <Badge tone={alert.critical ? 'danger' : 'accent'}>
-                          <span className="mr-1 [&>svg]:h-3.5 [&>svg]:w-3.5">
-                            <AlertTriangleIcon />
-                          </span>
-                          {alert.label}
-                        </Badge>
-                      )}
                     </>
                   )
                 }
                 footer={
                   primary ? (
-                    <>
+                    // O nome abre a ficha do tutor, e não a do pet: é o atalho do balcão
+                    // quando o pet chega e a conversa é com o dono.
+                    <RecordFootLink
+                      href={`/tutores/${primary.tutorId}`}
+                      label={`Abrir cadastro de ${primary.fullName}`}
+                    >
                       <RecordFact icon={<UsersIcon />} tone="icon-people">
                         <span className="font-medium text-ink">{primary.fullName}</span>
                       </RecordFact>
-                      <span className="shrink-0 tabular-nums text-subtle">
-                        {primary.phoneMasked}
-                      </span>
-                    </>
+                    </RecordFootLink>
                   ) : (
                     // Acontece quando o único responsável foi anonimizado (LGPD): o pet
                     // sobrevive ao cadastro da pessoa, e precisa de um novo.

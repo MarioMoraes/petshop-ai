@@ -18,7 +18,7 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
 
   return (
     <AppShell active="mensagens" me={me}>
-      <div className="mx-auto max-w-5xl">{children}</div>
+      <div className="mx-auto max-w-6xl">{children}</div>
     </AppShell>
   )
 }

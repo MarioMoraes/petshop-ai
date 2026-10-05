@@ -23,7 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <AppShell active="inicio" me={me} atmosphere>
-      <div className="mx-auto max-w-5xl">{children}</div>
+      <div className="mx-auto max-w-6xl">{children}</div>
     </AppShell>
   )
 }

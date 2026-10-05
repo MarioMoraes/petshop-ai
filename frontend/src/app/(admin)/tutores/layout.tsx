@@ -18,7 +18,7 @@ export default async function TutoresLayout({ children }: { children: React.Reac
 
   return (
     <AppShell active="tutores" me={me}>
-      <div className="mx-auto max-w-5xl">{children}</div>
+      <div className="mx-auto max-w-6xl">{children}</div>
     </AppShell>
   )
 }

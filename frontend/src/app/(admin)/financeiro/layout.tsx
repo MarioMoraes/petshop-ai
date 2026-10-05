@@ -15,8 +15,8 @@ import { carregarMe } from '@/lib/api'
  * onde o balcão trabalha. E os pacotes pré-pagos também não: são catálogo de serviço,
  * e moram em Configurações.
  *
- * `max-w-6xl`, e não o `5xl` das telas de formulário: é aqui que ficam as tabelas dos
- * relatórios, com uma coluna por forma de pagamento.
+ * `max-w-6xl`: a largura nasceu aqui, para as tabelas dos relatórios (uma coluna por
+ * forma de pagamento), e em 2026-10-05 virou a de toda tela do menu.
  */
 
 export const dynamic = 'force-dynamic'

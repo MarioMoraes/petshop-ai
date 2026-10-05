@@ -27,7 +27,7 @@ export default async function AssinaturaLayout({ children }: { children: React.R
 
   return (
     <AppShell active="configuracoes" me={me}>
-      <div className="mx-auto max-w-3xl">{children}</div>
+      <div className="mx-auto max-w-6xl">{children}</div>
     </AppShell>
   )
 }

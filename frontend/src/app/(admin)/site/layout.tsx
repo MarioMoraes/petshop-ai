@@ -18,7 +18,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
 
   return (
     <AppShell active="site" me={me}>
-      <div className="mx-auto max-w-5xl">{children}</div>
+      <div className="mx-auto max-w-6xl">{children}</div>
     </AppShell>
   )
 }

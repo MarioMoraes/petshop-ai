@@ -12,7 +12,7 @@ import { CardHead } from './ui'
  * isso estava no meio de dez linhas rótulo/valor da aba Dados, e o cabeçalho era só
  * o nome. Aqui o cartão responde num relance e as abas ficam para o detalhe.
  *
- * Cartão branco e não `card-soft`: é conteúdo para ler, não ficha com campos (regra 1
+ * Cartão sem `card-soft`: é conteúdo para ler, não ficha com campos (regra 1
  * de `docs/design-formularios.md`). O rosto é o mesmo da listagem, maior — ao sair de
  * um cartão da grade e cair aqui, a foto é o que confirma que se abriu o registro certo.
  *

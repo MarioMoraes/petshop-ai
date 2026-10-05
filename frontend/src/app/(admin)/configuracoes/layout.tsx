@@ -5,11 +5,8 @@ import { carregarMe } from '@/lib/api'
 /**
  * Moldura das Configurações.
  *
- * Mais larga que as outras telas de formulário, e por uma razão medida: a faixa de abas
- * passou de nove com o Suporte do MOD-ADMIN-02, e em `max-w-3xl` ela quebrava em duas
- * linhas — a segunda ficava com duas abas soltas, que leem como sobra e não como
- * continuação. `max-w-4xl` cabe as nove numa linha só sem chegar à largura das telas de
- * lista (`max-w-5xl`), que deixaria os campos longos demais para preencher.
+ * `max-w-6xl`, a mesma largura de toda tela do menu (decisão de 2026-10-05: trocar de
+ * item não pode mudar a largura da área de trabalho). A de referência é a dos Relatórios.
  *
  * O redirect de quem não tem `tenant:read_settings` continua na página, junto do resto
  * dos gates que decidem o **conteúdo** de cada aba.
@@ -23,7 +20,7 @@ export default async function ConfiguracoesLayout({ children }: { children: Reac
 
   return (
     <AppShell active="configuracoes" me={me}>
-      <div className="mx-auto max-w-4xl">{children}</div>
+      <div className="mx-auto max-w-6xl">{children}</div>
     </AppShell>
   )
 }

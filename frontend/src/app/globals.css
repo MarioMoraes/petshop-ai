@@ -11,8 +11,21 @@
 @theme {
   /* Neutros frios */
   --color-canvas: #ecedee;
-  --color-surface: #f4f5f5;
+  /*
+   * Fundo da área de trabalho do Admin (o `bg-surface` da moldura). Era #f4f5f5; desde
+   * 2026-10-05 é o slate quase branco da Imobiliária, para o cartão cinza ter onde
+   * assentar — cartão cinza sobre fundo cinza do mesmo valor sumiria.
+   */
+  --color-surface: #f8fafc;
+  /* Branco: campo, polegar do segmento, item ativo do menu. Não é mais o fundo do cartão. */
   --color-card: #ffffff;
+  /*
+   * O cartão: cinza slate com aresta slate (opção B, escolhida pelo usuário em
+   * 2026-10-05 entre quatro lado a lado). Vale para lista e ficha — o campo branco
+   * se destaca sobre ele sem a ficha precisar de cor própria.
+   */
+  --color-panel: #f1f3f6;
+  --color-panel-line: #e2e8f0;
   --color-ink: #232427;
   --color-ink-soft: #2e3034;
   --color-muted: #4b4d52;
@@ -23,8 +36,8 @@
    * reprovava o AA da WCAG (4,5:1) no app inteiro. Por um tempo só a ficha de
    * formulário tinha a correção (#6b6d72, no escopo de `.card-soft`), mas esse valor
    * ainda caía para 4,42:1 sobre `--color-canvas`. Este é o primeiro degrau que passa
-   * sobre **todos** os fundos do sistema: branco 5,41 · surface 4,96 · canvas 4,62 ·
-   * pé da ficha 4,74 · chip 5,05. Continua claramente mais claro que `--color-muted`,
+   * sobre **todos** os fundos do sistema: branco 5,41 · cartão 4,87 · surface 5,17 ·
+   * canvas 4,62 · chip 5,05. Continua claramente mais claro que `--color-muted`,
    * então a hierarquia de três tons de texto não se achata.
    */
   --color-subtle: #686a6f;
@@ -33,30 +46,14 @@
   /* Off-white morno dos chips de ícone e das pílulas de meta-informação. */
   --color-chip: #f7f7f5;
   /*
-   * Ficha de formulário: cinza frio em gradiente vertical.
-   *
-   * Duas paradas, e não uma cor chapada, porque um plano grande sem variação lê
-   * como preenchimento; com a luz caindo de cima ele lê como superfície. É a
-   * mesma física de `.btn-primary`, que usa `linear-gradient(180deg, …)` pelo
-   * mesmo motivo — só que aqui, num plano de 700px em vez de 40, o degradê pode
-   * ser muito mais sutil e ainda assim ser percebido.
-   *
-   * Frio de propósito: R < G ≤ B, a assinatura de toda a escala neutra do sistema
-   * (#f4f5f5, #ecedee, #dfe0e2). Duas tentativas mornas foram descartadas antes
-   * desta — o creme dava ao formulário um material próprio, que é justamente o
-   * que não se quer numa tela que convive com listas e painéis frios.
-   *
-   * O gradiente atravessa o valor do shell: o topo (#fafbfc) é mais claro que
-   * `--color-surface`, o pé (#eef0f4) é mais escuro. Isso dá à ficha um eixo — ela
-   * emerge em cima e assenta embaixo — e faz a borda branca de 1px de `.card`
-   * trabalhar de verdade: quase invisível no topo, onde não é necessária, e
-   * nítida no pé, onde o cartão escurece e precisa de aresta.
-   *
-   * O pé é o limite de contraste, não de gosto: um degrau abaixo dele o texto de
-   * `.hint` reprova o AA da WCAG mesmo com o `--color-subtle` corrigido.
+   * Ficha de formulário e corpo do diálogo. Foi um degradê #fafbfc → #eef0f4 enquanto o
+   * cartão de lista era branco; com o cartão inteiro em `--color-panel` (2026-10-05),
+   * as duas paradas são o mesmo cinza — a ficha não precisa mais se distinguir da lista,
+   * e um degradê sobre o cinza do cartão leria como mancha. Ficam como tokens porque o
+   * `.dialog-body` os usa, e o `.hint` sobre #f1f3f6 dá 4,87:1 (AA).
    */
-  --color-card-soft-top: #fafbfc;
-  --color-card-soft-bottom: #eef0f4;
+  --color-card-soft-top: var(--color-panel);
+  --color-card-soft-bottom: var(--color-panel);
 
   /* Acento quente, único */
   --color-accent: #e34a32;
@@ -182,35 +179,23 @@
   }
 
   /*
-   * Card do design (§Cards, "AI Workflow Prototype"): 24px de raio, borda branca e a
-   * sombra de duas camadas.
+   * Cartão: 24px de raio, cinza slate (`--color-panel`) com aresta slate e a sombra
+   * curta da Imobiliária, sobre o fundo quase branco da moldura.
    *
-   * A borda branca não é enfeite — sobre `#f4f5f5` é ela que define a silhueta do
-   * cartão. Sem ela o branco do card encosta no cinza do shell sem aresta, e a peça
-   * perde o recorte que a faz parecer pousada.
+   * Até 2026-10-05 era branco com borda branca sobre #f4f5f5, e a ficha de formulário
+   * se distinguia por um degradê cinza (`.card-soft`). O usuário escolheu o cartão
+   * cinza para tudo; quem faz o recorte agora é a aresta, porque cinza claro sobre
+   * quase branco não tem contraste bastante sozinho.
    */
   .card {
-    background-color: var(--color-card);
-    border: 1px solid #ffffff;
+    background-color: var(--color-panel);
+    border: 1px solid var(--color-panel-line);
     border-radius: var(--radius-card);
     box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 14px 30px -18px rgb(35 36 39 / 0.25);
+      0 1px 2px rgb(15 23 42 / 0.04),
+      0 1px 3px rgb(15 23 42 / 0.06);
   }
 
-  /*
-   * Ficha de formulário: o mesmo card em papel morno.
-   *
-   * Variante e não substituição de `--color-card`. O branco puro continua certo
-   * onde o card carrega conteúdo — lista, painel, detalhe —, porque ali ele é o
-   * fundo de leitura. Num formulário o card não é fundo de leitura: é a mesa em
-   * que os campos estão apoiados, e mesa e papel não podem ser da mesma cor.
-   *
-   * A borda branca de `.card` deixa de ser decorativa e passa a variar de função ao
-   * longo da peça: some no topo, onde o cartão já é quase branco, e vira aresta
-   * nítida no pé, onde ele escurece abaixo do shell. Uma borda só, fazendo dois
-   * trabalhos, porque é o fundo que se move por baixo dela.
-   */
   /*
    * Cartão tingido na cor do assunto.
    *
@@ -221,50 +206,26 @@
    * Ficou depois de três tentativas recusadas no cartão da gaveta: verde cheio com
    * texto branco (pesado, e o branco some no verde claro), e o bloom coral do Início
    * (não destacava). Tingir os três, em vez de gritar um, foi o que o usuário escolheu.
+   *
+   * É personalizado, e por isso **não** seguiu o cartão para o cinza em 2026-10-05:
+   * continua com a borda branca e a sombra que tinha.
    */
   .card-tint {
     background-image: linear-gradient(160deg, var(--color-card) 0%, var(--icon-soft) 100%);
-  }
-
-  .card-soft {
-    background-image: linear-gradient(
-      180deg,
-      var(--color-card-soft-top) 0%,
-      var(--color-card-soft-bottom) 100%
-    );
-    /*
-     * Elevação em três camadas.
-     *
-     * A sombra de `.card` é uma única camada com blur curto e spread negativo
-     * grande — some quase colada na peça, e o que ela produz é uma mancha, não uma
-     * altura. Serve para um cartão de lista, que precisa de recorte e não de
-     * distância; a ficha de formulário é a peça principal da tela e pode estar
-     * mais alta.
-     *
-     * Um objeto real projeta duas sombras ao mesmo tempo, e é a soma delas que o
-     * olho lê como altura:
-     *
-     *   · **contato** — 2px de blur, quase preta, no lugar onde a peça encosta no
-     *     chão. É o que dá aresta e impede a peça de parecer flutuando sem apoio;
-     *   · **média** — 16px, o corpo da sombra, que faz a transição;
-     *   · **ambiente** — 48px de blur bem aberto e diluído, a luz do ambiente
-     *     contornando a peça. É esta que informa a distância até o chão.
-     *
-     * Uma camada só nunca consegue as duas coisas: com blur curto a peça fica
-     * baixa, com blur longo ela perde a aresta e vira um borrão pairando. As
-     * opacidades caem à medida que o blur cresce (0.11 → 0.16 → 0.30 com spreads
-     * negativos progressivos) porque é assim que a penumbra se comporta — a sombra
-     * fica maior e mais fraca ao mesmo tempo, nunca maior e mais forte.
-     *
-     * O brilho especular de 1px no topo continua sendo a primeira camada: é o par
-     * da sombra, e sem ele a peça teria altura sem ter superfície.
-     */
+    border-color: #ffffff;
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 1px 2px -1px rgb(35 36 39 / 0.11),
-      0 8px 16px -8px rgb(35 36 39 / 0.16),
-      0 26px 48px -22px rgb(35 36 39 / 0.3);
+      0 14px 30px -18px rgb(35 36 39 / 0.25);
   }
+
+  /*
+   * Ficha de formulário (`Card tone="soft"`). Foi um degradê cinza com elevação de três
+   * camadas enquanto o cartão de lista era branco — mesa e papel não podiam ser da mesma
+   * cor. Desde 2026-10-05 todo cartão é cinza e o campo branco já se recorta dele, então
+   * a ficha é o próprio `.card` e `.card-soft` não tem mais regra. O `Card` continua
+   * pondo a classe, como marca de "aqui se digita" (`docs/design-formularios.md`, regra
+   * 1) e gancho para quando a ficha voltar a precisar de diferença.
+   */
 
   /*
    * Item do menu lateral.
@@ -442,6 +403,7 @@
    * diferentes — a fila de pés alinhados é o que deixa varrer a grade por coluna.
    */
   .record-card {
+    position: relative;
     display: flex;
     height: 100%;
     flex-direction: column;
@@ -450,9 +412,38 @@
     color: var(--color-ink);
   }
 
-  .record-card:focus-visible {
+  /*
+   * O link esticado: envolve só a cabeça, e a camada cobre o cartão inteiro (ver
+   * `RecordCard`). O anel de foco vai para o cartão, que é a peça que o usuário vê
+   * como "o link"; no próprio `<a>` ele contornaria só a cabeça.
+   */
+  .record-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+
+  .record-link:focus-visible {
+    outline: none;
+  }
+
+  .record-card:has(.record-link:focus-visible) {
     outline: 2px solid var(--color-focus);
     outline-offset: 3px;
+  }
+
+  /* Link do pé para outro cadastro: sobe acima da camada e sublinha no hover. */
+  .record-foot-link {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    border-radius: 6px;
+  }
+
+  .record-foot-link:hover .record-fact-text {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   .record-card:hover .menu-chevron {
@@ -1462,25 +1453,19 @@
    */
   .field {
     width: 100%;
-    border-radius: 14px;
+    /* 10px, o canto do campo da Imobiliária, desde o cartão cinza (2026-10-05). Era 14px. */
+    border-radius: 10px;
     /*
-     * A aresta.
-     *
-     * Era `1px solid #ffffff`, herdada do card, e sobre o cinza do shell isso
-     * bastava: o branco recortava a peça do fundo. Dentro de um cartão branco,
-     * porém, branco sobre branco é nada, e o campo virava um fantasma que só a
-     * sombra de baixo denunciava — o formulário de tutor, que é quase todo campo
-     * dentro de cartão, foi onde ficou impossível de ignorar.
+     * A aresta, em slate — a mesma família de `--color-panel-line`, para o campo e o
+     * cartão em que ele assenta falarem a mesma língua.
      *
      * O topo é mais escuro que os outros três lados de propósito. Um campo é um
      * rebaixo, não um relevo; com luz vindo de cima, a aresta superior é a que
-     * fica na sombra e as laterais apenas insinuam a espessura. São 6% de
-     * diferença que ninguém identifica olhando e que fazem a diferença entre um
-     * retângulo desenhado e uma cavidade — o mesmo truque que dá corpo ao botão,
-     * de cabeça para baixo.
+     * fica na sombra e as laterais apenas insinuam a espessura — o mesmo truque que
+     * dá corpo ao botão, de cabeça para baixo.
      */
-    border: 1px solid rgb(35 36 39 / 0.09);
-    border-top-color: rgb(35 36 39 / 0.15);
+    border: 1px solid var(--color-panel-line);
+    border-top-color: #d5dbe3;
     background-color: var(--color-card);
     padding: 0.75rem 1rem;
     font-size: 0.9375rem;

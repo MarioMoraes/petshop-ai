@@ -8,15 +8,15 @@ import { ButtonLink, LinkSpinner } from './links'
 /**
  * A listagem de cadastro — `/pets` e `/tutores` são a mesma tela com dados diferentes.
  *
- * Uma grade de cartões brancos (cartão de conteúdo, não ficha: regra 1 de
- * `docs/design-formularios.md`), cada um com três faixas de função fixa:
+ * Uma grade de cartões de conteúdo (não ficha: regra 1 de `docs/design-formularios.md`),
+ * cada um com três faixas de função fixa:
  *
  *   · **cabeça** — o rosto (foto do pet, iniciais do tutor), o nome e os selos de
  *     estado, e uma linha de meta que desambigua (RN-16: cinco "Mel" é normal);
  *   · **corpo** — opcional, o que pede atenção antes de abrir a ficha: alertas do
  *     prontuário, etiquetas;
  *   · **pé** — a relação com o outro cadastro (o responsável do pet, os pets do tutor)
- *     e, à direita, o número que interessa ao balcão.
+ *     e, à direita, o que interessa ao balcão.
  *
  * Grade e não pilha de linhas porque a foto é o que identifica o pet mais rápido, e
  * numa linha de 64px de altura ela não passava de um selo. Em telas estreitas a grade
@@ -45,27 +45,58 @@ export function RecordCard<T extends string>({
   children?: ReactNode
   footer?: ReactNode
 }) {
+  /*
+   * Link esticado, e não o cartão inteiro dentro de um `<Link>`: o pé pode levar a outro
+   * cadastro (o nome do tutor no cartão do pet abre a ficha dele), e link dentro de link
+   * é HTML inválido — o navegador fecha o primeiro e o cartão quebra em dois.
+   *
+   * O link do registro envolve só a cabeça, e o `::after` de `.record-link` cobre o
+   * cartão todo: clicar em qualquer ponto continua abrindo a ficha. O que no pé é link
+   * próprio sobe por cima da camada com `RecordFootLink`.
+   */
   return (
-    <li>
-      <Link href={href} className="card card-interactive record-card">
-        <div className="flex items-start gap-4">
-          {avatar}
-          <div className="min-w-0 flex-1 pt-0.5">
-            <p className="truncate text-base font-semibold leading-6">{title}</p>
-            {meta && <p className="hint mt-0.5 truncate">{meta}</p>}
-            {badges && <div className="mt-2 flex flex-wrap gap-1.5">{badges}</div>}
-          </div>
-          {/* O chevron vira o giro quando o cartão é clicado — a ficha custa uma ida ao servidor. */}
-          <LinkSpinner size={16} className="menu-chevron mt-1 shrink-0">
-            <ChevronRightIcon />
-          </LinkSpinner>
+    <li className="card card-interactive record-card">
+      <Link href={href} className="record-link flex items-start gap-4">
+        {avatar}
+        <div className="min-w-0 flex-1 pt-0.5">
+          <p className="truncate text-base font-semibold leading-6">{title}</p>
+          {meta && <p className="hint mt-0.5 truncate">{meta}</p>}
+          {badges && <div className="mt-2 flex flex-wrap gap-1.5">{badges}</div>}
         </div>
-
-        {children && <div className="flex flex-wrap gap-1.5">{children}</div>}
-
-        {footer && <div className="record-foot">{footer}</div>}
+        {/* O chevron vira o giro quando o cartão é clicado — a ficha custa uma ida ao servidor. */}
+        <LinkSpinner size={16} className="menu-chevron mt-1 shrink-0">
+          <ChevronRightIcon />
+        </LinkSpinner>
       </Link>
+
+      {children && <div className="flex flex-wrap gap-1.5">{children}</div>}
+
+      {footer && <div className="record-foot">{footer}</div>}
     </li>
+  )
+}
+
+/**
+ * Link do pé para outro cadastro, por cima do link esticado do cartão.
+ *
+ * Fica no próprio componente, e não como classe solta, porque o que o faz funcionar é
+ * subir acima do `::after` de `.record-link` — sem isso o clique cairia na ficha do
+ * cartão, e não no destino do pé.
+ */
+export function RecordFootLink<T extends string>({
+  href,
+  label,
+  children,
+}: {
+  href: Parameters<typeof Link<T>>[0]['href']
+  /** O nome acessível: "Abrir cadastro de Ana Lima", e não só "Ana Lima". */
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <Link href={href} aria-label={label} title={label} className="record-foot-link">
+      {children}
+    </Link>
   )
 }
 
@@ -88,7 +119,7 @@ export function RecordFact({
   return (
     <span className="flex min-w-0 items-center gap-2">
       <span className={`record-fact-icon ${tone}`}>{icon}</span>
-      <span className="min-w-0 truncate">{children}</span>
+      <span className="record-fact-text min-w-0 truncate">{children}</span>
     </span>
   )
 }

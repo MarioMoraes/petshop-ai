@@ -18,7 +18,7 @@ export default async function AgendaLayout({ children }: { children: React.React
 
   return (
     <AppShell active="agenda" me={me}>
-      <div className="mx-auto max-w-5xl">{children}</div>
+      <div className="mx-auto max-w-6xl">{children}</div>
     </AppShell>
   )
 }

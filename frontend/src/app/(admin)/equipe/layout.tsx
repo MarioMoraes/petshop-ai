@@ -18,7 +18,7 @@ export default async function EquipeLayout({ children }: { children: React.React
 
   return (
     <AppShell active="equipe" me={me}>
-      <div className="mx-auto max-w-3xl">{children}</div>
+      <div className="mx-auto max-w-6xl">{children}</div>
     </AppShell>
   )
 }
