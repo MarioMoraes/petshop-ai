@@ -272,3 +272,42 @@
 		format json
 	}
 }
+
+# ── Site institucional da Offices (www) ───────────────────────────────────────
+#
+# HTML estático do repositório da imobiliária (`site/`), servido por um nginx
+# próprio — `docker-compose.site.yml`, projeto `offices-site`, rodado de
+# `/opt/offices` — ligado à rede `borda`. O nome
+# do upstream é o do CONTAINER (`<projeto>-<serviço>-1`), único na máquina.
+#
+# O apex só redireciona: o endereço publicado é o `www`.
+{$SITE_DOMAIN:www.officestecnologia.com.br} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	reverse_proxy offices-site-site-1:80
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+{$SITE_APEX:officestecnologia.com.br} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	redir https://{$SITE_DOMAIN:www.officestecnologia.com.br}{uri} permanent
+}
