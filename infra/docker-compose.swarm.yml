@@ -465,6 +465,13 @@ services:
       # (a imagem a carrega). Host próprio porque não é subdomínio de APP_DOMAIN:
       # o wildcard não o cobre e o Caddy emite um certificado só para ele.
       LANDING_DOMAIN: ${LANDING_DOMAIN:-lp.officestecnologia.com.br}
+      # Nome COMPLETO do serviço, e não o curto que o Caddyfile tem por padrão.
+      # Na rede `borda` o compose da imobiliária registra os containers dela
+      # também pelo nome do serviço — `frontend` e `backend` —, e o `frontend`
+      # curto passou a resolver para o Next de LÁ: o petshop inteiro respondeu
+      # 502. `petshop_<serviço>` só existe nesta stack.
+      FRONTEND_UPSTREAM: petshop_frontend:3002
+      BACKEND_UPSTREAM: petshop_api-gateway:3000
     volumes:
       # Os certificados vivem aqui. Perder este volume é pedir tudo de novo à
       # Let's Encrypt, que limita emissões por domínio por semana — e com
