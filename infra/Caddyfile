@@ -226,3 +226,49 @@
 		format json
 	}
 }
+
+# ── Imobiliária (Offices AI) ──────────────────────────────────────────────────
+#
+# OUTRO sistema, hospedado nesta mesma máquina: a stack `offices-ai` roda em
+# docker compose (`/opt/offices`), fora deste swarm. Esta borda é a única dona
+# das portas 80/443, então o tráfego dela também entra aqui.
+#
+# O caminho é a rede `borda` (overlay attachable, criada à mão, `external` no
+# swarm.yml): só o Caddy e o frontend/backend da imobiliária estão nela — o
+# banco, o Redis e as filas das duas stacks continuam cada um na sua `interna`.
+# Os upstreams têm nome próprio (alias na rede `borda`) porque `frontend` aqui
+# dentro já é o do petshop.
+#
+# A partição é a mesma que o Traefik fazia na VPS antiga: webhooks e health no
+# backend, todo o resto no Next. Sem `X-Frame-Options: DENY`, porque o painel
+# abre PDF em iframe da própria origem.
+{$IMOBILIARIA_DOMAIN:imobiliaria.officestecnologia.com.br} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	@backend path /webhooks /webhooks/* /health /health/*
+	handle @backend {
+		reverse_proxy imobiliaria-backend:3001
+	}
+
+	handle {
+		reverse_proxy imobiliaria-frontend:3000
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

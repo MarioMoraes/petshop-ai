@@ -439,7 +439,9 @@ services:
   # ─── Borda ──────────────────────────────────────────────────────────────────
   caddy:
     image: ${CADDY_IMAGE:?defina CADDY_IMAGE no .env.production (a imagem publicada da borda)}
-    networks: [interna]
+    # `borda` é por onde chega a imobiliária (outra stack, na mesma máquina) —
+    # ver o bloco dela no Caddyfile.
+    networks: [interna, borda]
     ports:
       # `mode: host` e não a malha de roteamento (`ingress`), que é o padrão.
       # A malha faz SNAT: todo request chegaria ao Caddy com o IP do nó, e o log
@@ -489,6 +491,13 @@ networks:
     # manutenção (psql, um dump, uma inspeção) alcance o banco sem publicar
     # porta nenhuma.
     attachable: true
+  # Compartilhada com a stack da imobiliária (`/opt/offices`, docker compose).
+  # `external` porque não é desta stack: criada uma vez à mão, com
+  #   docker network create --driver overlay --attachable borda
+  # — e `attachable` é o que deixa um container de compose (fora do swarm)
+  # entrar nela. Só a borda e o frontend/backend de lá a enxergam.
+  borda:
+    external: true
 
 volumes:
   postgres-data:
