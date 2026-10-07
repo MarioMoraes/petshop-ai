@@ -80,12 +80,43 @@ describe('MOD-NOTIF-03 — identidade do remetente', () => {
     })
     const tutorId = await givenTutor(fixture, { phone: '' })
 
-    await enqueue({ tutorId, channel: 'EMAIL', templateKey: 'appointment_reminder', dedupeKey: 'r1' })
+    await enqueue({
+      tutorId,
+      channel: 'EMAIL',
+      templateKey: 'appointment_reminder',
+      dedupeKey: 'r1',
+    })
     await dispatchNow()
 
     // Quem responder fala com o petshop, e não com o vazio.
     expect(email.sent[0]?.senderName).toBe('Petshop do João')
     expect(email.sent[0]?.replyTo).toBe('contato@petshopdojoao.com.br')
+  })
+
+  it('sem nome escrito, o e-mail ao tutor sai em nome do estabelecimento', async () => {
+    await enableMessaging(fixture)
+    const tutorId = await givenTutor(fixture, { phone: '' })
+    const tenant = await withTenant(fixture.tenantId, (tx) =>
+      tx.tenant.findFirstOrThrow({ select: { name: true } }),
+    )
+
+    await enqueue({
+      tutorId,
+      channel: 'EMAIL',
+      templateKey: 'appointment_reminder',
+      dedupeKey: 'r1',
+    })
+    await dispatchNow()
+
+    expect(email.sent[0]?.senderName).toBe(tenant.name)
+  })
+
+  it('o aviso à equipe continua saindo em nome da plataforma', async () => {
+    await enableMessaging(fixture, { senderName: 'Petshop do João' })
+
+    await sendSystemText()
+
+    expect(email.sent[0]?.senderName).toBeNull()
   })
 
   it('AC-04: responder-para inválido é recusado na gravação, não no envio', async () => {
@@ -126,7 +157,12 @@ describe('MOD-NOTIF-04 — molde de marca', () => {
     await givenBranding(fixture, { logoUrl: 'https://cdn.test/logo.png' })
     const tutorId = await givenTutor(fixture, { phone: '' })
 
-    await enqueue({ tutorId, channel: 'EMAIL', templateKey: 'appointment_reminder', dedupeKey: 'r2' })
+    await enqueue({
+      tutorId,
+      channel: 'EMAIL',
+      templateKey: 'appointment_reminder',
+      dedupeKey: 'r2',
+    })
     await dispatchNow()
 
     // Quem edita o texto na tela do CRM não escreve marcação, e um recado de WhatsApp
@@ -225,9 +261,8 @@ describe('os textos do produto não são editáveis', () => {
 
 describe('AC-02 de MOD-NOTIF-08 — os endereços saem do ambiente', () => {
   it('os três links refletem a instalação, e o Admin sai por app.', async () => {
-    const { adminUrlOf, portalUrlOf, siteUrlOf } = await import(
-      '../../src/modules/messaging/attachments.js'
-    )
+    const { adminUrlOf, portalUrlOf, siteUrlOf } =
+      await import('../../src/modules/messaging/attachments.js')
 
     // Em desenvolvimento não há subdomínio por tenant, e tudo cai no host único; o que
     // o teste fixa é a **forma**, e que ela não é constante cravada.

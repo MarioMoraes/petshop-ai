@@ -782,3 +782,133 @@ export function PlugIcon() {
     </svg>
   )
 }
+
+/*
+ * ─── Duotone do Início ────────────────────────────────────────────────────────────────
+ *
+ * Os cartões de número do Início (2026-10-07) pediram ícones com mais corpo que o traço
+ * de 1.5 do resto do sistema: o cartão de referência que o usuário trouxe tem ícones
+ * cheios, e os três de dinheiro eram a mesma carteira. Os de Recebido, Em aberto e
+ * Crédito vencido foram escolhidos pelo usuário entre quatro opções lado a lado. Cada um abaixo tem um desenho
+ * próprio, e é **duotone**: a forma fechada leva o preenchimento em `currentColor` com
+ * opacidade baixa, e o traço por cima, um pouco mais grosso. Uma cor só, a do tom — o
+ * chip continua decidindo quem pinta.
+ *
+ * Ficam fora do menu e das telas de trabalho de propósito: lá o traço fino é o padrão, e
+ * um ícone cheio no meio de vinte de linha leria como selecionado.
+ */
+
+const DUO = { ...BASE, strokeWidth: 1.75 } as const
+const SOFT = { fill: 'currentColor', fillOpacity: 0.3 } as const
+
+/** Calendário com visto — atendimentos feitos. Tom: `icon-time`. */
+export function CalendarCheckDuoIcon() {
+  return (
+    <svg {...DUO}>
+      <rect x="3" y="5" width="18" height="16" rx="3" {...SOFT} />
+      <path d="M8 3v4" />
+      <path d="M16 3v4" />
+      <path d="M3 10h18" />
+      <path d="m9 15.5 2 2 4-4" />
+    </svg>
+  )
+}
+
+/** Calendário com xis — o horário em que o cliente faltou. Tom: `icon-time`. */
+export function CalendarXDuoIcon() {
+  return (
+    <svg {...DUO}>
+      <rect x="3" y="5" width="18" height="16" rx="3" {...SOFT} />
+      <path d="M8 3v4" />
+      <path d="M16 3v4" />
+      <path d="M3 10h18" />
+      <path d="m10 13.5 4 4" />
+      <path d="m14 13.5-4 4" />
+    </svg>
+  )
+}
+
+/** Mão recebendo duas moedas — o dinheiro que entrou. Tom: `icon-money`. */
+export function HandCoinsDuoIcon() {
+  return (
+    <svg {...DUO}>
+      <circle cx="16" cy="8" r="3" {...SOFT} />
+      <circle cx="7" cy="5" r="2.5" {...SOFT} />
+      <path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17" />
+      <path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9" />
+      <path d="m2 16 6 6" />
+    </svg>
+  )
+}
+
+/**
+ * Conta com relógio — o que ainda não foi pago. Tom: `icon-money`.
+ *
+ * O relógio leva um disco do branco do cartão por baixo do tom: sem ele, a folha
+ * apareceria através do relógio e os dois virariam uma forma só.
+ */
+export function BillClockDuoIcon() {
+  return (
+    <svg {...DUO}>
+      <rect x="3" y="2.5" width="12" height="17" rx="2" {...SOFT} />
+      <path d="M6.5 7h5" />
+      <path d="M6.5 10.5h3" />
+      <circle cx="16.5" cy="16.5" r="5" style={{ fill: 'var(--color-card)' }} />
+      <circle cx="16.5" cy="16.5" r="5" {...SOFT} />
+      <path d="M16.5 14.5v2l1.5 1" />
+    </svg>
+  )
+}
+
+/** Cronômetro — quanto tempo o dinheiro leva para chegar. Tom: `icon-metric`. */
+export function StopwatchDuoIcon() {
+  return (
+    <svg {...DUO}>
+      <circle cx="12" cy="13.5" r="7.5" {...SOFT} />
+      <path d="M10 2.5h4" />
+      <path d="M12 2.5V6" />
+      <path d="m12 13.5 3-3" />
+      <path d="m18.5 6.5 1.5-1.5" />
+    </svg>
+  )
+}
+
+/** Despertador — o crédito de pacote cujo prazo passou. Tom: `icon-money`. */
+export function AlarmClockDuoIcon() {
+  return (
+    <svg {...DUO}>
+      <circle cx="12" cy="13" r="8" {...SOFT} />
+      <path d="M12 9v4l2 2" />
+      <path d="M5 3 2 6" />
+      <path d="m22 6-3-3" />
+    </svg>
+  )
+}
+
+/** Duas pessoas — os tutores. Tom: `icon-people`. */
+export function UsersDuoIcon() {
+  return (
+    <svg {...DUO}>
+      <circle cx="9" cy="8" r="3.5" {...SOFT} />
+      <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6Z" {...SOFT} />
+      <path d="M16 4.5a3.5 3.5 0 0 1 0 7" />
+      <path d="M18 14.3c2.1.6 3.5 2.5 3.5 5.7" />
+    </svg>
+  )
+}
+
+/** Pegada de almofadas cheias — os pets. Tom: `icon-pet`. */
+export function PawDuoIcon() {
+  return (
+    <svg {...DUO}>
+      <ellipse cx="4.8" cy="10.5" rx="1.7" ry="2.2" {...SOFT} />
+      <ellipse cx="8.8" cy="5.2" rx="1.7" ry="2.2" {...SOFT} />
+      <ellipse cx="15.2" cy="5.2" rx="1.7" ry="2.2" {...SOFT} />
+      <ellipse cx="19.2" cy="10.5" rx="1.7" ry="2.2" {...SOFT} />
+      <path
+        d="M12 12.2c-2.7 0-4.8 2.6-4.8 4.9 0 1.7 1.3 2.6 2.8 2.3 1-.2 1.4-.6 2-.6s1 .4 2 .6c1.5.3 2.8-.6 2.8-2.3 0-2.3-2.1-4.9-4.8-4.9Z"
+        {...SOFT}
+      />
+    </svg>
+  )
+}

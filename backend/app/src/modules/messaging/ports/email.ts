@@ -27,6 +27,25 @@ const SEND_TIMEOUT_MS = 8_000
  */
 const PERMANENT_STATUSES = new Set([400, 401, 403, 404, 422])
 
+/**
+ * Põe o nome do remetente no endereço.
+ *
+ * `MAIL_FROM` pode vir só como endereço (`contato@dominio`) ou já com nome
+ * (`PetShop AI <contato@dominio>`), que é o formato do `.env` deste projeto. Prefixar o
+ * segundo caso produziria `Nome <PetShop AI <contato@…>>`, que o Resend recusa — e até
+ * 2026-10-07 o nome era simplesmente descartado, e o tutor recebia da "PetShop AI". Agora
+ * o nome do petshop **troca** o da plataforma. Sem nome, o endereço passa como veio.
+ *
+ * As aspas e os sinais de ângulo saem do nome: são a sintaxe do cabeçalho, e um nome de
+ * estabelecimento com eles quebraria o `from` no primeiro envio.
+ */
+export function senderWithName(address: string, name: string | null | undefined): string {
+  const clean = name?.replace(/["<>]/g, '').trim()
+  if (!clean) return address
+  const bare = /<([^>]+)>/.exec(address)?.[1]?.trim() ?? address.trim()
+  return `"${clean}" <${bare}>`
+}
+
 function createResendPort(apiKey: string, from: string): ChannelPort {
   return {
     // O e-mail está de pé para todo tenant da instalação: sem `RESEND_API_KEY` ele
@@ -39,18 +58,8 @@ function createResendPort(apiKey: string, from: string): ChannelPort {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS)
       try {
-        // `MAIL_FROM` pode vir só como endereço (`contato@dominio`) ou já com nome
-        // (`PetShop AI <contato@dominio>`), que é o formato do `.env` deste projeto.
-        // Prefixar o segundo caso produziria `Nome <PetShop AI <contato@…>>`, que o
-        // Resend recusa — e a recusa só apareceria em produção, no primeiro envio.
-        //
-        // O domínio próprio do petshop, quando verificado, substitui o da plataforma — e
-        // chega sempre como endereço puro, então o nome do remetente se aplica.
-        const address = request.from ?? from
-        const sender =
-          request.senderName && !address.includes('<')
-            ? `${request.senderName} <${address}>`
-            : address
+        // O domínio próprio do petshop, quando verificado, substitui o da plataforma.
+        const sender = senderWithName(request.from ?? from, request.senderName)
         const response = await fetch(RESEND_ENDPOINT, {
           method: 'POST',
           headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },

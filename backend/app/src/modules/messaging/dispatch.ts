@@ -518,16 +518,18 @@ async function dispatchOne(
   }
 
   const port = portFor(prepared.message.channel)
+  const toTutor = prepared.message.recipientKind === 'TUTOR'
   const result = await port.send({
     tenantId,
     to: prepared.to,
     subject: prepared.subject,
     body: prepared.body,
-    senderName: settings.senderName,
+    // O domínio próprio e o nome são do petshop falando com o cliente dele — sem nome
+    // escrito, o do estabelecimento. Os avisos da conta e os textos da equipe são a
+    // PetShop AI falando com o petshop, e saem pelo `MAIL_FROM` com o nome dele.
+    senderName: toTutor ? (settings.senderName ?? settings.tenantName ?? null) : null,
     replyTo: settings.replyToEmail,
-    // O domínio próprio é do petshop falando com o cliente dele. Os avisos da conta e os
-    // textos da equipe são a PetShop AI falando com o petshop, e saem pelo `MAIL_FROM`.
-    from: prepared.message.recipientKind === 'TUTOR' ? settings.fromAddress : null,
+    from: toTutor ? settings.fromAddress : null,
     attachment: prepared.attachment.kind === 'file' ? prepared.attachment.attachment : null,
     html: prepared.html,
   })

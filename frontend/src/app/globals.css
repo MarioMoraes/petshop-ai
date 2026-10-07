@@ -1640,6 +1640,28 @@
   }
 
   /*
+   * Chip dos cartões de número do Início (2026-10-07): 48px no celular, 64px a partir de
+   * `sm`, com o traço maior — ali o ícone é o que abre o cartão, e não um selo.
+   */
+  .icon-chip-lg svg {
+    height: 1.5rem;
+    width: 1.5rem;
+  }
+
+  @media (min-width: 40rem) {
+    .icon-chip-lg {
+      height: 4rem;
+      width: 4rem;
+      border-radius: 1.25rem;
+    }
+
+    .icon-chip-lg svg {
+      height: 2rem;
+      width: 2rem;
+    }
+  }
+
+  /*
    * Caixa de seleção.
    *
    * O checkbox nativo é o detalhe que mais denuncia um formulário inacabado: ele

@@ -44,6 +44,11 @@ export interface ResolvedSettings {
    * `MAIL_FROM` da plataforma". Ver `email-domain.ts`.
    */
   fromAddress: string | null
+  /**
+   * O nome do estabelecimento, que é o remetente do e-mail ao tutor quando o petshop
+   * não escreveu um `senderName` — o cliente reconhece o petshop, e não a PetShop AI.
+   */
+  tenantName: string | null
 }
 
 function minutesFromTime(value: string): number {
@@ -60,14 +65,16 @@ export async function loadSettings(
   tx: TenantTransaction,
   tenantId: string,
 ): Promise<ResolvedSettings> {
-  const [row, tenantSettings, emailDomain] = await Promise.all([
+  const [row, tenantSettings, emailDomain, tenant] = await Promise.all([
     tx.messagingSettings.findUnique({ where: { tenantId } }),
     tx.tenantSettings.findFirst({ select: { timezone: true } }),
     tx.emailDomain.findUnique({
       where: { tenantId },
       select: { status: true, localPart: true, domain: true },
     }),
+    tx.tenant.findFirst({ select: { name: true } }),
   ])
+  const tenantName = tenant?.name ?? null
 
   const timezone = tenantSettings?.timezone ?? DEFAULT_TIMEZONE
   const fromAddress =
@@ -88,6 +95,7 @@ export async function loadSettings(
       replyToEmail: null,
       timezone,
       fromAddress,
+      tenantName,
     }
   }
 
@@ -105,6 +113,7 @@ export async function loadSettings(
     replyToEmail: row.replyToEmail,
     timezone,
     fromAddress,
+    tenantName,
   }
 }
 

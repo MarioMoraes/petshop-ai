@@ -69,7 +69,7 @@ export function EmailCard({ settings, canEdit }: Props) {
         <Field
           label="Nome do remetente"
           htmlFor="senderName"
-          hint="Como o e-mail se apresenta na caixa de entrada"
+          hint="Em branco, sai o nome do estabelecimento"
           error={fieldErrors.senderName}
         >
           <input
