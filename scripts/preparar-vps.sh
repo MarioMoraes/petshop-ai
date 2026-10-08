@@ -30,7 +30,7 @@ else
 fi
 
 # ── 2. Swarm ──────────────────────────────────────────────────────────────────
-if docker info 2>/dev/null | grep -q 'Swarm: active'; then
+if [ "$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null)" = active ]; then
   echo "→ swarm já ativo"
 else
   # `--advertise-addr` explícito: numa VPS com mais de uma interface (a pública e

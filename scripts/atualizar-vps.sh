@@ -86,7 +86,11 @@ for IMG in "$BACKEND_IMAGE" "$MIGRATOR_IMAGE" "$FRONTEND_IMAGE" "$CADDY_IMAGE"; 
 done
 echo "  ✓ as quatro imagens conferem"
 
-if ! docker info 2>/dev/null | grep -q 'Swarm: active'; then
+# Pergunta direto ao Docker, sem pipe. Era `docker info | grep -q 'Swarm: active'`: com
+# `pipefail`, o `grep -q` sai na primeira linha que casa, o `docker info` ainda escrevendo
+# leva SIGPIPE, e o pipe falha — "não está em swarm" num nó que está, de vez em quando
+# (0.1.31, 2026-10-08).
+if ! [ "$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null)" = active ]; then
   echo "ERRO: este nó não está em swarm. Rode antes: bash scripts/preparar-vps.sh" >&2
   exit 1
 fi
