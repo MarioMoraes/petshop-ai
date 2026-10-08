@@ -1203,6 +1203,7 @@ model Pet {
   temperaments  Temperament[]
   medicalAlerts MedicalAlert[]
   attendances   Attendance[]
+  vaccinations  Vaccination[]
 
   @@map("pets")
 }
@@ -1369,6 +1370,62 @@ model Allergy {
   pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("allergies")
+}
+
+/// A carteira de vacinação (MOD-PRONT-08).
+///
+/// Duas origens na mesma tabela: a dose aplicada **aqui** (`INTERNAL`), com lote,
+/// fabricante, validade e o CRMV de quem estava logado — o CHECK da migration as exige —,
+/// e a carteira de papel trazida de outra clínica (`EXTERNAL`), em que nada disso é
+/// obrigatório. As duas valem igual para o status e para o lembrete.
+///
+/// Não se edita: dose lançada errada é **anulada** com motivo e lançada de novo. A dose
+/// nova da mesma vacina supersede a anterior sem tocá-la (`currentDoses`). A vacina
+/// também não mexe em estoque — a baixa do lote continua no item do atendimento.
+model Vaccination {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String  @map("tenant_id") @db.Uuid
+  petId        String  @map("pet_id") @db.Uuid
+  attendanceId String? @map("attendance_id") @db.Uuid
+
+  origin       VaccinationOrigin
+  /// Chave do `VACCINE_CATALOG` ou `OTHER`.
+  vaccineKey   String            @map("vaccine_key") @db.VarChar(40)
+  /// Fotografia do nome, como `AttendanceItem.label`: o catálogo pode mudar o rótulo.
+  vaccineLabel String            @map("vaccine_label") @db.VarChar(60)
+
+  appliedAt  DateTime  @map("applied_at") @db.Date
+  /// Base do lembrete. Nula na dose única.
+  nextDoseAt DateTime? @map("next_dose_at") @db.Date
+
+  manufacturer   String?   @db.VarChar(80)
+  batch          String?   @db.VarChar(40)
+  batchExpiresAt DateTime? @map("batch_expires_at") @db.Date
+
+  /// A ficha de profissional de quem aplicou, e o nome e o CRMV dela no dia.
+  appliedBy String? @map("applied_by") @db.Uuid
+  vetName   String? @map("vet_name") @db.VarChar(120)
+  crmv      String? @db.VarChar(30)
+
+  externalClinic String? @map("external_clinic") @db.VarChar(120)
+
+  voidReason String?   @map("void_reason")
+  voidedBy   String?   @map("voided_by") @db.Uuid
+  voidedAt   DateTime? @map("voided_at") @db.Timestamptz(6)
+
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  pet        Pet         @relation(fields: [petId], references: [id], onDelete: Cascade)
+  attendance Attendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, petId, appliedAt(sort: Desc)])
+  @@map("vaccinations")
+}
+
+enum VaccinationOrigin {
+  INTERNAL
+  EXTERNAL
 }
 
 /// Observação de temperamento (MOD-PRONT-04).
@@ -1546,6 +1603,7 @@ model Attendance {
   items         AttendanceItem[]
   notes         AttendanceNote[]
   prescriptions Prescription[]
+  vaccinations  Vaccination[]
 
   pet         Pet          @relation(fields: [petId], references: [id], onDelete: Restrict)
   tutor       Tutor        @relation(fields: [tutorId], references: [id], onDelete: Restrict)
@@ -3045,7 +3103,7 @@ model Message {
   /// decifra da mídia), cifrado. É o que o agente entrega à Evolution para baixar o
   /// arquivo: ela não guarda mensagem (`DATABASE_SAVE_DATA_NEW_MESSAGE=false`), então
   /// pedir só pelo id responde "Message not found". Nulo em tudo que não é áudio.
-  mediaEncrypted String? @map("media_encrypted")
+  mediaEncrypted    String? @map("media_encrypted")
 
   /// Em claro: é o que o painel de falhas mostra, e não carrega dado do tutor.
   errorCode   String? @map("error_code") @db.VarChar(60)

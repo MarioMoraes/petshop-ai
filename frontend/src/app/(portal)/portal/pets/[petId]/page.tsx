@@ -1,10 +1,18 @@
 import { notFound, redirect } from 'next/navigation'
 import { Alert, Card, DataRow, SectionHead } from '@/components/ui'
-import { AlertTriangleIcon, PawPrintIcon } from '@/components/icons'
+import { AlertTriangleIcon, PawPrintIcon, SyringeIcon } from '@/components/icons'
+import { overdueMessage, overdueVaccines } from '@petshop/shared-types'
 import { PortalFrame } from '../../frame'
 import { PetForm } from './pet-form'
 import { Timeline } from './timeline'
-import { PortalError, readOwnPet, readOwnPetTimeline, readPortalContext } from '@/lib/portal-api'
+import { Vaccinations } from './vaccinations'
+import {
+  PortalError,
+  readOwnPet,
+  readOwnPetTimeline,
+  readOwnPetVaccinations,
+  readPortalContext,
+} from '@/lib/portal-api'
 
 /**
  * A ficha do pet, com a história dele embaixo (MOD-PORTAL-03 e 04).
@@ -13,8 +21,8 @@ import { PortalError, readOwnPet, readOwnPetTimeline, readPortalContext } from '
  * "quando foi o último banho?", e a ficha é o cabeçalho dessa resposta, não um destino
  * concorrente. Rolar é mais barato que decidir.
  *
- * A ordem — alertas, ficha, histórico — é a da urgência. A alergia é o que muda uma
- * decisão hoje; a data de nascimento não muda nada.
+ * A ordem — alertas, ficha, vacinas, histórico — é a da urgência. A alergia é o que muda
+ * uma decisão hoje; a data de nascimento não muda nada.
  */
 
 export const dynamic = 'force-dynamic'
@@ -23,11 +31,17 @@ export default async function PortalPetPage({ params }: { params: Promise<{ petI
   const { petId } = await params
 
   try {
-    const [context, pet, timeline] = await Promise.all([
+    const [context, pet, timeline, vacinas] = await Promise.all([
       readPortalContext(),
       readOwnPet(petId),
       readOwnPetTimeline(petId, { limit: 10 }),
+      // A carteira é um pedaço da tela, e não a tela: se ela falhar, a ficha abre sem ela.
+      readOwnPetVaccinations(petId).catch(() => null),
     ])
+    const vacinaAtrasada =
+      vacinas && !pet.inMemoriam
+        ? overdueMessage(overdueVaccines(vacinas.current, vacinas.today))
+        : null
 
     return (
       <PortalFrame
@@ -62,6 +76,12 @@ export default async function PortalPetPage({ params }: { params: Promise<{ petI
           </Alert>
         )}
 
+        {vacinaAtrasada && (
+          <Alert tone="accent" icon={<SyringeIcon />} title={vacinaAtrasada} role="status">
+            Fale com o {context.tenant.name} para marcar a próxima dose.
+          </Alert>
+        )}
+
         <Card>
           <SectionHead icon={<PawPrintIcon />} tone="icon-pet" title="A ficha" />
           <div className="mt-4 flex flex-col gap-1">
@@ -84,6 +104,8 @@ export default async function PortalPetPage({ params }: { params: Promise<{ petI
             Se algum estiver errado, avise o {context.tenant.name}.
           </p>
         </Card>
+
+        {vacinas && <Vaccinations card={vacinas} />}
 
         <Timeline
           petId={pet.id}

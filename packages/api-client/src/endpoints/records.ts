@@ -9,7 +9,11 @@ import {
   MedicalAlertSchema,
   SafetyRecordSchema,
   TemperamentSchema,
+  VaccinationCardSchema,
+  VaccinationSchema,
   type CreateAllergyInput,
+  type CreateVaccinationInput,
+  type VoidVaccinationInput,
   type CreateMedicalAlertInput,
   type RecordTemperamentInput,
   type UpdateAllergyInput,
@@ -46,6 +50,32 @@ export function recordEndpoints({ request }: Transport) {
         path: `/v1/pets/${petId}/allergies/${allergyId}`,
         body: patch,
         schema: AllergySchema,
+      }),
+
+    // ─── Vacinas (MOD-PRONT-08) ────────────────────────────────────────────
+
+    /** A carteira: o status, a dose vigente de cada vacina e o histórico inteiro. */
+    getVaccinationCard: (petId: string) =>
+      request({
+        method: 'GET',
+        path: `/v1/pets/${petId}/vaccinations`,
+        schema: VaccinationCardSchema,
+      }),
+
+    createVaccination: (petId: string, input: CreateVaccinationInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${petId}/vaccinations`,
+        body: input,
+        schema: VaccinationSchema,
+      }),
+
+    voidVaccination: (petId: string, vaccinationId: string, input: VoidVaccinationInput) =>
+      request({
+        method: 'POST',
+        path: `/v1/pets/${petId}/vaccinations/${vaccinationId}/void`,
+        body: input,
+        schema: VaccinationSchema,
       }),
 
     recordTemperament: (petId: string, input: RecordTemperamentInput) =>

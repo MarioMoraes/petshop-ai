@@ -511,6 +511,7 @@ export const TIMELINE_KINDS = [
   'MEDICAL_ALERT',
   'PHOTO',
   'TRANSFER',
+  'VACCINATION',
 ] as const
 export type TimelineKind = (typeof TIMELINE_KINDS)[number]
 
@@ -521,6 +522,8 @@ export const OPERATIONAL_TIMELINE_KINDS: readonly TimelineKind[] = [
   'ALLERGY',
   'TEMPERAMENT',
   'PHOTO',
+  // A vacina é do banhista também: é ela que diz se o pet pode dividir a creche.
+  'VACCINATION',
 ]
 
 export const TimelineEntrySchema = z.object({
@@ -592,6 +595,10 @@ export const PetClinicalSummarySchema = z.object({
     }),
   ),
   vaccinationStatus: z.enum(['UP_TO_DATE', 'DUE_SOON', 'OVERDUE', 'UNKNOWN']),
+  /** As vigentes com a próxima dose vencida, a mais atrasada primeiro. Avisa, não bloqueia. */
+  overdueVaccines: z.array(
+    z.object({ vaccineLabel: z.string(), nextDoseAt: z.iso.date(), daysOverdue: z.number().int() }),
+  ),
   lastAttendanceAt: z.iso.datetime().nullable(),
   attendanceCount12m: z.number().int(),
   /** Ex.: `["ALLERGY_CRITICAL"]`. É o que a agenda lê para decidir se bloqueia. */

@@ -75,6 +75,10 @@ class PortalSchema {
     final PortalTimelineEntry portalTimelineEntry;
     final PortalTimelineResponse portalTimelineResponse;
     final PortalUpcomingAppointment portalUpcomingAppointment;
+    final PortalVaccination portalVaccination;
+    final PortalVaccinationCard portalVaccinationCard;
+    final PortalVaccinationOrigin portalVaccinationOrigin;
+    final PortalVaccinationStatus portalVaccinationStatus;
     final PortalVerify portalVerify;
     final UpdateOwnPet updateOwnPet;
     final UpdateOwnTutor updateOwnTutor;
@@ -139,6 +143,10 @@ class PortalSchema {
         required this.portalTimelineEntry,
         required this.portalTimelineResponse,
         required this.portalUpcomingAppointment,
+        required this.portalVaccination,
+        required this.portalVaccinationCard,
+        required this.portalVaccinationOrigin,
+        required this.portalVaccinationStatus,
         required this.portalVerify,
         required this.updateOwnPet,
         required this.updateOwnTutor,
@@ -204,6 +212,10 @@ class PortalSchema {
         portalTimelineEntry: PortalTimelineEntry.fromJson(json["PortalTimelineEntry"]),
         portalTimelineResponse: PortalTimelineResponse.fromJson(json["PortalTimelineResponse"]),
         portalUpcomingAppointment: PortalUpcomingAppointment.fromJson(json["PortalUpcomingAppointment"]),
+        portalVaccination: PortalVaccination.fromJson(json["PortalVaccination"]),
+        portalVaccinationCard: PortalVaccinationCard.fromJson(json["PortalVaccinationCard"]),
+        portalVaccinationOrigin: portalVaccinationOriginValues.map[json["PortalVaccinationOrigin"]]!,
+        portalVaccinationStatus: portalVaccinationStatusValues.map[json["PortalVaccinationStatus"]]!,
         portalVerify: PortalVerify.fromJson(json["PortalVerify"]),
         updateOwnPet: UpdateOwnPet.fromJson(json["UpdateOwnPet"]),
         updateOwnTutor: UpdateOwnTutor.fromJson(json["UpdateOwnTutor"]),
@@ -269,6 +281,10 @@ class PortalSchema {
         "PortalTimelineEntry": portalTimelineEntry.toJson(),
         "PortalTimelineResponse": portalTimelineResponse.toJson(),
         "PortalUpcomingAppointment": portalUpcomingAppointment.toJson(),
+        "PortalVaccination": portalVaccination.toJson(),
+        "PortalVaccinationCard": portalVaccinationCard.toJson(),
+        "PortalVaccinationOrigin": portalVaccinationOriginValues.reverse[portalVaccinationOrigin],
+        "PortalVaccinationStatus": portalVaccinationStatusValues.reverse[portalVaccinationStatus],
         "PortalVerify": portalVerify.toJson(),
         "UpdateOwnPet": updateOwnPet.toJson(),
         "UpdateOwnTutor": updateOwnTutor.toJson(),
@@ -2356,6 +2372,138 @@ class PortalTimelineResponse {
         "nextCursor": nextCursor,
     };
 }
+
+class PortalVaccination {
+    final DateTime appliedAt;
+    final String? attendanceId;
+    final String? batch;
+    final DateTime? batchExpiresAt;
+    final DateTime createdAt;
+    final String? crmv;
+    final String? externalClinic;
+    final String id;
+    final String? manufacturer;
+    final DateTime? nextDoseAt;
+    final PortalVaccinationOrigin origin;
+    final String petId;
+    final String vaccineKey;
+    final String vaccineLabel;
+    final String? vetName;
+    final DateTime? voidedAt;
+    final String? voidReason;
+
+    PortalVaccination({
+        required this.appliedAt,
+        required this.attendanceId,
+        required this.batch,
+        required this.batchExpiresAt,
+        required this.createdAt,
+        required this.crmv,
+        required this.externalClinic,
+        required this.id,
+        required this.manufacturer,
+        required this.nextDoseAt,
+        required this.origin,
+        required this.petId,
+        required this.vaccineKey,
+        required this.vaccineLabel,
+        required this.vetName,
+        required this.voidedAt,
+        required this.voidReason,
+    });
+
+    factory PortalVaccination.fromJson(Map<String, dynamic> json) => PortalVaccination(
+        appliedAt: DateTime.parse(json["appliedAt"]),
+        attendanceId: json["attendanceId"],
+        batch: json["batch"],
+        batchExpiresAt: json["batchExpiresAt"] == null ? null : DateTime.parse(json["batchExpiresAt"]),
+        createdAt: DateTime.parse(json["createdAt"]),
+        crmv: json["crmv"],
+        externalClinic: json["externalClinic"],
+        id: json["id"],
+        manufacturer: json["manufacturer"],
+        nextDoseAt: json["nextDoseAt"] == null ? null : DateTime.parse(json["nextDoseAt"]),
+        origin: portalVaccinationOriginValues.map[json["origin"]]!,
+        petId: json["petId"],
+        vaccineKey: json["vaccineKey"],
+        vaccineLabel: json["vaccineLabel"],
+        vetName: json["vetName"],
+        voidedAt: json["voidedAt"] == null ? null : DateTime.parse(json["voidedAt"]),
+        voidReason: json["voidReason"],
+    );
+
+    Map<String, dynamic> toJson() => {
+        "appliedAt": "${appliedAt.year.toString().padLeft(4, '0')}-${appliedAt.month.toString().padLeft(2, '0')}-${appliedAt.day.toString().padLeft(2, '0')}",
+        "attendanceId": attendanceId,
+        "batch": batch,
+        "batchExpiresAt": batchExpiresAt == null ? null : "${batchExpiresAt!.year.toString().padLeft(4, '0')}-${batchExpiresAt!.month.toString().padLeft(2, '0')}-${batchExpiresAt!.day.toString().padLeft(2, '0')}",
+        "createdAt": createdAt.toIso8601String(),
+        "crmv": crmv,
+        "externalClinic": externalClinic,
+        "id": id,
+        "manufacturer": manufacturer,
+        "nextDoseAt": nextDoseAt == null ? null : "${nextDoseAt!.year.toString().padLeft(4, '0')}-${nextDoseAt!.month.toString().padLeft(2, '0')}-${nextDoseAt!.day.toString().padLeft(2, '0')}",
+        "origin": portalVaccinationOriginValues.reverse[origin],
+        "petId": petId,
+        "vaccineKey": vaccineKey,
+        "vaccineLabel": vaccineLabel,
+        "vetName": vetName,
+        "voidedAt": voidedAt?.toIso8601String(),
+        "voidReason": voidReason,
+    };
+}
+
+enum PortalVaccinationOrigin {
+    EXTERNAL,
+    INTERNAL
+}
+
+final portalVaccinationOriginValues = EnumValues({
+    "EXTERNAL": PortalVaccinationOrigin.EXTERNAL,
+    "INTERNAL": PortalVaccinationOrigin.INTERNAL
+});
+
+class PortalVaccinationCard {
+    final List<PortalVaccination> current;
+    final List<PortalVaccination> history;
+    final PortalVaccinationStatus status;
+    final DateTime today;
+
+    PortalVaccinationCard({
+        required this.current,
+        required this.history,
+        required this.status,
+        required this.today,
+    });
+
+    factory PortalVaccinationCard.fromJson(Map<String, dynamic> json) => PortalVaccinationCard(
+        current: List<PortalVaccination>.from(json["current"].map((x) => PortalVaccination.fromJson(x))),
+        history: List<PortalVaccination>.from(json["history"].map((x) => PortalVaccination.fromJson(x))),
+        status: portalVaccinationStatusValues.map[json["status"]]!,
+        today: DateTime.parse(json["today"]),
+    );
+
+    Map<String, dynamic> toJson() => {
+        "current": List<dynamic>.from(current.map((x) => x.toJson())),
+        "history": List<dynamic>.from(history.map((x) => x.toJson())),
+        "status": portalVaccinationStatusValues.reverse[status],
+        "today": "${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}",
+    };
+}
+
+enum PortalVaccinationStatus {
+    DUE_SOON,
+    OVERDUE,
+    UNKNOWN,
+    UP_TO_DATE
+}
+
+final portalVaccinationStatusValues = EnumValues({
+    "DUE_SOON": PortalVaccinationStatus.DUE_SOON,
+    "OVERDUE": PortalVaccinationStatus.OVERDUE,
+    "UNKNOWN": PortalVaccinationStatus.UNKNOWN,
+    "UP_TO_DATE": PortalVaccinationStatus.UP_TO_DATE
+});
 
 class PortalVerify {
     final String challengeId;

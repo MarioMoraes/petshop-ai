@@ -71,12 +71,19 @@ export async function forEachDueTenant(
   key: AutomationKey,
   now: Date,
   handler: (run: TenantRun, summary: DailySummary) => Promise<void>,
+  /**
+   * Quem varrer. O padrão são as linhas ligadas de `automations`, que serve às que
+   * nascem desligadas. A que nasce **ligada** não tem linha até alguém mexer nela, e
+   * precisa achar os tenants pelo próprio dado — é o caso do lembrete de vacina.
+   */
+  discover: () => Promise<{ tenant_id: string }[]> = () =>
+    getMaintenancePrisma().$queryRaw<{ tenant_id: string }[]>`
+      SELECT tenant_id FROM automations WHERE key = ${key} AND enabled = true
+    `,
 ): Promise<DailySummary> {
   const summary = emptySummary()
 
-  const rows = await getMaintenancePrisma().$queryRaw<{ tenant_id: string }[]>`
-    SELECT tenant_id FROM automations WHERE key = ${key} AND enabled = true
-  `
+  const rows = await discover()
 
   const feature = automationPlanFeature(key)
 

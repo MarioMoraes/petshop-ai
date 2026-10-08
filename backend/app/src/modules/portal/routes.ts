@@ -69,6 +69,7 @@ import { readOwnPreferences, updateOwnPreference } from './preferences.js'
 import { readTaxiOffer } from './taxi.js'
 import { getTutorPort, type TutorCaller } from './tutor-port.js'
 import { readOwnPetTimeline } from './timeline.js'
+import { readOwnPetVaccinations } from './vaccinations.js'
 import { verifyChallenge } from './verify.js'
 
 /**
@@ -327,6 +328,19 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       const query = parseInput(PortalTimelineQuerySchema, request.query)
 
       return readOwnPetTimeline(tenantId, tutorId, petId, query)
+    },
+  )
+
+  /** MOD-PRONT-08 — a carteira de vacinação do pet, sem as doses anuladas. */
+  app.get(
+    '/portal/v1/pets/:petId/vaccinations',
+    { preHandler: requirePermission('pet:read_own') },
+    async (request) => {
+      const { tenantId } = requireTenantContext(request)
+      const { tutorId } = requireOwnScope(request)
+      const { petId } = request.params as { petId: string }
+
+      return readOwnPetVaccinations(tenantId, tutorId, petId)
     },
   )
 

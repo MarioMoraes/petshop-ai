@@ -50,6 +50,7 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   'PetTransferLog',
   'PetPhoto',
   'Allergy',
+  'Vaccination',
   'Temperament',
   'MedicalAlert',
   // MOD-PRONT-01/09/10: o registro do que foi feito com o animal.

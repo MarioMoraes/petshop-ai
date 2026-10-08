@@ -17,21 +17,27 @@ import {
   type PetTutorRole,
   type PetWeightRecord,
   type TransferReason,
+  type VaccinationCard,
+  overdueMessage,
+  overdueVaccines,
   titleCase,
 } from '@petshop/shared-types'
-import { Button, Card, CardHead, DataRow, Field, FormError, Tabs } from '@/components/ui'
+import { Alert, Button, Card, CardHead, DataRow, EmptyState, Field, FormError, Tabs } from '@/components/ui'
 import {
+  AlertTriangleIcon,
   ImageIcon,
   NoteIcon,
   PaletteIcon,
   PawPrintIcon,
   ScaleIcon,
+  SyringeIcon,
   TrendingUpIcon,
   UsersIcon,
 } from '@/components/icons'
 import { DataGroup } from '@/components/record-hero'
 import { SafetyRecordTab } from './safety-record'
 import { TimelineTab } from './timeline'
+import { VaccinationsTab } from './vaccinations'
 import {
   deletePetAction,
   deletePhotoAction,
@@ -64,6 +70,8 @@ interface Props {
   safetyRecord: SafetyRecord
   /** MOD-PRONT-02: a primeira página do histórico, já filtrada pelo servidor. */
   timeline: TimelinePage
+  /** MOD-PRONT-08. `null` quando a leitura falhou. */
+  vaccinations: VaccinationCard | null
   canUpdate: boolean
   canDelete: boolean
   /** `pet:upload_photo` — o tosador manda a foto do banho pronto (§9). */
@@ -85,8 +93,11 @@ interface Props {
 }
 
 export function PetDetailView(props: Props) {
-  const { pet, weights, album, safetyRecord, canWeigh } = props
+  const { pet, weights, album, safetyRecord, canWeigh, vaccinations } = props
   const [tab, setTab] = useState('dados')
+  const vacinaAtrasada = vaccinations
+    ? overdueMessage(overdueVaccines(vaccinations.current, vaccinations.today))
+    : null
 
   return (
     <div className="space-y-5">
@@ -123,6 +134,16 @@ export function PetDetailView(props: Props) {
         </div>
       )}
 
+      {/*
+        AC-03 de MOD-PRONT-08: a vacina atrasada avisa em toda a ficha, como o alerta de
+        manuseio, e não só na aba. Avisa e não bloqueia — por isso `status`.
+      */}
+      {vacinaAtrasada && pet.status === 'ACTIVE' && (
+        <Alert tone="accent" role="status" icon={<SyringeIcon />} title={vacinaAtrasada}>
+          Veja a carteira na aba Vacinas.
+        </Alert>
+      )}
+
       {pet.warnings.map((warning) => (
         <div
           key={warning.code}
@@ -144,6 +165,11 @@ export function PetDetailView(props: Props) {
             id: 'prontuario',
             label: 'Prontuário',
             ...(safetyRecord.alerts.length ? { count: safetyRecord.alerts.length } : {}),
+          },
+          {
+            id: 'vacinas',
+            label: 'Vacinas',
+            ...(vaccinations?.current.length ? { count: vaccinations.current.length } : {}),
           },
           { id: 'historico', label: 'Histórico' },
         ]}
@@ -168,6 +194,25 @@ export function PetDetailView(props: Props) {
           canUploadPhoto={props.canUploadPhoto}
         />
       )}
+      {tab === 'vacinas' &&
+        (vaccinations ? (
+          <VaccinationsTab
+            petId={pet.id}
+            petName={pet.name}
+            speciesKey={pet.species.key}
+            card={vaccinations}
+            canWriteAlerts={props.canWriteAlerts}
+            canManageRecord={props.canManageRecord}
+            editable={pet.status !== 'DECEASED' && pet.status !== 'TRANSFERRED_OUT'}
+          />
+        ) : (
+          <EmptyState
+            icon={<AlertTriangleIcon />}
+            tone="icon-pet"
+            title="Não conseguimos abrir a carteira"
+            description="A carteira de vacinação não respondeu agora. Recarregue a página em instantes."
+          />
+        ))}
       {tab === 'prontuario' && (
         <SafetyRecordTab
           petId={pet.id}

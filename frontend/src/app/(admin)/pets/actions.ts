@@ -22,6 +22,9 @@ import {
   UpdatePetTutorSchema,
   UpdatePhotoSchema,
   VoidAttendanceSchema,
+  CreateVaccinationSchema,
+  VoidVaccinationSchema,
+  type Vaccination,
   type Allergy,
   type Attendance,
   type PrescriptionView,
@@ -396,6 +399,41 @@ export async function deletePhotoAction(
 function revalidateRecord(petId: string): void {
   revalidatePath(`/pets/${petId}`)
   revalidatePath('/pets')
+}
+
+// ─── Vacinas (MOD-PRONT-08) ──────────────────────────────────────────────────
+
+export async function createVaccinationAction(
+  petId: string,
+  input: unknown,
+): Promise<ActionResult<Vaccination>> {
+  const parsed = CreateVaccinationSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const vaccination = await serverApi().createVaccination(petId, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: vaccination }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+export async function voidVaccinationAction(
+  petId: string,
+  vaccinationId: string,
+  input: unknown,
+): Promise<ActionResult<Vaccination>> {
+  const parsed = VoidVaccinationSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const vaccination = await serverApi().voidVaccination(petId, vaccinationId, parsed.data)
+    revalidateRecord(petId)
+    return { ok: true, data: vaccination }
+  } catch (error) {
+    return toFailure(error)
+  }
 }
 
 export async function createAllergyAction(

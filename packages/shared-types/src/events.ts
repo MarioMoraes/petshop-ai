@@ -406,6 +406,7 @@ export const RECORD_ROUTING_KEYS = {
   alertaAlterado: 'prontuario.alerta.alterado',
   atendimentoAnulado: 'atendimento.anulado',
   prescricaoEmitida: 'prescricao.emitida',
+  vacinaAplicada: 'vacina.aplicada',
 } as const
 
 export type RecordRoutingKey = (typeof RECORD_ROUTING_KEYS)[keyof typeof RECORD_ROUTING_KEYS]
@@ -479,8 +480,26 @@ export interface PrescricaoEmitidaEvent extends BaseEvent {
   vetId: string
 }
 
+/**
+ * Uma vacina entrou na carteira (MOD-PRONT-08, AC-01).
+ *
+ * O lembrete da próxima dose **não** depende dele: é varredura diária sobre
+ * `vaccinations.next_dose_at` (`crm/vaccines.ts`), como o aniversário — evento perdido
+ * com `DISABLE_EVENTS` não pode ser lembrete perdido. Ele existe para a auditoria e para
+ * quem quiser reagir à aplicação.
+ */
+export interface VacinaAplicadaEvent extends BaseEvent {
+  tenantId: string
+  vaccinationId: string
+  petId: string
+  origin: 'INTERNAL' | 'EXTERNAL'
+  vaccineType: string
+  nextDoseAt: string | null
+}
+
 export interface RecordEventMap {
   'prontuario.alerta.alterado': ProntuarioAlertaAlteradoEvent
+  'vacina.aplicada': VacinaAplicadaEvent
   'atendimento.anulado': AtendimentoAnuladoEvent
   'prescricao.emitida': PrescricaoEmitidaEvent
 }

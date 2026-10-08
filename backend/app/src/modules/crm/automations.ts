@@ -124,6 +124,18 @@ const DEFAULTS: Record<
   // o erro que custa o consentimento de toda a base. A quarta é cobrança — e cobrar por
   // mensagem automática é decisão de quem responde pelo caixa, não um padrão que o
   // cliente descobre pelo celular do inadimplente.
+  /**
+   * Nasce **ligado**, ao contrário das campanhas: só dispara para a vacina em que alguém
+   * gravou a próxima dose, e lembrar dela é o que a data existe para fazer.
+   */
+  vaccine_reminder: {
+    enabled: true,
+    channel: 'AUTO',
+    templateKey: 'vaccine_due',
+    config: { sendHour: 9, daysBefore: 7 },
+    label: 'Lembrete de vacina',
+    description: 'Avisa o tutor antes da próxima dose registrada na carteira de vacinação.',
+  },
   birthday_pet: {
     enabled: false,
     channel: 'AUTO',

@@ -71,6 +71,10 @@ class PortalApi {
   Future<PortalPetDetail> pet(String petId) async =>
       PortalPetDetail.fromJson(await _cliente.get('/portal/v1/pets/$petId'));
 
+  /// A carteira de vacinação do pet (MOD-PRONT-08), já sem as doses anuladas.
+  Future<PortalVaccinationCard> vacinas(String petId) async => PortalVaccinationCard.fromJson(
+      await _cliente.get('/portal/v1/pets/$petId/vaccinations'));
+
   /// O histórico do pet, paginado por cursor.
   Future<PortalTimelineResponse> timeline(String petId, {String? cursor, int? limite}) async =>
       PortalTimelineResponse.fromJson(

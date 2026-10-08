@@ -272,6 +272,34 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
     },
   },
 
+  /**
+   * O lembrete da próxima dose (MOD-PRONT-08). `TRANSACTIONAL`, como o `service_done`: é
+   * aviso sobre um cuidado que o próprio petshop registrou, e não oferta — o tutor que
+   * desligou promoção continua precisando saber que a antirrábica vence.
+   */
+  {
+    key: 'vaccine_due',
+    label: 'Lembrete de vacina',
+    category: 'TRANSACTIONAL',
+    variables: [...BASE_VARIABLES, 'pet.nome', 'vacina.nome', 'vacina.data'],
+    subject: 'A vacina de {{pet.nome}} vence em {{vacina.data}}',
+    body: {
+      WHATSAPP:
+        '{{tutor.primeiro_nome}}, a próxima dose da {{vacina.nome}} de {{pet.nome}} vence em ' +
+        '{{vacina.data}}.\n\n' +
+        'Para agendar, é só chamar no {{petshop.telefone}}.',
+      EMAIL:
+        '{{tutor.primeiro_nome}},\n\n' +
+        'A próxima dose da {{vacina.nome}} de {{pet.nome}} vence em {{vacina.data}}.\n\n' +
+        'Para agendar, é só chamar no {{petshop.telefone}}.',
+    },
+    push: {
+      title: 'Vacina de {{pet.nome}}',
+      body: 'A {{vacina.nome}} vence em {{vacina.data}}.',
+      abre: 'agendamento',
+    },
+  },
+
   // ─── Taxi Dog (MOD-CRM-09) ─────────────────────────────────────────────────
   //
   // Os quatro são **OPERATIONAL**, e essa é a única coisa que os separa dos demais:

@@ -105,7 +105,7 @@ export async function readOwnPetTimeline(
  * **404** (RN-03), e não uma linha do tempo vazia. Uma lista vazia responderia
  * "este pet existe e nunca foi atendido" a quem não deveria saber sequer que ele existe.
  */
-async function assertLinked(
+export async function assertLinked(
   tx: TenantTransaction,
   tutorId: string,
   petId: string,

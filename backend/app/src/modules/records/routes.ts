@@ -1,13 +1,15 @@
 import {
   AllergyCheckSchema,
   CreateAllergySchema,
+  CreateVaccinationSchema,
+  VoidVaccinationSchema,
   CreateMedicalAlertSchema,
   RecordTemperamentSchema,
   UpdateAllergySchema,
   UpdateMedicalAlertSchema,
 } from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
-import { requirePermission, requireTenantContext } from './auth.js'
+import { hasPermission, requirePermission, requireTenantContext } from './auth.js'
 import { parseInput } from './validate.js'
 import type { ActorContext } from './actor.js'
 import { petAlerts } from './alerts.js'
@@ -22,6 +24,7 @@ import {
   updateAllergy,
   updateMedicalAlert,
 } from './service.js'
+import { createVaccination, getVaccinationCard, voidVaccination } from './vaccinations.js'
 
 /**
  * Rotas do prontuário de segurança (PRD prontuario_04 §5).
@@ -197,6 +200,59 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
     async (request) => {
       const patch = parseInput(UpdateMedicalAlertSchema, request.body)
       return updateMedicalAlert(actorOf(request), request.params.petId, request.params.id, patch)
+    },
+  )
+
+  // ─── Vacinas (MOD-PRONT-08) ────────────────────────────────────────────────
+
+  /**
+   * Ler é `record:read_alerts`, de todo mundo que encosta no pet: a vacina vencida é o
+   * que diz se ele pode dividir a creche com os outros.
+   */
+  app.get<{ Params: PetParams }>(
+    '/v1/pets/:petId/vaccinations',
+    { preHandler: requirePermission('record:read_alerts') },
+    async (request) => {
+      const auth = requireTenantContext(request)
+      return getVaccinationCard(auth.tenantId, request.params.petId)
+    },
+  )
+
+  /**
+   * `record:write_alerts` abre a porta — administrador, veterinário e recepção, os papéis
+   * do PRD —, e a dose **aplicada aqui** pede ainda `record:write` e CRMV, conferidos no
+   * serviço. A recepção transcreve a carteira de papel; quem assina a aplicação é o vet.
+   */
+  app.post<{ Params: PetParams }>(
+    '/v1/pets/:petId/vaccinations',
+    {
+      preHandler: requirePermission(
+        'record:write_alerts',
+        'Seu perfil não permite registrar vacinas',
+      ),
+    },
+    async (request, reply) => {
+      const input = parseInput(CreateVaccinationSchema, request.body)
+      const vaccination = await createVaccination(actorOf(request), request.params.petId, input, {
+        canWriteClinical: hasPermission(request, 'record:write'),
+      })
+      return reply.status(201).send(vaccination)
+    },
+  )
+
+  app.post<{ Params: PetParams & { id: string } }>(
+    '/v1/pets/:petId/vaccinations/:id/void',
+    {
+      preHandler: requirePermission(
+        'record:write_alerts',
+        'Seu perfil não permite anular vacinas',
+      ),
+    },
+    async (request) => {
+      const input = parseInput(VoidVaccinationSchema, request.body)
+      return voidVaccination(actorOf(request), request.params.petId, request.params.id, input, {
+        canWriteClinical: hasPermission(request, 'record:write'),
+      })
     },
   )
 }

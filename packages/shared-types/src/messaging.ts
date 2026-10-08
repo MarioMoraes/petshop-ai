@@ -502,6 +502,16 @@ export const AutomationConfigSchema = z.discriminatedUnion('key', [
      */
     minDebtCents: z.number().int().min(0).max(1_000_000).default(2000),
   }),
+  /**
+   * O lembrete da próxima dose (MOD-PRONT-08, AC-01). Varredura diária como as da fatia
+   * 3, mas **de todo plano**: é cuidado sobre serviço já prestado, e não campanha.
+   */
+  z.strictObject({
+    key: z.literal('vaccine_reminder'),
+    sendHour: z.number().int().min(0).max(23).default(9),
+    /** Quantos dias antes da próxima dose. Sete, como o PRD pede. */
+    daysBefore: z.number().int().min(1).max(30).default(7),
+  }),
 ])
 export type AutomationConfig = z.output<typeof AutomationConfigSchema>
 
@@ -518,6 +528,7 @@ export const AUTOMATION_KEYS = [
   'birthday_tutor',
   'inactive_campaign',
   'dunning',
+  'vaccine_reminder',
 ] as const
 
 /**

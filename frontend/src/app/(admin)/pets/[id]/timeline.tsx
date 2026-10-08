@@ -81,6 +81,7 @@ const KIND_LABEL: Record<TimelineKind, string> = {
   MEDICAL_ALERT: 'Alerta médico',
   PHOTO: 'Foto',
   TRANSFER: 'Titularidade',
+  VACCINATION: 'Vacina',
 }
 
 /** A mesma família de cor que o módulo tem no resto do sistema. */
@@ -92,13 +93,24 @@ const KIND_TONE: Record<TimelineKind, string> = {
   MEDICAL_ALERT: 'icon-health',
   PHOTO: 'icon-brand',
   TRANSFER: 'icon-people',
+  VACCINATION: 'icon-pet',
 }
 
-function dayLabel(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', {
+/**
+ * A vacina é **data**, e não instante: chega como meia-noite UTC, que no relógio de
+ * Brasília é a véspera às 21h. Ela é lida em UTC e não mostra hora — a carteira de papel
+ * não diz a que horas a dose foi dada.
+ */
+function isDateOnly(entry: TimelineEntry): boolean {
+  return entry.kind === 'VACCINATION'
+}
+
+function dayLabel(entry: TimelineEntry): string {
+  return new Date(entry.occurredAt).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
+    ...(isDateOnly(entry) ? { timeZone: 'UTC' } : {}),
   })
 }
 
@@ -147,13 +159,13 @@ export function TimelineTab({
       <ol className="space-y-2">
         {entries.map((entry, index) => {
           const primeiroDoDia =
-            index === 0 || dayLabel(entries[index - 1]!.occurredAt) !== dayLabel(entry.occurredAt)
+            index === 0 || dayLabel(entries[index - 1]!) !== dayLabel(entry)
 
           return (
             <li key={`${entry.kind}-${entry.id}`}>
               {primeiroDoDia && (
                 <p className={`hint mb-1.5 ${index === 0 ? '' : 'mt-5'}`}>
-                  {dayLabel(entry.occurredAt)}
+                  {dayLabel(entry)}
                 </p>
               )}
               <TimelineCard
@@ -237,7 +249,7 @@ function TimelineCard({
                 {SEVERITY_LABELS[entry.severity]}
               </Badge>
             )}
-            {anulado && <Badge tone="danger">Anulado</Badge>}
+            {anulado && <Badge tone="danger">{isDateOnly(entry) ? 'Anulada' : 'Anulado'}</Badge>}
             {adendos > 0 && <Badge>{adendos === 1 ? '1 adendo' : `${adendos} adendos`}</Badge>}
           </div>
 
@@ -248,7 +260,7 @@ function TimelineCard({
           )}
         </div>
 
-        <span className="hint shrink-0">{timeLabel(entry.occurredAt)}</span>
+        {!isDateOnly(entry) && <span className="hint shrink-0">{timeLabel(entry.occurredAt)}</span>}
       </div>
 
       {clicavel && (

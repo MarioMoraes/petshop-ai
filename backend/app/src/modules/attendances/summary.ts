@@ -1,9 +1,10 @@
 import { withTenant } from '@petshop/db'
-import type { PetClinicalSummary } from '@petshop/shared-types'
+import { overdueVaccines, type PetClinicalSummary } from '@petshop/shared-types'
 import { cacheGet, cacheSet } from '../../shared/redis.js'
 import { notFound } from '../records/errors.js'
 import { loadAlertSources } from '../records/alerts.js'
 import { decryptOptional, openCipher } from '../records/crypto.js'
+import { buildCard, loadVaccinations, tenantToday } from '../records/vaccinations.js'
 import { SUMMARY_KEY, SUMMARY_TTL_SECONDS } from './cache.js'
 
 /**
@@ -13,10 +14,10 @@ import { SUMMARY_KEY, SUMMARY_TTL_SECONDS } from './cache.js'
  * quando existir. Tudo o que está aqui já existe espalhado em outras telas; o valor
  * do endpoint é ser **uma** chamada com SLO de 150ms, em vez de cinco.
  *
- * `vaccinationStatus` sai `UNKNOWN` enquanto MOD-PRONT-08 não existir, e isso é
- * deliberado: "desconhecido" não é "em dia". Um resumo que afirmasse a segunda coisa
- * sem ter a tabela de vacinas mentiria exatamente no campo em que a mentira custa
- * caro — o serviço de creche que só deveria aceitar pet vacinado.
+ * `vaccinationStatus` sai da carteira (MOD-PRONT-08), e `UNKNOWN` continua sendo a
+ * resposta de quem nunca teve vacina lançada: "desconhecido" não é "em dia". A vacina
+ * atrasada **avisa** e não entra em `blockingFlags` — o bloqueio de creche e hotel
+ * (`requireVaccinationForServices`, RN-12) não está ligado.
  */
 
 export async function getClinicalSummary(
@@ -36,7 +37,7 @@ export async function getClinicalSummary(
     const twelveMonthsAgo = new Date()
     twelveMonthsAgo.setUTCMonth(twelveMonthsAgo.getUTCMonth() - 12)
 
-    const [last, count12m] = await Promise.all([
+    const [last, count12m, vaccinations, today] = await Promise.all([
       tx.attendance.findFirst({
         where: { petId, status: 'COMPLETED' },
         orderBy: { startedAt: 'desc' },
@@ -45,7 +46,10 @@ export async function getClinicalSummary(
       tx.attendance.count({
         where: { petId, status: 'COMPLETED', startedAt: { gte: twelveMonthsAgo } },
       }),
+      loadVaccinations(tx, petId),
+      tenantToday(tx),
     ])
+    const card = buildCard(vaccinations, today)
 
     // RN-03: a bandeira é o que a agenda lê para decidir se bloqueia. Ela sai da
     // alergia CRÍTICA, e só dela — as demais severidades avisam, não impedem.
@@ -75,7 +79,8 @@ export async function getClinicalSummary(
         severity: alert.severity,
         instructions: decryptOptional(cipher, alert.instructionsEncrypted),
       })),
-      vaccinationStatus: 'UNKNOWN' as const,
+      vaccinationStatus: card.status,
+      overdueVaccines: overdueVaccines(card.current, today),
       lastAttendanceAt: last?.startedAt.toISOString() ?? null,
       attendanceCount12m: count12m,
       blockingFlags,

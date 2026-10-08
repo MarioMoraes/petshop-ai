@@ -333,6 +333,33 @@ function Automations({
                     </Field>
                   )}
 
+                  {'daysBefore' in automation.config && (
+                    <Field
+                      label="Avisar com antecedência de"
+                      htmlFor={`antes-${automation.key}`}
+                      hint="Dias antes da próxima dose"
+                    >
+                      <input
+                        id={`antes-${automation.key}`}
+                        type="number"
+                        className="field"
+                        min={1}
+                        max={30}
+                        defaultValue={Number(automation.config.daysBefore ?? 7)}
+                        disabled={pending}
+                        onBlur={(event) => {
+                          const value = Number(event.target.value)
+                          if (value === Number(automation.config.daysBefore)) return
+                          save(
+                            automation.key,
+                            { config: { daysBefore: value } },
+                            automation.label,
+                          )
+                        }}
+                      />
+                    </Field>
+                  )}
+
                   {'cooldownDays' in automation.config && (
                     <Field
                       label="Não repetir antes de"

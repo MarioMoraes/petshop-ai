@@ -2,6 +2,12 @@ import { z } from 'zod'
 import { SITE_VISIBLE_TENANT_STATUSES } from './site.js'
 import { CEPSchema, UFSchema } from './tutor.js'
 import { TaxiLegSchema, TaxiRideStatusSchema } from './taxi.js'
+import {
+  VaccinationCardSchema,
+  VaccinationOriginSchema,
+  VaccinationSchema,
+  VaccinationStatusSchema,
+} from './vaccination.js'
 
 /**
  * MOD-PORTAL — o contrato da superfície do tutor (PRD portal_tutor_09 §5).
@@ -354,6 +360,20 @@ export const PortalTimelineResponseSchema = z.object({
   nextCursor: z.string().nullable(),
 })
 export type PortalTimelineResponse = z.infer<typeof PortalTimelineResponseSchema>
+
+/**
+ * A carteira de vacinação do pet (MOD-PRONT-08) — `GET /portal/v1/pets/:petId/vaccinations`.
+ *
+ * O mesmo schema da equipe, renomeado aqui para entrar no contrato do app: o gerador de
+ * Dart lê só este arquivo. O que difere é o recorte, e ele é do servidor — a dose
+ * anulada não chega.
+ */
+export const PortalVaccinationCardSchema = VaccinationCardSchema
+/** O item e os enums com nome próprio, para o Dart não os batizar de `Current` e `Origin`. */
+export const PortalVaccinationSchema = VaccinationSchema
+export const PortalVaccinationOriginSchema = VaccinationOriginSchema
+export const PortalVaccinationStatusSchema = VaccinationStatusSchema
+export type PortalVaccinationCard = z.infer<typeof PortalVaccinationCardSchema>
 
 export const PortalTimelineQuerySchema = z
   .object({

@@ -36,6 +36,7 @@ import type {
   UpdateOwnTutorInput,
   UpdatePortalAddressInput,
   UpdatePortalPreferenceInput,
+  VaccinationCard,
 } from '@petshop/shared-types'
 
 /**
@@ -231,6 +232,11 @@ export function readOwnPetTimeline(
   const suffix = query.size > 0 ? `?${query.toString()}` : ''
 
   return request({ path: `/portal/v1/pets/${petId}/timeline${suffix}` })
+}
+
+/** MOD-PRONT-08 — a carteira de vacinação, sem as doses anuladas. */
+export function readOwnPetVaccinations(petId: string): Promise<VaccinationCard> {
+  return request({ path: `/portal/v1/pets/${petId}/vaccinations` })
 }
 
 // ─── MOD-PORTAL-05 — Agendamento Online ──────────────────────────────────────

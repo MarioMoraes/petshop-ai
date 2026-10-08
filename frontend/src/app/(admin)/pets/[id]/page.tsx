@@ -34,7 +34,7 @@ export default async function PetPage({ params }: PageProps) {
   // buscá-los aqui evita que o cliente descubra depois que a aba estava vazia. Se
   // qualquer um falhar, o detalhe do pet ainda abre — nenhum dos dois é o assunto
   // principal da página.
-  const [weights, transfers, album, safetyRecord, timeline] = await Promise.all([
+  const [weights, transfers, album, safetyRecord, timeline, vaccinations] = await Promise.all([
     serverApi()
       .listPetWeights(id)
       .catch(() => []),
@@ -60,6 +60,11 @@ export default async function PetPage({ params }: PageProps) {
     serverApi()
       .getPetTimeline(id, { limit: 20 })
       .catch(() => ({ entries: [], nextCursor: null })),
+    // MOD-PRONT-08. `null` quando falha, e não carteira vazia: "sem registro" e "não
+    // consegui ler" pedem frases diferentes na aba.
+    serverApi()
+      .getVaccinationCard(id)
+      .catch(() => null),
   ])
 
   const canUpdate = me.permissions.includes('pet:update')
@@ -133,6 +138,7 @@ export default async function PetPage({ params }: PageProps) {
         album={album}
         safetyRecord={safetyRecord}
         timeline={timeline}
+        vaccinations={vaccinations}
         canUpdate={canUpdate}
         canDelete={me.permissions.includes('pet:delete')}
         canWeigh={me.permissions.includes('pet:weigh')}

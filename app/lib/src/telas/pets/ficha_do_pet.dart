@@ -10,6 +10,7 @@ import '../../ui/tema.dart';
 import 'editar_pet.dart';
 import 'historico.dart';
 import 'rotulos.dart';
+import 'vacinas.dart';
 
 /// A ficha do pet, com a história dele embaixo (MOD-PORTAL-03 e 04).
 ///
@@ -17,12 +18,12 @@ import 'rotulos.dart';
 /// "quando foi o último banho?", e a ficha é o cabeçalho dessa resposta, não um destino
 /// concorrente. Rolar é mais barato que decidir.
 ///
-/// A ordem — alertas, ficha, histórico — é a da urgência. A alergia é o que muda uma
-/// decisão hoje; a data de nascimento não muda nada.
+/// A ordem — alertas, ficha, vacinas, histórico — é a da urgência. A alergia é o que muda
+/// uma decisão hoje; a data de nascimento não muda nada.
 ///
-/// As duas chamadas saem **juntas**: a ficha e a primeira página do histórico partem
-/// antes do primeiro `await`, então a tela custa uma ida ao servidor, e não duas em
-/// fila. É a mesma coisa que o `Promise.all` da página da web faz.
+/// As três chamadas saem **juntas**: a ficha, a carteira de vacinação e a primeira página
+/// do histórico partem antes do primeiro `await`, então a tela custa uma ida ao servidor,
+/// e não três em fila. É a mesma coisa que o `Promise.all` da página da web faz.
 class FichaDoPet extends StatefulWidget {
   const FichaDoPet({
     super.key,
@@ -48,10 +49,15 @@ class _FichaDoPetState extends State<FichaDoPet> {
   /// da web, dito no vocabulário de quem tem pilha de navegação.
   bool _mudou = false;
 
-  Future<(PortalPetDetail, PortalTimelineResponse)> _buscar() async {
+  Future<(PortalPetDetail, PortalTimelineResponse, PortalVaccinationCard?)> _buscar() async {
     final ficha = widget.sessao.api.pet(widget.petId);
     final historico = widget.sessao.api.timeline(widget.petId, limite: 10);
-    return (await ficha, await historico);
+    // A carteira é um pedaço da tela, e não a tela: se ela falhar, a ficha abre sem ela.
+    final vacinas = widget.sessao.api
+        .vacinas(widget.petId)
+        .then<PortalVaccinationCard?>((c) => c)
+        .catchError((Object _) => null);
+    return (await ficha, await historico, await vacinas);
   }
 
   @override
@@ -63,14 +69,15 @@ class _FichaDoPetState extends State<FichaDoPet> {
       },
       child: Tela(
         appBar: AppBar(title: Text(widget.nome)),
-        corpo: CarregarDados<(PortalPetDetail, PortalTimelineResponse)>(
+        corpo: CarregarDados<(PortalPetDetail, PortalTimelineResponse, PortalVaccinationCard?)>(
           buscar: _buscar,
           construir: (context, dado, recarregar) {
-            final (pet, historico) = dado;
+            final (pet, historico, vacinas) = dado;
             return _Corpo(
               sessao: widget.sessao,
               pet: pet,
               historico: historico,
+              vacinas: vacinas,
               aoSalvar: () async {
                 _mudou = true;
                 await recarregar();
@@ -88,12 +95,16 @@ class _Corpo extends StatelessWidget {
     required this.sessao,
     required this.pet,
     required this.historico,
+    required this.vacinas,
     required this.aoSalvar,
   });
 
   final Sessao sessao;
   final PortalPetDetail pet;
   final PortalTimelineResponse historico;
+
+  /// `null` quando a carteira não respondeu.
+  final PortalVaccinationCard? vacinas;
   final Future<void> Function() aoSalvar;
 
   @override
@@ -102,6 +113,8 @@ class _Corpo extends StatelessWidget {
     final t = context.tokens;
     final nomeDoPetshop = sessao.contexto?.tenant.name ?? 'estabelecimento';
     final grave = pet.alerts.any((a) => a.severity == Severity.CRITICAL);
+    final vacinaAtrasada =
+        vacinas != null && !pet.inMemoriam ? avisoDeVacinaAtrasada(vacinas!) : null;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -162,6 +175,16 @@ class _Corpo extends StatelessWidget {
           const SizedBox(height: 16),
         ],
 
+        if (vacinaAtrasada != null) ...[
+          Aviso(
+            tom: TomDoAviso.atencao,
+            icone: Icons.vaccines_outlined,
+            titulo: vacinaAtrasada,
+            texto: 'Fale com o $nomeDoPetshop para marcar a próxima dose.',
+          ),
+          const SizedBox(height: 16),
+        ],
+
         Cartao(
           padding: const EdgeInsets.all(18),
           child: Column(
@@ -214,6 +237,10 @@ class _Corpo extends StatelessWidget {
               ],
           ),
         ),
+        if (vacinas != null) ...[
+          const SizedBox(height: 30),
+          CarteiraDeVacinas(carteira: vacinas!),
+        ],
         const SizedBox(height: 30),
 
         Historico(

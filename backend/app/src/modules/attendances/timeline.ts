@@ -16,8 +16,8 @@ import { openCipher, type RecordCipher } from '../records/crypto.js'
 /**
  * MOD-PRONT-02 — a linha do tempo do pet.
  *
- * Sete origens em ordem cronológica: atendimentos, pesagens, alergias,
- * temperamentos, alertas médicos, fotos e transferências de titularidade. Não há
+ * Oito origens em ordem cronológica: atendimentos, pesagens, alergias,
+ * temperamentos, alertas médicos, fotos, transferências de titularidade e vacinas. Não há
  * tabela de linha do tempo — ela é **consulta**, e é assim de propósito: uma tabela
  * de eventos exigiria que toda escrita do sistema se lembrasse de alimentá-la, e a
  * primeira que esquecesse produziria um histórico que mente por omissão.
@@ -56,6 +56,7 @@ export async function getTimeline(
           'MEDICAL_ALERT',
           'PHOTO',
           'TRANSFER',
+          'VACCINATION',
         ])
       : (options.query.kinds ?? OPERATIONAL_TIMELINE_KINDS).filter((kind) =>
           OPERATIONAL_TIMELINE_KINDS.includes(kind),
@@ -77,6 +78,7 @@ export async function getTimeline(
       allowed.has('MEDICAL_ALERT') ? medicalAlerts(tx, petId, before, take, cipher) : [],
       allowed.has('PHOTO') ? photos(tx, petId, before, take) : [],
       allowed.has('TRANSFER') ? transfers(tx, petId, before, take) : [],
+      allowed.has('VACCINATION') ? vaccinations(tx, petId, before, take, options.full) : [],
     ])
 
     const merged = groups
@@ -133,6 +135,51 @@ async function attendances(
       voidReason: row.voidReason,
       // O valor é do prontuário completo: o banhista vê o que fez, não quanto custou.
       ...(full ? { totalCents: Number(row.totalCents) } : {}),
+    },
+  }))
+}
+
+/**
+ * A vacina entra no dia da aplicação, e não no do lançamento: a carteira de papel
+ * transcrita hoje conta a história de março. Lote e CRMV são do prontuário completo —
+ * o banhista precisa saber que a vacina existe e quando vence, não de que frasco saiu.
+ */
+async function vaccinations(
+  tx: TenantTransaction,
+  petId: string,
+  before: CursorPosition | null,
+  take: number,
+  full: boolean,
+): Promise<TimelineEntry[]> {
+  const rows = await tx.vaccination.findMany({
+    where: { petId, ...whereBefore(before, 'appliedAt') },
+    orderBy: [{ appliedAt: 'desc' }, { id: 'desc' }],
+    take,
+  })
+
+  return rows.map((row) => ({
+    kind: 'VACCINATION' as const,
+    id: row.id,
+    occurredAt: row.appliedAt.toISOString(),
+    title: `Vacina — ${row.vaccineLabel}`,
+    detail: row.nextDoseAt
+      ? `Próxima dose em ${row.nextDoseAt.toISOString().slice(0, 10).split('-').reverse().join('/')}`
+      : null,
+    status: row.voidedAt ? 'VOIDED' : row.origin,
+    severity: null,
+    meta: {
+      origin: row.origin,
+      nextDoseAt: row.nextDoseAt?.toISOString().slice(0, 10) ?? null,
+      voidReason: row.voidReason,
+      ...(full
+        ? {
+            batch: row.batch,
+            manufacturer: row.manufacturer,
+            vetName: row.vetName,
+            crmv: row.crmv,
+            externalClinic: row.externalClinic,
+          }
+        : {}),
     },
   }))
 }

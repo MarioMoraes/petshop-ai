@@ -1,5 +1,6 @@
 import type { JobDefinition } from '@petshop/job-scheduler'
 import { sendBirthdays } from '../modules/crm/birthdays.js'
+import { sendVaccineReminders } from '../modules/crm/vaccines.js'
 import { runScheduledCampaigns } from '../modules/crm/campaigns.js'
 import { runDunning } from '../modules/crm/dunning.js'
 import { runInactiveCampaign } from '../modules/crm/inactive.js'
@@ -35,6 +36,11 @@ export const crmJobs: JobDefinition[] = [
     name: 'crm.birthdays',
     schedule: '15 * * * *',
     run: (now) => sendBirthdays(now),
+  },
+  {
+    name: 'crm.vaccine-reminders',
+    schedule: '45 * * * *',
+    run: (now) => sendVaccineReminders(now),
   },
   {
     name: 'crm.dunning',
