@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+import { addDays, todayIn } from '@petshop/shared-types'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   callWebhook,
@@ -16,6 +18,7 @@ import {
   ownerPrisma,
   resetDatabase,
   resetPorts,
+  TEST_TIMEZONE,
   upsertPayload,
   type TenantFixture,
 } from './fixtures.js'
@@ -274,6 +277,112 @@ describe('MOD-AI-03 — o agente responde lendo', () => {
 
     expect(JSON.stringify(modelo.calls[1]?.messages.at(-1))).toContain('is_error')
     expect((await conversa(id)).handoffReason).toBe('REQUESTED')
+  })
+})
+
+describe('a carteira de vacinação pelo WhatsApp', () => {
+  const hoje = todayIn(TEST_TIMEZONE)
+
+  function vacina(petId: string, data: Record<string, unknown>) {
+    return ownerPrisma.vaccination.create({
+      data: {
+        tenantId: tenant.tenantId,
+        petId,
+        origin: 'EXTERNAL',
+        vaccineKey: 'V10',
+        vaccineLabel: 'V10 (Polivalente)',
+        appliedAt: new Date(addDays(hoje, -400)),
+        nextDoseAt: new Date(addDays(hoje, -35)),
+        ...data,
+      },
+    })
+  }
+
+  it('diz o nome e as datas, e nunca lote, veterinário nem clínica', async () => {
+    // Porta real: quem lê é a mesma função da carteira do Portal.
+    const thor = await givenPet(tenant, tutorId, 'Thor')
+    await vacina(thor, {
+      manufacturer: 'Zoetis',
+      batch: 'L2026-091',
+      externalClinic: 'Clínica Bicho Feliz',
+    })
+    await vacina(thor, {
+      origin: 'INTERNAL',
+      vaccineKey: 'RABIES',
+      vaccineLabel: 'Antirrábica',
+      appliedAt: new Date(addDays(hoje, -10)),
+      nextDoseAt: new Date(addDays(hoje, 355)),
+      manufacturer: 'Ceva',
+      batch: 'RB-777',
+      batchExpiresAt: new Date(addDays(hoje, 200)),
+      appliedBy: randomUUID(),
+      vetName: 'Dra. Carla Mendes',
+      crmv: 'CRMV-SP 12345',
+    })
+
+    const modelo = installFakeModel(
+      { tools: [{ name: 'consultarVacinas', input: { petId: thor } }] },
+      { reply: 'A V10 do Thor está atrasada; a antirrábica está em dia.' },
+    )
+
+    const id = await givenInbound('a vacina do Thor está em dia?')
+    await answer(tenant.tenantId, id)
+
+    const entregue = JSON.stringify(modelo.calls[1]?.messages.at(-1))
+    expect(entregue).toContain('V10 (Polivalente)')
+    expect(entregue).toContain('atrasada há 35 dias')
+    expect(entregue).toContain('Antirrábica')
+    expect(entregue).toContain('em dia')
+    // O recorte: o que o lembrete já manda por este número, e nada além.
+    for (const segredo of [
+      'L2026-091',
+      'RB-777',
+      'Zoetis',
+      'Ceva',
+      'Carla',
+      'CRMV',
+      'Bicho Feliz',
+    ]) {
+      expect(entregue).not.toContain(segredo)
+    }
+
+    const registro = await ownerPrisma.agentToolCall.findFirstOrThrow({
+      where: { conversationId: id, tool: 'consultarVacinas' },
+    })
+    expect(registro).toMatchObject({ status: 'EXECUTED', resultSummary: '2 vacinas, atrasada' })
+  })
+
+  it('a carteira de outro tutor é recusada, como na tela', async () => {
+    const outroTutor = await givenTutor(tenant, { phone: '+5511911110000' })
+    const petAlheio = await givenPet(tenant, outroTutor, 'Rex')
+    await vacina(petAlheio, {})
+
+    const modelo = installFakeModel(
+      { tools: [{ name: 'consultarVacinas', input: { petId: petAlheio } }] },
+      { reply: 'Não encontrei esse pet na sua ficha.', handoff: true },
+    )
+
+    const id = await givenInbound('a vacina do Rex está em dia?')
+    await answer(tenant.tenantId, id)
+
+    const entregue = JSON.stringify(modelo.calls[1]?.messages.at(-1))
+    expect(entregue).toContain('is_error')
+    expect(entregue).not.toContain('V10')
+  })
+
+  it('carteira vazia não é "em dia"', async () => {
+    const thor = await givenPet(tenant, tutorId, 'Thor')
+    const modelo = installFakeModel(
+      { tools: [{ name: 'consultarVacinas', input: { petId: thor } }] },
+      { reply: 'Não há vacina registrada aqui para o Thor.' },
+    )
+
+    const id = await givenInbound('quando é a próxima vacina do Thor?')
+    await answer(tenant.tenantId, id)
+
+    const entregue = JSON.stringify(modelo.calls[1]?.messages.at(-1))
+    expect(entregue).toContain('sem registro')
+    expect(entregue).toContain('não quer dizer que ele')
   })
 })
 

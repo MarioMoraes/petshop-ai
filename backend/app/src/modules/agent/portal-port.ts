@@ -7,6 +7,7 @@ import type {
   PortalPetSummary,
   PortalTaxiOffer,
   PortalTenantResponse,
+  VaccinationCard,
 } from '@petshop/shared-types'
 import {
   cancelOwnAppointment,
@@ -24,6 +25,7 @@ import { readOwnFinance } from '../portal/finance.js'
 import { readPortalTenant } from '../portal/me.js'
 import { listOwnPets } from '../portal/pets.js'
 import { readTaxiOffer } from '../portal/taxi.js'
+import { readOwnPetVaccinations } from '../portal/vaccinations.js'
 
 /**
  * A **sexta porta** do MOD-PORTAL (§5 do PRD agentes_ia_15).
@@ -34,11 +36,11 @@ import { readTaxiOffer } from '../portal/taxi.js'
  * das duas mudar, e o cliente passa a receber respostas diferentes conforme onde
  * pergunta.
  *
- * Onze métodos, todos recortados ao `tutorId` **da conversa**. Nenhum deles aceita um id
+ * Doze métodos, todos recortados ao `tutorId` **da conversa**. Nenhum deles aceita um id
  * de tutor vindo dos argumentos do modelo — é a RN-02, e é a diferença entre uma tool e
  * uma porta aberta.
  *
- * **Sete leem e quatro escrevem** (fatia 3). A divisão não é de conveniência: as quatro
+ * **Oito leem e quatro escrevem** (fatia 3; a carteira de vacinação entrou em 2026-10-09). A divisão não é de conveniência: as quatro
  * últimas só são alcançadas por `confirmarProposta`, depois de o tutor ter dito sim a uma
  * proposta gravada — é a RN-03, e é o que impede o modelo de agendar porque entendeu
  * errado uma frase.
@@ -87,6 +89,7 @@ export interface AgentPortalPort {
   finance(tenantId: string, tutorId: string): Promise<PortalFinanceResponse>
   tenant(tenantId: string): Promise<PortalTenantResponse>
   taxi(tenantId: string, tutorId: string): Promise<PortalTaxiOffer>
+  vaccinations(tenantId: string, tutorId: string, petId: string): Promise<VaccinationCard>
 
   // ─── As escritas (MOD-AI-04) ───────────────────────────────────────────────
 
@@ -151,6 +154,15 @@ function createInProcessPort(): AgentPortalPort {
 
     taxi(tenantId, tutorId) {
       return readTaxiOffer(callerOf(tenantId), tutorId)
+    },
+
+    vaccinations(tenantId, tutorId, petId) {
+      /**
+       * A carteira do Portal, com a posse do pet conferida e a dose anulada já fora. O
+       * recorte do que o agente **diz** dela — nome e datas, sem lote nem veterinário —
+       * é feito na tool (`tools.ts`), e não aqui: a porta devolve o que a tela devolve.
+       */
+      return readOwnPetVaccinations(tenantId, tutorId, petId)
     },
 
     appointment(tenantId, tutorId, appointmentId) {

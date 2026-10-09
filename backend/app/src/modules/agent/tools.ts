@@ -6,8 +6,11 @@ import {
   ProporAgendamentoArgsSchema,
   ProporCancelamentoArgsSchema,
   ProporRemarcacaoArgsSchema,
+  VACCINATION_DUE_SOON_DAYS,
+  addDays,
   formatBRL,
   zonedDate,
+  type VaccinationCard,
 } from '@petshop/shared-types'
 import { logger } from '../../shared/logger.js'
 import { invalid, validationError } from './errors.js'
@@ -21,7 +24,8 @@ import {
 } from './proposals.js'
 
 /**
- * As dez tools do agente: sete leituras (MOD-AI-03) e três escritas (MOD-AI-04).
+ * As onze tools do agente: oito leituras (MOD-AI-03, e a carteira de vacinação desde
+ * 2026-10-09) e três escritas (MOD-AI-04).
  *
  * **Elas não foram escritas, foram escolhidas.** Toda função que o agente chama já existe,
  * já valida, já respeita o escopo do tutor e já é a mesma que a tela do Portal usa. O
@@ -43,6 +47,13 @@ import {
  * financeiro, registro clínico, alteração de ficha ou envio de campanha (AC-06, RN-06). O
  * telefone identifica, não autentica (RN-01) — e dado de saúde não sai por um canal cuja
  * prova de identidade é o número de quem escreveu.
+ *
+ * **A carteira de vacinação é a exceção, e com recorte.** O lembrete da próxima dose
+ * (`crm/vaccines.ts`) já manda, para este mesmo número, o nome da vacina e a data — então
+ * o agente dizer o mesmo não abre nada que o produto já não diga. `consultarVacinas`
+ * devolve só isso: nome, quando foi aplicada, quando vence a próxima e a situação. Lote,
+ * fabricante, veterinário, CRMV e clínica ficam de fora, como fica de fora o valor da
+ * dívida.
  *
  * **As três escritas são propostas, e não escritas** (RN-03). Elas não gravam nada: a
  * proposta fica registrada com um token, e quem grava é `confirmarProposta`, no turno em
@@ -162,6 +173,22 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
       'trecho.',
     strict: true,
     input_schema: { type: 'object', properties: {}, required: [], additionalProperties: false },
+  },
+
+  {
+    name: 'consultarVacinas',
+    description:
+      'A carteira de vacinação de um pet: cada vacina, quando foi aplicada, quando vence ' +
+      'a próxima dose e a situação (em dia, vence em breve, atrasada). Use para responder ' +
+      '"quando é a próxima vacina?" e "a vacina dele está em dia?". Diga só o que vier ' +
+      'aqui — não recomende vacina nem comente reação ou saúde.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: { petId: { type: 'string', description: 'O id do pet, de listarMeusPets.' } },
+      required: ['petId'],
+      additionalProperties: false,
+    },
   },
 
   /**
@@ -466,6 +493,18 @@ async function execute(scope: ToolScope, name: string, input: unknown): Promise<
       }
     }
 
+    case 'consultarVacinas': {
+      const { petId } = asObject(input)
+      const card = await port.vaccinations(tenantId, tutorId, requireString(petId, 'petId'))
+      return {
+        text: json(carteiraParaOModelo(card)),
+        summary:
+          card.current.length === 0
+            ? 'carteira sem vacinas'
+            : `${contar(card.current.length, 'vacina', 'vacinas')}, ${SITUACAO_DA_CARTEIRA[card.status]}`,
+      }
+    }
+
     case 'proporAgendamento':
       return proporAgendamento(scope, input)
 
@@ -677,6 +716,71 @@ function horaLocal(isoDate: string, timezone: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(isoDate))
+}
+
+const SITUACAO_DA_CARTEIRA: Record<VaccinationCard['status'], string> = {
+  UP_TO_DATE: 'em dia',
+  DUE_SOON: 'vence em breve',
+  OVERDUE: 'atrasada',
+  UNKNOWN: 'sem registro',
+}
+
+/**
+ * A carteira como o agente a lê: a dose **vigente** de cada vacina, e só o nome e as
+ * datas — o recorte que o lembrete do CRM já manda pelo mesmo número.
+ *
+ * A situação de cada vacina vai pronta, contra o "hoje" do petshop que a carteira traz:
+ * um modelo que fizesse a conta de dias sozinho erraria a virada do mês. Carteira vazia
+ * não é "em dia" — é "sem registro", e a observação diz o que fazer com isso.
+ */
+function carteiraParaOModelo(card: VaccinationCard) {
+  const breve = addDays(card.today, VACCINATION_DUE_SOON_DAYS)
+  return {
+    situacaoGeral: SITUACAO_DA_CARTEIRA[card.status],
+    vacinas: card.current.map((dose) => {
+      let situacao: string
+      if (dose.nextDoseAt === null) situacao = 'dose única, sem próxima dose'
+      else if (dose.nextDoseAt < card.today) {
+        situacao = `atrasada há ${contar(diasEntre(dose.nextDoseAt, card.today), 'dia', 'dias')}`
+      } else if (dose.nextDoseAt <= breve) situacao = 'vence em breve'
+      else situacao = 'em dia'
+
+      return {
+        vacina: dose.vaccineLabel,
+        aplicadaEm: diaDaCarteira(dose.appliedAt),
+        proximaDose: dose.nextDoseAt ? diaDaCarteira(dose.nextDoseAt) : null,
+        situacao,
+      }
+    }),
+    ...(card.current.length === 0
+      ? {
+          observacao:
+            'Não há vacina registrada para este pet aqui. Isso não quer dizer que ele ' +
+            'não foi vacinado — pode ter sido em outro lugar. Se o cliente quiser ' +
+            'registrar, diga que a equipe faz isso com a carteira em mãos.',
+        }
+      : {}),
+  }
+}
+
+/**
+ * Dia de carteira (`2026-10-08`) como o agente fala: "quinta-feira, 08/10/2026".
+ *
+ * É data sem hora, e não instante — por isso não passa por `momento`. O meio-dia em UTC
+ * é só para nenhum fuso empurrar o dia para trás na formatação.
+ */
+function diaDaCarteira(isoDate: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'UTC',
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(`${isoDate}T12:00:00Z`))
+}
+
+function diasEntre(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
 }
 
 /**

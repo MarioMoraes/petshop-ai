@@ -447,7 +447,7 @@ export function installUnconfiguredModel(): void {
 }
 
 /**
- * As sete leituras, dubladas.
+ * As oito leituras, dubladas.
  *
  * O padrão devolve vazio: um teste que não fala de pets não deve precisar cadastrar um.
  * Quem exercita o **escopo** de verdade (AC-02) não usa este dublê — usa a porta real,
@@ -519,6 +519,12 @@ export function installFakePortal(overrides: Partial<AgentPortalPort> = {}): {
         priceCentsPerLeg: null,
         windowMinutes: 60,
       }
+    },
+
+    async vaccinations(tenantId, tutorId, petId) {
+      calls.push({ method: 'vaccinations', tutorId })
+      if (overrides.vaccinations) return overrides.vaccinations(tenantId, tutorId, petId)
+      return { status: 'UNKNOWN', today: '2026-10-09', current: [], history: [] }
     },
 
     async appointment(tenantId, tutorId, appointmentId) {

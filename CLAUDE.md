@@ -202,7 +202,7 @@ de quem está respondendo, então o job `agent.sweep-pending` recolhe o que um p
 derrubado deixou pela metade. O provedor fica atrás de `model-port.ts` — **uma porta por
 estabelecimento**, com a chave do **Google Gemini** que ele cadastra em Integrações
 (`agent/api-key.ts`, cifrada com a DEK); sem ela o agente responde como desligado, e a
-chave do ambiente (`GEMINI_API_KEY`) só vale fora de produção —, e as sete leituras mais as três escritas atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL: o
+chave do ambiente (`GEMINI_API_KEY`) só vale fora de produção —, e as oito leituras mais as três escritas atrás de `portal-port.ts`, que é a **sexta porta** do MOD-PORTAL — a oitava é a carteira de vacinação, que o agente diz só em nome e datas, o recorte que o lembrete da próxima dose já manda pelo mesmo número: o
 agente e a tela do tutor respondem a mesma pergunta com a mesma função.
 
 **O provedor é o Gemini desde 2026-10-02, e o prompt não mudou com ele.** O contrato da
