@@ -622,3 +622,18 @@ export const CriticalPetsSchema = z.object({
   byMedical: z.number().int(),
 })
 export type CriticalPets = z.infer<typeof CriticalPetsSchema>
+
+// ─── Pets com vacina atrasada (painel do Início) ─────────────────────────────
+
+/**
+ * Quantos pets ativos têm hoje alguma vacina vigente com a próxima dose vencida.
+ *
+ * `doses` desce junto porque um pet pode dever duas vacinas; `today` é o dia do petshop
+ * contra o qual se decidiu, o mesmo da carteira.
+ */
+export const OverdueVaccinesReportSchema = z.object({
+  today: z.iso.date(),
+  pets: z.number().int(),
+  doses: z.number().int(),
+})
+export type OverdueVaccinesReport = z.infer<typeof OverdueVaccinesReportSchema>

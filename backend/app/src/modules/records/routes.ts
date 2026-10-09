@@ -7,13 +7,17 @@ import {
   RecordTemperamentSchema,
   UpdateAllergySchema,
   UpdateMedicalAlertSchema,
+  AppError,
 } from '@petshop/shared-types'
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { hasPermission, requirePermission, requireTenantContext } from './auth.js'
 import { parseInput } from './validate.js'
 import type { ActorContext } from './actor.js'
 import { petAlerts } from './alerts.js'
 import { criticalPets } from './critical-pets.js'
+import { overdueVaccines, overdueVaccinesList } from './overdue-vaccines.js'
+import { renderOverdueVaccinesHtml } from './overdue-vaccines-template.js'
+import { PdfUnavailableError, renderPdf } from './pdf-port.js'
 import {
   checkAllergies,
   createAllergy,
@@ -61,6 +65,27 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
     '/v1/records/reports/critical-pets',
     { preHandler: requirePermission('record:read_summary') },
     async (request) => criticalPets(requireTenantContext(request).tenantId),
+  )
+
+  /** Pets com vacina atrasada — o outro indicador do prontuário no Início, mesma leitura de gestão. */
+  app.get(
+    '/v1/records/reports/overdue-vaccines',
+    { preHandler: requirePermission('record:read_summary') },
+    async (request) => overdueVaccines(requireTenantContext(request).tenantId),
+  )
+
+  /**
+   * O detalhe do cartão: a lista impressa, com tutor e telefone. Mesma permissão da
+   * contagem — todo papel que tem `record:read_summary` tem também `tutor:read`, então a
+   * folha não mostra a ninguém um contato que a tela de tutores não mostraria.
+   */
+  app.get(
+    '/v1/records/reports/overdue-vaccines/pdf',
+    { preHandler: requirePermission('record:read_summary') },
+    async (request, reply) => {
+      const list = await overdueVaccinesList(requireTenantContext(request).tenantId)
+      return sendPdf(reply, renderOverdueVaccinesHtml(list), `vacinas-atrasadas-${list.today}.pdf`)
+    },
   )
 
   // ─── Visão consolidada ─────────────────────────────────────────────────────
@@ -254,5 +279,34 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
         canWriteClinical: hasPermission(request, 'record:write'),
       })
     },
+  )
+}
+
+/**
+ * O relatório vai em bytes, e não como URL de bucket: é o retrato de um instante, como
+ * os do financeiro e o do estoque. Sai `inline` porque o cartão do Início o **abre** numa
+ * aba — o navegador mostra, e quem quiser guarda.
+ */
+async function sendPdf(reply: FastifyReply, html: string, filename: string): Promise<FastifyReply> {
+  let pdf: Buffer
+  try {
+    pdf = await renderPdf(html)
+  } catch (error) {
+    if (error instanceof PdfUnavailableError) {
+      throw new AppError(
+        'ERR_DOC_005',
+        'A geração de PDF está indisponível no momento. Tente novamente em instantes.',
+      )
+    }
+    throw error
+  }
+
+  return (
+    reply
+      .type('application/pdf')
+      .header('content-disposition', `inline; filename="${filename}"`)
+      // Nome e telefone de tutor: nenhum intermediário guarda.
+      .header('cache-control', 'no-store')
+      .send(pdf)
   )
 }

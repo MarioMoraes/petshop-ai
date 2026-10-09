@@ -5,6 +5,7 @@ import {
   PrescriptionViewSchema,
   PetClinicalSummarySchema,
   CriticalPetsSchema,
+  OverdueVaccinesReportSchema,
   TimelinePageSchema,
   MedicalAlertSchema,
   SafetyRecordSchema,
@@ -24,7 +25,7 @@ import {
 import { z } from 'zod'
 import { type Transport, toQueryString } from '../transport.js'
 
-export function recordEndpoints({ request }: Transport) {
+export function recordEndpoints({ request, download }: Transport) {
   return {
     // ─── Prontuário de segurança (MOD-PRONT-03/04/05) ──────────────────────
 
@@ -129,6 +130,18 @@ export function recordEndpoints({ request }: Transport) {
         path: '/v1/records/reports/critical-pets',
         schema: CriticalPetsSchema,
       }),
+
+    /** Quantos pets ativos têm vacina vigente com a próxima dose vencida. */
+    getOverdueVaccines: () =>
+      request({
+        method: 'GET',
+        path: '/v1/records/reports/overdue-vaccines',
+        schema: OverdueVaccinesReportSchema,
+      }),
+
+    /** A lista dos pets com vacina atrasada, com tutor e telefone, em PDF. */
+    downloadOverdueVaccinesPdf: () =>
+      download('/v1/records/reports/overdue-vaccines/pdf', 'vacinas-atrasadas.pdf'),
 
     getAttendance: (id: string) =>
       request({ method: 'GET', path: `/v1/attendances/${id}`, schema: AttendanceSchema }),

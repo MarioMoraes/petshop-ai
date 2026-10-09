@@ -6,6 +6,7 @@ import {
   todayIn,
   type FinanceIndicators,
   type NoShowReport,
+  type OverdueVaccinesReport,
 } from '@petshop/shared-types'
 import {
   CalendarCheckDuoIcon,
@@ -13,6 +14,7 @@ import {
   HandCoinsDuoIcon,
   BillClockDuoIcon,
   PawDuoIcon,
+  SyringeDuoIcon,
   StopwatchDuoIcon,
   AlarmClockDuoIcon,
   UsersDuoIcon,
@@ -43,9 +45,10 @@ import { STAT_GRID, STAT_SHAPE } from './stat-grid'
  * cartão respeita a permissão do módulo — um banhista não vê contas a receber.
  *
  * O roadmap do que os PRDs pedem e ainda não tem dado ("Em breve") saiu em 2026-09-15, a
- * pedido: o painel mostra o que responde. Os três indicadores que esperam o dado ser
- * gravado — vacinas atrasadas, bloqueios por alergia e bloqueios do self-service do
- * Portal — voltam como cartão quando existirem, e não como promessa. As faixas do Taxi Dog
+ * pedido: o painel mostra o que responde. Dos três indicadores que esperavam o dado ser
+ * gravado, as vacinas atrasadas voltaram como cartão em 2026-10-09, quando a carteira
+ * passou a existir; os bloqueios por alergia e os do self-service do Portal voltam
+ * quando existirem, e não como promessa. As faixas do Taxi Dog
  * e do Portal do tutor saíram em 2026-10-03, também a pedido; os relatórios do backend
  * que as alimentavam continuam de pé. Pela mesma razão saíram de "Sua base", em
  * 2026-10-07, os pets com alerta crítico, os cadastros completos, quem aceita WhatsApp e
@@ -91,6 +94,11 @@ interface Stat {
   iconTone: IconTone
   href?:
     '/tutores' | '/pets' | '/agenda/dia' | '/financeiro/configuracoes' | '/configuracoes/pacotes'
+  /**
+   * Um documento que o cartão abre numa aba nova, no lugar de uma tela. É `<a>` e não
+   * `<Link>`: o prefetch do Link chamaria o Gotenberg a cada vez que o Início abre.
+   */
+  document?: '/dashboard/vacinas-atrasadas'
   /** Destaca o número quando ele pede ação — dívida vencida, dia lotado. */
   tone?: 'danger'
 }
@@ -113,7 +121,7 @@ export default async function DashboardPage() {
    * A agenda e o financeiro só são consultados por quem pode vê-los — pedir e receber
    * 403 funcionaria, mas gastaria a viagem e sujaria o log de segurança todo dia.
    */
-  const [activeTutors, activePets, movement, receivables, cashflow, finance, noShows] =
+  const [activeTutors, activePets, movement, receivables, cashflow, finance, noShows, vaccines] =
     await Promise.all([
       countOf(() => serverApi().listTutors({ status: 'ACTIVE', limit: 1 })),
       countOf(() => serverApi().listPets({ status: 'ACTIVE', limit: 1 })),
@@ -145,6 +153,13 @@ export default async function DashboardPage() {
       can('tenant:configure')
         ? serverApi()
             .getNoShows({ days: REPORT_DAYS })
+            .catch(() => null)
+        : Promise.resolve(null),
+      // A contagem da casa inteira é leitura de gestão, como a rota diz: a recepção e o
+      // veterinário a têm, o banhista e o motorista não.
+      can('record:read_summary')
+        ? serverApi()
+            .getOverdueVaccines()
             .catch(() => null)
         : Promise.resolve(null),
     ])
@@ -191,6 +206,10 @@ export default async function DashboardPage() {
       href: '/financeiro/configuracoes',
       ...(overdue > 0 ? { tone: 'danger' as const } : {}),
     })
+  }
+
+  if (vaccines) {
+    fluxo.push(overdueVaccinesCard(vaccines))
   }
 
   const base: Stat[] = [
@@ -275,6 +294,19 @@ function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
 
           // Só vira link o cartão que tem para onde levar: um cartão clicável que não
           // navega é pior que um cartão parado.
+          if (stat.document) {
+            return (
+              <a
+                key={stat.label}
+                href={stat.document}
+                target="_blank"
+                rel="noopener"
+                className={`card card-interactive flex flex-col bg-card p-4 sm:p-6 ${STAT_SHAPE}`}
+              >
+                {body}
+              </a>
+            )
+          }
           return stat.href ? (
             <Link
               key={stat.label}
@@ -338,6 +370,31 @@ function financeCards(finance: FinanceIndicators | null, noShows: NoShowReport |
   }
 
   return cards
+}
+
+/**
+ * Pets com vacina atrasada — o indicador que esperava o dado existir, e que voltou como
+ * cartão quando a carteira de vacinação (MOD-PRONT-08) passou a gravar a próxima dose.
+ *
+ * Está no Movimento, e não em "Sua base", pelo mesmo motivo do "Em aberto": é número para
+ * agir hoje — ligar para o tutor —, e não cadastro. Conta **pets**, e não doses: quem liga
+ * liga uma vez, ainda que o pet deva duas vacinas. A regra do que é atrasada é a da
+ * carteira, decidida no servidor.
+ *
+ * O clique abre a lista em PDF numa aba nova — pet, tutor, telefone e as vacinas que ele
+ * deve —, a pedido do usuário em 2026-10-09: é a folha de quem vai ligar. Com zero pets
+ * não há o que abrir, e o cartão fica parado.
+ */
+function overdueVaccinesCard(report: OverdueVaccinesReport): Stat {
+  return {
+    label: 'Vacinas atrasadas',
+    value: `${report.pets.toLocaleString('pt-BR')} ${report.pets === 1 ? 'pet' : 'pets'}`,
+    icon: <SyringeDuoIcon />,
+    iconTone: 'icon-pet',
+    ...(report.pets > 0
+      ? { tone: 'danger' as const, document: '/dashboard/vacinas-atrasadas' as const }
+      : {}),
+  }
 }
 
 /** "12,5 dias", e "1 dia": uma casa decimal. */
