@@ -58,7 +58,9 @@ export const VACCINE_CATALOG: Record<string, readonly VaccineCatalogEntry[]> = {
 /** A chave de "Outra": o nome vem do formulário. */
 export const OTHER_VACCINE_KEY = 'OTHER'
 
-export function vaccineCatalogFor(speciesKey: string | null | undefined): readonly VaccineCatalogEntry[] {
+export function vaccineCatalogFor(
+  speciesKey: string | null | undefined,
+): readonly VaccineCatalogEntry[] {
   return (speciesKey ? VACCINE_CATALOG[speciesKey] : undefined) ?? []
 }
 
@@ -109,6 +111,12 @@ export const CreateVaccinationSchema = z
       manufacturer: z.string().trim().min(2, 'Informe o fabricante').max(80),
       batch: z.string().trim().min(1, 'Informe o lote').max(40),
       batchExpiresAt: z.iso.date({ error: 'Informe a validade do lote' }),
+      /**
+       * A dose saiu deste lote do estoque (Pro). Com ele, o lote e a validade gravados
+       * são os do lote — o que vier em `batch` e `batchExpiresAt` é ignorado — e uma
+       * unidade é baixada na mesma transação. Sem ele, nada muda no estoque.
+       */
+      lotId: z.uuid().optional(),
     }),
     VaccinationBaseSchema.extend({
       origin: z.literal('EXTERNAL'),
@@ -192,7 +200,10 @@ export interface OverdueVaccine {
   daysOverdue: number
 }
 
-type DatedDose = Pick<Vaccination, 'vaccineKey' | 'vaccineLabel' | 'appliedAt' | 'nextDoseAt' | 'voidedAt'>
+type DatedDose = Pick<
+  Vaccination,
+  'vaccineKey' | 'vaccineLabel' | 'appliedAt' | 'nextDoseAt' | 'voidedAt'
+>
 
 /**
  * A dose vigente de cada vacina: a última aplicação não anulada do grupo.
@@ -218,7 +229,8 @@ export function overdueVaccines(current: readonly DatedDose[], today: string): O
       vaccineLabel: dose.vaccineLabel,
       nextDoseAt: dose.nextDoseAt as string,
       daysOverdue: Math.round(
-        (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${dose.nextDoseAt}T00:00:00Z`)) / 86_400_000,
+        (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${dose.nextDoseAt}T00:00:00Z`)) /
+          86_400_000,
       ),
     }))
     .sort((a, b) => b.daysOverdue - a.daysOverdue)

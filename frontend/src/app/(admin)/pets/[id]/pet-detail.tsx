@@ -22,7 +22,17 @@ import {
   overdueVaccines,
   titleCase,
 } from '@petshop/shared-types'
-import { Alert, Button, Card, CardHead, DataRow, EmptyState, Field, FormError, Tabs } from '@/components/ui'
+import {
+  Alert,
+  Button,
+  Card,
+  CardHead,
+  DataRow,
+  EmptyState,
+  Field,
+  FormError,
+  Tabs,
+} from '@/components/ui'
 import {
   AlertTriangleIcon,
   ImageIcon,
@@ -203,6 +213,7 @@ export function PetDetailView(props: Props) {
             card={vaccinations}
             canWriteAlerts={props.canWriteAlerts}
             canManageRecord={props.canManageRecord}
+            hasInventory={props.hasInventory}
             editable={pet.status !== 'DECEASED' && pet.status !== 'TRANSFERRED_OUT'}
           />
         ) : (

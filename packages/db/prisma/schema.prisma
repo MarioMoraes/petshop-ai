@@ -4589,6 +4589,8 @@ enum StockSourceType {
   SALE_ITEM
   ATTENDANCE_ITEM
   INTERNAL_USE
+  /// A dose aplicada aqui, registrada na carteira de vacinação (MOD-PRONT-08).
+  VACCINATION
 }
 
 /// A verdade do estoque. **Append-only por trigger** (RN-01): correção é outro

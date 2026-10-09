@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
   DEFAULT_TIMEZONE,
@@ -18,6 +19,7 @@ import { publishEvent } from '../../shared/events.js'
 import { invalidateSummary } from '../attendances/cache.js'
 import { tenantOptions, type ActorContext } from './actor.js'
 import { crmvRequired, forbidden, invalid, notFound } from './errors.js'
+import { getVaccinationInventoryPort } from './inventory-port.js'
 
 /**
  * A carteira de vacinação (MOD-PRONT-08).
@@ -31,6 +33,10 @@ import { crmvRequired, forbidden, invalid, notFound } from './errors.js'
  *   rastreabilidade é exigido, porque ninguém aqui a tem.
  *
  * Nada se edita. O que foi lançado errado é anulado com motivo, e o certo entra de novo.
+ *
+ * **A dose aplicada aqui pode sair do estoque** (Pro): com `lotId`, o lote e a validade
+ * gravados são os do lote, e uma unidade é baixada na mesma transação, pela porta
+ * `inventory-port.ts`. Anular devolve.
  */
 
 type VaccinationRow = Awaited<ReturnType<TenantTransaction['vaccination']['findFirstOrThrow']>>
@@ -111,7 +117,9 @@ export async function createVaccination(
   options: CreateVaccinationOptions,
 ): Promise<VaccinationDto> {
   if (input.origin === 'INTERNAL' && !options.canWriteClinical) {
-    throw forbidden('Só o veterinário registra a vacina aplicada aqui. Registre como "Aplicada fora".')
+    throw forbidden(
+      'Só o veterinário registra a vacina aplicada aqui. Registre como "Aplicada fora".',
+    )
   }
 
   const vaccination = await withTenant(
@@ -135,10 +143,35 @@ export async function createVaccination(
         ])
       }
 
+      const vaccinationId = randomUUID()
+      let batch = input.batch || null
+      let batchExpiresAt = input.batchExpiresAt ?? null
+
+      // A dose do estoque: o lote manda no que a carteira grava, como o catálogo manda no
+      // nome da vacina — a carteira e o rastreio do lote não podem discordar do código.
+      if (input.origin === 'INTERNAL' && input.lotId) {
+        const tutor = await tx.petTutor.findFirst({
+          where: { petId, role: 'PRIMARY', unlinkedAt: null },
+          select: { tutorId: true },
+        })
+        const stock = await getVaccinationInventoryPort().consume(tx, actor, {
+          vaccinationId,
+          lotId: input.lotId,
+          petId,
+          tutorId: tutor?.tutorId ?? null,
+          appliedAt: input.appliedAt,
+          attendanceId: input.attendanceId ?? null,
+        })
+        if (stock) {
+          batch = stock.batchCode
+          batchExpiresAt = stock.expiresAt ?? batchExpiresAt
+        }
+      }
+
       let clinical: { appliedBy: string; vetName: string; crmv: string } | null = null
       if (input.origin === 'INTERNAL') {
         // AC-02: o lote que já tinha vencido no dia da aplicação.
-        if (input.batchExpiresAt < input.appliedAt) {
+        if (batchExpiresAt && batchExpiresAt < input.appliedAt) {
           throw invalid('O lote informado está vencido na data de aplicação', [
             { field: 'batchExpiresAt', message: 'Lote vencido na data de aplicação' },
           ])
@@ -148,6 +181,7 @@ export async function createVaccination(
 
       const created = await tx.vaccination.create({
         data: {
+          id: vaccinationId,
           tenantId: actor.tenantId,
           petId,
           attendanceId: input.attendanceId ?? null,
@@ -157,8 +191,8 @@ export async function createVaccination(
           appliedAt: new Date(input.appliedAt),
           nextDoseAt: input.nextDoseAt ? new Date(input.nextDoseAt) : null,
           manufacturer: input.manufacturer || null,
-          batch: input.batch || null,
-          batchExpiresAt: input.batchExpiresAt ? new Date(input.batchExpiresAt) : null,
+          batch,
+          batchExpiresAt: batchExpiresAt ? new Date(batchExpiresAt) : null,
           appliedBy: clinical?.appliedBy ?? null,
           vetName: clinical?.vetName ?? null,
           crmv: clinical?.crmv ?? null,
@@ -179,6 +213,7 @@ export async function createVaccination(
           vaccine: created.vaccineLabel,
           appliedAt: input.appliedAt,
           nextDoseAt: input.nextDoseAt ?? null,
+          stockLotId: input.origin === 'INTERNAL' ? (input.lotId ?? null) : null,
         },
         ipAddress: actor.ipAddress ?? null,
         userAgent: actor.userAgent ?? null,
@@ -228,6 +263,14 @@ export async function voidVaccination(
           voidReason: input.reason,
         },
       })
+
+      // A dose que saiu do estoque volta ao lote; a que não saiu, não tem o que voltar.
+      await getVaccinationInventoryPort().returnDose(
+        tx,
+        actor,
+        vaccinationId,
+        `Vacina anulada: ${input.reason}`,
+      )
 
       await recordAudit(tx, {
         tenantId: actor.tenantId,

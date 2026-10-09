@@ -191,6 +191,146 @@ export async function returnAttendanceConsumption(
   }
 }
 
+// ─── A dose da carteira de vacinação (MOD-PRONT-08) ──────────────────────────
+
+export interface VaccinationConsumption {
+  vaccinationId: string
+  lotId: string
+  petId: string
+  /** O dono principal, para o rastreio do lote dizer a quem ligar. */
+  tutorId: string | null
+  /** O dia da aplicação (`AAAA-MM-DD`), e não o de hoje: é contra ele que a validade vale. */
+  appliedAt: string
+  /** O atendimento a que a vacina se liga, se houver — é ele que pode já ter baixado a dose. */
+  attendanceId: string | null
+}
+
+export interface VaccinationLot {
+  batchCode: string
+  expiresAt: string | null
+  /** `false` quando o atendimento ligado já tinha baixado este lote: a dose é a mesma. */
+  consumed: boolean
+}
+
+/**
+ * Baixa uma dose do lote escolhido na vacina aplicada aqui.
+ *
+ * As regras são as do consumo do atendimento, porque é a mesma seringa: o lote tem de
+ * ser de insumo, a validade é conferida contra o **dia da aplicação** (AC-06 — vacina
+ * vencida é erro, e não aviso) e o saldo **não é recusado** (RN-06): a vacina já foi
+ * dada, e o lote negativo aparece no filtro de saldo negativo.
+ *
+ * **A dose não sai duas vezes.** A vacina pode vir ligada a um atendimento cujo item já
+ * lançou este lote em "produtos usados"; aí o registro da carteira só aponta o lote, e a
+ * baixa fica sendo a do atendimento — anular a vacina não devolve o que ela não tirou.
+ *
+ * Uma unidade, na unidade do produto: é a dose. Quem cadastra a vacina em ml e aplica
+ * 2 ml corrige pelo ajuste, como corrigiria qualquer outra saída.
+ */
+export async function consumeForVaccination(
+  tx: TenantTransaction,
+  actor: ActorContext,
+  input: VaccinationConsumption,
+): Promise<VaccinationLot> {
+  const lot = await tx.stockLot.findFirst({
+    where: { id: input.lotId },
+    include: { product: true },
+  })
+  if (!lot || lot.product.deletedAt) throw notFound('Lote não encontrado')
+  if (lot.product.kind === 'RETAIL') throw notSupply(lot.product.name)
+
+  const expires = dateOnly(lot.expiresAt)
+  if (lot.product.tracksExpiry && expires !== null && expires < input.appliedAt) {
+    throw new AppError(
+      'ERR_INV_011',
+      `O lote ${lot.batchCode} de ${lot.product.name} venceu em ${expires.split('-').reverse().join('/')}`,
+    )
+  }
+
+  // A vacina aplicada aqui exige lote rastreável (a constraint da carteira); o lote
+  // implícito do estoque não tem código, e inventar um seria rastreio falso.
+  if (lot.batchCode === NO_BATCH_CODE) {
+    throw invalid(
+      `${lot.product.name} não tem código de lote no estoque. Dê entrada com o lote da ` +
+        'caixa para registrar a vacina por ele.',
+    )
+  }
+  const batchCode = lot.batchCode
+
+  if (input.attendanceId && (await attendanceConsumedLot(tx, input.attendanceId, lot.id))) {
+    return { batchCode, expiresAt: expires, consumed: false }
+  }
+
+  await recordMovement(tx, actor, {
+    lotId: lot.id,
+    type: 'CONSUMPTION_OUT',
+    quantity: new Prisma.Decimal(-1),
+    sourceType: 'VACCINATION',
+    sourceId: input.vaccinationId,
+    petId: input.petId,
+    tutorId: input.tutorId,
+    // Meio-dia: o dia da aplicação não pode virar o anterior em fuso nenhum.
+    occurredAt: new Date(`${input.appliedAt}T12:00:00Z`),
+  })
+  return { batchCode, expiresAt: expires, consumed: true }
+}
+
+/** O atendimento já tirou deste lote, líquido de devoluções? */
+async function attendanceConsumedLot(
+  tx: TenantTransaction,
+  attendanceId: string,
+  lotId: string,
+): Promise<boolean> {
+  const items = await tx.attendanceItem.findMany({
+    where: { attendanceId },
+    select: { id: true },
+  })
+  for (const item of items) {
+    const net = (await consumedByLot(tx, item.id)).get(lotId)
+    if (net && net.greaterThan(0)) return true
+  }
+  return false
+}
+
+/**
+ * Anular a vacina devolve a dose ao lote de onde saiu.
+ *
+ * Roda com plano ou sem, como a anulação do atendimento: devolver o que foi tirado nunca
+ * é o erro. A vacina que não baixou nada (sem lote, ou a dose era a do atendimento) não
+ * tem movimento, e aqui não acontece nada.
+ */
+export async function returnVaccinationConsumption(
+  tx: TenantTransaction,
+  actor: ActorContext,
+  vaccinationId: string,
+  reason: string,
+): Promise<void> {
+  const movements = await tx.stockMovement.findMany({
+    where: { sourceType: 'VACCINATION', sourceId: vaccinationId },
+    select: { lotId: true, quantity: true, petId: true, tutorId: true },
+  })
+  const net = new Map<string, Prisma.Decimal>()
+  for (const movement of movements) {
+    net.set(
+      movement.lotId,
+      (net.get(movement.lotId) ?? new Prisma.Decimal(0)).minus(movement.quantity),
+    )
+  }
+  for (const [lotId, quantity] of [...net.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    if (quantity.lessThanOrEqualTo(0)) continue
+    await recordMovement(tx, actor, {
+      lotId,
+      type: 'VOID_RETURN',
+      quantity,
+      sourceType: 'VACCINATION',
+      sourceId: vaccinationId,
+      reason,
+      petId: movements[0]?.petId ?? null,
+      tutorId: movements[0]?.tutorId ?? null,
+    })
+  }
+}
+
 // ─── O uso interno (MOD-ESTOQUE-08) ──────────────────────────────────────────
 
 /**

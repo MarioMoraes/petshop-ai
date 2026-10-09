@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   OTHER_VACCINE_KEY,
@@ -10,6 +10,7 @@ import {
   addDays,
   suggestNextDose,
   vaccineCatalogFor,
+  type ProductDetailResponse,
   type Vaccination,
   type VaccinationCard,
   type VaccinationOrigin,
@@ -17,10 +18,24 @@ import {
 } from '@petshop/shared-types'
 import { Modal } from '@/components/modal'
 import { useToast } from '@/components/toast'
-import { Badge, Button, Card, CardHead, EmptyState, Field, FormError, Segmented } from '@/components/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  CardHead,
+  EmptyState,
+  Field,
+  FormError,
+  Segmented,
+} from '@/components/ui'
 import { SyringeIcon } from '@/components/icons'
 import { useFocusFirstError } from '@/components/use-focus-first-error'
-import { createVaccinationAction, voidVaccinationAction, type ActionFailure } from '../actions'
+import {
+  createVaccinationAction,
+  listSuppliesAction,
+  voidVaccinationAction,
+  type ActionFailure,
+} from '../actions'
 
 /**
  * A carteira de vacinação (MOD-PRONT-08).
@@ -30,6 +45,10 @@ import { createVaccinationAction, voidVaccinationAction, type ActionFailure } fr
  * `record:write` e o CRMV de quem está logado, e o servidor confere os dois.
  *
  * Nada se edita: o lançado errado é anulado com motivo e continua no histórico, riscado.
+ *
+ * Com estoque (Pro e `inventory:read`), a aplicada aqui escolhe a **dose do estoque**: o
+ * lote e a validade passam a ser os do lote, e o servidor baixa uma unidade. Anular a
+ * vacina devolve a dose.
  */
 
 const STATUS_TONE: Record<VaccinationStatus, 'neutral' | 'accent' | 'success' | 'danger'> = {
@@ -48,6 +67,8 @@ interface Props {
   canWriteAlerts: boolean
   /** `record:write` — registrar e anular a aplicada aqui. */
   canManageRecord: boolean
+  /** Plano com estoque e `inventory:read`: a aplicada aqui pode baixar a dose do lote. */
+  hasInventory: boolean
   /** Falecido e transferido não recebem registro novo. */
   editable: boolean
 }
@@ -90,7 +111,9 @@ export function VaccinationsTab(props: Props) {
               title="Carteira de vacinação"
               description={
                 <span className="inline-flex items-center gap-2">
-                  <Badge tone={STATUS_TONE[card.status]}>{VACCINATION_STATUS_LABELS[card.status]}</Badge>
+                  <Badge tone={STATUS_TONE[card.status]}>
+                    {VACCINATION_STATUS_LABELS[card.status]}
+                  </Badge>
                   <span>A dose vigente de cada vacina.</span>
                 </span>
               }
@@ -132,9 +155,7 @@ export function VaccinationsTab(props: Props) {
         </>
       )}
 
-      {creating && (
-        <RegisterDialog {...props} today={today} onClose={() => setCreating(false)} />
-      )}
+      {creating && <RegisterDialog {...props} today={today} onClose={() => setCreating(false)} />}
       {voiding && (
         <VoidDialog petId={props.petId} dose={voiding} onClose={() => setVoiding(null)} />
       )}
@@ -199,6 +220,7 @@ function RegisterDialog({
   speciesKey,
   canManageRecord,
   canWriteAlerts,
+  hasInventory,
   today,
   onClose,
 }: Omit<Props, 'card' | 'editable'> & { today: string; onClose: () => void }) {
@@ -228,6 +250,37 @@ function RegisterDialog({
   const [batchExpiresAt, setBatchExpiresAt] = useState('')
   const [externalClinic, setExternalClinic] = useState('')
 
+  // A dose do estoque: os lotes com código dos insumos, carregados só quando a origem
+  // "aplicada aqui" aparece — a aplicada fora não mexe em estoque.
+  const [lotId, setLotId] = useState('')
+  const [supplies, setSupplies] = useState<ProductDetailResponse[] | null>(null)
+  const [suppliesFailed, setSuppliesFailed] = useState(false)
+  const useStock = origin === 'INTERNAL' && hasInventory
+  useEffect(() => {
+    if (!useStock || supplies !== null) return
+    void listSuppliesAction().then((response) => {
+      if (response.ok) setSupplies(response.data.filter((product) => product.active))
+      else {
+        setSupplies([])
+        setSuppliesFailed(true)
+      }
+    })
+  }, [useStock, supplies])
+
+  const stockLots = (supplies ?? []).flatMap((product) =>
+    product.lots.filter((lot) => lot.batchCode !== 'SEM-LOTE').map((lot) => ({ product, lot })),
+  )
+  const chosen = useStock ? stockLots.find(({ lot }) => lot.id === lotId) : undefined
+
+  function chooseLot(id: string) {
+    setLotId(id)
+    const found = stockLots.find(({ lot }) => lot.id === id)
+    if (found) {
+      setBatch(found.lot.batchCode)
+      setBatchExpiresAt(found.lot.expiresAt ?? '')
+    }
+  }
+
   function suggest(key: string, applied: string) {
     if (nextTouched) return
     const entry = catalog.find((item) => item.key === key)
@@ -250,7 +303,12 @@ function RegisterDialog({
       }
       const input =
         origin === 'INTERNAL'
-          ? { ...base, origin, batchExpiresAt: batchExpiresAt || undefined }
+          ? {
+              ...base,
+              origin,
+              batchExpiresAt: batchExpiresAt || undefined,
+              ...(chosen ? { lotId: chosen.lot.id } : {}),
+            }
           : { ...base, origin, ...(externalClinic ? { externalClinic } : {}) }
 
       const result = await createVaccinationAction(petId, input)
@@ -309,6 +367,47 @@ function RegisterDialog({
             ? 'Assinada por você, com o seu CRMV. Lote, fabricante e validade são obrigatórios.'
             : 'Transcrita da carteira que o tutor trouxe. O lote é opcional.'}
         </p>
+
+        {useStock && (
+          <Field
+            label="Dose do estoque"
+            htmlFor="lotId"
+            error={errors.lotId}
+            hint={
+              suppliesFailed
+                ? 'Não conseguimos carregar o estoque. Registre com o lote digitado.'
+                : chosen
+                  ? 'Uma unidade sai deste lote ao registrar. Anular a vacina devolve a dose.'
+                  : 'Escolha o lote de onde a dose saiu para baixá-la do estoque.'
+            }
+          >
+            <select
+              id="lotId"
+              className="field"
+              value={lotId}
+              disabled={pending || supplies === null}
+              aria-invalid={Boolean(errors.lotId)}
+              onChange={(event) => chooseLot(event.target.value)}
+            >
+              <option value="">
+                {supplies === null ? 'Carregando o estoque…' : 'Não baixar do estoque'}
+              </option>
+              {stockLots.map(({ product, lot }) => (
+                <option
+                  key={lot.id}
+                  value={lot.id}
+                  // Vencido na prateleira não vai para a seringa: o servidor recusaria.
+                  disabled={lot.expired && product.tracksExpiry}
+                >
+                  {product.name} · Lote {lot.batchCode}
+                  {lot.expiresAt && ` · vence ${formatDate(lot.expiresAt)}`}
+                  {` · saldo ${lot.quantityOnHand.replace('.', ',')}`}
+                  {lot.expired && ' · vencido'}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Vacina" htmlFor="vaccineKey" error={errors.vaccineKey}>
@@ -411,7 +510,9 @@ function RegisterDialog({
               className="field"
               value={batch}
               maxLength={40}
-              disabled={pending}
+              // Com dose do estoque, o lote é o do estoque: a carteira e o rastreio não
+              // podem discordar do código.
+              disabled={pending || Boolean(chosen)}
               aria-invalid={Boolean(errors.batch)}
               onChange={(event) => setBatch(event.target.value)}
             />
@@ -430,7 +531,7 @@ function RegisterDialog({
               type="date"
               className="field"
               value={batchExpiresAt}
-              disabled={pending}
+              disabled={pending || Boolean(chosen?.lot.expiresAt)}
               aria-invalid={Boolean(errors.batchExpiresAt)}
               onChange={(event) => setBatchExpiresAt(event.target.value)}
             />

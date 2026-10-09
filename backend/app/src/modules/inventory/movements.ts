@@ -18,7 +18,8 @@ import { notFound } from './errors.js'
  * (a venda, na fatia 2); o atendimento não pode, porque o banho já foi dado (RN-06).
  */
 
-export type StockSource = 'ENTRY' | 'ADJUSTMENT' | 'SALE_ITEM' | 'ATTENDANCE_ITEM' | 'INTERNAL_USE'
+export type StockSource =
+  'ENTRY' | 'ADJUSTMENT' | 'SALE_ITEM' | 'ATTENDANCE_ITEM' | 'INTERNAL_USE' | 'VACCINATION'
 
 export interface LockedLot {
   id: string
