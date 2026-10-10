@@ -1,0 +1,107 @@
+/* Tokens e peças do reel de recursos — herdados de marketing/reel-instagram/reel.html */
+@font-face { font-family: Inter; src: url(fonts/Inter-Regular.ttf); font-weight: 400; }
+@font-face { font-family: Inter; src: url(fonts/Inter-Medium.ttf); font-weight: 500; }
+@font-face { font-family: Inter; src: url(fonts/Inter-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: Inter; src: url(fonts/Inter-Bold.ttf); font-weight: 700; }
+@font-face { font-family: 'Instrument Serif'; src: url(fonts/InstrumentSerif-Italic.ttf); font-style: italic; }
+
+:root {
+  --bg: #141416; --bg-2: #1d1e22;
+  --ink: #232427; --ink-strong: #171719; --muted: #5d6068; --subtle: #7d8089;
+  --line: rgb(35 36 39 / 0.09);
+  --accent: #e34a32; --accent-2: #f05a3c;
+  --gold-1: #b8862f; --gold-2: #f2d27a;
+  --wa: #25d366; --wa-dark: #0b6b57; --wa-bg: #efe7dd;
+  --t-brand: #b0503e; --t-brand-soft: #fff1ee; --t-brand-ring: #ffd4cb; --d-brand: #f28a73;
+  --t-people: #7e5db1; --t-people-soft: #f6f2ff; --t-people-ring: #e4d9fd; --d-people: #b39cf0;
+  --t-pet: #966700; --t-pet-soft: #fbf3e8; --t-pet-ring: #f2dcbb; --d-pet: #e9b04a;
+  --t-time: #466fbd; --t-time-soft: #eff5ff; --t-time-ring: #cfe0ff; --d-time: #86a9f0;
+  --t-money: #22864a; --t-money-soft: #edf8ef; --t-money-ring: #c8ead0; --d-money: #5ccb88;
+  --t-metric: #00818c; --t-metric-soft: #e8f8fa; --t-metric-ring: #baeaef; --d-metric: #4cc9d4;
+  --t-health: #a94d79; --t-health-soft: #fef0f6; --t-health-ring: #fbd3e3; --d-health: #ea86b5;
+  --t-system: #5457c4; --t-system-soft: #f0f0ff; --t-system-ring: #d9dafc; --d-system: #9a9cf4;
+  --t-danger: #c2412c; --t-danger-soft: #fff0ed; --t-danger-ring: #ffcfc6;
+}
+
+.tone-time { --tone: var(--t-time); --tone-soft: var(--t-time-soft); --tone-ring: var(--t-time-ring); --dark: var(--d-time); }
+.tone-pet { --tone: var(--t-pet); --tone-soft: var(--t-pet-soft); --tone-ring: var(--t-pet-ring); --dark: var(--d-pet); }
+.tone-health { --tone: var(--t-health); --tone-soft: var(--t-health-soft); --tone-ring: var(--t-health-ring); --dark: var(--d-health); }
+.tone-money { --tone: var(--t-money); --tone-soft: var(--t-money-soft); --tone-ring: var(--t-money-ring); --dark: var(--d-money); }
+.tone-brand { --tone: var(--t-brand); --tone-soft: var(--t-brand-soft); --tone-ring: var(--t-brand-ring); --dark: var(--d-brand); }
+.tone-metric { --tone: var(--t-metric); --tone-soft: var(--t-metric-soft); --tone-ring: var(--t-metric-ring); --dark: var(--d-metric); }
+.tone-system { --tone: var(--t-system); --tone-soft: var(--t-system-soft); --tone-ring: var(--t-system-ring); --dark: var(--d-system); }
+.tone-people { --tone: var(--t-people); --tone-soft: var(--t-people-soft); --tone-ring: var(--t-people-ring); --dark: var(--d-people); }
+.tone-danger { --tone: var(--t-danger); --tone-soft: var(--t-danger-soft); --tone-ring: var(--t-danger-ring); --dark: #ff8a73; }
+
+.stage, .stage * { box-sizing: border-box; margin: 0; padding: 0; }
+.stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; color: #fff;
+  font-family: Inter, sans-serif; -webkit-font-smoothing: antialiased;
+  background: radial-gradient(120% 70% at 50% 0%, var(--bg-2), var(--bg) 70%); }
+.stage .abs { position: absolute; }
+.stage .cx { left: 0; right: 0; text-align: center; }
+
+/* fundo: dois brilhos no tom da cena + pontilhado */
+.glow { position: absolute; border-radius: 50%; pointer-events: none; }
+.glow-a { left: -260px; top: -180px; width: 1100px; height: 1100px; background: radial-gradient(circle, color-mix(in srgb, var(--dark, var(--accent)) 30%, transparent), transparent 62%); }
+.glow-b { right: -380px; bottom: 120px; width: 1200px; height: 1200px; background: radial-gradient(circle, rgb(70 111 189 / 0.22), transparent 62%); }
+.grain { position: absolute; inset: 0; background-image: radial-gradient(rgb(255 255 255 / 0.04) 1.4px, transparent 1.4px); background-size: 24px 24px; }
+.ghost { position: absolute; font-family: 'Instrument Serif', serif; font-style: italic; font-size: 420px; line-height: 1;
+  color: rgb(255 255 255 / 0.045); white-space: nowrap; }
+
+svg.icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+svg.icon.fill { fill: currentColor; stroke: none; }
+
+/* cabeçalho de cena */
+.head { position: absolute; left: 70px; right: 70px; top: 250px; }
+.kicker { display: inline-flex; align-items: center; gap: 14px; padding: 12px 24px 12px 14px; border-radius: 999px;
+  background: rgb(255 255 255 / 0.07); box-shadow: 0 0 0 2px rgb(255 255 255 / 0.1) inset;
+  font-size: 28px; font-weight: 600; color: rgb(255 255 255 / 0.9); }
+.kicker .chip { width: 48px; height: 48px; font-size: 26px; border-radius: 14px; }
+.kicker .n { color: var(--dark); font-variant-numeric: tabular-nums; }
+.h1 { margin-top: 28px; font-size: 104px; line-height: 1.0; font-weight: 600; letter-spacing: -0.04em; }
+.h1 .serif { display: block; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400;
+  letter-spacing: -0.01em; color: var(--accent-2); font-size: 1.1em; line-height: 0.98; }
+
+.chip { display: grid; place-items: center; border-radius: 18px; flex: none; }
+.chip-dark { background: color-mix(in srgb, var(--dark) 20%, transparent); color: var(--dark);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dark) 34%, transparent) inset; }
+.chip-light { background: var(--tone-soft); color: var(--tone); box-shadow: 0 0 0 2px var(--tone-ring) inset; }
+
+/* cartão branco de UI */
+.card { position: absolute; background: #fff; color: var(--ink); border-radius: 40px;
+  box-shadow: 0 60px 120px -40px rgb(0 0 0 / 0.85), 0 0 0 2px rgb(255 255 255 / 0.18); overflow: hidden; }
+.card-soft { background: #f1f3f6; }
+.row { display: flex; align-items: center; gap: 20px; }
+.lbl { font-size: 24px; color: var(--subtle); font-weight: 500; }
+.val { font-size: 34px; font-weight: 600; color: var(--ink-strong); letter-spacing: -0.01em; }
+.num { font-variant-numeric: tabular-nums; }
+.pill { display: inline-flex; align-items: center; gap: 10px; padding: 10px 20px; border-radius: 999px; font-size: 24px; font-weight: 600;
+  background: var(--tone-soft); color: var(--tone); box-shadow: 0 0 0 2px var(--tone-ring) inset; }
+.pill .icon { font-size: 26px; }
+
+/* flutuante: o selo que pousa por cima do cartão */
+.float { position: absolute; background: #fff; color: var(--ink); border-radius: 30px; padding: 20px 28px 20px 20px; display: flex; align-items: center; gap: 18px;
+  box-shadow: 0 40px 70px -24px rgb(0 0 0 / 0.75), 0 0 0 2px rgb(35 36 39 / 0.06); }
+.float .chip { width: 64px; height: 64px; font-size: 34px; }
+.float small { display: block; font-size: 22px; color: var(--subtle); font-weight: 500; }
+.float b { display: block; font-size: 30px; font-weight: 600; color: var(--ink-strong); }
+
+/* celular */
+.phone { position: absolute; width: 640px; height: 1180px; padding: 18px; border-radius: 84px;
+  background: linear-gradient(180deg, #2c2d31, #0f0f11); box-shadow: 0 0 0 3px rgb(255 255 255 / 0.12) inset, 0 90px 150px -50px rgb(0 0 0 / 0.95); }
+.screen { position: relative; width: 100%; height: 100%; border-radius: 68px; overflow: hidden; background: #fff; color: var(--ink); }
+.notch { position: absolute; left: 50%; top: 18px; width: 170px; height: 44px; margin-left: -85px; border-radius: 30px; background: #0f0f11; z-index: 5; }
+
+/* janela de navegador */
+.browser-bar { height: 76px; display: flex; align-items: center; gap: 20px; padding: 0 30px; background: #f4f5f7; border-bottom: 2px solid var(--line); }
+.dots { display: flex; gap: 11px; } .dots i { width: 18px; height: 18px; border-radius: 50%; background: #dcdde0; }
+.url { flex: 1; height: 48px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 2px var(--line) inset;
+  display: flex; align-items: center; gap: 12px; padding: 0 22px; font-size: 24px; color: var(--muted); }
+.url .icon { font-size: 22px; color: var(--t-money); }
+
+/* barra dourada de progresso */
+.progress { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: rgb(255 255 255 / 0.08); }
+.progress i { display: block; height: 100%; width: var(--p, 0%); background: linear-gradient(90deg, var(--gold-1), var(--gold-2)); box-shadow: 0 0 18px rgb(242 210 122 / 0.6); }
+
+.btn-dark { display: inline-flex; align-items: center; gap: 12px; padding: 18px 32px; border-radius: 999px; font-size: 26px; font-weight: 600; color: #fff;
+  background: linear-gradient(180deg, #2c2d31, #171719 62%); }

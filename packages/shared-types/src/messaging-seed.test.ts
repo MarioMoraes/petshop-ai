@@ -110,6 +110,8 @@ describe('texto de push', () => {
         'taxi_failed',
         // A cobrança online: é cobrança, e a decisão do push incluiu cobrança.
         'tutor_charge_link',
+        // A vacina vencendo: aviso de cuidado com o pet, como o lembrete de agendamento.
+        'vaccine_due',
       ].sort(),
     )
   })

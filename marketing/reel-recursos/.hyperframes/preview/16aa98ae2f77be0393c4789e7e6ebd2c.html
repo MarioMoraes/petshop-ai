@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><script data-hf-gsap-fallback>
+(function(){
+  var cdnBase="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/";
+  var loaded={};
+  function loadFallback(file){
+    if(loaded[file])return loaded[file];
+    return loaded[file]=new Promise(function(ok,fail){
+      var s=document.createElement("script");
+      s.src=cdnBase+file;s.hfGsapFallback=true;s.onload=ok;s.onerror=fail;
+      document.head.appendChild(s);
+    });
+  }
+  document.addEventListener("error",function(e){
+    var t=e.target;
+    if(!t||t.tagName!=="SCRIPT"||!t.src||t.hfGsapFallback)return;
+    var m=t.src.match(/gsap[^/]*\/dist\/(.+\.js)/);
+    if(m)loadFallback(m[1]).catch(function(){
+      reportError(new Error("GSAP could not load from "+t.src+" or "+cdnBase+m[1]+", so this preview's animations will not play."));
+    });
+  },true);
+})();
+</script>
+<meta name="hyperframes-studio-preview"><script>(function(){var seen=window.__hfPreviewErrors=[];
+addEventListener("error",function(e){seen.push(e.message||String(e))});})();</script>
+<base href="/api/projects/reel-recursos/preview/"><style data-hyperframes-text-rendering="true">html,body,*{text-rendering:geometricPrecision}</style><script data-hf-after-fonts-fallback="">document.addEventListener("DOMContentLoaded", function () {
+  if (window.__hfAfterFontsClaimed) return;
+  var T = "text/hf-after-fonts";
+  var all = [].slice.call(document.querySelectorAll('script[type="text/hf-after-fonts"], script[type="text/hf-after-fonts+module"]'));
+  if (!all.length) return;
+  console.warn("[hyperframes] the runtime has no web-font gate; composition scripts run without waiting for fonts");
+  var late = function (el) { return el.type !== T || el.matches('[defer][src], [defer][data-hf-inlined-src]'); };
+  var queue = all.filter(function (el) { return !late(el); }).concat(all.filter(late));
+  (function next() {
+    var el = queue.shift();
+    if (!el) return;
+    var s = document.createElement("script");
+    for (var i = 0; i < el.attributes.length; i++) s.setAttribute(el.attributes[i].name, el.attributes[i].value);
+    if (el.type === T) s.removeAttribute("type"); else s.type = "module";
+    s.async = el.hasAttribute("async");
+    s.text = el.text;
+    var waits = s.type !== "module" && s.hasAttribute("src") && !s.async && !s.noModule;
+    if (waits) { s.addEventListener("load", next); s.addEventListener("error", next); }
+    el.replaceWith(s);
+    if (!waits) next();
+  })();
+});
+//# sourceURL=hyperframes://after-fonts-fallback</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080, height=1920">
+<title>PetShop AI — Reel de Recursos</title>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<style>
+/* Tokens e peças do reel de recursos — herdados de marketing/reel-instagram/reel.html */
+@font-face { font-family: Inter; src: url(fonts/Inter-Regular.ttf); font-weight: 400; }
+@font-face { font-family: Inter; src: url(fonts/Inter-Medium.ttf); font-weight: 500; }
+@font-face { font-family: Inter; src: url(fonts/Inter-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: Inter; src: url(fonts/Inter-Bold.ttf); font-weight: 700; }
+@font-face { font-family: 'Instrument Serif'; src: url(fonts/InstrumentSerif-Italic.ttf); font-style: italic; }
+
+:root {
+  --bg: #141416; --bg-2: #1d1e22;
+  --ink: #232427; --ink-strong: #171719; --muted: #5d6068; --subtle: #7d8089;
+  --line: rgb(35 36 39 / 0.09);
+  --accent: #e34a32; --accent-2: #f05a3c;
+  --gold-1: #b8862f; --gold-2: #f2d27a;
+  --wa: #25d366; --wa-dark: #0b6b57; --wa-bg: #efe7dd;
+  --t-brand: #b0503e; --t-brand-soft: #fff1ee; --t-brand-ring: #ffd4cb; --d-brand: #f28a73;
+  --t-people: #7e5db1; --t-people-soft: #f6f2ff; --t-people-ring: #e4d9fd; --d-people: #b39cf0;
+  --t-pet: #966700; --t-pet-soft: #fbf3e8; --t-pet-ring: #f2dcbb; --d-pet: #e9b04a;
+  --t-time: #4369b5; --t-time-soft: #eff5ff; --t-time-ring: #cfe0ff; --d-time: #86a9f0;
+  --t-money: #22864a; --t-money-soft: #edf8ef; --t-money-ring: #c8ead0; --d-money: #5ccb88;
+  --t-metric: #00818c; --t-metric-soft: #e8f8fa; --t-metric-ring: #baeaef; --d-metric: #4cc9d4;
+  --t-health: #a94d79; --t-health-soft: #fef0f6; --t-health-ring: #fbd3e3; --d-health: #ea86b5;
+  --t-system: #5457c4; --t-system-soft: #f0f0ff; --t-system-ring: #d9dafc; --d-system: #9a9cf4;
+  --t-danger: #c2412c; --t-danger-soft: #fff0ed; --t-danger-ring: #ffcfc6;
+}
+
+.tone-time { --tone: var(--t-time); --tone-soft: var(--t-time-soft); --tone-ring: var(--t-time-ring); --dark: var(--d-time); }
+.tone-pet { --tone: var(--t-pet); --tone-soft: var(--t-pet-soft); --tone-ring: var(--t-pet-ring); --dark: var(--d-pet); }
+.tone-health { --tone: var(--t-health); --tone-soft: var(--t-health-soft); --tone-ring: var(--t-health-ring); --dark: var(--d-health); }
+.tone-money { --tone: var(--t-money); --tone-soft: var(--t-money-soft); --tone-ring: var(--t-money-ring); --dark: var(--d-money); }
+.tone-brand { --tone: var(--t-brand); --tone-soft: var(--t-brand-soft); --tone-ring: var(--t-brand-ring); --dark: var(--d-brand); }
+.tone-metric { --tone: var(--t-metric); --tone-soft: var(--t-metric-soft); --tone-ring: var(--t-metric-ring); --dark: var(--d-metric); }
+.tone-system { --tone: var(--t-system); --tone-soft: var(--t-system-soft); --tone-ring: var(--t-system-ring); --dark: var(--d-system); }
+.tone-people { --tone: var(--t-people); --tone-soft: var(--t-people-soft); --tone-ring: var(--t-people-ring); --dark: var(--d-people); }
+.tone-danger { --tone: var(--t-danger); --tone-soft: var(--t-danger-soft); --tone-ring: var(--t-danger-ring); --dark: #ff8a73; }
+
+.stage, .stage * { box-sizing: border-box; margin: 0; padding: 0; }
+.stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; color: #fff;
+  font-family: Inter, sans-serif; -webkit-font-smoothing: antialiased;
+  background: radial-gradient(120% 70% at 50% 0%, var(--bg-2), var(--bg) 70%); }
+.stage .abs { position: absolute; }
+.stage .cx { left: 0; right: 0; text-align: center; }
+
+/* fundo: dois brilhos no tom da cena + pontilhado */
+.glow { position: absolute; border-radius: 50%; pointer-events: none; }
+.glow-a { left: -260px; top: -180px; width: 1100px; height: 1100px; background: radial-gradient(circle, color-mix(in srgb, var(--dark, var(--accent)) 30%, transparent), transparent 62%); }
+.glow-b { right: -380px; bottom: 120px; width: 1200px; height: 1200px; background: radial-gradient(circle, rgb(70 111 189 / 0.22), transparent 62%); }
+.grain { position: absolute; inset: 0; background-image: radial-gradient(rgb(255 255 255 / 0.04) 1.4px, transparent 1.4px); background-size: 24px 24px; }
+.ghost { position: absolute; font-family: 'Instrument Serif', serif; font-style: italic; font-size: 420px; line-height: 1;
+  color: rgb(255 255 255 / 0.045); white-space: nowrap; }
+
+svg.icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+svg.icon.fill { fill: currentColor; stroke: none; }
+
+/* cabeçalho de cena */
+.head { position: absolute; left: 70px; right: 70px; top: 250px; }
+.kicker { display: inline-flex; align-items: center; gap: 14px; padding: 12px 24px 12px 14px; border-radius: 999px;
+  background: rgb(255 255 255 / 0.07); box-shadow: 0 0 0 2px rgb(255 255 255 / 0.1) inset;
+  font-size: 28px; font-weight: 600; color: rgb(255 255 255 / 0.9); }
+.kicker .chip { width: 48px; height: 48px; font-size: 26px; border-radius: 14px; }
+.kicker .n { color: var(--dark); font-variant-numeric: tabular-nums; }
+.h1 { margin-top: 28px; font-size: 104px; line-height: 1.0; font-weight: 600; letter-spacing: -0.04em; }
+.h1 .serif { display: block; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400;
+  letter-spacing: -0.01em; color: var(--accent-2); font-size: 1.1em; line-height: 0.98; }
+
+.chip { display: grid; place-items: center; border-radius: 18px; flex: none; }
+.chip-dark { background: color-mix(in srgb, var(--dark) 20%, transparent); color: var(--dark);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dark) 34%, transparent) inset; }
+.chip-light { background: var(--tone-soft); color: var(--tone); box-shadow: 0 0 0 2px var(--tone-ring) inset; }
+
+/* cartão branco de UI */
+.card { position: absolute; background: #fff; color: var(--ink); border-radius: 40px;
+  box-shadow: 0 60px 120px -40px rgb(0 0 0 / 0.85), 0 0 0 2px rgb(255 255 255 / 0.18); overflow: hidden; }
+.card-soft { background: #f1f3f6; }
+.row { display: flex; align-items: center; gap: 20px; }
+.lbl { font-size: 24px; color: var(--subtle); font-weight: 500; }
+.val { font-size: 34px; font-weight: 600; color: var(--ink-strong); letter-spacing: -0.01em; }
+.num { font-variant-numeric: tabular-nums; }
+.pill { display: inline-flex; align-items: center; gap: 10px; padding: 10px 20px; border-radius: 999px; font-size: 24px; font-weight: 600;
+  background: var(--tone-soft); color: var(--tone); box-shadow: 0 0 0 2px var(--tone-ring) inset; }
+.pill .icon { font-size: 26px; }
+
+/* flutuante: o selo que pousa por cima do cartão */
+.float { position: absolute; background: #fff; color: var(--ink); border-radius: 30px; padding: 20px 28px 20px 20px; display: flex; align-items: center; gap: 18px;
+  box-shadow: 0 40px 70px -24px rgb(0 0 0 / 0.75), 0 0 0 2px rgb(35 36 39 / 0.06); }
+.float .chip { width: 64px; height: 64px; font-size: 34px; }
+.float small { display: block; font-size: 22px; color: #6b6e76; font-weight: 500; }
+.float b { display: block; font-size: 30px; font-weight: 600; color: var(--ink-strong); }
+
+/* celular */
+.phone { position: absolute; width: 640px; height: 1180px; padding: 18px; border-radius: 84px;
+  background: linear-gradient(180deg, #2c2d31, #0f0f11); box-shadow: 0 0 0 3px rgb(255 255 255 / 0.12) inset, 0 90px 150px -50px rgb(0 0 0 / 0.95); }
+.screen { position: relative; width: 100%; height: 100%; border-radius: 68px; overflow: hidden; background: #fff; color: var(--ink); }
+.notch { position: absolute; left: 50%; top: 18px; width: 170px; height: 44px; margin-left: -85px; border-radius: 30px; background: #0f0f11; z-index: 5; }
+
+/* janela de navegador */
+.browser-bar { height: 76px; display: flex; align-items: center; gap: 20px; padding: 0 30px; background: #f4f5f7; border-bottom: 2px solid var(--line); }
+.dots { display: flex; gap: 11px; } .dots i { width: 18px; height: 18px; border-radius: 50%; background: #dcdde0; }
+.url { flex: 1; height: 48px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 2px var(--line) inset;
+  display: flex; align-items: center; gap: 12px; padding: 0 22px; font-size: 24px; color: var(--muted); }
+.url .icon { font-size: 22px; color: var(--t-money); }
+
+/* barra dourada de progresso */
+.progress { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: rgb(255 255 255 / 0.08); }
+.progress i { display: block; height: 100%; width: var(--p, 0%); background: linear-gradient(90deg, var(--gold-1), var(--gold-2)); box-shadow: 0 0 18px rgb(242 210 122 / 0.6); }
+
+.btn-dark { display: inline-flex; align-items: center; gap: 12px; padding: 18px 32px; border-radius: 999px; font-size: 26px; font-weight: 600; color: #fff;
+  background: linear-gradient(180deg, #2c2d31, #171719 62%); }
+
+
+html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #141416; }
+#root { width: 100%; height: 100%; }
+.scene { position: absolute; inset: 0; }
+.sc { position: absolute; inset: 0; }
+.h1 .l1 { display: block; }
+#bg { position: absolute; inset: 0; --g: rgb(242 138 115 / 0.32); background: radial-gradient(120% 70% at 50% 0%, var(--bg-2), var(--bg) 70%); }
+#bg .glow-a { background: radial-gradient(circle, var(--g), transparent 62%); }
+.pawp { position: absolute; color: rgb(255 255 255 / 0.07); }
+.ring { position: absolute; inset: 0; transform-origin: 540px 1100px; }
+#progress-track { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: rgb(255 255 255 / 0.08); }
+#progress { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold-1), var(--gold-2)); box-shadow: 0 0 18px rgb(242 210 122 / 0.6); }
+
+  /* peças só das cenas */
+  .appt { position: absolute; padding: 12px 16px; border-radius: 16px; background: var(--tone-soft); box-shadow: 0 0 0 2px var(--tone-ring) inset; border-left: 7px solid var(--tone); font-size: 21px; line-height: 1.3; overflow: hidden; }
+  .appt b { display: block; font-size: 25px; font-weight: 600; color: var(--ink-strong); }
+  .appt span { color: var(--muted); }
+  .appt .src { position: absolute; right: 14px; top: 14px; font-size: 26px; }
+  .bub { max-width: 82%; padding: 16px 20px; border-radius: 22px; box-shadow: 0 2px 0 rgb(0 0 0 / 0.06); }
+  .bub.in { align-self: flex-start; background: #fff; border-top-left-radius: 6px; }
+  .bub.out { align-self: flex-end; background: #d9fdd3; border-top-right-radius: 6px; }
+  .bub.prop { background: #fff; box-shadow: 0 0 0 3px var(--t-time-ring); }
+  .seg { flex: 1; text-align: center; padding: 16px 0; border-radius: 16px; font-size: 26px; font-weight: 600; color: var(--subtle); }
+  .seg.on { background: #fff; color: var(--ink-strong); box-shadow: 0 10px 22px -12px rgb(35 36 39 / 0.45); }
+  .vac { display: flex; align-items: center; gap: 22px; padding: 22px 0; border-bottom: 2px solid var(--line); }
+  .vac b { display: block; font-size: 32px; font-weight: 600; }
+  .doses { display: flex; gap: 10px; } .doses i { width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 0 0 3px var(--tone-ring) inset; } .doses i.d { background: var(--tone); box-shadow: none; }
+  .mov { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 2px solid var(--line); font-size: 30px; font-weight: 600; }
+  .stamp { padding: 18px 30px; border-radius: 20px; font-size: 34px; font-weight: 700; color: var(--dark); border: 5px solid var(--dark); background: rgb(20 20 22 / 0.7); letter-spacing: 0.01em; }
+  .stk { display: flex; align-items: center; gap: 22px; padding: 24px 0; border-bottom: 2px solid var(--line); }
+  .stk b { font-size: 30px; font-weight: 600; } .stk .q { font-size: 28px; font-weight: 600; color: var(--muted); }
+  .bar { position: relative; height: 18px; margin-top: 14px; border-radius: 9px; background: #eef0f3; }
+  .bar i { display: block; height: 100%; border-radius: 9px; background: var(--tone); }
+  .bar em { position: absolute; top: -6px; width: 4px; height: 30px; border-radius: 2px; background: var(--ink); opacity: 0.45; }
+  .minus { padding: 10px 20px; border-radius: 999px; background: var(--t-danger); color: #fff; font-size: 34px; font-weight: 700; box-shadow: 0 20px 40px -16px rgb(194 65 44 / 0.9); }
+  .svc { display: flex; align-items: center; gap: 18px; padding: 20px; border-radius: 24px; background: #f1f3f6; }
+  .svc b { display: block; font-size: 28px; font-weight: 600; } .svc span { font-size: 21px; color: var(--muted); }
+  .plist { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .plist .row { padding: 18px 22px; border-radius: 24px; background: #fff; box-shadow: 0 0 0 2px var(--line) inset; font-size: 26px; }
+  .plist b { font-weight: 600; }
+  .logo { display: inline-flex; align-items: center; gap: 24px; font-size: 60px; font-weight: 600; letter-spacing: -0.02em; }
+  .logo .mark { width: 110px; height: 110px; border-radius: 34px; display: grid; place-items: center; font-size: 62px; color: #fff; background: linear-gradient(180deg, #f05a3c, #c93a24); box-shadow: 0 24px 50px -20px rgb(227 74 50 / 0.8); }
+  .tagline { font-size: 112px; line-height: 1.0; font-weight: 600; letter-spacing: -0.045em; }
+  .tagline .serif { display: block; margin-top: 10px; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; color: var(--accent-2); font-size: 1.12em; letter-spacing: -0.01em; line-height: 0.95; }
+  .mini { width: 96px; height: 96px; font-size: 46px; border-radius: 28px; }
+  .cta { display: inline-flex; align-items: center; gap: 16px; padding: 32px 52px; border-radius: 999px; font-size: 40px; font-weight: 600; color: var(--ink-strong); background: linear-gradient(180deg, #fff, #eceae6); box-shadow: 0 30px 60px -24px rgb(0 0 0 / 0.8), 0 0 0 4px rgb(242 210 122 / 0.5); }
+  .cta .icon { font-size: 42px; color: var(--accent); }
+  .site { display: inline-flex; align-items: center; gap: 12px; font-size: 32px; font-weight: 500; color: var(--gold-2); }
+  .site .icon { font-size: 34px; }
+  .notes { display: flex; justify-content: center; gap: 36px; font-size: 28px; color: rgb(255 255 255 / 0.75); }
+  .notes span { display: inline-flex; align-items: center; gap: 10px; } .notes .icon { color: var(--d-money); font-size: 30px; }
+  .by { font-size: 26px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(255 255 255 / 0.55); }
+  .by b { color: var(--gold-2); font-weight: 600; }
+
+
+/* complementos da animação */
+.tabs { position: relative; }
+.seg { position: relative; z-index: 1; color: var(--subtle); }
+.seg-ind { position: absolute; left: 8px; top: 8px; bottom: 8px; width: 282px; border-radius: 16px; background: #fff; box-shadow: 0 10px 22px -12px rgb(35 36 39 / 0.45); }
+.panes { position: relative; height: 350px; margin: 6px 40px 0; overflow: hidden; }
+.pane { position: absolute; left: 0; right: 0; top: 0; }
+.status { position: relative; display: block; font-size: 21px; height: 26px; }
+.status span { position: absolute; left: 0; top: 0; white-space: nowrap; }
+.status .typ { color: #9df5b9; opacity: 0; }
+.stamp { display: block; }
+.minus { display: block; }
+.cta { position: relative; overflow: hidden; }
+.shine { position: absolute; top: 0; bottom: 0; left: 0; width: 160px; background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.95), transparent); opacity: 0.9; }
+.tap { position: absolute; width: 74px; height: 74px; border-radius: 50%; background: rgb(255 255 255 / 0.55); box-shadow: 0 0 0 4px rgb(255 255 255 / 0.8); opacity: 0; }
+.ripple { position: absolute; border-radius: 999px; border: 4px solid #f05a3c; opacity: 0; }
+.tagline .t { display: block; }
+.tagline .serif .t { display: block; }
+.url-t { color: var(--ink); }
+.caret { display: inline-block; width: 3px; height: 28px; background: var(--ink); margin-left: 2px; }
+</style>
+
+<script data-hyperframes-preview-runtime="1" src="/api/runtime.js"></script>
+<meta name="hyperframes-project-signature" content="e575b15af07f890e3443b3fc">
+</head>
+<body>
+<div data-hf-id="hf-1sl9" id="root" class="stage" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="47.5" data-fps="30">
+<svg data-hf-id="hf-8rgt" width="0" height="0" style="position:absolute">
+  <defs data-hf-id="hf-mh0t">
+  <symbol data-hf-id="hf-90zt" id="i-paw" viewBox="0 0 24 24"><circle data-hf-id="hf-4qc4" cx="11" cy="4" r="2" /><circle data-hf-id="hf-yllf" cx="18" cy="8" r="2" /><circle data-hf-id="hf-n4wv" cx="20" cy="16" r="2" /><path data-hf-id="hf-brgc" d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" /></symbol>
+  <symbol data-hf-id="hf-3821" id="i-cal" viewBox="0 0 24 24"><rect data-hf-id="hf-nq85" x="3" y="4" width="18" height="17" rx="2" /><path data-hf-id="hf-sxln" d="M16 2v4M8 2v4M3 10h18" /></symbol>
+  <symbol data-hf-id="hf-8oly" id="i-spark" viewBox="0 0 24 24"><path data-hf-id="hf-yawq" d="M12 3l1.9 5.6a3 3 0 0 0 1.9 1.9L21.4 12l-5.6 1.9a3 3 0 0 0-1.9 1.9L12 21.4l-1.9-5.6a3 3 0 0 0-1.9-1.9L2.6 12l5.6-1.9a3 3 0 0 0 1.9-1.9Z" /><path data-hf-id="hf-r030" d="M19.5 3v3" /><path data-hf-id="hf-ioo9" d="M21 4.5h-3" /></symbol>
+  <symbol data-hf-id="hf-cpix" id="i-wa" viewBox="0 0 24 24"><path data-hf-id="hf-hb8k" d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.760-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.87 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.62.71.23 1.36.2 1.870.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.34" /><path data-hf-id="hf-2u85" d="M20.52 3.48A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.69 1.45c6.55 0 11.89-5.34 11.89-11.890 0-3.18-1.24-6.17-3.48-8.42M12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.89 9.89-9.89 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.43 9.89-9.89 9.89" /></symbol>
+  <symbol data-hf-id="hf-cv5h" id="i-check" viewBox="0 0 24 24"><path data-hf-id="hf-2q26" d="M20 6 9 17l-5-5" /></symbol>
+  <symbol data-hf-id="hf-2kh0" id="i-trend" viewBox="0 0 24 24"><path data-hf-id="hf-nafn" d="m22 7-8.5 8.5-5-5L2 17" /><path data-hf-id="hf-ff33" d="M16 7h6v6" /></symbol>
+  <symbol data-hf-id="hf-u69e" id="i-arrow" viewBox="0 0 24 24"><path data-hf-id="hf-8gds" d="M5 12h14" /><path data-hf-id="hf-ldqe" d="m13 6 6 6-6 6" /></symbol>
+  <symbol data-hf-id="hf-6c7m" id="i-box" viewBox="0 0 24 24"><path data-hf-id="hf-phdt" d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73Z" /><path data-hf-id="hf-dyop" d="M12 22V12" /><path data-hf-id="hf-mc6n" d="m3.3 7 8.7 5 8.7-5" /></symbol>
+  <symbol data-hf-id="hf-1ct4" id="i-cash" viewBox="0 0 24 24"><rect data-hf-id="hf-en7q" x="2" y="6" width="20" height="12" rx="2" /><circle data-hf-id="hf-1ff8" cx="12" cy="12" r="2" /><path data-hf-id="hf-d44j" d="M6 12h.01M18 12h.01" /></symbol>
+  <symbol data-hf-id="hf-8g0p" id="i-phone" viewBox="0 0 24 24"><rect data-hf-id="hf-ox27" x="5" y="2" width="14" height="20" rx="2" /><path data-hf-id="hf-p3i6" d="M12 18h.01" /></symbol>
+  <symbol data-hf-id="hf-4kdy" id="i-globe" viewBox="0 0 24 24"><circle data-hf-id="hf-m1lh" cx="12" cy="12" r="10" /><path data-hf-id="hf-g44y" d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path data-hf-id="hf-0zqy" d="M2 12h20" /></symbol>
+  <symbol data-hf-id="hf-tvw0" id="i-user" viewBox="0 0 24 24"><circle data-hf-id="hf-jnj3" cx="12" cy="8" r="4" /><path data-hf-id="hf-8iu3" d="M4 21a8 8 0 0 1 16 0" /></symbol>
+  <symbol data-hf-id="hf-u3f6" id="i-bell" viewBox="0 0 24 24"><path data-hf-id="hf-6a25" d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path data-hf-id="hf-mu5i" d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></symbol>
+  <symbol data-hf-id="hf-2j2g" id="i-mic" viewBox="0 0 24 24"><rect data-hf-id="hf-yfem" x="9" y="2" width="6" height="12" rx="3" /><path data-hf-id="hf-a79n" d="M19 10v1a7 7 0 0 1-14 0v-1" /><path data-hf-id="hf-5rib" d="M12 18v4" /></symbol>
+  <symbol data-hf-id="hf-n1hi" id="i-syringe" viewBox="0 0 24 24"><path data-hf-id="hf-s76i" d="m18 2 4 4" /><path data-hf-id="hf-06vr" d="m17 7 3-3" /><path data-hf-id="hf-33hh" d="M19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5" /><path data-hf-id="hf-xv3e" d="m9 11 4 4" /><path data-hf-id="hf-5ykl" d="m5 19-3 3" /><path data-hf-id="hf-bia0" d="m14 4 6 6" /></symbol>
+  <symbol data-hf-id="hf-4qrz" id="i-alert" viewBox="0 0 24 24"><path data-hf-id="hf-fn22" d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path data-hf-id="hf-syvi" d="M12 9v4M12 17h.01" /></symbol>
+  <symbol data-hf-id="hf-d6w4" id="i-lock" viewBox="0 0 24 24"><rect data-hf-id="hf-0zl7" x="4" y="11" width="16" height="10" rx="2" /><path data-hf-id="hf-jpf8" d="M8 11V7a4 4 0 0 1 8 0v4" /></symbol>
+  <symbol data-hf-id="hf-ek5c" id="i-scissors" viewBox="0 0 24 24"><circle data-hf-id="hf-t51r" cx="6" cy="6" r="3" /><circle data-hf-id="hf-2o6c" cx="6" cy="18" r="3" /><path data-hf-id="hf-5rzr" d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12" /></symbol>
+  <symbol data-hf-id="hf-rngm" id="i-drop" viewBox="0 0 24 24"><path data-hf-id="hf-z3jq" d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5S5 13 5 15a7 7 0 0 0 7 7z" /></symbol>
+  <symbol data-hf-id="hf-hnce" id="i-van" viewBox="0 0 24 24"><path data-hf-id="hf-54uv" d="M2 17V7a1 1 0 0 1 1-1h11v11" /><path data-hf-id="hf-qwy9" d="M14 9h4l3 4v4h-2" /><circle data-hf-id="hf-kjcz" cx="7" cy="17" r="2" /><circle data-hf-id="hf-xaqw" cx="17" cy="17" r="2" /><path data-hf-id="hf-zr8i" d="M9 17h6" /></symbol>
+  <symbol data-hf-id="hf-9b87" id="i-file" viewBox="0 0 24 24"><path data-hf-id="hf-e4lr" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path data-hf-id="hf-kk34" d="M14 2v6h6M9 13h6M9 17h6" /></symbol>
+  <symbol data-hf-id="hf-19zk" id="i-qr" viewBox="0 0 24 24"><rect data-hf-id="hf-jbys" x="3" y="3" width="7" height="7" rx="1" /><rect data-hf-id="hf-4pxk" x="14" y="3" width="7" height="7" rx="1" /><rect data-hf-id="hf-uzwe" x="3" y="14" width="7" height="7" rx="1" /><path data-hf-id="hf-1jec" d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" /></symbol>
+  <symbol data-hf-id="hf-gq5m" id="i-pointer" viewBox="0 0 24 24"><path data-hf-id="hf-zuss" d="M4 3l7.5 18 2.4-7.1L21 11.5Z" /></symbol>
+  <symbol data-hf-id="hf-fh4p" id="i-heart" viewBox="0 0 24 24"><path data-hf-id="hf-2bye" d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></symbol>
+  </defs>
+</svg>
+
+
+  <!-- fundo único: o brilho troca de cor com a cena -->
+  <div data-hf-id="hf-2xc0" id="bg">
+    <div data-hf-id="hf-hom6" class="glow glow-a" id="glowA"></div><div data-hf-id="hf-vi5c" class="glow glow-b" id="glowB"></div><div data-hf-id="hf-h60x" class="grain"></div>
+    <svg data-hf-id="hf-ie0x" class="icon pawp" style="left:90px; top:1560px; font-size:70px"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-j30i" href="#i-paw" /></svg>
+    <svg data-hf-id="hf-0tog" class="icon pawp" style="left:880px; top:1700px; font-size:96px"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-5ox2" href="#i-paw" /></svg>
+    <svg data-hf-id="hf-3z6e" class="icon pawp" style="left:420px; top:1780px; font-size:56px"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-6383" href="#i-paw" /></svg>
+    <svg data-hf-id="hf-50hm" class="icon pawp" style="left:960px; top:600px; font-size:60px"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-6hj4" href="#i-paw" /></svg>
+    <svg data-hf-id="hf-vb3s" class="icon pawp" style="left:30px; top:820px; font-size:80px"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-3pdx" href="#i-paw" /></svg>
+    <svg data-hf-id="hf-15xt" class="icon pawp" style="left:700px; top:140px; font-size:64px"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-43oy" href="#i-paw" /></svg>
+  </div>
+
+  <!-- ═══ 01 · Gancho · 0–3,5 ═══ -->
+  <section data-hf-id="hf-eg4i" class="clip scene tone-brand" id="s1" data-start="0" data-duration="3.5" data-track-index="2">
+    <div data-hf-id="hf-dh4y" class="sc">
+      <div data-hf-id="hf-yf6s" class="head" style="text-align:center">
+        <span data-hf-id="hf-sacz" class="kicker"><span data-hf-id="hf-cmwk" class="chip chip-dark"><svg data-hf-id="hf-rkxe" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-4hzz" href="#i-paw" /></svg></span>PetShop AI</span>
+        <div data-hf-id="hf-t9z5" class="h1"><span data-hf-id="hf-3tso" class="l1">O Petshop Inteiro</span><span data-hf-id="hf-lzin" class="serif">num lugar só.</span></div>
+      </div>
+      <div data-hf-id="hf-6koe" class="abs orb" style="left:210px; top:770px; width:660px; height:660px; border-radius:50%; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.12) inset"></div>
+      <div data-hf-id="hf-mchn" class="abs orb" style="left:330px; top:890px; width:420px; height:420px; border-radius:50%; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.06) inset"></div>
+      <div data-hf-id="hf-xd27" class="abs" id="s1-mark" style="left:450px; top:1010px; width:180px; height:180px; border-radius:56px; display:grid; place-items:center; font-size:96px; color:#fff; background: linear-gradient(180deg,#f05a3c,#c93a24); box-shadow: 0 30px 70px -20px rgb(227 74 50 / 0.9)"><svg data-hf-id="hf-gc52" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-4wb0" href="#i-paw" /></svg></div>
+      <div data-hf-id="hf-ggfb" class="ring" id="s1-ring">
+        <div data-hf-id="hf-8prd" class="abs sat tone-time" style="left:470px; top:700px"><div data-hf-id="hf-o0vf" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-gqg3" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cal&quot;,&quot;after&quot;:&quot;#i-cal&quot;}]" data-hf-id="hf-gbfe" href="#i-cal" /></svg></div></div>
+        <div data-hf-id="hf-2ece" class="abs sat tone-system" style="left:703px; top:797px"><div data-hf-id="hf-o2tn" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-h4r4" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-spark&quot;,&quot;after&quot;:&quot;#i-spark&quot;}]" data-hf-id="hf-iqr9" href="#i-spark" /></svg></div></div>
+        <div data-hf-id="hf-p4yn" class="abs sat tone-pet" style="left:800px; top:1030px"><div data-hf-id="hf-noim" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-aamt" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-245t" href="#i-paw" /></svg></div></div>
+        <div data-hf-id="hf-88v0" class="abs sat tone-money" style="left:703px; top:1263px"><div data-hf-id="hf-na7l" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-aoxu" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cash&quot;,&quot;after&quot;:&quot;#i-cash&quot;}]" data-hf-id="hf-w0qn" href="#i-cash" /></svg></div></div>
+        <div data-hf-id="hf-qoex" class="abs sat tone-metric" style="left:470px; top:1360px"><div data-hf-id="hf-mvwk" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-b38v" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-trend&quot;,&quot;after&quot;:&quot;#i-trend&quot;}]" data-hf-id="hf-7ujr" href="#i-trend" /></svg></div></div>
+        <div data-hf-id="hf-53xp" class="abs sat tone-brand" style="left:237px; top:1263px"><div data-hf-id="hf-mhlj" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-bhjw" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-box&quot;,&quot;after&quot;:&quot;#i-box&quot;}]" data-hf-id="hf-zwkd" href="#i-box" /></svg></div></div>
+        <div data-hf-id="hf-60px" class="abs sat tone-metric" style="left:140px; top:1030px"><div data-hf-id="hf-m3ai" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-8pep" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-globe&quot;,&quot;after&quot;:&quot;#i-globe&quot;}]" data-hf-id="hf-krpx" href="#i-globe" /></svg></div></div>
+        <div data-hf-id="hf-3na4" class="abs sat tone-people" style="left:237px; top:797px"><div data-hf-id="hf-lozh" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-93pq" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-user&quot;,&quot;after&quot;:&quot;#i-user&quot;}]" data-hf-id="hf-z1kv" href="#i-user" /></svg></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 02 · Agendamento · 3,5–8,5 ═══ -->
+  <section data-hf-id="hf-9dzu" class="clip scene tone-time" id="s2" data-start="3.5" data-duration="5" data-track-index="2">
+    <div data-hf-id="hf-946e" class="sc">
+      <div data-hf-id="hf-z992" class="head">
+        <span data-hf-id="hf-ygfz" class="kicker"><span data-hf-id="hf-5jbg" class="chip chip-dark"><svg data-hf-id="hf-t0du" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cal&quot;,&quot;after&quot;:&quot;#i-cal&quot;}]" data-hf-id="hf-5uda" href="#i-cal" /></svg></span><span data-hf-id="hf-kp5a" class="n">01</span> Agendamento</span>
+        <div data-hf-id="hf-92vp" class="h1"><span data-hf-id="hf-3y5s" class="l1">Agenda Cheia</span><span data-hf-id="hf-jjzz" class="serif">do jeito do cliente.</span></div>
+      </div>
+      <div data-hf-id="hf-mkvm" class="abs row" style="left:70px; top:648px; gap:16px">
+        <span data-hf-id="hf-wteq" class="pill ch" id="ch-wa" style="--tone-soft: rgb(37 211 102 / 0.16); --tone: #5ee08f; --tone-ring: rgb(37 211 102 / 0.35)"><svg data-hf-id="hf-sm2t" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-wa&quot;,&quot;after&quot;:&quot;#i-wa&quot;}]" data-hf-id="hf-x51q" href="#i-wa" /></svg>WhatsApp</span>
+        <span data-hf-id="hf-z4ij" class="pill ch" id="ch-site" style="--tone-soft: rgb(76 201 212 / 0.16); --tone: var(--d-metric); --tone-ring: rgb(76 201 212 / 0.35)"><svg data-hf-id="hf-tszw" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-globe&quot;,&quot;after&quot;:&quot;#i-globe&quot;}]" data-hf-id="hf-p4ll" href="#i-globe" /></svg>Site</span>
+        <span data-hf-id="hf-ciuq" class="pill ch" id="ch-app" style="--tone-soft: rgb(179 156 240 / 0.16); --tone: var(--d-people); --tone-ring: rgb(179 156 240 / 0.35)"><svg data-hf-id="hf-teov" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-phone&quot;,&quot;after&quot;:&quot;#i-phone&quot;}]" data-hf-id="hf-vnzy" href="#i-phone" /></svg>App</span>
+      </div>
+      <div data-hf-id="hf-ybpx" class="card" id="s2-card" style="left:60px; top:760px; width:960px; height:720px">
+        <div data-hf-id="hf-iw84" class="row" style="padding:34px 40px 20px; justify-content:space-between">
+          <div data-hf-id="hf-yeow"><div data-hf-id="hf-44uh" class="lbl" style="color:var(--t-time); font-weight:600">Agenda do Dia</div><div data-hf-id="hf-ktoh" style="font-size:44px; font-weight:600; letter-spacing:-0.02em">Sábado, 11/10</div></div>
+          <div data-hf-id="hf-di25" class="row" style="gap:14px"><span data-hf-id="hf-505l" style="width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#466fbd;color:#fff;font-weight:600;font-size:22px">B</span><span data-hf-id="hf-atpw" style="width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#a94d79;color:#fff;font-weight:600;font-size:22px">C</span></div>
+        </div>
+        <div data-hf-id="hf-0w9x" id="s2-board" style="position:absolute; left:40px; right:40px; top:150px; bottom:30px">
+          <div data-hf-id="hf-n0dm" class="abs lbl" style="top:0">09h</div><div data-hf-id="hf-mqvp" class="abs lbl" style="top:106px">10h</div><div data-hf-id="hf-lw08" class="abs lbl" style="top:212px">11h</div><div data-hf-id="hf-yrbi" class="abs lbl" style="top:318px">12h</div><div data-hf-id="hf-grbh" class="abs lbl" style="top:424px">13h</div>
+          <div data-hf-id="hf-74v4" class="abs" style="left:80px; right:0; top:14px; height:2px; background:var(--line)"></div><div data-hf-id="hf-expo" class="abs" style="left:80px; right:0; top:120px; height:2px; background:var(--line)"></div><div data-hf-id="hf-v11t" class="abs" style="left:80px; right:0; top:226px; height:2px; background:var(--line)"></div><div data-hf-id="hf-k4pn" class="abs" style="left:80px; right:0; top:332px; height:2px; background:var(--line)"></div><div data-hf-id="hf-1f7a" class="abs" style="left:80px; right:0; top:438px; height:2px; background:var(--line)"></div>
+          <div data-hf-id="hf-8sp9" class="abs appt tone-time" data-ch="ch-wa" style="left:92px; top:20px; width:380px; height:92px"><b data-hf-id="hf-xr89">Thor · Banho</b><span data-hf-id="hf-vah5">09:00 · Bruno</span><svg data-hf-id="hf-benx" class="icon src" style="color:#25a35a"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-wa&quot;,&quot;after&quot;:&quot;#i-wa&quot;}]" data-hf-id="hf-nh76" href="#i-wa" /></svg></div>
+          <div data-hf-id="hf-x9ii" class="abs appt tone-health" data-ch="ch-wa" style="left:488px; top:73px; width:380px; height:110px"><b data-hf-id="hf-sj9d">Bob · Hidratação</b><span data-hf-id="hf-is3n">09:30 · Carla</span><svg data-hf-id="hf-yp01" class="icon src" style="color:#25a35a"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-wa&quot;,&quot;after&quot;:&quot;#i-wa&quot;}]" data-hf-id="hf-nvi7" href="#i-wa" /></svg></div>
+          <div data-hf-id="hf-fq66" class="abs appt tone-pet" data-ch="ch-site" style="left:92px; top:126px; width:380px; height:150px"><b data-hf-id="hf-zavr">Luna · Tosa</b><span data-hf-id="hf-46jz">10:00 · Bruno</span><svg data-hf-id="hf-ufho" class="icon src" style="color:var(--t-metric)"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-globe&quot;,&quot;after&quot;:&quot;#i-globe&quot;}]" data-hf-id="hf-qbio" href="#i-globe" /></svg></div>
+          <div data-hf-id="hf-wh9f" class="abs appt tone-money" data-ch="ch-app" style="left:488px; top:232px; width:380px; height:96px"><b data-hf-id="hf-nnb4">Nina · Banho</b><span data-hf-id="hf-sqhr">11:00 · Carla</span><svg data-hf-id="hf-zza3" class="icon src" style="color:var(--t-people)"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-phone&quot;,&quot;after&quot;:&quot;#i-phone&quot;}]" data-hf-id="hf-r02q" href="#i-phone" /></svg></div>
+          <div data-hf-id="hf-13m4" class="abs appt tone-people" data-ch="ch-app" style="left:92px; top:338px; width:380px; height:120px"><b data-hf-id="hf-2tos">Mel · Banho e Tosa</b><span data-hf-id="hf-v38h">12:00 · Bruno</span><svg data-hf-id="hf-jtej" class="icon src" style="color:var(--t-people)"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-phone&quot;,&quot;after&quot;:&quot;#i-phone&quot;}]" data-hf-id="hf-redr" href="#i-phone" /></svg></div>
+          <div data-hf-id="hf-dayd" class="abs appt tone-time" data-ch="ch-wa" style="left:488px; top:385px; width:380px; height:110px; box-shadow: 0 0 0 3px var(--t-time) inset, 0 20px 40px -16px rgb(70 111 189 / 0.6)"><b data-hf-id="hf-fb95">Max · Tosa</b><span data-hf-id="hf-hgkr">12:30 · Carla</span><svg data-hf-id="hf-zvx4" class="icon src" style="color:#25a35a"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-wa&quot;,&quot;after&quot;:&quot;#i-wa&quot;}]" data-hf-id="hf-o9t8" href="#i-wa" /></svg></div>
+        </div>
+      </div>
+      <div data-hf-id="hf-6cgm" class="float tone-time" id="s2-count" style="right:40px; top:1400px"><span data-hf-id="hf-o8as" class="chip chip-light"><svg data-hf-id="hf-ully" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cal&quot;,&quot;after&quot;:&quot;#i-cal&quot;}]" data-hf-id="hf-68ob" href="#i-cal" /></svg></span><span data-hf-id="hf-uckh"><small data-hf-id="hf-0z8e">Agendamentos hoje</small><b data-hf-id="hf-yojy" class="num" id="s2-n" style="font-size:44px; min-width:60px">0</b></span></div>
+    </div>
+  </section>
+
+  <!-- ═══ 03 · IA no WhatsApp · 8,5–14,5 ═══ -->
+  <section data-hf-id="hf-5q49" class="clip scene tone-system" id="s3" data-start="8.5" data-duration="6" data-track-index="2">
+    <div data-hf-id="hf-8qmz" class="sc" style="transform-origin: 190px 1430px">
+      <div data-hf-id="hf-gwvu" class="head">
+        <span data-hf-id="hf-zlm5" class="kicker"><span data-hf-id="hf-4ced" class="chip chip-dark"><svg data-hf-id="hf-u7ax" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-spark&quot;,&quot;after&quot;:&quot;#i-spark&quot;}]" data-hf-id="hf-9161" href="#i-spark" /></svg></span><span data-hf-id="hf-l3gb" class="n">02</span> Atendimento com IA</span>
+        <div data-hf-id="hf-a9ss" class="h1"><span data-hf-id="hf-tqwb" class="l1">Atende Sozinho</span><span data-hf-id="hf-kdo2" class="serif">24 horas por dia.</span></div>
+      </div>
+      <div data-hf-id="hf-zcz4" class="phone" id="s3-phone" style="left:240px; top:640px; width:600px; height:1000px">
+        <div data-hf-id="hf-ilqc" class="screen" style="background:var(--wa-bg)">
+          <div data-hf-id="hf-8kjy" class="notch"></div>
+          <div data-hf-id="hf-yyir" class="row" style="background:var(--wa-dark); color:#fff; padding:80px 30px 22px; gap:16px">
+            <span data-hf-id="hf-x3qq" class="chip" style="width:62px;height:62px;border-radius:50%;background:#fff;color:var(--accent);font-size:34px"><svg data-hf-id="hf-ve80" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-2igu" href="#i-paw" /></svg></span>
+            <span data-hf-id="hf-l73p"><b data-hf-id="hf-n2as" style="display:block;font-size:28px;font-weight:600">Pet Amigo</b><span data-hf-id="hf-vl2n" class="status" data-layout-allow-overlap="true"><span data-hf-id="hf-rvl6" class="on" data-layout-allow-overlap="true" style="opacity:.8">online</span><span data-hf-id="hf-usf5" class="typ" data-layout-allow-overlap="true">digitando…</span></span></span>
+          </div>
+          <div data-hf-id="hf-x77e" style="padding:26px 24px; display:flex; flex-direction:column; gap:16px; font-size:24px; line-height:1.35">
+            <div data-hf-id="hf-7trs" class="bub in">Oi! Tem horário no sábado pro banho do Thor?</div>
+            <div data-hf-id="hf-dfmt" class="bub out">Oi, Ana! Sábado tenho <b data-hf-id="hf-fnvs">09:00</b>, <b data-hf-id="hf-tc1t">10:30</b> ou <b data-hf-id="hf-jf3q">14:00</b>. Qual prefere?</div>
+            <div data-hf-id="hf-0fhm" class="bub in">10:30</div>
+            <div data-hf-id="hf-xny6" class="bub out prop"><span data-hf-id="hf-6t26" class="pill tone-time" style="font-size:20px;padding:6px 14px"><svg data-hf-id="hf-uzwz" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cal&quot;,&quot;after&quot;:&quot;#i-cal&quot;}]" data-hf-id="hf-6mzc" href="#i-cal" /></svg>Banho · Thor</span><b data-hf-id="hf-goyc" style="display:block;font-size:26px;margin-top:10px">Sábado, 11/10 às 10:30</b><span data-hf-id="hf-xphk" style="color:var(--muted)">Posso confirmar?</span></div>
+            <div data-hf-id="hf-o976" class="bub in">Sim!</div>
+            <div data-hf-id="hf-v82b" class="bub out">Prontinho, está agendado! Até sábado.</div>
+          </div>
+        </div>
+      </div>
+      <div data-hf-id="hf-733c" class="float tone-system" id="s3-audio" style="right:30px; top:820px"><span data-hf-id="hf-3x30" class="chip chip-light"><svg data-hf-id="hf-ptxm" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-mic&quot;,&quot;after&quot;:&quot;#i-mic&quot;}]" data-hf-id="hf-2atz" href="#i-mic" /></svg></span><span data-hf-id="hf-me0s"><small data-hf-id="hf-g197">Mandou áudio?</small><b data-hf-id="hf-3cgu">Ela Entende</b></span></div>
+      <div data-hf-id="hf-431m" class="float tone-money" id="s3-ok" style="left:30px; top:1380px"><span data-hf-id="hf-2q5x" class="chip chip-light"><svg data-hf-id="hf-pfml" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-check&quot;,&quot;after&quot;:&quot;#i-check&quot;}]" data-hf-id="hf-yk3y" href="#i-check" /></svg></span><span data-hf-id="hf-lzpr"><small data-hf-id="hf-yxsg">Thor · Sáb 10:30</small><b data-hf-id="hf-as10">Agendado</b></span></div>
+    </div>
+  </section>
+
+  <!-- ═══ 04 · Pets · 14,5–20 ═══ -->
+  <section data-hf-id="hf-ynhl" class="clip scene tone-pet" id="s4" data-start="14.5" data-duration="5.5" data-track-index="2">
+    <div data-hf-id="hf-9ihf" class="sc">
+      <div data-hf-id="hf-hb6v" class="head">
+        <span data-hf-id="hf-iodw" class="kicker"><span data-hf-id="hf-4qpe" class="chip chip-dark"><svg data-hf-id="hf-s8q1" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-kyn6" href="#i-paw" /></svg></span><span data-hf-id="hf-lhrc" class="n">03</span> Pets</span>
+        <div data-hf-id="hf-9vhr" class="h1"><span data-hf-id="hf-a1bq" class="l1">Cada Pet</span><span data-hf-id="hf-wpdy" class="serif">com a sua história.</span></div>
+      </div>
+      <div data-hf-id="hf-aqge" class="card" id="s4-card" style="left:60px; top:650px; width:960px; height:800px">
+        <div data-hf-id="hf-tw1c" class="row s4-in" style="padding:40px 40px 24px">
+          <span data-hf-id="hf-8ekd" class="chip chip-light tone-pet" style="width:110px;height:110px;border-radius:50%;font-size:56px"><svg data-hf-id="hf-sn12" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-kkc5" href="#i-paw" /></svg></span>
+          <div data-hf-id="hf-y7yw"><div data-hf-id="hf-hxkq" style="font-size:48px;font-weight:600;letter-spacing:-0.02em">Thor</div><div data-hf-id="hf-10lt" class="lbl">Golden Retriever · 4 anos · Tutora Ana</div></div>
+        </div>
+        <div data-hf-id="hf-jbl8" class="row tone-health s4-in" style="margin:0 40px; padding:16px 22px; border-radius:20px; background:var(--tone-soft); box-shadow:0 0 0 2px var(--tone-ring) inset; color:var(--tone); font-size:26px; font-weight:600; gap:14px"><svg data-hf-id="hf-zcew" class="icon" style="font-size:30px"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-alert&quot;,&quot;after&quot;:&quot;#i-alert&quot;}]" data-hf-id="hf-q7rs" href="#i-alert" /></svg>Alérgico a dipirona</div>
+        <div data-hf-id="hf-scmj" class="row tabs s4-in" style="margin:24px 40px 10px; padding:8px; border-radius:22px; background:#f1f3f6; gap:8px">
+          <span data-hf-id="hf-89y7" class="seg-ind" id="s4-ind"></span>
+          <span data-hf-id="hf-5frp" class="seg" id="seg-0">Prontuário</span><span data-hf-id="hf-cjzc" class="seg" id="seg-1">Vacinas</span><span data-hf-id="hf-qoy6" class="seg" id="seg-2">Histórico</span>
+        </div>
+        <div data-hf-id="hf-xkfh" class="panes">
+          <div data-hf-id="hf-vym1" class="pane" id="pane-0">
+            <div data-hf-id="hf-rjfe" class="vac tone-pet"><span data-hf-id="hf-557x" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-t1c3" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-lr98" href="#i-paw" /></svg></span><div data-hf-id="hf-o6lj" style="flex:1"><b data-hf-id="hf-8a6z">Temperamento Dócil</b><span data-hf-id="hf-51ze" class="lbl">Gosta de petisco, tem medo de secador</span></div></div>
+            <div data-hf-id="hf-ir8t" class="vac tone-health"><span data-hf-id="hf-c1nl" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-tfn4" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-heart&quot;,&quot;after&quot;:&quot;#i-heart&quot;}]" data-hf-id="hf-v1uy" href="#i-heart" /></svg></span><div data-hf-id="hf-coav" style="flex:1"><b data-hf-id="hf-rxh1">Peso 32 kg</b><span data-hf-id="hf-raso" class="lbl">Pesado em 02/10/2026</span></div></div>
+            <div data-hf-id="hf-0gec" class="vac tone-system"><span data-hf-id="hf-d8ko" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-qnhx" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-file&quot;,&quot;after&quot;:&quot;#i-file&quot;}]" data-hf-id="hf-rab8" href="#i-file" /></svg></span><div data-hf-id="hf-c9zu" style="flex:1"><b data-hf-id="hf-9alh">Última Consulta</b><span data-hf-id="hf-w0aa" class="lbl">02/10 · Dra. Paula · retorno ok</span></div></div>
+          </div>
+          <div data-hf-id="hf-v6y8" class="pane" id="pane-1">
+            <div data-hf-id="hf-sqw1" class="vac tone-health"><span data-hf-id="hf-cu9n" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-r1sy" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-syringe&quot;,&quot;after&quot;:&quot;#i-syringe&quot;}]" data-hf-id="hf-xn7l" href="#i-syringe" /></svg></span><div data-hf-id="hf-bvot" style="flex:1"><b data-hf-id="hf-jb0o">V10</b><span data-hf-id="hf-jqmh" class="lbl">Aplicada 02/03/2026</span></div><span data-hf-id="hf-g2ht" class="doses"><i data-hf-id="hf-j2gg" class="d"></i><i data-hf-id="hf-86iw" class="d"></i><i data-hf-id="hf-6zlt" class="d"></i></span></div>
+            <div data-hf-id="hf-txt4" class="vac tone-health"><span data-hf-id="hf-auqi" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-rg3z" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-syringe&quot;,&quot;after&quot;:&quot;#i-syringe&quot;}]" data-hf-id="hf-fqol" href="#i-syringe" /></svg></span><div data-hf-id="hf-enu0" style="flex:1"><b data-hf-id="hf-d8bp">Antirrábica</b><span data-hf-id="hf-gymy" class="lbl">Aplicada 15/04/2026</span></div><span data-hf-id="hf-49th" class="doses"><i data-hf-id="hf-7dwu" class="d"></i></span></div>
+            <div data-hf-id="hf-tji3" class="vac tone-health"><span data-hf-id="hf-agfh" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-ruf0" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-syringe&quot;,&quot;after&quot;:&quot;#i-syringe&quot;}]" data-hf-id="hf-gxlo" href="#i-syringe" /></svg></span><div data-hf-id="hf-e9iz" style="flex:1"><b data-hf-id="hf-xpv4">Giárdia</b><span data-hf-id="hf-uyss" class="lbl">2ª dose em 22/10</span></div><span data-hf-id="hf-5gqk" class="doses"><i data-hf-id="hf-66zr" class="d"></i><i data-hf-id="hf-wt6k"></i></span></div>
+          </div>
+          <div data-hf-id="hf-3uu3" class="pane" id="pane-2">
+            <div data-hf-id="hf-uf30" class="vac tone-time"><span data-hf-id="hf-bnck" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-p29t" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-scissors&quot;,&quot;after&quot;:&quot;#i-scissors&quot;}]" data-hf-id="hf-rdeb" href="#i-scissors" /></svg></span><div data-hf-id="hf-dv7y" style="flex:1"><b data-hf-id="hf-yj05">Banho e Tosa</b><span data-hf-id="hf-rs3d" class="lbl">11/10 · com Bruno</span></div></div>
+            <div data-hf-id="hf-rjyy" class="vac tone-health"><span data-hf-id="hf-b91j" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-pgku" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-heart&quot;,&quot;after&quot;:&quot;#i-heart&quot;}]" data-hf-id="hf-xr72" href="#i-heart" /></svg></span><div data-hf-id="hf-dgwx" style="flex:1"><b data-hf-id="hf-kc8q">Consulta</b><span data-hf-id="hf-ksgw" class="lbl">02/10 · Dra. Paula</span></div></div>
+            <div data-hf-id="hf-r5nx" class="vac tone-health"><span data-hf-id="hf-fmeu" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-rh28" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-syringe&quot;,&quot;after&quot;:&quot;#i-syringe&quot;}]" data-hf-id="hf-gjan" href="#i-syringe" /></svg></span><div data-hf-id="hf-g924" style="flex:1"><b data-hf-id="hf-265i">Vacina V10</b><span data-hf-id="hf-6ski" class="lbl">02/03 · 3ª dose</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div data-hf-id="hf-8fv2" class="float tone-pet" id="s4-bell" style="left:90px; top:1400px"><span data-hf-id="hf-34gy" class="chip chip-light"><svg data-hf-id="hf-r2r7" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-bell&quot;,&quot;after&quot;:&quot;#i-bell&quot;}]" data-hf-id="hf-th4l" href="#i-bell" /></svg></span><span data-hf-id="hf-n6mu"><small data-hf-id="hf-q931">Próxima dose em 12 dias</small><b data-hf-id="hf-ms6n">Tutor Avisado no WhatsApp</b></span></div>
+    </div>
+  </section>
+
+  <!-- ═══ 05 · Caixa · 20–24,5 ═══ -->
+  <section data-hf-id="hf-msqw" class="clip scene tone-money" id="s5" data-start="20" data-duration="4.5" data-track-index="2">
+    <div data-hf-id="hf-9wsg" class="sc">
+      <div data-hf-id="hf-hphw" class="head">
+        <span data-hf-id="hf-pwnm" class="kicker"><span data-hf-id="hf-6q8j" class="chip chip-dark"><svg data-hf-id="hf-qog6" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cash&quot;,&quot;after&quot;:&quot;#i-cash&quot;}]" data-hf-id="hf-8ipr" href="#i-cash" /></svg></span><span data-hf-id="hf-ipm5" class="n">04</span> Caixa</span>
+        <div data-hf-id="hf-b2eu" class="h1"><span data-hf-id="hf-hotj" class="l1">Caixa do Dia</span><span data-hf-id="hf-nizb" class="serif">conferido em segundos.</span></div>
+      </div>
+      <div data-hf-id="hf-4f5q" class="card" id="s5-card" style="left:60px; top:650px; width:960px; height:780px">
+        <div data-hf-id="hf-nzrf" class="row" style="padding:38px 40px 18px; justify-content:space-between">
+          <div data-hf-id="hf-x11t"><div data-hf-id="hf-fc5p" class="lbl" style="color:var(--t-money);font-weight:600">Caixa Aberto · 08:02</div><div data-hf-id="hf-df4k" style="font-size:44px;font-weight:600;letter-spacing:-0.02em">Gaveta do Balcão</div></div>
+          <span data-hf-id="hf-z841" class="pill tone-money"><svg data-hf-id="hf-qa55" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-user&quot;,&quot;after&quot;:&quot;#i-user&quot;}]" data-hf-id="hf-9pz3" href="#i-user" /></svg>Bruno</span>
+        </div>
+        <div data-hf-id="hf-wkqa" style="padding:0 40px">
+          <div data-hf-id="hf-kaxa" class="mov"><span data-hf-id="hf-wuyb" class="lbl" style="font-size:28px;color:var(--muted)">Abertura</span><span data-hf-id="hf-a6qm" class="val num">R$ 200,00</span></div>
+          <div data-hf-id="hf-hfte" class="mov"><span data-hf-id="hf-zbsx" class="row" style="gap:14px"><span data-hf-id="hf-k8cr" class="chip chip-light tone-metric" style="width:52px;height:52px;font-size:26px"><svg data-hf-id="hf-pvu4" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-qr&quot;,&quot;after&quot;:&quot;#i-qr&quot;}]" data-hf-id="hf-iinv" href="#i-qr" /></svg></span>Pix</span><span data-hf-id="hf-4c6r" class="val num" style="color:var(--t-money)">+ R$ 480,00</span></div>
+          <div data-hf-id="hf-hu4f" class="mov"><span data-hf-id="hf-zdgw" class="row" style="gap:14px"><span data-hf-id="hf-llb0" class="chip chip-light tone-system" style="width:52px;height:52px;font-size:26px"><svg data-hf-id="hf-phj3" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cash&quot;,&quot;after&quot;:&quot;#i-cash&quot;}]" data-hf-id="hf-84eq" href="#i-cash" /></svg></span>Cartão</span><span data-hf-id="hf-ytbn" class="val num" style="color:var(--t-money)">+ R$ 935,50</span></div>
+          <div data-hf-id="hf-i8fg" class="mov"><span data-hf-id="hf-4y5c" class="row" style="gap:14px"><span data-hf-id="hf-sxcd" class="chip chip-light tone-money" style="width:52px;height:52px;font-size:26px"><svg data-hf-id="hf-p382" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cash&quot;,&quot;after&quot;:&quot;#i-cash&quot;}]" data-hf-id="hf-7q3p" href="#i-cash" /></svg></span>Dinheiro</span><span data-hf-id="hf-9cjp" class="val num" style="color:var(--t-money)">+ R$ 312,00</span></div>
+          <div data-hf-id="hf-imqh" class="mov"><span data-hf-id="hf-svft" class="row" style="gap:14px"><span data-hf-id="hf-a4aa" class="chip chip-light tone-danger" style="width:52px;height:52px;font-size:26px"><svg data-hf-id="hf-oox1" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-arrow&quot;,&quot;after&quot;:&quot;#i-arrow&quot;}]" data-hf-id="hf-o4qd" href="#i-arrow" /></svg></span>Sangria</span><span data-hf-id="hf-rwkl" class="val num" style="color:var(--t-danger)">− R$ 80,00</span></div>
+        </div>
+        <div data-hf-id="hf-bv5u" class="row" style="position:absolute; left:40px; right:40px; bottom:40px; padding:28px 32px; border-radius:28px; background:#f1f3f6; justify-content:space-between">
+          <span data-hf-id="hf-n0td" style="font-size:28px;font-weight:600;color:var(--muted)">Esperado na Gaveta</span><span data-hf-id="hf-y82s" class="num" id="s5-total" style="font-size:64px;font-weight:700;letter-spacing:-0.03em;color:var(--ink-strong)">R$ 0,00</span>
+        </div>
+      </div>
+      <div data-hf-id="hf-po9o" class="abs tone-money stamp" id="s5-stamp" style="right:80px; top:1455px">Fechado · Sem Diferença</div>
+    </div>
+  </section>
+
+  <!-- ═══ 06 · Fluxo de Caixa · 24,5–29 ═══ -->
+  <section data-hf-id="hf-8xui" class="clip scene tone-money" id="s6" data-start="24.5" data-duration="4.5" data-track-index="2">
+    <div data-hf-id="hf-74n9" class="sc">
+      <div data-hf-id="hf-i3sx" class="head">
+        <span data-hf-id="hf-697x" class="kicker"><span data-hf-id="hf-74jk" class="chip chip-dark"><svg data-hf-id="hf-oam0" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-trend&quot;,&quot;after&quot;:&quot;#i-trend&quot;}]" data-hf-id="hf-m5fr" href="#i-trend" /></svg></span><span data-hf-id="hf-j3x6" class="n">05</span> Fluxo de Caixa</span>
+        <div data-hf-id="hf-ao3t" class="h1"><span data-hf-id="hf-lx0b" class="l1">O Dinheiro</span><span data-hf-id="hf-1zpu" class="serif">sem planilha.</span></div>
+      </div>
+      <div data-hf-id="hf-1bd5" class="card" id="s6-card" style="left:60px; top:650px; width:960px; height:760px">
+        <div data-hf-id="hf-zs16" class="row" style="padding:40px 40px 0; justify-content:space-between; align-items:flex-start">
+          <div data-hf-id="hf-xfcu"><div data-hf-id="hf-okg6" class="lbl">Saldo de Outubro</div><div data-hf-id="hf-vgqe" class="num" id="s6-kpi" style="font-size:88px;font-weight:700;letter-spacing:-0.04em;color:var(--ink-strong)">+R$ 0</div></div>
+          <span data-hf-id="hf-eptv" class="pill tone-money" id="s6-pct" style="margin-top:20px"><svg data-hf-id="hf-nwaz" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-trend&quot;,&quot;after&quot;:&quot;#i-trend&quot;}]" data-hf-id="hf-lr4q" href="#i-trend" /></svg>+18%</span>
+        </div>
+        <div data-hf-id="hf-0ckp" class="row" style="padding:10px 40px 0; gap:30px; font-size:22px; color:var(--muted)">
+          <span data-hf-id="hf-ytck" class="row" style="gap:10px"><i data-hf-id="hf-k8pe" style="width:18px;height:18px;border-radius:5px;background:#3fae6c"></i>Entradas</span>
+          <span data-hf-id="hf-pned" class="row" style="gap:10px"><i data-hf-id="hf-sqze" style="width:18px;height:18px;border-radius:5px;background:#d5d8de"></i>Saídas</span>
+          <span data-hf-id="hf-wyr5" class="row" style="gap:10px"><i data-hf-id="hf-tonh" style="width:26px;height:4px;border-radius:2px;background:var(--t-metric)"></i>Saldo</span>
+        </div>
+        <svg data-hf-id="hf-by9q" viewBox="0 0 880 470" style="position:absolute; left:40px; bottom:30px; width:880px; height:470px; overflow:visible">
+          <g data-hf-id="hf-wiw0" stroke="rgb(35 36 39 / 0.08)" stroke-width="2"><line data-hf-id="hf-gv3c" x1="0" y1="40" x2="880" y2="40" /><line data-hf-id="hf-kniy" x1="0" y1="153" x2="880" y2="153" /><line data-hf-id="hf-xb80" x1="0" y1="266" x2="880" y2="266" /><line data-hf-id="hf-5u5a" x1="0" y1="380" x2="880" y2="380" /></g>
+          <g data-hf-id="hf-yq1l" fill="#3fae6c" class="bars-in">
+            <rect data-hf-id="hf-6fwm" x="34" y="176" width="52" height="204" rx="10" /><rect data-hf-id="hf-v73m" x="180" y="142" width="52" height="238" rx="10" /><rect data-hf-id="hf-e3qo" x="326" y="165" width="52" height="215" rx="10" /><rect data-hf-id="hf-va2c" x="472" y="108" width="52" height="272" rx="10" /><rect data-hf-id="hf-e8uh" x="618" y="85" width="52" height="295" rx="10" /><rect data-hf-id="hf-fjyu" x="764" y="51" width="52" height="329" rx="10" />
+          </g>
+          <g data-hf-id="hf-8ha8" fill="#d5d8de" class="bars-out">
+            <rect data-hf-id="hf-sg4o" x="92" y="221" width="52" height="159" rx="10" /><rect data-hf-id="hf-s53b" x="238" y="210" width="52" height="170" rx="10" /><rect data-hf-id="hf-mkcx" x="384" y="199" width="52" height="181" rx="10" /><rect data-hf-id="hf-h4dk" x="530" y="187" width="52" height="193" rx="10" /><rect data-hf-id="hf-fv9l" x="676" y="187" width="52" height="193" rx="10" /><rect data-hf-id="hf-iuua" x="822" y="193" width="52" height="187" rx="10" />
+          </g>
+          <polyline data-hf-id="hf-uprr" id="s6-line" fill="none" stroke="#00818c" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" points="89,300 235,266 381,312 527,255 673,232 819,196" />
+          <g data-hf-id="hf-4duw" fill="#fff" stroke="#00818c" stroke-width="5" class="dots-g"><circle data-hf-id="hf-bdh5" cx="89" cy="300" r="9" /><circle data-hf-id="hf-xyr9" cx="235" cy="266" r="9" /><circle data-hf-id="hf-b47h" cx="381" cy="312" r="9" /><circle data-hf-id="hf-hf7x" cx="527" cy="255" r="9" /><circle data-hf-id="hf-n8hs" cx="673" cy="232" r="9" /><circle data-hf-id="hf-qif7" cx="819" cy="196" r="12" /></g>
+          <g data-hf-id="hf-4hpm" fill="#7d8089" font-size="22" font-family="Inter" text-anchor="middle"><text data-hf-id="hf-5bqb" x="89" y="425">Mai</text><text data-hf-id="hf-nfue" x="235" y="425">Jun</text><text data-hf-id="hf-oyqk" x="381" y="425">Jul</text><text data-hf-id="hf-v4v0" x="527" y="425">Ago</text><text data-hf-id="hf-mwu1" x="673" y="425">Set</text><text data-hf-id="hf-oe4r" x="819" y="425">Out</text></g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 07 · Estoque · 29–33,5 ═══ -->
+  <section data-hf-id="hf-6xg4" class="clip scene tone-brand" id="s7" data-start="29" data-duration="4.5" data-track-index="2">
+    <div data-hf-id="hf-7iya" class="sc">
+      <div data-hf-id="hf-ii3y" class="head">
+        <span data-hf-id="hf-rqu0" class="kicker"><span data-hf-id="hf-5xmh" class="chip chip-dark"><svg data-hf-id="hf-bs3j" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-box&quot;,&quot;after&quot;:&quot;#i-box&quot;}]" data-hf-id="hf-deb5" href="#i-box" /></svg></span><span data-hf-id="hf-ji87" class="n">06</span> Estoque</span>
+        <div data-hf-id="hf-bv0w" class="h1"><span data-hf-id="hf-bvb6" class="l1">Estoque</span><span data-hf-id="hf-d83k" class="serif">que avisa antes.</span></div>
+      </div>
+      <div data-hf-id="hf-1js2" class="card" id="s7-card" style="left:60px; top:650px; width:960px; height:690px">
+        <div data-hf-id="hf-2a6c" style="padding:38px 40px 10px"><div data-hf-id="hf-c5hf" class="lbl" style="color:var(--t-brand);font-weight:600">Posição do Estoque</div><div data-hf-id="hf-yylu" style="font-size:44px;font-weight:600;letter-spacing:-0.02em">Produtos e Insumos</div></div>
+        <div data-hf-id="hf-z5py" style="padding:0 40px">
+          <div data-hf-id="hf-k6gl" class="stk tone-danger" id="stk-0"><span data-hf-id="hf-f83t" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-c6ek" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-drop&quot;,&quot;after&quot;:&quot;#i-drop&quot;}]" data-hf-id="hf-c6zp" href="#i-drop" /></svg></span><div data-hf-id="hf-fur3" style="flex:1"><div data-hf-id="hf-6fnv" class="row" style="justify-content:space-between"><b data-hf-id="hf-ce0d">Shampoo Neutro</b><span data-hf-id="hf-0u7z" class="q num" id="s7-q" style="color:var(--t-danger)">7 un.</span></div><div data-hf-id="hf-ufsv" class="bar"><i data-hf-id="hf-05j2" id="bar-0" style="width:14%; background:var(--t-danger)"></i><em data-hf-id="hf-r5pp" style="left:34%"></em></div></div></div>
+          <div data-hf-id="hf-9a4w" class="stk tone-pet"><span data-hf-id="hf-wxhf" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-azhh" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-box&quot;,&quot;after&quot;:&quot;#i-box&quot;}]" data-hf-id="hf-el88" href="#i-box" /></svg></span><div data-hf-id="hf-fdlh" style="flex:1"><div data-hf-id="hf-ebsb" class="row" style="justify-content:space-between"><b data-hf-id="hf-dqpe">Ração Premium 15 kg</b><span data-hf-id="hf-u6vs" class="q num">18 un.</span></div><div data-hf-id="hf-c51b" class="bar"><i data-hf-id="hf-xl84" id="bar-1" style="width:72%"></i><em data-hf-id="hf-imv4" style="left:20%"></em></div></div></div>
+          <div data-hf-id="hf-hp5j" class="stk tone-health"><span data-hf-id="hf-xbsg" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-bdsi" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-syringe&quot;,&quot;after&quot;:&quot;#i-syringe&quot;}]" data-hf-id="hf-hq7q" href="#i-syringe" /></svg></span><div data-hf-id="hf-frwi" style="flex:1"><div data-hf-id="hf-dxha" class="row" style="justify-content:space-between"><b data-hf-id="hf-hr1m">Vacina V10</b><span data-hf-id="hf-l8af" class="q num">9 doses</span></div><div data-hf-id="hf-bqqa" class="bar"><i data-hf-id="hf-2dz1" id="bar-2" style="width:45%"></i><em data-hf-id="hf-xwab" style="left:25%"></em></div></div></div>
+          <div data-hf-id="hf-mq2o" class="stk tone-people"><span data-hf-id="hf-w4vd" class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg data-hf-id="hf-ddbn" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-spark&quot;,&quot;after&quot;:&quot;#i-spark&quot;}]" data-hf-id="hf-a834" href="#i-spark" /></svg></span><div data-hf-id="hf-g67j" style="flex:1"><div data-hf-id="hf-dj69" class="row" style="justify-content:space-between"><b data-hf-id="hf-9cqs">Laço Decorativo</b><span data-hf-id="hf-eh94" class="q num">120 un.</span></div><div data-hf-id="hf-bcf9" class="bar"><i data-hf-id="hf-sh9l" id="bar-3" style="width:86%"></i><em data-hf-id="hf-gto0" style="left:15%"></em></div></div></div>
+        </div>
+      </div>
+      <div data-hf-id="hf-ncvp" class="abs minus" id="m-1" style="left:800px; top:860px">−1</div>
+      <div data-hf-id="hf-4jbw" class="abs minus" id="m-2" style="left:800px; top:978px">−1</div>
+      <div data-hf-id="hf-5tt0" class="abs minus" data-layout-allow-overlap="true" id="m-0a" style="left:800px; top:742px">−1</div>
+      <div data-hf-id="hf-6ks2" class="abs minus" data-layout-allow-overlap="true" id="m-0b" style="left:800px; top:742px">−2</div>
+      <div data-hf-id="hf-1701" class="float tone-danger" id="s7-alert" style="left:90px; top:1290px"><span data-hf-id="hf-bytg" class="chip chip-light" id="s7-bellchip"><svg data-hf-id="hf-drmo" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-bell&quot;,&quot;after&quot;:&quot;#i-bell&quot;}]" data-hf-id="hf-90kp" href="#i-bell" /></svg></span><span data-hf-id="hf-msbt"><small data-hf-id="hf-882k">Abaixo do mínimo</small><b data-hf-id="hf-q5l3">Repor Shampoo Neutro</b></span></div>
+    </div>
+  </section>
+
+  <!-- ═══ 08 · Site do Petshop · 33,5–38 ═══ -->
+  <section data-hf-id="hf-6w72" class="clip scene tone-metric" id="s8" data-start="33.5" data-duration="4.5" data-track-index="2">
+    <div data-hf-id="hf-7x9b" class="sc">
+      <div data-hf-id="hf-iwez" class="head">
+        <span data-hf-id="hf-kdic" class="kicker"><span data-hf-id="hf-6bxi" class="chip chip-dark"><svg data-hf-id="hf-ckpl" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-globe&quot;,&quot;after&quot;:&quot;#i-globe&quot;}]" data-hf-id="hf-px7n" href="#i-globe" /></svg></span><span data-hf-id="hf-jwj8" class="n">07</span> Site Próprio</span>
+        <div data-hf-id="hf-bgpv" class="h1"><span data-hf-id="hf-dxpe" class="l1">Seu Site</span><span data-hf-id="hf-guz3" class="serif">pronto e no ar.</span></div>
+      </div>
+      <div data-hf-id="hf-n1lu" class="card" id="s8-card" style="left:60px; top:650px; width:960px; height:790px">
+        <div data-hf-id="hf-80ig" class="browser-bar"><span data-hf-id="hf-r6mh" class="dots"><i data-hf-id="hf-zeb8"></i><i data-hf-id="hf-y7e5"></i><i data-hf-id="hf-ylp6"></i></span><span data-hf-id="hf-yjmo" class="url"><svg data-hf-id="hf-cz0m" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-lock&quot;,&quot;after&quot;:&quot;#i-lock&quot;}]" data-hf-id="hf-i53r" href="#i-lock" /></svg><span data-hf-id="hf-bx50" class="url-t" id="s8-url">p</span></span></div>
+        <div data-hf-id="hf-zat3" id="s8-hero" style="height:400px; padding:48px 48px 0; background: radial-gradient(90% 120% at 100% 0%, #ffe4d9, #fff6f1 55%, #fff); position:relative">
+          <span data-hf-id="hf-bfp8" class="pill tone-metric s8-h" style="font-size:20px"><svg data-hf-id="hf-8lnb" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-lcy7" href="#i-paw" /></svg>Banho e Tosa · Vila Mariana</span>
+          <div data-hf-id="hf-0dam" class="s8-h" style="font-family:'Instrument Serif',serif; font-style:italic; font-size:96px; line-height:0.95; color:var(--ink-strong); margin-top:22px">Pet Amigo</div>
+          <div data-hf-id="hf-coxr" class="lbl s8-h" style="margin-top:10px">Seg a Sáb · 8h às 18h · Leva-e-traz</div>
+          <span data-hf-id="hf-desy" class="ripple" id="s8-rip" style="left:48px; bottom:40px; width:297px; height:66px"></span>
+          <span data-hf-id="hf-vr52" class="btn-dark" id="s8-btn" style="position:absolute; left:48px; bottom:40px; background:linear-gradient(180deg,#f05a3c,#c93a24)">Agendar Online<svg data-hf-id="hf-8zyc" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-arrow&quot;,&quot;after&quot;:&quot;#i-arrow&quot;}]" data-hf-id="hf-uxwp" href="#i-arrow" /></svg></span>
+          <svg data-hf-id="hf-wne8" class="icon fill" id="s8-cur" style="position:absolute; left:330px; bottom:12px; font-size:54px; color:#171719; stroke:#fff; stroke-width:1.5"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-pointer&quot;,&quot;after&quot;:&quot;#i-pointer&quot;}]" data-hf-id="hf-ich5" href="#i-pointer" /></svg>
+        </div>
+        <div data-hf-id="hf-oa14" style="padding:30px 48px 0; display:grid; grid-template-columns:1fr 1fr; gap:18px">
+          <div data-hf-id="hf-vuq0" class="svc tone-time"><span data-hf-id="hf-h27c" class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg data-hf-id="hf-b0fq" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-drop&quot;,&quot;after&quot;:&quot;#i-drop&quot;}]" data-hf-id="hf-ctyx" href="#i-drop" /></svg></span><div data-hf-id="hf-w8fr"><b data-hf-id="hf-on8f">Banho</b><span data-hf-id="hf-k1g9">a partir de R$ 60</span></div></div>
+          <div data-hf-id="hf-5546" class="svc tone-pet"><span data-hf-id="hf-57j4" class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg data-hf-id="hf-am4p" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-scissors&quot;,&quot;after&quot;:&quot;#i-scissors&quot;}]" data-hf-id="hf-3w1f" href="#i-scissors" /></svg></span><div data-hf-id="hf-wmqs"><b data-hf-id="hf-nj7g">Tosa</b><span data-hf-id="hf-oniv">a partir de R$ 80</span></div></div>
+          <div data-hf-id="hf-fs7d" class="svc tone-health"><span data-hf-id="hf-40m1" class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg data-hf-id="hf-bt1s" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-syringe&quot;,&quot;after&quot;:&quot;#i-syringe&quot;}]" data-hf-id="hf-hbwp" href="#i-syringe" /></svg></span><div data-hf-id="hf-vftp"><b data-hf-id="hf-gs8u">Vacinas</b><span data-hf-id="hf-hk1v">com carteira digital</span></div></div>
+          <div data-hf-id="hf-1k2e" class="svc tone-people"><span data-hf-id="hf-4ex2" class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg data-hf-id="hf-beqr" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-van&quot;,&quot;after&quot;:&quot;#i-van&quot;}]" data-hf-id="hf-0tv5" href="#i-van" /></svg></span><div data-hf-id="hf-vu4q"><b data-hf-id="hf-xydx">Leva-e-Traz</b><span data-hf-id="hf-88vx">a partir de R$ 20</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 09 · Site do Tutor · 38–42,5 ═══ -->
+  <section data-hf-id="hf-ouxo" class="clip scene tone-people" id="s9" data-start="38" data-duration="4.5" data-track-index="2">
+    <div data-hf-id="hf-8bkc" class="sc">
+      <div data-hf-id="hf-jaq0" class="head">
+        <span data-hf-id="hf-tv14" class="kicker"><span data-hf-id="hf-1yk7" class="chip chip-dark"><svg data-hf-id="hf-9f7m" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-user&quot;,&quot;after&quot;:&quot;#i-user&quot;}]" data-hf-id="hf-9bo2" href="#i-user" /></svg></span><span data-hf-id="hf-nhah" class="n">08</span> Área do Tutor</span>
+        <div data-hf-id="hf-6aqi" class="h1"><span data-hf-id="hf-bgt9" class="l1">O Tutor</span><span data-hf-id="hf-mx97" class="serif">com tudo na mão.</span></div>
+      </div>
+      <div data-hf-id="hf-9wsu" class="phone" id="s9-phone" style="left:240px; top:640px; width:600px; height:1000px">
+        <div data-hf-id="hf-rqpj" class="screen" style="background:#f6f6f8">
+          <div data-hf-id="hf-zwuq" class="notch"></div>
+          <div data-hf-id="hf-5f6c" style="padding:92px 34px 0">
+            <div data-hf-id="hf-bh7h" class="s9-b"><div data-hf-id="hf-kxls" class="lbl">Olá,</div><div data-hf-id="hf-cz4h" style="font-size:46px;font-weight:600;letter-spacing:-0.02em">Ana</div></div>
+            <div data-hf-id="hf-35o7" class="row s9-b" style="gap:14px; margin-top:22px">
+              <span data-hf-id="hf-tlt6" class="pill tone-pet" style="font-size:22px"><svg data-hf-id="hf-90wl" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-mjva" href="#i-paw" /></svg>Thor</span>
+              <span data-hf-id="hf-myan" class="pill tone-pet" style="font-size:22px"><svg data-hf-id="hf-a7to" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-m5k9" href="#i-paw" /></svg>Mel</span>
+            </div>
+            <div data-hf-id="hf-rg5o" class="s9-b" style="margin-top:26px; padding:28px; border-radius:30px; background:#fff; box-shadow:0 0 0 2px var(--line) inset">
+              <div data-hf-id="hf-m3bg" class="lbl">Saldo em aberto</div>
+              <div data-hf-id="hf-xjxt" class="num" id="s9-saldo" style="font-size:60px;font-weight:700;letter-spacing:-0.03em">R$ 180,00</div>
+              <span data-hf-id="hf-v92s" class="btn-dark" id="s9-btn" style="margin-top:18px; width:100%; justify-content:center"><svg data-hf-id="hf-9tin" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-qr&quot;,&quot;after&quot;:&quot;#i-qr&quot;}]" data-hf-id="hf-z0l7" href="#i-qr" /></svg>Pagar Agora com PIX</span>
+            </div>
+            <div data-hf-id="hf-z128" class="plist">
+              <div data-hf-id="hf-okks" class="row tone-health s9-b"><span data-hf-id="hf-37zz" class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg data-hf-id="hf-7tzi" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-syringe&quot;,&quot;after&quot;:&quot;#i-syringe&quot;}]" data-hf-id="hf-iits" href="#i-syringe" /></svg></span><b data-hf-id="hf-aguu">Carteira de Vacinas</b></div>
+              <div data-hf-id="hf-3i67" class="row tone-time s9-b"><span data-hf-id="hf-3mb0" class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg data-hf-id="hf-7foh" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cal&quot;,&quot;after&quot;:&quot;#i-cal&quot;}]" data-hf-id="hf-3uu5" href="#i-cal" /></svg></span><b data-hf-id="hf-nz7q">Sáb, 11/10 · 10:30</b></div>
+              <div data-hf-id="hf-dymn" class="row tone-system s9-b"><span data-hf-id="hf-2fdx" class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg data-hf-id="hf-ce6l" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-file&quot;,&quot;after&quot;:&quot;#i-file&quot;}]" data-hf-id="hf-mg3w" href="#i-file" /></svg></span><b data-hf-id="hf-oplq">Meus Documentos</b></div>
+            </div>
+          </div>
+          <span data-hf-id="hf-n2ha" class="tap" id="s9-tap" style="left:245px; top:415px"></span>
+        </div>
+      </div>
+      <div data-hf-id="hf-vl2d" class="float tone-money" id="s9-ok" style="right:30px; top:1180px"><span data-hf-id="hf-5403" class="chip chip-light"><svg data-hf-id="hf-cshm" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-check&quot;,&quot;after&quot;:&quot;#i-check&quot;}]" data-hf-id="hf-8nki" href="#i-check" /></svg></span><span data-hf-id="hf-nz8w"><small data-hf-id="hf-i98u">R$ 180,00 via PIX</small><b data-hf-id="hf-v5k8">Pago</b></span></div>
+    </div>
+  </section>
+
+  <!-- ═══ 10 · Fecho · 42,5–47,5 ═══ -->
+  <section data-hf-id="hf-fg6y" class="clip scene tone-brand" id="s10" data-start="42.5" data-duration="5" data-track-index="2">
+    <div data-hf-id="hf-5jf5" class="sc">
+      <div data-hf-id="hf-pfvz" class="abs cx" style="top:290px"><span data-hf-id="hf-716n" class="logo" id="s10-logo"><span data-hf-id="hf-zeo6" class="mark"><svg data-hf-id="hf-d6sn" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-nchc" href="#i-paw" /></svg></span>PetShop AI</span></div>
+      <div data-hf-id="hf-3j41" class="abs cx tagline" style="top:470px"><span data-hf-id="hf-r0w1" class="t">Você cuida</span><span data-hf-id="hf-ui5v" class="t">do pet.</span><span data-hf-id="hf-jma8" class="serif"><span data-hf-id="hf-r91j" class="t">A gente cuida</span><span data-hf-id="hf-f601" class="t">do resto.</span></span></div>
+      <div data-hf-id="hf-vbpp" class="abs row" style="left:79px; top:1020px; gap:22px">
+        <span data-hf-id="hf-s5ry" class="tone-time mini-w"><span data-hf-id="hf-abk9" class="chip chip-dark mini"><svg data-hf-id="hf-dl3o" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cal&quot;,&quot;after&quot;:&quot;#i-cal&quot;}]" data-hf-id="hf-4956" href="#i-cal" /></svg></span></span>
+        <span data-hf-id="hf-l4na" class="tone-system mini-w"><span data-hf-id="hf-g5q5" class="chip chip-dark mini"><svg data-hf-id="hf-dzep" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-spark&quot;,&quot;after&quot;:&quot;#i-spark&quot;}]" data-hf-id="hf-9ts3" href="#i-spark" /></svg></span></span>
+        <span data-hf-id="hf-uv8q" class="tone-pet mini-w"><span data-hf-id="hf-hcn8" class="chip chip-dark mini"><svg data-hf-id="hf-edpq" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-paw&quot;,&quot;after&quot;:&quot;#i-paw&quot;}]" data-hf-id="hf-my6b" href="#i-paw" /></svg></span></span>
+        <span data-hf-id="hf-k91f" class="tone-money mini-w"><span data-hf-id="hf-gyc7" class="chip chip-dark mini"><svg data-hf-id="hf-es0r" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-cash&quot;,&quot;after&quot;:&quot;#i-cash&quot;}]" data-hf-id="hf-ai8w" href="#i-cash" /></svg></span></span>
+        <span data-hf-id="hf-0pfr" class="tone-metric mini-w"><span data-hf-id="hf-i59a" class="chip chip-dark mini"><svg data-hf-id="hf-f6bs" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-trend&quot;,&quot;after&quot;:&quot;#i-trend&quot;}]" data-hf-id="hf-lctp" href="#i-trend" /></svg></span></span>
+        <span data-hf-id="hf-jmya" class="tone-brand mini-w"><span data-hf-id="hf-hqy9" class="chip chip-dark mini"><svg data-hf-id="hf-fkmt" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-box&quot;,&quot;after&quot;:&quot;#i-box&quot;}]" data-hf-id="hf-e6x7" href="#i-box" /></svg></span></span>
+        <span data-hf-id="hf-ojjb" class="tone-metric mini-w"><span data-hf-id="hf-ixvc" class="chip chip-dark mini"><svg data-hf-id="hf-fyxu" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-globe&quot;,&quot;after&quot;:&quot;#i-globe&quot;}]" data-hf-id="hf-nxoi" href="#i-globe" /></svg></span></span>
+        <span data-hf-id="hf-3zl8" class="tone-people mini-w"><span data-hf-id="hf-ijkb" class="chip chip-dark mini"><svg data-hf-id="hf-bmis" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-user&quot;,&quot;after&quot;:&quot;#i-user&quot;}]" data-hf-id="hf-8xd1" href="#i-user" /></svg></span></span>
+      </div>
+      <div data-hf-id="hf-mv6s" class="abs cx" style="top:1180px"><span data-hf-id="hf-z0l8" class="cta" id="s10-cta">Teste Grátis por 14 Dias<svg data-hf-id="hf-b87r" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-arrow&quot;,&quot;after&quot;:&quot;#i-arrow&quot;}]" data-hf-id="hf-w4ts" href="#i-arrow" /></svg><span data-hf-id="hf-uset" class="shine" id="s10-shine" data-layout-allow-overflow="true"></span></span></div>
+      <div data-hf-id="hf-yecu" class="abs cx" id="s10-site" style="top:1320px"><span data-hf-id="hf-wpr6" class="site"><svg data-hf-id="hf-atwq" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-globe&quot;,&quot;after&quot;:&quot;#i-globe&quot;}]" data-hf-id="hf-njdh" href="#i-globe" /></svg>petshop.officestecnologia.com.br</span></div>
+      <div data-hf-id="hf-aa82" class="abs cx notes" id="s10-notes" style="top:1400px"><span data-hf-id="hf-21j1"><svg data-hf-id="hf-aflp" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-check&quot;,&quot;after&quot;:&quot;#i-check&quot;}]" data-hf-id="hf-91vj" href="#i-check" /></svg>Sem cartão de crédito</span><span data-hf-id="hf-ifez"><svg data-hf-id="hf-d7qw" class="icon"><use data-hf-svg-reference-aliases="[{&quot;name&quot;:&quot;href&quot;,&quot;localName&quot;:&quot;href&quot;,&quot;namespaceURI&quot;:null,&quot;before&quot;:&quot;#i-check&quot;,&quot;after&quot;:&quot;#i-check&quot;}]" data-hf-id="hf-9g6k" href="#i-check" /></svg>Cancele quando quiser</span></div>
+      <div data-hf-id="hf-oue6" class="abs cx by" id="s10-by" style="top:1490px">um produto <b data-hf-id="hf-r8i1">Offices Aplicativos</b></div>
+    </div>
+  </section>
+
+  <div data-hf-id="hf-o48q" id="progress-track"><i data-hf-id="hf-q9lw" id="progress"></i></div>
+
+  <audio data-hf-id="hf-19pw" id="trilha" src="assets/trilha.wav" data-start="0" data-duration="47.5" data-track-index="1" data-end="47.5"></audio>
+</div>
+
+
+<script type="text/hf-after-fonts">document.fonts.ready.then(() => {
+  const tl = gsap.timeline({ paused: true });
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+  const root = $("#root");
+  const pos = (el) => {
+    let x = 0, y = 0;
+    while (el && el !== root) {
+      x += el.offsetLeft;
+      y += el.offsetTop;
+      el = el.offsetParent;
+    }
+    return { x, y };
+  };
+  const center = (el) => {
+    const p = pos(el);
+    return { x: p.x + el.offsetWidth / 2, y: p.y + el.offsetHeight / 2 };
+  };
+  const counter = (el, t0, dur, fn) => {
+    const o = { p: 0 };
+    tl.fromTo(o, { p: 0 }, { p: 1, duration: dur, ease: "none", immediateRender: false, onUpdate: () => {
+      el.textContent = fn(o.p * dur);
+    } }, t0);
+  };
+  const brl = (v, dec = 2) => v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const NI = { immediateRender: false };
+  const head = (id, t0) => {
+    tl.fromTo(`#${id} .kicker`, { opacity: 0, y: 30, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(1.7)" }, t0 + 0.05);
+    tl.fromTo(`#${id} .h1 .l1`, { opacity: 0, y: 70 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, t0 + 0.12);
+    tl.fromTo(`#${id} .h1 .serif`, { opacity: 0, y: 40, clipPath: "inset(-30% 100% -30% -5%)" }, { opacity: 1, y: 0, clipPath: "inset(-30% -5% -30% -5%)", duration: 0.75, ease: "power2.out" }, t0 + 0.32);
+  };
+  const OUT = { up: { y: -170, opacity: 0, ease: "power2.in" }, left: { x: -280, opacity: 0, ease: "power2.in" }, zoom: { scale: 1.14, opacity: 0, ease: "power2.in" }, fade: { opacity: 0, scale: 0.97, ease: "power1.in" } };
+  const IN = { up: { y: 220, opacity: 0 }, left: { x: 320, opacity: 0 }, zoom: { scale: 0.9, opacity: 0 }, fade: { opacity: 0, scale: 1.03 } };
+  const exit = (id, kind, tEnd) => {
+    tl.to(`#${id} .sc`, { ...OUT[kind], duration: 0.38 }, tEnd - 0.42);
+  };
+  const enter = (id, kind, t0) => {
+    tl.fromTo(`#${id} .sc`, IN[kind], { x: 0, y: 0, scale: 1, opacity: 1, duration: 0.5, ease: "power3.out" }, t0);
+  };
+  const glow = (rgb, t) => tl.to("#bg", { "--g": `rgb(${rgb} / 0.32)`, duration: 0.7, ease: "sine.inOut" }, t);
+  const pop = (sel, t, extra = {}) => tl.fromTo(sel, { opacity: 0, scale: 0.6, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: "back.out(1.9)", ...extra }, t);
+  tl.fromTo("#progress", { width: "0%" }, { width: "100%", duration: 47.5, ease: "none" }, 0);
+  tl.fromTo("#glowA", { x: 0, y: 0, scale: 1 }, { x: 140, y: 90, scale: 1.12, duration: 5.9, ease: "sine.inOut", yoyo: true, repeat: 7 }, 0);
+  tl.fromTo("#glowB", { x: 0, y: 0 }, { x: -120, y: -160, duration: 7.9, ease: "sine.inOut", yoyo: true, repeat: 5 }, 0);
+  $$(".pawp").forEach((p, i) => tl.fromTo(p, { y: 0, rotation: -10 + i * 7 }, { y: -260 - i * 30, rotation: 10 + i * 5, duration: 47.5, ease: "none" }, 0));
+  {
+    const t0 = 0;
+    tl.fromTo("#s1-mark", { scale: 0, rotation: -90 }, { scale: 1, rotation: 0, duration: 0.7, ease: "back.out(2)" }, t0 + 0.1);
+    tl.fromTo("#s1 .orb", { scale: 0.5, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.9, ease: "power3.out", stagger: 0.08 }, t0 + 0.15);
+    const sats = $$("#s1 .sat");
+    sats.forEach((s, i) => {
+      const c = center(s);
+      const dx = c.x - 540, dy = c.y - 1100;
+      s.dataset.dx = dx;
+      s.dataset.dy = dy;
+      tl.fromTo(s, { x: dx * 1.9, y: dy * 1.9, opacity: 0, scale: 0.4, rotation: -140 }, { x: 0, y: 0, opacity: 1, scale: 1, rotation: 0, duration: 0.85, ease: "back.out(1.3)" }, t0 + 0.25 + i * 0.06);
+    });
+    tl.fromTo("#s1-ring", { rotation: 0 }, { rotation: 60, duration: 1.9, ease: "sine.inOut" }, t0 + 1.1);
+    tl.fromTo("#s1 .sat .chip", { rotation: 0 }, { rotation: -60, duration: 1.9, ease: "sine.inOut" }, t0 + 1.1);
+    head("s1", t0 + 0.3);
+    sats.forEach((s, i) => tl.to(s, { x: -s.dataset.dx, y: -s.dataset.dy, scale: 0.2, opacity: 0, duration: 0.38, ease: "power3.in" }, t0 + 2.95 + i * 0.015));
+    tl.to("#s1-mark", { scale: 1.3, duration: 0.2, ease: "power2.out" }, t0 + 3);
+    tl.to("#s1-mark", { scale: 7, opacity: 0, duration: 0.28, ease: "power3.in" }, t0 + 3.2);
+    tl.to("#s1 .head, #s1 .orb", { opacity: 0, duration: 0.3 }, t0 + 3.1);
+  }
+  {
+    const t0 = 3.5;
+    glow("134 169 240", t0 - 0.3);
+    head("s2", t0);
+    tl.fromTo("#s2 .ch", { opacity: 0, y: 24, scale: 0.8 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(2)", stagger: 0.1 }, t0 + 0.45);
+    tl.fromTo("#s2-card", { y: 140, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" }, t0 + 0.6);
+    pop("#s2-count", t0 + 1.15);
+    $$("#s2 .appt").forEach((a, i) => {
+      const ch = $("#" + a.dataset.ch);
+      const from = center(ch), to = center(a);
+      const t = t0 + 1.4 + i * 0.36;
+      tl.fromTo(ch, { scale: 1 }, { scale: 1.16, duration: 0.14, yoyo: true, repeat: 1, ease: "power1.out", immediateRender: false }, t - 0.06);
+      tl.fromTo(a, { x: from.x - to.x, y: from.y - to.y, scale: 0.3, opacity: 0, rotation: -8 }, { x: 0, y: 0, scale: 1, opacity: 1, rotation: 0, duration: 0.62, ease: "power3.out" }, t);
+    });
+    counter($("#s2-n"), t0 + 1.4, 2.3, (t) => String(Math.round(23 * Math.min(1, t / 2.3) ** 0.8)));
+    tl.fromTo("#s2-count", { scale: 1 }, { scale: 1.08, duration: 0.18, yoyo: true, repeat: 1, ...NI }, t0 + 3.7);
+    exit("s2", "up", t0 + 5);
+  }
+  {
+    const t0 = 8.5;
+    glow("154 156 244", t0 - 0.3);
+    enter("s3", "up", t0);
+    head("s3", t0 + 0.1);
+    tl.fromTo("#s3-phone", { y: 260, rotation: 6, opacity: 0 }, { y: 0, rotation: 0, opacity: 1, duration: 0.85, ease: "power3.out" }, t0 + 0.3);
+    const bubs = $$("#s3 .bub");
+    const at = [1, 2.1, 2.8, 3.5, 4.2, 4.8];
+    bubs.forEach((b, i) => {
+      const out = b.classList.contains("out");
+      b.style.transformOrigin = out ? "100% 100%" : "0% 100%";
+      tl.fromTo(b, { opacity: 0, scale: 0.7, x: out ? 30 : -30, y: 20 }, { opacity: 1, scale: 1, x: 0, y: 0, duration: 0.42, ease: "back.out(1.8)" }, t0 + at[i]);
+    });
+    [[1.45, 2.1], [3.05, 3.5], [4.35, 4.8]].forEach(([a, b], k) => {
+      const first = k === 0;
+      tl.fromTo("#s3 .status .typ", { opacity: 0 }, { opacity: 1, duration: 0.12, immediateRender: first }, t0 + a);
+      tl.fromTo("#s3 .status .on", { opacity: 0.8 }, { opacity: 0, duration: 0.12, immediateRender: first }, t0 + a);
+      tl.fromTo("#s3 .status .typ", { opacity: 1 }, { opacity: 0, duration: 0.12, ...NI }, t0 + b - 0.05);
+      tl.fromTo("#s3 .status .on", { opacity: 0 }, { opacity: 0.8, duration: 0.12, ...NI }, t0 + b - 0.05);
+    });
+    pop("#s3-audio", t0 + 2.4, { x: 0 });
+    pop("#s3-ok", t0 + 5.05, { ease: "back.out(2.6)" });
+    exit("s3", "zoom", t0 + 6);
+  }
+  {
+    const t0 = 14.5;
+    glow("233 176 74", t0 - 0.3);
+    enter("s4", "zoom", t0);
+    head("s4", t0 + 0.05);
+    tl.fromTo("#s4-card", { y: 120, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" }, t0 + 0.35);
+    tl.fromTo("#s4 .s4-in", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power2.out", stagger: 0.1 }, t0 + 0.6);
+    const segs = [0, 1, 2].map((i) => $("#seg-" + i));
+    const panes = [0, 1, 2].map((i) => $("#pane-" + i));
+    const segX = (i) => segs[i].offsetLeft - 8;
+    tl.fromTo("#s4-ind", { x: segX(0) }, { x: segX(0), duration: 0.01 }, t0);
+    tl.fromTo(segs[0], { color: "#7d8089" }, { color: "#171719", duration: 0.2 }, t0 + 0.8);
+    tl.fromTo("#pane-0 .vac", { x: 60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "power2.out", stagger: 0.1 }, t0 + 0.9);
+    const toTab = (i, t) => {
+      tl.to("#s4-ind", { x: segX(i), duration: 0.45, ease: "power3.inOut" }, t);
+      tl.fromTo(segs[i - 1], { color: "#171719" }, { color: "#7d8089", duration: 0.2, ...NI }, t);
+      tl.fromTo(segs[i], { color: "#7d8089" }, { color: "#171719", duration: 0.2, immediateRender: i === 1 }, t + 0.2);
+      tl.fromTo(panes[i - 1], { xPercent: 0, opacity: 1 }, { xPercent: -40, opacity: 0, duration: 0.4, ease: "power2.in", ...NI }, t);
+      tl.fromTo(panes[i], { xPercent: 60, opacity: 0 }, { xPercent: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, t + 0.2);
+    };
+    toTab(1, t0 + 1.85);
+    $$("#pane-1 .d").forEach((d, i) => tl.fromTo(d, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(3)" }, t0 + 2.45 + i * 0.16));
+    pop("#s4-bell", t0 + 3.3);
+    tl.fromTo("#s4-bell .chip", { rotation: 0 }, { rotation: 14, duration: 0.09, yoyo: true, repeat: 5, ease: "sine.inOut" }, t0 + 3.65);
+    toTab(2, t0 + 4.15);
+    tl.fromTo("#pane-2 .vac", { y: -24 }, { y: 0, duration: 0.45, ease: "power2.out", stagger: 0.08 }, t0 + 4.35);
+  }
+  {
+    const t0 = 20;
+    glow("92 203 136", t0 - 0.3);
+    head("s5", t0);
+    tl.fromTo("#s5-card", { y: 120, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" }, t0 + 0.3);
+    const rowsAt = [0.85, 1.2, 1.55, 1.9, 2.25];
+    tl.fromTo("#s5 .mov", { x: 140, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "power3.out", stagger: 0.35 }, t0 + rowsAt[0]);
+    const steps = [200, 680, 1615.5, 1927.5, 1847.5];
+    counter($("#s5-total"), t0 + 0.85, 1.9, (t) => {
+      let v = 0;
+      for (let i = 0; i < steps.length; i++) {
+        const s = rowsAt[i] - rowsAt[0];
+        if (t >= s) {
+          const prev = i ? steps[i - 1] : 0;
+          const k = Math.min(1, (t - s) / 0.3);
+          v = prev + (steps[i] - prev) * (1 - (1 - k) ** 3);
+        }
+      }
+      return "R$ " + brl(v);
+    });
+    tl.fromTo("#s5-stamp", { scale: 2.4, opacity: 0, rotation: -18 }, { scale: 1, opacity: 1, rotation: -7, duration: 0.32, ease: "power4.in" }, t0 + 3);
+    tl.fromTo("#s5-card", { x: 0 }, { x: 8, duration: 0.05, yoyo: true, repeat: 3, ...NI }, t0 + 3.32);
+    exit("s5", "fade", t0 + 4.5);
+  }
+  {
+    const t0 = 24.5;
+    enter("s6", "fade", t0);
+    glow("76 201 212", t0 + 0.4);
+    head("s6", t0 + 0.05);
+    tl.fromTo("#s6-card", { y: 100, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, ease: "power3.out" }, t0 + 0.3);
+    const ins = $$("#s6 .bars-in rect"), outs = $$("#s6 .bars-out rect");
+    ins.forEach((r, i) => {
+      tl.fromTo(r, { scaleY: 0, transformOrigin: "50% 100%" }, { scaleY: 1, duration: 0.55, ease: "back.out(1.4)" }, t0 + 0.85 + i * 0.16);
+      tl.fromTo(outs[i], { scaleY: 0, transformOrigin: "50% 100%" }, { scaleY: 1, duration: 0.55, ease: "back.out(1.4)" }, t0 + 0.93 + i * 0.16);
+    });
+    const line = $("#s6-line");
+    const len = line.getTotalLength();
+    line.style.strokeDasharray = len;
+    tl.fromTo(line, { strokeDashoffset: len }, { strokeDashoffset: 0, duration: 1.3, ease: "power1.inOut" }, t0 + 1.55);
+    $$("#s6 .dots-g circle").forEach((c, i) => tl.fromTo(c, { scale: 0, transformOrigin: "50% 50%" }, { scale: 1, duration: 0.3, ease: "back.out(3)" }, t0 + 1.6 + i * 0.24));
+    counter($("#s6-kpi"), t0 + 0.85, 2, (t) => "+R$ " + brl(Math.round(12480 * (1 - (1 - Math.min(1, t / 2)) ** 3)), 0));
+    pop("#s6-pct", t0 + 2.9);
+  }
+  {
+    const t0 = 29;
+    glow("242 138 115", t0 - 0.3);
+    head("s7", t0);
+    tl.fromTo("#s7-card", { y: 110, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, ease: "power3.out" }, t0 + 0.3);
+    tl.fromTo("#s7 .stk", { x: 80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "power2.out", stagger: 0.1 }, t0 + 0.6);
+    tl.fromTo("#bar-1", { width: "78%" }, { width: "72%", duration: 0.35, ease: "power2.out" }, t0 + 1.35);
+    tl.fromTo("#bar-2", { width: "50%" }, { width: "45%", duration: 0.35, ease: "power2.out" }, t0 + 1.75);
+    tl.fromTo("#bar-0", { width: "48%", backgroundColor: "#b0503e" }, { width: "40%", duration: 0.35, ease: "power2.out" }, t0 + 2.15);
+    tl.fromTo("#bar-0", { width: "40%" }, { width: "14%", backgroundColor: "#c2412c", duration: 0.45, ease: "power2.inOut", ...NI }, t0 + 2.6);
+    tl.fromTo("#bar-3", { width: "90%" }, { width: "86%", duration: 0.35 }, t0 + 1);
+    counter($("#s7-q"), t0 + 2.15, 0.9, (t) => t < 0.35 ? "7 un." : t < 0.6 ? "6 un." : t < 0.75 ? "4 un." : "2 un.");
+    [["#m-1", 1.3], ["#m-2", 1.7], ["#m-0a", 2.1], ["#m-0b", 2.55]].forEach(([m, t]) => {
+      tl.fromTo(m, { y: -70, opacity: 0, rotation: -8 }, { y: 0, opacity: 1, rotation: -8, duration: 0.25, ease: "back.out(2)" }, t0 + t);
+      tl.fromTo(m, { y: 0, opacity: 1 }, { y: -40, opacity: 0, duration: 0.3, ease: "power1.in", ...NI }, t0 + t + 0.4);
+    });
+    tl.fromTo("#stk-0", { x: 0 }, { x: 10, duration: 0.05, yoyo: true, repeat: 5, ...NI }, t0 + 3.05);
+    tl.fromTo("#s7-alert", { y: -80, opacity: 0, scale: 0.8 }, { y: 0, opacity: 1, scale: 1, duration: 0.55, ease: "bounce.out" }, t0 + 3.1);
+    tl.fromTo("#s7-bellchip", { rotation: 0 }, { rotation: 16, duration: 0.08, yoyo: true, repeat: 5, ease: "sine.inOut" }, t0 + 3.55);
+    exit("s7", "left", t0 + 4.5);
+  }
+  {
+    const t0 = 33.5;
+    glow("76 201 212", t0 - 0.3);
+    enter("s8", "left", t0);
+    head("s8", t0 + 0.05);
+    tl.fromTo("#s8-card", { y: 110, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, ease: "power3.out" }, t0 + 0.3);
+    const url = "petamigo.com.br";
+    counter($("#s8-url"), t0 + 0.75, 0.9, (t) => url.slice(0, Math.max(1, Math.ceil(t / 0.9 * url.length))));
+    tl.fromTo("#s8-hero", { opacity: 0 }, { opacity: 1, duration: 0.4 }, t0 + 1);
+    tl.fromTo("#s8 .s8-h", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out", stagger: 0.12 }, t0 + 1.2);
+    tl.fromTo("#s8-btn", { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(2)" }, t0 + 1.6);
+    tl.fromTo("#s8 .svc", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out", stagger: 0.1 }, t0 + 1.85);
+    tl.fromTo("#s8-cur", { x: 420, y: 380, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.8, ease: "power3.inOut" }, t0 + 2.5);
+    tl.fromTo("#s8-btn", { scale: 1 }, { scale: 0.93, duration: 0.1, yoyo: true, repeat: 1, ...NI }, t0 + 3.35);
+    tl.fromTo("#s8-rip", { scale: 1, opacity: 0.8 }, { scale: 1.35, opacity: 0, duration: 0.7, ease: "power2.out" }, t0 + 3.4);
+    tl.fromTo("#s8-rip", { scale: 1, opacity: 0.8 }, { scale: 1.35, opacity: 0, duration: 0.7, ease: "power2.out", ...NI }, t0 + 3.75);
+    exit("s8", "up", t0 + 4.5);
+  }
+  {
+    const t0 = 38;
+    glow("179 156 240", t0 - 0.3);
+    enter("s9", "up", t0);
+    head("s9", t0 + 0.05);
+    tl.fromTo("#s9-phone", { y: 300, rotation: -6, opacity: 0 }, { y: 0, rotation: 0, opacity: 1, duration: 0.85, ease: "power3.out" }, t0 + 0.25);
+    tl.fromTo("#s9 .s9-b", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power2.out", stagger: 0.09 }, t0 + 0.8);
+    tl.fromTo("#s9-tap", { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.2, ease: "power2.out" }, t0 + 2.2);
+    tl.fromTo("#s9-btn", { scale: 1 }, { scale: 0.95, duration: 0.1, yoyo: true, repeat: 1, ...NI }, t0 + 2.3);
+    tl.fromTo("#s9-tap", { scale: 1, opacity: 1 }, { scale: 1.8, opacity: 0, duration: 0.4, ...NI }, t0 + 2.45);
+    counter($("#s9-saldo"), t0 + 2.55, 0.6, (t) => "R$ " + brl(180 * (1 - Math.min(1, t / 0.6))));
+    pop("#s9-ok", t0 + 3.1, { ease: "back.out(2.6)" });
+    exit("s9", "fade", t0 + 4.5);
+  }
+  {
+    const t0 = 42.5;
+    glow("242 138 115", t0 - 0.3);
+    enter("s10", "fade", t0);
+    tl.fromTo("#s10-logo .mark", { scale: 0, rotation: -120 }, { scale: 1, rotation: 0, duration: 0.6, ease: "back.out(2)" }, t0 + 0.15);
+    tl.fromTo("#s10-logo", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, t0 + 0.2);
+    tl.fromTo("#s10 .tagline .t", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out", stagger: 0.16 }, t0 + 0.4);
+    $$("#s10 .mini-w").forEach((m, i) => {
+      const a = i / 8 * Math.PI * 2;
+      tl.fromTo(m, { x: Math.cos(a) * 500, y: Math.sin(a) * 600 - 300, scale: 0.3, opacity: 0, rotation: 90 }, { x: 0, y: 0, scale: 1, opacity: 1, rotation: 0, duration: 0.75, ease: "back.out(1.4)" }, t0 + 1.2 + i * 0.06);
+    });
+    tl.fromTo("#s10-cta", { y: 60, scale: 0.85, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.6, ease: "back.out(1.8)" }, t0 + 2);
+    tl.fromTo("#s10-site", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, t0 + 2.3);
+    tl.fromTo("#s10-notes", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, t0 + 2.45);
+    tl.fromTo("#s10-by", { opacity: 0 }, { opacity: 1, duration: 0.5 }, t0 + 2.6);
+    tl.fromTo("#s10-shine", { x: -200 }, { x: 760, duration: 0.9, ease: "power2.inOut" }, t0 + 2.8);
+    tl.fromTo("#s10-shine", { x: -200 }, { x: 760, duration: 0.9, ease: "power2.inOut", ...NI }, t0 + 4);
+  }
+  window.__timelines["main"] = tl;
+});</script></body>
+</html>

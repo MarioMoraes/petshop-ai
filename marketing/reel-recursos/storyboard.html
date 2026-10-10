@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reel de Recursos — Storyboard v1</title>
+<link rel="stylesheet" href="reel.css" />
+<style>
+  html, body { margin: 0; background: #0e0e10; color: #e9e9ec; font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .sheet { max-width: 1760px; margin: 0 auto; padding: 48px 32px 80px; }
+  .sheet-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 36px; }
+  .sheet-head h1 { margin: 0; font-size: 40px; font-weight: 600; letter-spacing: -0.03em; }
+  .sheet-head h1 em { font-family: 'Instrument Serif', serif; font-weight: 400; color: #f05a3c; }
+  .sheet-head p { margin: 8px 0 0; color: #9a9ca4; font-size: 16px; }
+  .tag { padding: 8px 14px; border-radius: 999px; background: #1d1e22; color: #f2d27a; font-size: 14px; font-weight: 600; box-shadow: 0 0 0 1px #2c2d31 inset; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, 324px); gap: 40px 28px; justify-content: center; }
+  .cell { width: 324px; }
+  .shot { width: 324px; height: 576px; border-radius: 18px; overflow: hidden; box-shadow: 0 0 0 1px #2c2d31, 0 30px 50px -30px #000; }
+  .shot > .stage { transform: scale(0.3); transform-origin: 0 0; }
+  .meta { display: flex; justify-content: space-between; margin-top: 12px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
+  .meta span:last-child { color: #7d8089; font-weight: 500; }
+  .note { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; color: #b4b6bd; }
+  .note b { color: #fff; }
+  .seam { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #1d1e22; color: #86a9f0; box-shadow: 0 0 0 1px #2c2d31 inset; }
+  .panel { width: 324px; height: 576px; border-radius: 18px; background: #18191c; box-shadow: 0 0 0 1px #2c2d31; padding: 22px; box-sizing: border-box; font-size: 13px; color: #b4b6bd; overflow: hidden; }
+  .panel h3 { margin: 0 0 14px; color: #fff; font-size: 15px; }
+  .seams li { margin-bottom: 7px; } .seams b { color: #f2d27a; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 6px; }
+  .panel ul { margin: 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+  <symbol id="i-paw" viewBox="0 0 24 24"><circle cx="11" cy="4" r="2" /><circle cx="18" cy="8" r="2" /><circle cx="20" cy="16" r="2" /><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" /></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6a3 3 0 0 0 1.9 1.9L21.4 12l-5.6 1.9a3 3 0 0 0-1.9 1.9L12 21.4l-1.9-5.6a3 3 0 0 0-1.9-1.9L2.6 12l5.6-1.9a3 3 0 0 0 1.9-1.9Z" /><path d="M19.5 3v3" /><path d="M21 4.5h-3" /></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.760-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.87 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.62.71.23 1.36.2 1.870.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.34" /><path d="M20.52 3.48A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.69 1.45c6.55 0 11.89-5.34 11.89-11.890 0-3.18-1.24-6.17-3.48-8.42M12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.89 9.89-9.89 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.43 9.89-9.89 9.89" /></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17" /><path d="M16 7h6v6" /></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73Z" /><path d="M12 22V12" /><path d="m3.3 7 8.7 5 8.7-5" /></symbol>
+  <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" /><path d="M12 18h.01" /></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M19 10v1a7 7 0 0 1-14 0v-1" /><path d="M12 18v4" /></symbol>
+  <symbol id="i-syringe" viewBox="0 0 24 24"><path d="m18 2 4 4" /><path d="m17 7 3-3" /><path d="M19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5" /><path d="m9 11 4 4" /><path d="m5 19-3 3" /><path d="m14 4 6 6" /></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4M12 17h.01" /></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></symbol>
+  <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12" /></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5S5 13 5 15a7 7 0 0 0 7 7z" /></symbol>
+  <symbol id="i-van" viewBox="0 0 24 24"><path d="M2 17V7a1 1 0 0 1 1-1h11v11" /><path d="M14 9h4l3 4v4h-2" /><circle cx="7" cy="17" r="2" /><circle cx="17" cy="17" r="2" /><path d="M9 17h6" /></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h6" /></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" /></symbol>
+  <symbol id="i-pointer" viewBox="0 0 24 24"><path d="M4 3l7.5 18 2.4-7.1L21 11.5Z" /></symbol>
+  </defs>
+</svg>
+
+<div class="sheet">
+  <div class="sheet-head">
+    <div>
+      <h1>Reel de Recursos <em>v1</em></h1>
+      <p>O PetShop AI põe o petshop inteiro num lugar só — da agenda ao estoque. Cada quadro é o instante-chave da cena, já nas cores e textos finais.</p>
+    </div>
+    <span class="tag">1080×1920 · 45s · 10 cenas · trilha, sem narração</span>
+  </div>
+
+  <div class="grid">
+
+  <!-- ═══ 01 · Gancho ═══ -->
+  <div class="cell" id="frame-01">
+    <div class="shot"><div class="stage tone-brand" style="--p: 4%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="head" style="text-align:center">
+        <span class="kicker"><span class="chip chip-dark"><svg class="icon"><use href="#i-paw" /></svg></span>PetShop AI</span>
+        <div class="h1">O Petshop Inteiro<span class="serif">num lugar só.</span></div>
+      </div>
+      <div class="abs" style="left:210px; top:770px; width:660px; height:660px; border-radius:50%; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.12) inset"></div>
+      <div class="abs" style="left:330px; top:890px; width:420px; height:420px; border-radius:50%; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.06) inset"></div>
+      <div class="abs" style="left:450px; top:1010px; width:180px; height:180px; border-radius:56px; display:grid; place-items:center; font-size:96px; color:#fff; background: linear-gradient(180deg,#f05a3c,#c93a24); box-shadow: 0 30px 70px -20px rgb(227 74 50 / 0.9)"><svg class="icon"><use href="#i-paw" /></svg></div>
+      <div class="ring">
+        <div class="abs tone-time" style="left:470px; top:700px"><div class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg class="icon"><use href="#i-cal" /></svg></div></div>
+        <div class="abs tone-system" style="left:703px; top:797px"><div class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg class="icon"><use href="#i-spark" /></svg></div></div>
+        <div class="abs tone-pet" style="left:800px; top:1030px"><div class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg class="icon"><use href="#i-paw" /></svg></div></div>
+        <div class="abs tone-money" style="left:703px; top:1263px"><div class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg class="icon"><use href="#i-cash" /></svg></div></div>
+        <div class="abs tone-metric" style="left:470px; top:1360px"><div class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg class="icon"><use href="#i-trend" /></svg></div></div>
+        <div class="abs tone-brand" style="left:237px; top:1263px"><div class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg class="icon"><use href="#i-box" /></svg></div></div>
+        <div class="abs tone-metric" style="left:140px; top:1030px"><div class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg class="icon"><use href="#i-globe" /></svg></div></div>
+        <div class="abs tone-people" style="left:237px; top:797px"><div class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg class="icon"><use href="#i-user" /></svg></div></div>
+      </div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>01 · GANCHO</span><span>0–3,5s</span></div>
+    <p class="note"><b>Os oito ícones entram de fora</b> em espiral e assentam no anel enquanto o título sobe palavra a palavra; no fim o anel gira meia volta e é sugado para a pata central.</p>
+    <span class="seam">→ corte seco no tambor</span>
+  </div>
+
+  <!-- ═══ 02 · Agendamento ═══ -->
+  <div class="cell" id="frame-02">
+    <div class="shot"><div class="stage tone-time" style="--p: 15%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="head">
+        <span class="kicker"><span class="chip chip-dark"><svg class="icon"><use href="#i-cal" /></svg></span><span class="n">01</span> Agendamento</span>
+        <div class="h1">Agenda Cheia<span class="serif">do jeito do cliente.</span></div>
+      </div>
+      <div class="abs row" style="left:70px; top:648px; gap:16px">
+        <span class="pill" style="--tone-soft: rgb(37 211 102 / 0.16); --tone: #5ee08f; --tone-ring: rgb(37 211 102 / 0.35)"><svg class="icon"><use href="#i-wa" /></svg>WhatsApp</span>
+        <span class="pill" style="--tone-soft: rgb(76 201 212 / 0.16); --tone: var(--d-metric); --tone-ring: rgb(76 201 212 / 0.35)"><svg class="icon"><use href="#i-globe" /></svg>Site</span>
+        <span class="pill" style="--tone-soft: rgb(179 156 240 / 0.16); --tone: var(--d-people); --tone-ring: rgb(179 156 240 / 0.35)"><svg class="icon"><use href="#i-phone" /></svg>App</span>
+      </div>
+      <div class="card" style="left:60px; top:760px; width:960px; height:720px">
+        <div class="row" style="padding:34px 40px 20px; justify-content:space-between">
+          <div><div class="lbl" style="color:var(--t-time); font-weight:600">Agenda do Dia</div><div style="font-size:44px; font-weight:600; letter-spacing:-0.02em">Sábado, 11/10</div></div>
+          <div class="row" style="gap:14px"><span class="avatar" style="width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#466fbd;color:#fff;font-weight:600;font-size:22px">B</span><span class="avatar" style="width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#a94d79;color:#fff;font-weight:600;font-size:22px">C</span></div>
+        </div>
+        <div style="position:absolute; left:40px; right:40px; top:150px; bottom:30px">
+          <div class="abs lbl" style="top:0">09h</div><div class="abs lbl" style="top:106px">10h</div><div class="abs lbl" style="top:212px">11h</div><div class="abs lbl" style="top:318px">12h</div><div class="abs lbl" style="top:424px">13h</div>
+          <div class="abs" style="left:80px; right:0; top:14px; height:2px; background:var(--line)"></div><div class="abs" style="left:80px; right:0; top:120px; height:2px; background:var(--line)"></div><div class="abs" style="left:80px; right:0; top:226px; height:2px; background:var(--line)"></div><div class="abs" style="left:80px; right:0; top:332px; height:2px; background:var(--line)"></div><div class="abs" style="left:80px; right:0; top:438px; height:2px; background:var(--line)"></div>
+          <div class="abs appt tone-time" style="left:92px; top:20px; width:380px; height:92px"><b>Thor · Banho</b><span>09:00 · Bruno</span><svg class="icon src" style="color:#25a35a"><use href="#i-wa" /></svg></div>
+          <div class="abs appt tone-pet" style="left:92px; top:126px; width:380px; height:150px"><b>Luna · Tosa</b><span>10:00 · Bruno</span><svg class="icon src" style="color:var(--t-metric)"><use href="#i-globe" /></svg></div>
+          <div class="abs appt tone-people" style="left:92px; top:338px; width:380px; height:120px"><b>Mel · Banho e Tosa</b><span>12:00 · Bruno</span><svg class="icon src" style="color:var(--t-people)"><use href="#i-phone" /></svg></div>
+          <div class="abs appt tone-health" style="left:488px; top:73px; width:380px; height:110px"><b>Bob · Hidratação</b><span>09:30 · Carla</span><svg class="icon src" style="color:#25a35a"><use href="#i-wa" /></svg></div>
+          <div class="abs appt tone-money" style="left:488px; top:232px; width:380px; height:96px"><b>Nina · Banho</b><span>11:00 · Carla</span><svg class="icon src" style="color:var(--t-people)"><use href="#i-phone" /></svg></div>
+          <div class="abs appt tone-time" style="left:488px; top:385px; width:380px; height:110px; box-shadow: 0 0 0 3px var(--t-time) inset, 0 20px 40px -16px rgb(70 111 189 / 0.6)"><b>Max · Tosa</b><span>12:30 · Carla</span><svg class="icon src" style="color:#25a35a"><use href="#i-wa" /></svg></div>
+        </div>
+      </div>
+      <div class="float tone-time" style="right:40px; top:1400px"><span class="chip chip-light"><svg class="icon"><use href="#i-cal" /></svg></span><span><small>Agendamentos hoje</small><b class="num" style="font-size:44px">23</b></span></div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>02 · AGENDAMENTO</span><span>3,5–8,5s</span></div>
+    <p class="note"><b>Cada pílula de canal pisca e dispara um cartão</b> que voa até a grade e encaixa com mola; o selo "Agendamentos hoje" conta de 0 a 23 conforme os cartões pousam. O ícone no canto do cartão diz de onde veio.</p>
+    <span class="seam">→ empurrão para cima</span>
+  </div>
+
+  <!-- ═══ 03 · IA no WhatsApp ═══ -->
+  <div class="cell" id="frame-03">
+    <div class="shot"><div class="stage tone-system" style="--p: 29%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="head">
+        <span class="kicker"><span class="chip chip-dark"><svg class="icon"><use href="#i-spark" /></svg></span><span class="n">02</span> Atendimento com IA</span>
+        <div class="h1">Atende Sozinho<span class="serif">24 horas por dia.</span></div>
+      </div>
+      <div class="phone" style="left:240px; top:640px; width:600px; height:1000px">
+        <div class="screen" style="background:var(--wa-bg)">
+          <div class="notch"></div>
+          <div class="row" style="background:var(--wa-dark); color:#fff; padding:80px 30px 22px; gap:16px">
+            <span class="chip" style="width:62px;height:62px;border-radius:50%;background:#fff;color:var(--accent);font-size:34px"><svg class="icon"><use href="#i-paw" /></svg></span>
+            <span><b style="display:block;font-size:28px;font-weight:600">Pet Amigo</b><span style="font-size:21px;opacity:.8">online</span></span>
+          </div>
+          <div style="padding:26px 24px; display:flex; flex-direction:column; gap:16px; font-size:24px; line-height:1.35">
+            <div class="bub in">Oi! Tem horário no sábado pro banho do Thor?</div>
+            <div class="bub out">Oi, Ana! Sábado tenho <b>09:00</b>, <b>10:30</b> ou <b>14:00</b>. Qual prefere?</div>
+            <div class="bub in">10:30</div>
+            <div class="bub out prop"><span class="pill tone-time" style="font-size:20px;padding:6px 14px"><svg class="icon"><use href="#i-cal" /></svg>Banho · Thor</span><b style="display:block;font-size:26px;margin-top:10px">Sábado, 11/10 às 10:30</b><span style="color:var(--muted)">Posso confirmar?</span></div>
+            <div class="bub in">Sim!</div>
+            <div class="bub out">Prontinho, está agendado! Até sábado.</div>
+          </div>
+        </div>
+      </div>
+      <div class="float tone-system" style="right:30px; top:820px"><span class="chip chip-light"><svg class="icon"><use href="#i-mic" /></svg></span><span><small>Mandou áudio?</small><b>Ela Entende</b></span></div>
+      <div class="float tone-money" style="left:30px; top:1380px"><span class="chip chip-light"><svg class="icon"><use href="#i-check" /></svg></span><span><small>Thor · Sáb 10:30</small><b>Agendado</b></span></div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>03 · IA NO WHATSAPP</span><span>8,5–14,5s</span></div>
+    <p class="note"><b>A conversa se escreve bolha a bolha</b>, com "digitando…" antes de cada resposta do agente; o cartão de proposta abre, o "Sim!" chega e o selo verde "Agendado" salta para fora do celular.</p>
+    <span class="seam">→ dissolve com zoom</span>
+  </div>
+
+  <!-- ═══ 04 · Pets ═══ -->
+  <div class="cell" id="frame-04">
+    <div class="shot"><div class="stage tone-pet" style="--p: 44%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="head">
+        <span class="kicker"><span class="chip chip-dark"><svg class="icon"><use href="#i-paw" /></svg></span><span class="n">03</span> Pets</span>
+        <div class="h1">Cada Pet<span class="serif">com a sua história.</span></div>
+      </div>
+      <div class="card" style="left:60px; top:650px; width:960px; height:800px">
+        <div class="row" style="padding:40px 40px 24px">
+          <span class="chip chip-light tone-pet" style="width:110px;height:110px;border-radius:50%;font-size:56px"><svg class="icon"><use href="#i-paw" /></svg></span>
+          <div><div style="font-size:48px;font-weight:600;letter-spacing:-0.02em">Thor</div><div class="lbl">Golden Retriever · 4 anos · Tutora Ana</div></div>
+        </div>
+        <div class="row tone-health" style="margin:0 40px; padding:16px 22px; border-radius:20px; background:var(--tone-soft); box-shadow:0 0 0 2px var(--tone-ring) inset; color:var(--tone); font-size:26px; font-weight:600; gap:14px"><svg class="icon" style="font-size:30px"><use href="#i-alert" /></svg>Alérgico a dipirona</div>
+        <div class="row" style="margin:24px 40px 10px; padding:8px; border-radius:22px; background:#f1f3f6; gap:8px">
+          <span class="seg">Prontuário</span><span class="seg on">Vacinas</span><span class="seg">Histórico</span>
+        </div>
+        <div style="padding:6px 40px">
+          <div class="vac tone-health"><span class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg class="icon"><use href="#i-syringe" /></svg></span><div style="flex:1"><b>V10</b><span class="lbl">Aplicada 02/03/2026</span></div><span class="doses"><i class="on"></i><i class="on"></i><i class="on"></i></span></div>
+          <div class="vac tone-health"><span class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg class="icon"><use href="#i-syringe" /></svg></span><div style="flex:1"><b>Antirrábica</b><span class="lbl">Aplicada 15/04/2026</span></div><span class="doses"><i class="on"></i></span></div>
+          <div class="vac tone-health"><span class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg class="icon"><use href="#i-syringe" /></svg></span><div style="flex:1"><b>Giárdia</b><span class="lbl">2ª dose em 22/10</span></div><span class="doses"><i class="on"></i><i></i></span></div>
+        </div>
+      </div>
+      <div class="float tone-pet" style="left:90px; top:1400px"><span class="chip chip-light"><svg class="icon"><use href="#i-bell" /></svg></span><span><small>Próxima dose em 12 dias</small><b>Tutor Avisado no WhatsApp</b></span></div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>04 · PETS</span><span>14,5–20s</span></div>
+    <p class="note"><b>A ficha monta de cima para baixo</b> e a aba desliza Prontuário → Vacinas → Histórico; nas vacinas as bolinhas de dose enchem uma a uma e o lembrete sobe por baixo do cartão.</p>
+    <span class="seam">→ corte seco</span>
+  </div>
+
+  <!-- ═══ 05 · Caixa ═══ -->
+  <div class="cell" id="frame-05">
+    <div class="shot"><div class="stage tone-money" style="--p: 54%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="head">
+        <span class="kicker"><span class="chip chip-dark"><svg class="icon"><use href="#i-cash" /></svg></span><span class="n">04</span> Caixa</span>
+        <div class="h1">Caixa do Dia<span class="serif">conferido em segundos.</span></div>
+      </div>
+      <div class="card" style="left:60px; top:650px; width:960px; height:780px">
+        <div class="row" style="padding:38px 40px 18px; justify-content:space-between">
+          <div><div class="lbl" style="color:var(--t-money);font-weight:600">Caixa Aberto · 08:02</div><div style="font-size:44px;font-weight:600;letter-spacing:-0.02em">Gaveta do Balcão</div></div>
+          <span class="pill tone-money"><svg class="icon"><use href="#i-user" /></svg>Bruno</span>
+        </div>
+        <div style="padding:0 40px">
+          <div class="mov"><span class="lbl" style="font-size:28px;color:var(--muted)">Abertura</span><span class="val num">R$ 200,00</span></div>
+          <div class="mov"><span class="row" style="gap:14px"><span class="chip chip-light tone-metric" style="width:52px;height:52px;font-size:26px"><svg class="icon"><use href="#i-qr" /></svg></span>Pix</span><span class="val num" style="color:var(--t-money)">+ R$ 480,00</span></div>
+          <div class="mov"><span class="row" style="gap:14px"><span class="chip chip-light tone-system" style="width:52px;height:52px;font-size:26px"><svg class="icon"><use href="#i-cash" /></svg></span>Cartão</span><span class="val num" style="color:var(--t-money)">+ R$ 935,50</span></div>
+          <div class="mov"><span class="row" style="gap:14px"><span class="chip chip-light tone-money" style="width:52px;height:52px;font-size:26px"><svg class="icon"><use href="#i-cash" /></svg></span>Dinheiro</span><span class="val num" style="color:var(--t-money)">+ R$ 312,00</span></div>
+          <div class="mov"><span class="row" style="gap:14px"><span class="chip chip-light tone-danger" style="width:52px;height:52px;font-size:26px"><svg class="icon"><use href="#i-arrow" /></svg></span>Sangria</span><span class="val num" style="color:var(--t-danger)">− R$ 80,00</span></div>
+        </div>
+        <div class="row" style="position:absolute; left:40px; right:40px; bottom:40px; padding:28px 32px; border-radius:28px; background:#f1f3f6; justify-content:space-between">
+          <span style="font-size:28px;font-weight:600;color:var(--muted)">Esperado na Gaveta</span><span class="num" style="font-size:64px;font-weight:700;letter-spacing:-0.03em;color:var(--ink-strong)">R$ 1.847,50</span>
+        </div>
+      </div>
+      <div class="abs tone-money stamp" style="right:80px; top:1455px">Fechado · Sem Diferença</div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>05 · CAIXA</span><span>20–24,5s</span></div>
+    <p class="note"><b>Os movimentos entram um a um da direita</b> e a cada linha o total "Esperado" rola até o novo valor; no fim o carimbo verde bate inclinado com um tranco.</p>
+    <span class="seam">→ cruzado: o total vira o KPI da próxima</span>
+  </div>
+
+  <!-- ═══ 06 · Fluxo de Caixa ═══ -->
+  <div class="cell" id="frame-06">
+    <div class="shot"><div class="stage tone-money" style="--p: 64%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="head">
+        <span class="kicker"><span class="chip chip-dark"><svg class="icon"><use href="#i-trend" /></svg></span><span class="n">05</span> Fluxo de Caixa</span>
+        <div class="h1">O Dinheiro<span class="serif">sem planilha.</span></div>
+      </div>
+      <div class="card" style="left:60px; top:650px; width:960px; height:760px">
+        <div class="row" style="padding:40px 40px 0; justify-content:space-between; align-items:flex-start">
+          <div><div class="lbl">Saldo de Outubro</div><div class="num" style="font-size:88px;font-weight:700;letter-spacing:-0.04em;color:var(--ink-strong)">+R$ 12.480</div></div>
+          <span class="pill tone-money" style="margin-top:20px"><svg class="icon"><use href="#i-trend" /></svg>+18%</span>
+        </div>
+        <div class="row" style="padding:10px 40px 0; gap:30px; font-size:22px; color:var(--muted)">
+          <span class="row" style="gap:10px"><i style="width:18px;height:18px;border-radius:5px;background:#3fae6c"></i>Entradas</span>
+          <span class="row" style="gap:10px"><i style="width:18px;height:18px;border-radius:5px;background:#d5d8de"></i>Saídas</span>
+          <span class="row" style="gap:10px"><i style="width:26px;height:4px;border-radius:2px;background:var(--t-metric)"></i>Saldo</span>
+        </div>
+        <svg viewBox="0 0 880 470" style="position:absolute; left:40px; bottom:30px; width:880px; height:470px; overflow:visible">
+          <g stroke="rgb(35 36 39 / 0.08)" stroke-width="2"><line x1="0" y1="40" x2="880" y2="40"/><line x1="0" y1="153" x2="880" y2="153"/><line x1="0" y1="266" x2="880" y2="266"/><line x1="0" y1="380" x2="880" y2="380"/></g>
+          <g fill="#3fae6c">
+            <rect x="34" y="176" width="52" height="204" rx="10"/><rect x="180" y="142" width="52" height="238" rx="10"/><rect x="326" y="165" width="52" height="215" rx="10"/><rect x="472" y="108" width="52" height="272" rx="10"/><rect x="618" y="85" width="52" height="295" rx="10"/><rect x="764" y="51" width="52" height="329" rx="10"/>
+          </g>
+          <g fill="#d5d8de">
+            <rect x="92" y="221" width="52" height="159" rx="10"/><rect x="238" y="210" width="52" height="170" rx="10"/><rect x="384" y="199" width="52" height="181" rx="10"/><rect x="530" y="187" width="52" height="193" rx="10"/><rect x="676" y="187" width="52" height="193" rx="10"/><rect x="822" y="193" width="52" height="187" rx="10"/>
+          </g>
+          <polyline fill="none" stroke="#00818c" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" points="89,300 235,266 381,312 527,255 673,232 819,196"/>
+          <g fill="#fff" stroke="#00818c" stroke-width="5"><circle cx="89" cy="300" r="9"/><circle cx="235" cy="266" r="9"/><circle cx="381" cy="312" r="9"/><circle cx="527" cy="255" r="9"/><circle cx="673" cy="232" r="9"/><circle cx="819" cy="196" r="12"/></g>
+          <g fill="#7d8089" font-size="22" font-family="Inter" text-anchor="middle"><text x="89" y="425">Mai</text><text x="235" y="425">Jun</text><text x="381" y="425">Jul</text><text x="527" y="425">Ago</text><text x="673" y="425">Set</text><text x="819" y="425">Out</text></g>
+        </svg>
+      </div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>06 · FLUXO DE CAIXA</span><span>24,5–29s</span></div>
+    <p class="note"><b>As barras crescem do chão em cascata</b> mês a mês, a linha do saldo se desenha por cima ponto a ponto e o KPI conta até +R$ 12.480 junto com a última barra.</p>
+    <span class="seam">→ corte seco</span>
+  </div>
+
+  <!-- ═══ 07 · Estoque ═══ -->
+  <div class="cell" id="frame-07">
+    <div class="shot"><div class="stage tone-brand" style="--p: 74%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="head">
+        <span class="kicker"><span class="chip chip-dark"><svg class="icon"><use href="#i-box" /></svg></span><span class="n">06</span> Estoque</span>
+        <div class="h1">Estoque<span class="serif">que avisa antes.</span></div>
+      </div>
+      <div class="card" style="left:60px; top:650px; width:960px; height:690px">
+        <div style="padding:38px 40px 10px"><div class="lbl" style="color:var(--t-brand);font-weight:600">Posição do Estoque</div><div style="font-size:44px;font-weight:600;letter-spacing:-0.02em">Produtos e Insumos</div></div>
+        <div style="padding:0 40px">
+          <div class="stk tone-danger"><span class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg class="icon"><use href="#i-drop" /></svg></span><div style="flex:1"><div class="row" style="justify-content:space-between"><b>Shampoo Neutro</b><span class="q num" style="color:var(--t-danger)">2 un.</span></div><div class="bar"><i style="width:14%; background:var(--t-danger)"></i><em style="left:34%"></em></div></div></div>
+          <div class="stk tone-pet"><span class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg class="icon"><use href="#i-box" /></svg></span><div style="flex:1"><div class="row" style="justify-content:space-between"><b>Ração Premium 15 kg</b><span class="q num">18 un.</span></div><div class="bar"><i style="width:72%"></i><em style="left:20%"></em></div></div></div>
+          <div class="stk tone-health"><span class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg class="icon"><use href="#i-syringe" /></svg></span><div style="flex:1"><div class="row" style="justify-content:space-between"><b>Vacina V10</b><span class="q num">9 doses</span></div><div class="bar"><i style="width:45%"></i><em style="left:25%"></em></div></div></div>
+          <div class="stk tone-people"><span class="chip chip-light" style="width:64px;height:64px;font-size:32px"><svg class="icon"><use href="#i-spark" /></svg></span><div style="flex:1"><div class="row" style="justify-content:space-between"><b>Laço Decorativo</b><span class="q num">120 un.</span></div><div class="bar"><i style="width:86%"></i><em style="left:15%"></em></div></div></div>
+        </div>
+      </div>
+      <div class="abs minus" style="left:800px; top:740px; transform:rotate(-8deg)">−1</div>
+      <div class="float tone-danger" style="left:90px; top:1290px"><span class="chip chip-light"><svg class="icon"><use href="#i-bell" /></svg></span><span><small>Abaixo do mínimo</small><b>Repor Shampoo Neutro</b></span></div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>07 · ESTOQUE</span><span>29–33,5s</span></div>
+    <p class="note"><b>Os "−1" de cada venda caem sobre as linhas</b> e as barras descem; a do Shampoo cruza o tracinho do mínimo, fica vermelha, treme, e o aviso do sino desce.</p>
+    <span class="seam">→ chicote lateral</span>
+  </div>
+
+  <!-- ═══ 08 · Site do Petshop ═══ -->
+  <div class="cell" id="frame-08">
+    <div class="shot"><div class="stage tone-metric" style="--p: 84%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="head">
+        <span class="kicker"><span class="chip chip-dark"><svg class="icon"><use href="#i-globe" /></svg></span><span class="n">07</span> Site Próprio</span>
+        <div class="h1">Seu Site<span class="serif">pronto e no ar.</span></div>
+      </div>
+      <div class="card" style="left:60px; top:650px; width:960px; height:790px">
+        <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url"><svg class="icon"><use href="#i-lock" /></svg>petamigo.com.br</span></div>
+        <div style="height:400px; padding:48px 48px 0; background: radial-gradient(90% 120% at 100% 0%, #ffe4d9, #fff6f1 55%, #fff); position:relative">
+          <span class="pill tone-metric" style="font-size:20px"><svg class="icon"><use href="#i-paw" /></svg>Banho e Tosa · Vila Mariana</span>
+          <div style="font-family:'Instrument Serif',serif; font-style:italic; font-size:96px; line-height:0.95; color:var(--ink-strong); margin-top:22px">Pet Amigo</div>
+          <div class="lbl" style="margin-top:10px">Seg a Sáb · 8h às 18h · Leva-e-traz</div>
+          <span class="btn-dark" style="position:absolute; left:48px; bottom:40px; background:linear-gradient(180deg,#f05a3c,#c93a24)">Agendar Online<svg class="icon"><use href="#i-arrow" /></svg></span>
+          <svg class="icon fill" style="position:absolute; left:330px; bottom:12px; font-size:54px; color:#171719; stroke:#fff; stroke-width:1.5"><use href="#i-pointer" /></svg>
+        </div>
+        <div style="padding:30px 48px 0; display:grid; grid-template-columns:1fr 1fr; gap:18px">
+          <div class="svc tone-time"><span class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg class="icon"><use href="#i-drop" /></svg></span><div><b>Banho</b><span>a partir de R$ 60</span></div></div>
+          <div class="svc tone-pet"><span class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg class="icon"><use href="#i-scissors" /></svg></span><div><b>Tosa</b><span>a partir de R$ 80</span></div></div>
+          <div class="svc tone-health"><span class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg class="icon"><use href="#i-syringe" /></svg></span><div><b>Vacinas</b><span>com carteira digital</span></div></div>
+          <div class="svc tone-people"><span class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg class="icon"><use href="#i-van" /></svg></span><div><b>Leva-e-Traz</b><span>a partir de R$ 20</span></div></div>
+        </div>
+      </div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>08 · SITE DO PETSHOP</span><span>33,5–38s</span></div>
+    <p class="note"><b>O endereço se digita na barra</b>, a página entra em camadas (fundo, nome em serifa, botão) e os serviços sobem em cascata; o cursor pousa em "Agendar Online", que pulsa.</p>
+    <span class="seam">→ empurrão para cima</span>
+  </div>
+
+  <!-- ═══ 09 · Site do Tutor ═══ -->
+  <div class="cell" id="frame-09">
+    <div class="shot"><div class="stage tone-people" style="--p: 94%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="head">
+        <span class="kicker"><span class="chip chip-dark"><svg class="icon"><use href="#i-user" /></svg></span><span class="n">08</span> Área do Tutor</span>
+        <div class="h1">O Tutor<span class="serif">com tudo na mão.</span></div>
+      </div>
+      <div class="phone" style="left:240px; top:640px; width:600px; height:1000px">
+        <div class="screen" style="background:#f6f6f8">
+          <div class="notch"></div>
+          <div style="padding:92px 34px 0">
+            <div class="lbl">Olá,</div><div style="font-size:46px;font-weight:600;letter-spacing:-0.02em">Ana</div>
+            <div class="row" style="gap:14px; margin-top:22px">
+              <span class="pill tone-pet" style="font-size:22px"><svg class="icon"><use href="#i-paw" /></svg>Thor</span>
+              <span class="pill tone-pet" style="font-size:22px"><svg class="icon"><use href="#i-paw" /></svg>Mel</span>
+            </div>
+            <div style="margin-top:26px; padding:28px; border-radius:30px; background:#fff; box-shadow:0 0 0 2px var(--line) inset">
+              <div class="lbl">Saldo em aberto</div>
+              <div class="num" style="font-size:60px;font-weight:700;letter-spacing:-0.03em">R$ 180,00</div>
+              <span class="btn-dark" style="margin-top:18px; width:100%; justify-content:center"><svg class="icon"><use href="#i-qr" /></svg>Pagar Agora com PIX</span>
+            </div>
+            <div class="plist">
+              <div class="row tone-health"><span class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg class="icon"><use href="#i-syringe" /></svg></span><b>Carteira de Vacinas</b></div>
+              <div class="row tone-time"><span class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg class="icon"><use href="#i-cal" /></svg></span><b>Sáb, 11/10 · 10:30</b></div>
+              <div class="row tone-system"><span class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg class="icon"><use href="#i-file" /></svg></span><b>Meus Documentos</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="float tone-money" style="right:30px; top:1180px"><span class="chip chip-light"><svg class="icon"><use href="#i-check" /></svg></span><span><small>R$ 180,00 via PIX</small><b>Pago</b></span></div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>09 · SITE DO TUTOR</span><span>38–42,5s</span></div>
+    <p class="note"><b>O celular sobe de baixo já inclinado</b> e endireita; os blocos da tela entram em cascata, o dedo toca "Pagar Agora", o saldo zera rolando e o selo "Pago" salta para fora.</p>
+    <span class="seam">→ dissolve para o fecho</span>
+  </div>
+
+  <!-- ═══ 10 · Fecho ═══ -->
+  <div class="cell" id="frame-10">
+    <div class="shot"><div class="stage tone-brand" style="--p: 100%">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div>
+      <div class="abs cx" style="top:290px"><span class="logo"><span class="mark"><svg class="icon"><use href="#i-paw" /></svg></span>PetShop AI</span></div>
+      <div class="abs cx tagline" style="top:470px">Você cuida<br />do pet.<span class="serif">A gente cuida<br />do resto.</span></div>
+      <div class="abs row" style="left:79px; top:1020px; gap:22px">
+        <span class="tone-time"><span class="chip chip-dark mini"><svg class="icon"><use href="#i-cal" /></svg></span></span>
+        <span class="tone-system"><span class="chip chip-dark mini"><svg class="icon"><use href="#i-spark" /></svg></span></span>
+        <span class="tone-pet"><span class="chip chip-dark mini"><svg class="icon"><use href="#i-paw" /></svg></span></span>
+        <span class="tone-money"><span class="chip chip-dark mini"><svg class="icon"><use href="#i-cash" /></svg></span></span>
+        <span class="tone-metric"><span class="chip chip-dark mini"><svg class="icon"><use href="#i-trend" /></svg></span></span>
+        <span class="tone-brand"><span class="chip chip-dark mini"><svg class="icon"><use href="#i-box" /></svg></span></span>
+        <span class="tone-metric"><span class="chip chip-dark mini"><svg class="icon"><use href="#i-globe" /></svg></span></span>
+        <span class="tone-people"><span class="chip chip-dark mini"><svg class="icon"><use href="#i-user" /></svg></span></span>
+      </div>
+      <div class="abs cx" style="top:1180px"><span class="cta">Teste Grátis por 14 Dias<svg class="icon"><use href="#i-arrow" /></svg></span></div>
+      <div class="abs cx" style="top:1320px"><span class="site"><svg class="icon"><use href="#i-globe" /></svg>petshop.officestecnologia.com.br</span></div>
+      <div class="abs cx notes" style="top:1400px"><span><svg class="icon"><use href="#i-check" /></svg>Sem cartão de crédito</span><span><svg class="icon"><use href="#i-check" /></svg>Cancele quando quiser</span></div>
+      <div class="abs cx by" style="top:1490px">um produto <b>Offices Aplicativos</b></div>
+      <div class="progress"><i></i></div>
+    </div></div>
+    <div class="meta"><span>10 · FECHO</span><span>42,5–45s</span></div>
+    <p class="note"><b>Os oito ícones das cenas voltam voando</b> e assentam em fila sob o slogan; o botão do teste sobe com mola e o brilho dourado corre por ele quando a barra de progresso completa.</p>
+    <span class="seam">fim · quadro final parado 0,8s</span>
+  </div>
+
+  <!-- ═══ costuras ═══ -->
+  <div class="cell">
+    <div class="panel">
+      <h3>Mapa das Costuras</h3>
+      <ul class="seams">
+        <li><b>01→02</b> corte seco no tambor (os ícones somem na pata)</li>
+        <li><b>02→03</b> empurrão para cima — a agenda sai pelo topo, o celular entra por baixo</li>
+        <li><b>03→04</b> dissolve com zoom no selo "Agendado"</li>
+        <li><b>04→05</b> corte seco</li>
+        <li><b>05→06</b> cruzado: o total do caixa vira o KPI do fluxo</li>
+        <li><b>06→07</b> corte seco</li>
+        <li><b>07→08</b> chicote lateral, para a esquerda</li>
+        <li><b>08→09</b> empurrão para cima</li>
+        <li><b>09→10</b> dissolve; os ícones voltam</li>
+      </ul>
+      <p style="margin-top:14px">Direção única: o que sai vai para cima ou para a esquerda. Corte e transição caem na batida da trilha.</p>
+    </div>
+    <div class="meta"><span>COSTURAS</span><span>9 passagens</span></div>
+  </div>
+
+  <!-- ═══ tokens ═══ -->
+  <div class="cell">
+    <div class="panel">
+      <h3>Tokens e Proibições</h3>
+      <p><span class="sw" style="background:#141416;box-shadow:0 0 0 1px #444"></span>fundo #141416 · <span class="sw" style="background:#f05a3c"></span>destaque #f05a3c · <span class="sw" style="background:#f2d27a"></span>ouro #f2d27a</p>
+      <p style="margin-top:8px">Um tom por recurso: <span class="sw" style="background:#86a9f0"></span>agenda <span class="sw" style="background:#9a9cf4"></span>IA <span class="sw" style="background:#e9b04a"></span>pets <span class="sw" style="background:#5ccb88"></span>caixa/fluxo <span class="sw" style="background:#f28a73"></span>estoque <span class="sw" style="background:#4cc9d4"></span>site <span class="sw" style="background:#b39cf0"></span>tutor</p>
+      <p style="margin-top:10px">Inter 600 nos títulos (104px), Instrument Serif itálico laranja na segunda linha; corpo dos cartões 24–34px.</p>
+      <h3 style="margin-top:16px">Não</h3>
+      <ul>
+        <li>nenhum ícone sem cor</li>
+        <li>nenhum texto fora de y 250–1550</li>
+        <li>nada de slideshow: cada cena tem uma ação que acontece</li>
+        <li>nada de movimento decorativo sem sentido</li>
+        <li>sem gradiente linear de tela inteira (banding)</li>
+      </ul>
+    </div>
+    <div class="meta"><span>TOKENS</span><span>frame.md</span></div>
+  </div>
+
+  </div>
+</div>
+
+<style>
+  /* peças só das cenas */
+  .appt { position: absolute; padding: 12px 16px; border-radius: 16px; background: var(--tone-soft); box-shadow: 0 0 0 2px var(--tone-ring) inset; border-left: 7px solid var(--tone); font-size: 21px; line-height: 1.3; overflow: hidden; }
+  .appt b { display: block; font-size: 25px; font-weight: 600; color: var(--ink-strong); }
+  .appt span { color: var(--muted); }
+  .appt .src { position: absolute; right: 14px; top: 14px; font-size: 26px; }
+  .bub { max-width: 82%; padding: 16px 20px; border-radius: 22px; box-shadow: 0 2px 0 rgb(0 0 0 / 0.06); }
+  .bub.in { align-self: flex-start; background: #fff; border-top-left-radius: 6px; }
+  .bub.out { align-self: flex-end; background: #d9fdd3; border-top-right-radius: 6px; }
+  .bub.prop { background: #fff; box-shadow: 0 0 0 3px var(--t-time-ring); }
+  .seg { flex: 1; text-align: center; padding: 16px 0; border-radius: 16px; font-size: 26px; font-weight: 600; color: var(--subtle); }
+  .seg.on { background: #fff; color: var(--ink-strong); box-shadow: 0 10px 22px -12px rgb(35 36 39 / 0.45); }
+  .vac { display: flex; align-items: center; gap: 22px; padding: 22px 0; border-bottom: 2px solid var(--line); }
+  .vac b { display: block; font-size: 32px; font-weight: 600; }
+  .doses { display: flex; gap: 10px; } .doses i { width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 0 0 3px var(--tone-ring) inset; } .doses i.on { background: var(--tone); box-shadow: none; }
+  .mov { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 2px solid var(--line); font-size: 30px; font-weight: 600; }
+  .stamp { padding: 18px 30px; border-radius: 20px; font-size: 34px; font-weight: 700; color: var(--dark); border: 5px solid var(--dark); transform: rotate(-7deg); background: rgb(20 20 22 / 0.7); letter-spacing: 0.01em; }
+  .stk { display: flex; align-items: center; gap: 22px; padding: 24px 0; border-bottom: 2px solid var(--line); }
+  .stk b { font-size: 30px; font-weight: 600; } .stk .q { font-size: 28px; font-weight: 600; color: var(--muted); }
+  .bar { position: relative; height: 18px; margin-top: 14px; border-radius: 9px; background: #eef0f3; }
+  .bar i { display: block; height: 100%; border-radius: 9px; background: var(--tone); }
+  .bar em { position: absolute; top: -6px; width: 4px; height: 30px; border-radius: 2px; background: var(--ink); opacity: 0.45; }
+  .minus { padding: 10px 20px; border-radius: 999px; background: var(--t-danger); color: #fff; font-size: 34px; font-weight: 700; box-shadow: 0 20px 40px -16px rgb(194 65 44 / 0.9); }
+  .svc { display: flex; align-items: center; gap: 18px; padding: 20px; border-radius: 24px; background: #f1f3f6; }
+  .svc b { display: block; font-size: 28px; font-weight: 600; } .svc span { font-size: 21px; color: var(--muted); }
+  .plist { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .plist .row { padding: 18px 22px; border-radius: 24px; background: #fff; box-shadow: 0 0 0 2px var(--line) inset; font-size: 26px; }
+  .plist b { font-weight: 600; }
+  .logo { display: inline-flex; align-items: center; gap: 24px; font-size: 60px; font-weight: 600; letter-spacing: -0.02em; }
+  .logo .mark { width: 110px; height: 110px; border-radius: 34px; display: grid; place-items: center; font-size: 62px; color: #fff; background: linear-gradient(180deg, #f05a3c, #c93a24); box-shadow: 0 24px 50px -20px rgb(227 74 50 / 0.8); }
+  .tagline { font-size: 112px; line-height: 1.0; font-weight: 600; letter-spacing: -0.045em; }
+  .tagline .serif { display: block; margin-top: 10px; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; color: var(--accent-2); font-size: 1.12em; letter-spacing: -0.01em; line-height: 0.95; }
+  .mini { width: 96px; height: 96px; font-size: 46px; border-radius: 28px; }
+  .cta { display: inline-flex; align-items: center; gap: 16px; padding: 32px 52px; border-radius: 999px; font-size: 40px; font-weight: 600; color: var(--ink-strong); background: linear-gradient(180deg, #fff, #eceae6); box-shadow: 0 30px 60px -24px rgb(0 0 0 / 0.8), 0 0 0 4px rgb(242 210 122 / 0.5); }
+  .cta .icon { font-size: 42px; color: var(--accent); }
+  .site { display: inline-flex; align-items: center; gap: 12px; font-size: 32px; font-weight: 500; color: var(--gold-2); }
+  .site .icon { font-size: 34px; }
+  .notes { display: flex; justify-content: center; gap: 36px; font-size: 28px; color: rgb(255 255 255 / 0.75); }
+  .notes span { display: inline-flex; align-items: center; gap: 10px; } .notes .icon { color: var(--d-money); font-size: 30px; }
+  .by { font-size: 26px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(255 255 255 / 0.55); }
+  .by b { color: var(--gold-2); font-weight: 600; }
+</style>
+</body>
+</html>
