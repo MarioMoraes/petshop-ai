@@ -273,6 +273,67 @@
 	}
 }
 
+# ── Vitrine AI ────────────────────────────────────────────────────────────────
+#
+# OUTRO sistema nesta máquina, no mesmo arranjo da imobiliária: a stack `vitrine`
+# roda em docker compose (`/opt/vitrine`, repositório MarioMoraes/vitrine), fora
+# deste swarm, e só o frontend e o backend dela entram na rede `borda`, com os
+# aliases `vitrine-frontend` e `vitrine-backend` (`frontend`/`backend` lá são
+# nomes que a imobiliária também usa nesta rede).
+#
+# Dois hosts, porque o navegador fala direto com a API (sessão em cookie httpOnly
+# emitido por ela, CORS liberado só para o host do site). Tudo do `api.` vai ao
+# backend: rotas do painel, vitrine pública, uploads e o webhook do Asaas.
+# O `api.vitrine.` fica dois níveis abaixo da zona — DNS-only, como o wildcard do
+# petshop; o certificado sai por DNS-01 com o mesmo token.
+{$VITRINE_DOMAIN:vitrine.officestecnologia.com.br} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	reverse_proxy vitrine-frontend:3000
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+api.{$VITRINE_DOMAIN:vitrine.officestecnologia.com.br} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	encode zstd gzip
+
+	# Os cabeçalhos de segurança da API vêm do helmet no próprio backend.
+	header -Server
+
+	# Upload de vídeo vai até 20 MB; folga para o multipart.
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy vitrine-backend:3333
+
+	log {
+		output stdout
+		format json
+	}
+}
+
 # ── Site institucional da Offices (www) ───────────────────────────────────────
 #
 # HTML estático do repositório da imobiliária (`site/`), servido por um nginx
