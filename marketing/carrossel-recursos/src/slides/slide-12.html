@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Teste Grátis</title>
+<link rel="stylesheet" href="../kit/petshop.css">
+<script src="../kit/kit.js"></script>
+<script src="../kit/anim.js"></script>
+<script src="../kit/icones.js"></script>
+<script src="../kit/ps.js"></script>
+<style>.h1 { text-align: center; } .h1 .serif { transform-origin: 50% 80% !important; }</style>
+</head><body><div id="quadro"></div><script>
+const i = PS.i;
+PS.recurso({ index: 12, duration: 8, fundo: 'escuro', tone: 'tone-brand', travessia: false, semRodape: true,
+  t1: 'Você cuida do pet.', t2: 'A gente cuida do resto.', h1: { fontSize: '100px', top: '370px' },
+  depois: (q) => K.html(q, 'div', 'abs', `<span class="mark-logo"><span class="mark">${i('paw')}</span>PetShop AI</span>`, { left: 0, right: 0, top: '170px', textAlign: 'center' }),
+  prova: `<div class="row" style="justify-content:center;gap:16px">${PS.OITO.map((c,k)=>`<span class="b" data-t="${1.5 + k * 0.25}" data-k="pop">${PS.chip(c.tone, c.icon, 92, 'escuro', 28)}</span>`).join('')}</div>
+    <div class="b" data-t="4.0" data-k="pop" style="text-align:center;margin-top:70px"><span class="cta-b">Teste Grátis por 14 Dias${i('arrow')}</span></div>
+    <div style="text-align:center;margin-top:44px;font-size:32px;font-weight:500;color:var(--gold-2);display:flex;justify-content:center;gap:12px;align-items:center">${i('globe')}petshop.officestecnologia.com.br</div>
+    <div style="display:flex;justify-content:center;gap:36px;margin-top:26px;font-size:27px;color:rgb(255 255 255 / .7)">${['Sem cartão de crédito','Cancele quando quiser'].map(n=>`<span class="row" style="gap:10px"><span style="color:var(--d-money);font-size:28px">${i('check')}</span>${n}</span>`).join('')}</div>`,
+  provaCss: { top: '700px', height: '560px' },
+  depoisFim: 0 });
+</script></body></html>

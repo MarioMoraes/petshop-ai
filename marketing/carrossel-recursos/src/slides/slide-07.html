@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Área do Tutor</title>
+<link rel="stylesheet" href="../kit/petshop.css">
+<script src="../kit/kit.js"></script>
+<script src="../kit/anim.js"></script>
+<script src="../kit/icones.js"></script>
+<script src="../kit/ps.js"></script>
+<style>
+  .pt { padding: 70px 26px 0; } .pt h4 { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; }
+  .mp { display: flex; gap: 12px; margin-top: 16px; } .mp div { flex: 1; border-radius: 20px; background: #f1f3f6; padding: 14px; font-size: 21px; font-weight: 600; }
+  .sd { margin-top: 20px; border-radius: 24px; padding: 20px; background: var(--t-people-soft); box-shadow: 0 0 0 2px var(--t-people-ring) inset; }
+</style></head><body><div id="quadro"></div><script>
+const i = PS.i;
+PS.recurso({ index: 7, fundo: 'escuro', tone: 'tone-people', icon: 'user', n: '05', nome: 'Área do Tutor',
+  t1: 'Área do Tutor', t2: 'na palma da mão.',
+  corpo: 'O tutor vê os pets, as vacinas e o saldo.<br>E paga com PIX sem pedir a chave.',
+  prova: `<div class="phone" style="left:30px;top:-8px;width:400px;height:590px"><div class="screen"><div class="pt">
+      <div class="lbl">Olá, Mariana</div><h4>Meus Pets</h4>
+      <div class="mp"><div class="b" data-t="1.0">${PS.chip('tone-pet','paw',44,'claro')}<div style="margin-top:8px">Thor</div></div><div class="b" data-t="1.25">${PS.chip('tone-health','heart',44,'claro')}<div style="margin-top:8px">Luna</div></div></div>
+      <div class="sd"><div class="lbl">Saldo em aberto</div><div class="num b" data-t="1.5" data-k="conta" data-to="180" data-fmt="brl" style="font-size:40px;font-weight:700;color:var(--t-people);margin:4px 0 14px">R$ 180,00</div>
+        <div class="b" data-t="2.5" data-k="pop"><span class="btn-dark" style="width:100%;justify-content:center">${i('qr')}Pagar Agora</span></div></div>
+    </div></div></div>
+    <div class="float b" data-t="3.0" data-k="pop" style="left:480px;top:90px">${PS.chip('tone-metric','qr',60,'claro')}<span><small>PIX gerado</small><b>Copia e cola</b></span></div>
+    <div class="float b" data-t="3.5" data-k="pop" style="left:480px;top:230px">${PS.chip('tone-money','check',60,'claro')}<span><small>Pago</small><b>R$ 180,00 · baixa automática</b></span></div>
+    <div class="float b" data-t="4.0" data-k="pop" style="left:480px;top:370px">${PS.chip('tone-health','syringe',60,'claro')}<span><small>Carteira</small><b>Vacinas em dia</b></span></div>`,
+  fecho: 'Cobrar deixa de ser constrangedor.' });
+</script></body></html>

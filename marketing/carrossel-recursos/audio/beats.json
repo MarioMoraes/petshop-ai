@@ -1,0 +1,973 @@
+{
+ "bpm": 120,
+ "batida_s": 0.5,
+ "compasso_s": 2,
+ "sampleRate": 48000,
+ "slides": [
+  {
+   "slide": 1,
+   "duracao_s": 8,
+   "compassos": 4,
+   "compassos_da_musica": [
+    1,
+    4
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5,
+    6,
+    6.5,
+    7,
+    7.5
+   ],
+   "eventos": [
+    {
+     "t": 4,
+     "tipo": "whoosh",
+     "o_que": "o anel dá uma volta"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 0.75,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 1.25,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 1.5,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 1.75,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 2,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 2.25,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 2.5,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 2.75,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 3.5,
+     "tipo": "clique",
+     "o_que": "8 recursos·1 sistema·da agenda"
+    }
+   ]
+  },
+  {
+   "slide": 2,
+   "duracao_s": 6,
+   "compassos": 3,
+   "compassos_da_musica": [
+    5,
+    7
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5
+   ],
+   "eventos": [
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "Caderno"
+    },
+    {
+     "t": 2.5,
+     "tipo": "clique",
+     "o_que": "larg"
+    },
+    {
+     "t": 1.25,
+     "tipo": "impacto",
+     "o_que": "Planilha"
+    },
+    {
+     "t": 2.6,
+     "tipo": "clique",
+     "o_que": "larg"
+    },
+    {
+     "t": 1.5,
+     "tipo": "impacto",
+     "o_que": "WhatsApp do celular"
+    },
+    {
+     "t": 2.7,
+     "tipo": "clique",
+     "o_que": "larg"
+    },
+    {
+     "t": 1.75,
+     "tipo": "impacto",
+     "o_que": "Maquininha"
+    },
+    {
+     "t": 2.8,
+     "tipo": "clique",
+     "o_que": "larg"
+    },
+    {
+     "t": 2,
+     "tipo": "impacto",
+     "o_que": "Grupo da equipe"
+    },
+    {
+     "t": 2.9,
+     "tipo": "clique",
+     "o_que": "larg"
+    },
+    {
+     "t": 3.25,
+     "tipo": "impacto",
+     "o_que": "01Site"
+    },
+    {
+     "t": 3.375,
+     "tipo": "impacto",
+     "o_que": "02IA"
+    },
+    {
+     "t": 3.5,
+     "tipo": "impacto",
+     "o_que": "03Agenda"
+    },
+    {
+     "t": 3.625,
+     "tipo": "impacto",
+     "o_que": "04Pets"
+    },
+    {
+     "t": 3.75,
+     "tipo": "impacto",
+     "o_que": "05Tutor"
+    },
+    {
+     "t": 3.875,
+     "tipo": "impacto",
+     "o_que": "06Caixa"
+    },
+    {
+     "t": 4,
+     "tipo": "impacto",
+     "o_que": "07Fluxo"
+    },
+    {
+     "t": 4.125,
+     "tipo": "impacto",
+     "o_que": "08Estoque"
+    },
+    {
+     "t": 4.75,
+     "tipo": "tchac",
+     "o_que": "Arrasta. É o dia inteiro, na o"
+    }
+   ]
+  },
+  {
+   "slide": 3,
+   "duracao_s": 6,
+   "compassos": 3,
+   "compassos_da_musica": [
+    8,
+    10
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5
+   ],
+   "eventos": [
+    {
+     "t": 0.25,
+     "tipo": "whoosh",
+     "o_que": "a prova sai e volta"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1,
+     "tipo": "clique",
+     "o_que": "seupetshop.com.br"
+    },
+    {
+     "t": 3,
+     "tipo": "impacto",
+     "o_que": "Agendar Online"
+    },
+    {
+     "t": 1.5,
+     "tipo": "clique",
+     "o_que": "BanhoR$ 60"
+    },
+    {
+     "t": 2,
+     "tipo": "clique",
+     "o_que": "TosaR$ 90"
+    },
+    {
+     "t": 2.5,
+     "tipo": "clique",
+     "o_que": "HidrataçãoR$ 45"
+    },
+    {
+     "t": 3.5,
+     "tipo": "impacto",
+     "o_que": "Novo agendamentoLuna · Tosa 10"
+    },
+    {
+     "t": 4.5,
+     "tipo": "tchac",
+     "o_que": "O site já nasce com o botão de"
+    }
+   ]
+  },
+  {
+   "slide": 4,
+   "duracao_s": 6,
+   "compassos": 3,
+   "compassos_da_musica": [
+    11,
+    13
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5
+   ],
+   "eventos": [
+    {
+     "t": 0.25,
+     "tipo": "whoosh",
+     "o_que": "a prova sai e volta"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1,
+     "tipo": "clique",
+     "o_que": "Tem horário sábado pro Thor?"
+    },
+    {
+     "t": 1.5,
+     "tipo": "clique",
+     "o_que": "Tenho sim! Qual fica melhor?09"
+    },
+    {
+     "t": 2,
+     "tipo": "clique",
+     "o_que": "10:30"
+    },
+    {
+     "t": 2.5,
+     "tipo": "clique",
+     "o_que": "Banho do Thor, sábado às 10:30"
+    },
+    {
+     "t": 3,
+     "tipo": "clique",
+     "o_que": "Sim"
+    },
+    {
+     "t": 3.5,
+     "tipo": "impacto",
+     "o_que": "AgendadoSáb · 10:30 · Banho"
+    },
+    {
+     "t": 4,
+     "tipo": "impacto",
+     "o_que": "Mandou áudio?Entende também"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "Grava diretoNa agenda do dia"
+    },
+    {
+     "t": 4.5,
+     "tipo": "tchac",
+     "o_que": "Domingo à noite, ninguém fica "
+    }
+   ]
+  },
+  {
+   "slide": 5,
+   "duracao_s": 6,
+   "compassos": 3,
+   "compassos_da_musica": [
+    14,
+    16
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5
+   ],
+   "eventos": [
+    {
+     "t": 0.25,
+     "tipo": "whoosh",
+     "o_que": "a prova sai e volta"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1,
+     "tipo": "clique",
+     "o_que": "Thor · Banho09:00 · WhatsApp"
+    },
+    {
+     "t": 1.5,
+     "tipo": "clique",
+     "o_que": "Luna · Tosa09:30 · Site"
+    },
+    {
+     "t": 2,
+     "tipo": "clique",
+     "o_que": "Mel · Banho e Hidratação10:00 "
+    },
+    {
+     "t": 2.5,
+     "tipo": "clique",
+     "o_que": "Bob · Tosa Higiênica11:00 · IA"
+    },
+    {
+     "t": 3,
+     "tipo": "impacto",
+     "o_que": "Agendamentos hoje23"
+    },
+    {
+     "t": 3,
+     "tipo": "clique",
+     "o_que": "23"
+    },
+    {
+     "t": 4.5,
+     "tipo": "tchac",
+     "o_que": "Nenhum horário marcado duas ve"
+    }
+   ]
+  },
+  {
+   "slide": 6,
+   "duracao_s": 6,
+   "compassos": 3,
+   "compassos_da_musica": [
+    17,
+    19
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5
+   ],
+   "eventos": [
+    {
+     "t": 0.25,
+     "tipo": "whoosh",
+     "o_que": "a prova sai e volta"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "Alérgico a dipirona"
+    },
+    {
+     "t": 1.5,
+     "tipo": "clique",
+     "o_que": "V10"
+    },
+    {
+     "t": 2,
+     "tipo": "clique",
+     "o_que": "Antirrábica"
+    },
+    {
+     "t": 2.5,
+     "tipo": "clique",
+     "o_que": "Giárdia"
+    },
+    {
+     "t": 1.25,
+     "tipo": "clique",
+     "o_que": "Banho e Tosa12 out · Ana"
+    },
+    {
+     "t": 1.75,
+     "tipo": "clique",
+     "o_que": "Consulta28 set · Dra. Paula"
+    },
+    {
+     "t": 2.25,
+     "tipo": "clique",
+     "o_que": "V10 · 3ª dose28 set"
+    },
+    {
+     "t": 2.75,
+     "tipo": "clique",
+     "o_que": "Banho14 set · Ana"
+    },
+    {
+     "t": 3.5,
+     "tipo": "impacto",
+     "o_que": "Giárdia · próxima dose em 12 d"
+    },
+    {
+     "t": 4.5,
+     "tipo": "tchac",
+     "o_que": "A alergia aparece antes da tes"
+    }
+   ]
+  },
+  {
+   "slide": 7,
+   "duracao_s": 6,
+   "compassos": 3,
+   "compassos_da_musica": [
+    20,
+    22
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5
+   ],
+   "eventos": [
+    {
+     "t": 0.25,
+     "tipo": "whoosh",
+     "o_que": "a prova sai e volta"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1,
+     "tipo": "clique",
+     "o_que": "Thor"
+    },
+    {
+     "t": 1.25,
+     "tipo": "clique",
+     "o_que": "Luna"
+    },
+    {
+     "t": 1.5,
+     "tipo": "clique",
+     "o_que": "R$ 180,00"
+    },
+    {
+     "t": 2.5,
+     "tipo": "impacto",
+     "o_que": "Pagar Agora"
+    },
+    {
+     "t": 3,
+     "tipo": "impacto",
+     "o_que": "PIX geradoCopia e cola"
+    },
+    {
+     "t": 3.5,
+     "tipo": "impacto",
+     "o_que": "PagoR$ 180,00 · baixa automáti"
+    },
+    {
+     "t": 4,
+     "tipo": "impacto",
+     "o_que": "CarteiraVacinas em dia"
+    },
+    {
+     "t": 4.5,
+     "tipo": "tchac",
+     "o_que": "Cobrar deixa de ser constrange"
+    }
+   ]
+  },
+  {
+   "slide": 8,
+   "duracao_s": 6,
+   "compassos": 3,
+   "compassos_da_musica": [
+    23,
+    25
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5
+   ],
+   "eventos": [
+    {
+     "t": 0.25,
+     "tipo": "whoosh",
+     "o_que": "a prova sai e volta"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1,
+     "tipo": "clique",
+     "o_que": "AberturaR$ 200,00"
+    },
+    {
+     "t": 1.25,
+     "tipo": "clique",
+     "o_que": "Pix+R$ 742,00"
+    },
+    {
+     "t": 1.5,
+     "tipo": "clique",
+     "o_que": "Cartão+R$ 615,50"
+    },
+    {
+     "t": 1.75,
+     "tipo": "clique",
+     "o_que": "Dinheiro+R$ 390,00"
+    },
+    {
+     "t": 2,
+     "tipo": "clique",
+     "o_que": "Sangria−R$ 100,00"
+    },
+    {
+     "t": 2.5,
+     "tipo": "clique",
+     "o_que": "R$ 1.847,50"
+    },
+    {
+     "t": 3.5,
+     "tipo": "impacto",
+     "o_que": "Fechado · Sem Diferença"
+    },
+    {
+     "t": 4.5,
+     "tipo": "tchac",
+     "o_que": "Fechar o caixa não é mais a úl"
+    }
+   ]
+  },
+  {
+   "slide": 9,
+   "duracao_s": 6,
+   "compassos": 3,
+   "compassos_da_musica": [
+    26,
+    28
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5
+   ],
+   "eventos": [
+    {
+     "t": 0.25,
+     "tipo": "whoosh",
+     "o_que": "a prova sai e volta"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1,
+     "tipo": "clique",
+     "o_que": "+R$ 12.480"
+    },
+    {
+     "t": 1,
+     "tipo": "clique",
+     "o_que": "cresce"
+    },
+    {
+     "t": 1.25,
+     "tipo": "clique",
+     "o_que": "cresce"
+    },
+    {
+     "t": 1.5,
+     "tipo": "clique",
+     "o_que": "cresce"
+    },
+    {
+     "t": 1.75,
+     "tipo": "clique",
+     "o_que": "cresce"
+    },
+    {
+     "t": 2,
+     "tipo": "clique",
+     "o_que": "cresce"
+    },
+    {
+     "t": 2.25,
+     "tipo": "clique",
+     "o_que": "cresce"
+    },
+    {
+     "t": 2.5,
+     "tipo": "clique",
+     "o_que": "cresce"
+    },
+    {
+     "t": 2.75,
+     "tipo": "clique",
+     "o_que": "cresce"
+    },
+    {
+     "t": 3,
+     "tipo": "clique",
+     "o_que": "desenha"
+    },
+    {
+     "t": 4.5,
+     "tipo": "tchac",
+     "o_que": "O mês fecha antes de o mês aca"
+    }
+   ]
+  },
+  {
+   "slide": 10,
+   "duracao_s": 6,
+   "compassos": 3,
+   "compassos_da_musica": [
+    29,
+    31
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5
+   ],
+   "eventos": [
+    {
+     "t": 0.25,
+     "tipo": "whoosh",
+     "o_que": "a prova sai e volta"
+    },
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1,
+     "tipo": "clique",
+     "o_que": "Shampoo Neutro 5 L2 un."
+    },
+    {
+     "t": 1.25,
+     "tipo": "clique",
+     "o_que": "larg"
+    },
+    {
+     "t": 1.5,
+     "tipo": "clique",
+     "o_que": "Ração Premium 15 kg8 un."
+    },
+    {
+     "t": 1.75,
+     "tipo": "clique",
+     "o_que": "larg"
+    },
+    {
+     "t": 2,
+     "tipo": "clique",
+     "o_que": "Vacina V1014 doses"
+    },
+    {
+     "t": 2.25,
+     "tipo": "clique",
+     "o_que": "larg"
+    },
+    {
+     "t": 2.5,
+     "tipo": "clique",
+     "o_que": "Laço de Gravata40 un."
+    },
+    {
+     "t": 2.75,
+     "tipo": "clique",
+     "o_que": "larg"
+    },
+    {
+     "t": 3.5,
+     "tipo": "impacto",
+     "o_que": "Repor agoraShampoo Neutro · 2 "
+    },
+    {
+     "t": 4.5,
+     "tipo": "tchac",
+     "o_que": "O shampoo não acaba no meio do"
+    }
+   ]
+  },
+  {
+   "slide": 11,
+   "duracao_s": 4,
+   "compassos": 2,
+   "compassos_da_musica": [
+    32,
+    33
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5
+   ],
+   "eventos": [
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1.5,
+     "tipo": "impacto",
+     "o_que": "Oito Recursos"
+    },
+    {
+     "t": 1.75,
+     "tipo": "impacto",
+     "o_que": "Um Login"
+    },
+    {
+     "t": 2,
+     "tipo": "impacto",
+     "o_que": "Uma Mensalidade"
+    }
+   ]
+  },
+  {
+   "slide": 12,
+   "duracao_s": 8,
+   "compassos": 4,
+   "compassos_da_musica": [
+    34,
+    37
+   ],
+   "batidas": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5,
+    6,
+    6.5,
+    7,
+    7.5
+   ],
+   "eventos": [
+    {
+     "t": 1,
+     "tipo": "impacto",
+     "o_que": "a linha em serifa carimba"
+    },
+    {
+     "t": 1.5,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 1.75,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 2,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 2.25,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 2.5,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 2.75,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 3,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 3.25,
+     "tipo": "impacto",
+     "o_que": "pop"
+    },
+    {
+     "t": 4,
+     "tipo": "impacto",
+     "o_que": "Teste Grátis por 14 Dias"
+    }
+   ]
+  }
+ ],
+ "compassos_total": 37
+}

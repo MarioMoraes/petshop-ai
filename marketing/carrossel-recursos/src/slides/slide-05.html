@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Agenda</title>
+<link rel="stylesheet" href="../kit/petshop.css">
+<script src="../kit/kit.js"></script>
+<script src="../kit/anim.js"></script>
+<script src="../kit/icones.js"></script>
+<script src="../kit/ps.js"></script>
+<style>
+  .gr { position: absolute; left: 32px; right: 32px; top: 120px; }
+  .hr { position: absolute; left: 0; width: 80px; font-size: 21px; color: var(--subtle); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .ln { position: absolute; left: 90px; right: 0; height: 2px; background: var(--line); }
+  .ap { position: absolute; border-radius: 18px; padding: 14px 18px; background: var(--tone-soft); box-shadow: 0 0 0 2px var(--tone-ring) inset; border-left: 8px solid var(--tone); }
+  .ap b { display: block; font-size: 25px; font-weight: 600; color: var(--ink-strong); } .ap small { font-size: 20px; color: var(--muted); font-weight: 500; }
+  .pro { position: absolute; top: -48px; font-size: 22px; font-weight: 600; color: var(--muted); }
+</style></head><body><div id="quadro"></div><script>
+const i = PS.i;
+const ap = (tone, x, y, h, a, b, t) => `<div class="ap ${tone} b" data-t="${t}" style="left:${x}px;top:${y}px;width:380px;height:${h}px"><b>${a}</b><small>${b}</small></div>`;
+PS.recurso({ index: 5, fundo: 'escuro', tone: 'tone-time', icon: 'cal', n: '03', nome: 'Agenda',
+  t1: 'Agenda Cheia', t2: 'do jeito do cliente.',
+  corpo: 'WhatsApp, site ou app.<br>Tudo cai na mesma grade, sem digitar de novo.',
+  prova: `<div class="card" style="left:0;top:0;width:936px;height:560px">
+    <div class="abs row" style="left:32px;top:28px;right:32px;justify-content:space-between">
+      <span style="font-size:32px;font-weight:600;letter-spacing:-0.02em">Sábado, 18</span>
+      <span class="row" style="gap:10px"><span class="pill tone-money">${i('wa','fill')}WhatsApp</span><span class="pill tone-metric">${i('globe')}Site</span><span class="pill tone-people">${i('phone')}App</span></span></div>
+    <div class="gr" style="top:160px">
+      <span class="pro" style="left:100px">Ana · Banho</span><span class="pro" style="left:500px">Bruno · Tosa</span>
+      ${['09:00','10:00','11:00','12:00'].map((h,k)=>`<span class="hr" style="top:${k*92-12}px">${h}</span><span class="ln" style="top:${k*92}px"></span>`).join('')}
+      ${ap('tone-time',100,10,80,'Thor · Banho','09:00 · WhatsApp',1.0)}
+      ${ap('tone-pet',500,56,120,'Luna · Tosa','09:30 · Site',1.5)}
+      ${ap('tone-health',100,102,120,'Mel · Banho e Hidratação','10:00 · App',2.0)}
+      ${ap('tone-system',500,240,80,'Bob · Tosa Higiênica','11:00 · IA no WhatsApp',2.5)}
+    </div></div>
+  <div class="float b" data-t="3.0" data-k="pop" style="left:60px;top:440px">${PS.chip('tone-time','cal',60,'claro')}<span><small>Agendamentos hoje</small><b class="num b" data-t="3.0" data-k="conta" data-to="23" style="font-size:40px">23</b></span></div>`,
+  fecho: 'Nenhum horário marcado duas vezes.' });
+</script></body></html>

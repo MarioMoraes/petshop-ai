@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Fluxo de Caixa</title>
+<link rel="stylesheet" href="../kit/petshop.css">
+<script src="../kit/kit.js"></script>
+<script src="../kit/anim.js"></script>
+<script src="../kit/icones.js"></script>
+<script src="../kit/ps.js"></script>
+<style>
+  .ch { position: absolute; left: 40px; right: 40px; top: 190px; height: 300px; border-bottom: 2px solid var(--line); }
+  .sem { position: absolute; bottom: 0; width: 170px; display: flex; gap: 12px; align-items: flex-end; justify-content: center; }
+  .sem i { width: 52px; border-radius: 12px 12px 4px 4px; display: block; transform-origin: 50% 100%; }
+  .sem .e { background: var(--t-money); } .sem .s { background: #cfd3da; }
+  .sl { position: absolute; bottom: -42px; font-size: 21px; color: var(--subtle); font-weight: 500; width: 170px; text-align: center; }
+</style></head><body><div id="quadro"></div><script>
+const i = PS.i;
+const S = [[180, 120], [220, 130], [200, 150], [270, 140]];
+const sem = S.map(([e, s], k) => `<div class="sem" style="left:${k * 214}px"><i class="e b" data-k="cresce" data-t="${1 + k * 0.5}" style="height:${e}px"></i><i class="s b" data-k="cresce" data-t="${1.25 + k * 0.5}" style="height:${s}px"></i></div><div class="sl" style="left:${k * 214}px">Sem ${k + 1}</div>`).join('');
+PS.recurso({ index: 9, fundo: 'escuro', tone: 'tone-money', icon: 'trend', n: '07', nome: 'Fluxo de Caixa',
+  t1: 'Fluxo de Caixa', t2: 'sem planilha.',
+  corpo: 'Entradas e saídas por semana, no mesmo gráfico.<br>O saldo do mês aparece sem fórmula.',
+  prova: `<div class="card" style="left:0;top:0;width:936px;height:560px">
+      <div class="abs" style="left:40px;top:30px"><div class="lbl">Saldo de outubro</div><div class="num b" data-t="1.0" data-k="conta" data-to="12480" data-fmt="brl0" style="font-size:60px;font-weight:700;letter-spacing:-0.03em;color:var(--t-money)">+R$ 12.480</div></div>
+      <div class="abs row" style="right:40px;top:44px;gap:10px"><span class="pill tone-money"><span class="dot"></span>Entradas</span><span class="pill" style="background:#f1f3f6;color:var(--muted);box-shadow:0 0 0 2px var(--line) inset"><span class="dot" style="background:#cfd3da"></span>Saídas</span></div>
+      <div class="ch">${sem}
+        <svg class="abs b" data-t="3.0" data-k="desenha" style="left:0;top:0" width="856" height="300" viewBox="0 0 856 300"><polyline points="85,210 299,150 513,120 727,40" fill="none" stroke="#00818c" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>${[[85,210],[299,150],[513,120],[727,40]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="10" fill="#fff" stroke="#00818c" stroke-width="5"/>`).join('')}</svg>
+      </div></div>`,
+  fecho: 'O mês fecha antes de o mês acabar.' });
+</script></body></html>

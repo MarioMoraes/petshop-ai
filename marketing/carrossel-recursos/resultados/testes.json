@@ -1,0 +1,398 @@
+{
+ "01": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 39.0,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 403,
+   "dif_max": 6,
+   "dif_media": 0.0004
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.0243,
+   "degrau_no_compasso_interno": 0.0455,
+   "rms_antes/depois_emenda": [
+    0.028,
+    0.263
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.047,
+    0.29
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 240,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 8.0
+  }
+ },
+ "02": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 40.2,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 91,
+   "dif_max": 8,
+   "dif_media": 0.0002
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.0563,
+   "degrau_no_compasso_interno": 0.0048,
+   "rms_antes/depois_emenda": [
+    0.024,
+    0.267
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.041,
+    0.347
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 180,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 6.0
+  }
+ },
+ "03": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 39.8,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 83,
+   "dif_max": 19,
+   "dif_media": 0.0001
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.0829,
+   "degrau_no_compasso_interno": 0.2203,
+   "rms_antes/depois_emenda": [
+    0.026,
+    0.285
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.026,
+    0.307
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 180,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 6.0
+  }
+ },
+ "04": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 41.9,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 7287,
+   "dif_max": 112,
+   "dif_media": 0.0064
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.1123,
+   "degrau_no_compasso_interno": 0.2569,
+   "rms_antes/depois_emenda": [
+    0.025,
+    0.28
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.026,
+    0.313
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 180,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 6.0
+  }
+ },
+ "05": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 39.7,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 5,
+   "dif_max": 8,
+   "dif_media": 0.0
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.1659,
+   "degrau_no_compasso_interno": 0.2905,
+   "rms_antes/depois_emenda": [
+    0.026,
+    0.286
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.027,
+    0.306
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 180,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 6.0
+  }
+ },
+ "06": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 40.8,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 0,
+   "dif_max": 0,
+   "dif_media": 0.0
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.1123,
+   "degrau_no_compasso_interno": 0.0158,
+   "rms_antes/depois_emenda": [
+    0.025,
+    0.282
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.026,
+    0.305
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 180,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 6.0
+  }
+ },
+ "07": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 39.9,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 1347,
+   "dif_max": 40,
+   "dif_media": 0.0013
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.1048,
+   "degrau_no_compasso_interno": 0.0541,
+   "rms_antes/depois_emenda": [
+    0.027,
+    0.27
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.03,
+    0.309
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 180,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 6.0
+  }
+ },
+ "08": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 39.5,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 125,
+   "dif_max": 6,
+   "dif_media": 0.0001
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.1104,
+   "degrau_no_compasso_interno": 0.3078,
+   "rms_antes/depois_emenda": [
+    0.031,
+    0.283
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.027,
+    0.309
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 180,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 6.0
+  }
+ },
+ "09": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 39.1,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 213,
+   "dif_max": 26,
+   "dif_media": 0.0003
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.1608,
+   "degrau_no_compasso_interno": 0.0364,
+   "rms_antes/depois_emenda": [
+    0.025,
+    0.284
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.027,
+    0.309
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 180,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 6.0
+  }
+ },
+ "10": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 40.8,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 41,
+   "dif_max": 20,
+   "dif_media": 0.0001
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.009,
+   "degrau_no_compasso_interno": 0.2031,
+   "rms_antes/depois_emenda": [
+    0.029,
+    0.276
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.028,
+    0.311
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 180,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 6.0
+  }
+ },
+ "11": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 39.5,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 56,
+   "dif_max": 57,
+   "dif_media": 0.0003
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.0532,
+   "degrau_no_compasso_interno": 0.0761,
+   "rms_antes/depois_emenda": [
+    0.029,
+    0.285
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.048,
+    0.348
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 120,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 4.0
+  }
+ },
+ "12": {
+  "quadro0_vs_png": {
+   "pixels_diferentes": 0,
+   "dif_max": 0
+  },
+  "mp4_quadro0_vs_png_psnr_db": 38.9,
+  "loop_ultimo_vs_quadro0": {
+   "pixels_diferentes": 13,
+   "dif_max": 19,
+   "dif_media": 0.0
+  },
+  "audio_emenda": {
+   "degrau_na_emenda": 0.0106,
+   "degrau_no_compasso_interno": 0.0769,
+   "rms_antes/depois_emenda": [
+    0.029,
+    0.269
+   ],
+   "rms_antes/depois_compasso_interno": [
+    0.042,
+    0.35
+   ]
+  },
+  "mp4": {
+   "resolucao": "1080x1350",
+   "fps": "30/1",
+   "quadros": 240,
+   "pix_fmt": "yuv420p",
+   "codec": "h264",
+   "audio": "aac 48000 Hz",
+   "duracao_s": 8.0
+  }
+ }
+}

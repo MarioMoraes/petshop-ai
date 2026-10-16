@@ -1,0 +1,8 @@
+/* marca.css · tokens deste projeto por cima do kit.css. Vazio = padrão-base aprovado.
+   Com referência (docs/guia-de-estilo.md) ou MARCA.md próprio, descomente e troque os VALORES:
+:root {
+  --alta: 'Geist';  --quieta: 'DM Serif';  --mono: 'Geist Mono';  --tracking-alta: -0.045em;  --raio: 0px;
+  --papel: #EDE9E1; --marinho: #181D26; --tinta: #15130F; --laranja: #F2511F; --creme: #FBF4E8;
+}
+.serifa { font-style: normal; }   exemplo: a quieta da referência não é itálica
+*/

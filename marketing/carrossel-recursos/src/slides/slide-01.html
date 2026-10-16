@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Capa</title>
+<link rel="stylesheet" href="../kit/petshop.css">
+<script src="../kit/kit.js"></script>
+<script src="../kit/anim.js"></script>
+<script src="../kit/icones.js"></script>
+<script src="../kit/ps.js"></script>
+<style>.h1 .serif { font-size: 196px; line-height: .95; }</style></head><body><div id="quadro"></div><script>
+const R = 236, CX = 468, CY = 290;
+const chips = PS.OITO.map((c, k) => { const a = -Math.PI / 2 + k * Math.PI / 4; return `<div class="abs sat" style="left:${CX + R * Math.cos(a) - 58}px;top:${CY + R * Math.sin(a) - 58}px"><div class="b" data-t="${1 + k * 0.25}" data-k="pop">${PS.chip(c.tone, c.icon, 116, 'escuro', 34)}</div></div>`; }).join('');
+PS.recurso({ index: 1, duration: 8, fundo: 'escuro', tone: 'tone-brand', travessia: false,
+  t1: 'O Petshop Inteiro', t2: 'num lugar só.', h1: { fontSize: '104px', top: '120px' },
+  prova: `<div class="abs" style="left:${CX - 300}px;top:${CY - 300}px;width:600px;height:600px;border-radius:50%;box-shadow:0 0 0 2px rgb(255 255 255 / .08) inset"></div>
+    <div class="abs" style="left:${CX - 190}px;top:${CY - 190}px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle, rgb(240 90 60 / .22), transparent 70%)"></div>
+    <div class="abs b" data-t="0.75" data-k="pop" style="left:${CX - 80}px;top:${CY - 80}px"><span class="mark-logo"><span class="mark" style="width:160px;height:160px;border-radius:48px;font-size:88px">${PS.i('paw')}</span></span></div>
+    <div class="abs anel" style="left:0;top:0;width:936px;height:600px">${chips}</div>`,
+  provaCss: { top: '520px', height: '600px' },
+  depois: (q) => K.html(q, 'div', 'abs b', `<span>8 recursos</span><span style="opacity:.35">·</span><span>1 sistema</span><span style="opacity:.35">·</span><span>da agenda ao estoque</span>`, { left: '72px', right: '72px', top: '1166px', display: 'flex', gap: '18px', fontSize: '34px', fontWeight: 600, letterSpacing: '-0.02em' }).dataset.t = 3.5,
+  extra: (t) => {
+    const anel = document.querySelector('.anel'); const g = 360 * KIT.A.inOutC(KIT.A.seg(t, 4.0, 7.0));
+    KIT.A.tr(anel, g ? `rotate(${KIT.A.n(g)}deg)` : '', `${CX}px ${CY}px`);
+    document.querySelectorAll('.sat').forEach((s) => KIT.A.tr(s, g ? `rotate(${KIT.A.n(-g)}deg)` : '', '50% 50%'));
+  },
+  cues: [{ t: 4.0, tipo: 'whoosh', o_que: 'o anel dá uma volta' }] });
+</script></body></html>

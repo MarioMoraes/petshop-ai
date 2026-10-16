@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Site Próprio</title>
+<link rel="stylesheet" href="../kit/petshop.css">
+<script src="../kit/kit.js"></script>
+<script src="../kit/anim.js"></script>
+<script src="../kit/icones.js"></script>
+<script src="../kit/ps.js"></script>
+<style>
+  .sv { display:flex; justify-content:space-between; align-items:center; padding:20px 0; border-top:2px solid var(--line); }
+  .sv .val { font-size:28px; } .sv .preco { font-size:26px; font-weight:600; color:var(--t-metric); }
+</style></head><body><div id="quadro"></div><script>
+const i = PS.i;
+PS.recurso({ index: 3, fundo: 'escuro', tone: 'tone-metric', icon: 'globe', n: '01', nome: 'Site Próprio',
+  t1: 'Seu Site', t2: 'pronto no ar.',
+  corpo: 'Serviços, preços e horários num endereço seu.<br>O cliente acha e marca ali mesmo.',
+  prova: `<div class="card" style="left:0;top:0;width:936px;height:560px">
+    <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="url">${i('lock')}<span class="b" data-t="1.0" data-k="esq">seupetshop.com.br</span></div></div>
+    <div class="abs" style="left:44px;top:112px;width:440px">
+      <div class="lbl" style="color:var(--t-metric);font-weight:600">Banho & Tosa</div>
+      <div style="font-size:52px;font-weight:600;letter-spacing:-0.035em;line-height:1.02;margin-top:8px">Patinhas<br>Pet Center</div>
+      <div class="lbl" style="margin-top:14px">Seg a Sáb · 8h às 19h</div>
+      <div class="b" data-t="3.0" data-k="pop" style="margin-top:30px;display:inline-block"><span class="btn-dark">${i('cal')}Agendar Online</span></div>
+    </div>
+    <div class="abs" style="left:520px;top:112px;width:372px">
+      <div class="lbl" style="margin-bottom:6px">Serviços</div>
+      <div class="sv b" data-t="1.5"><span class="val">Banho</span><span class="preco">R$ 60</span></div>
+      <div class="sv b" data-t="2.0"><span class="val">Tosa</span><span class="preco">R$ 90</span></div>
+      <div class="sv b" data-t="2.5"><span class="val">Hidratação</span><span class="preco">R$ 45</span></div>
+    </div>
+    <div class="abs row" style="left:44px;right:44px;bottom:40px;padding-top:26px;border-top:2px solid var(--line);gap:28px">
+      <span class="pill tone-metric">${i('globe')}Endereço seu</span><span class="pill tone-time">${i('cal')}Agenda online</span></div>
+  </div>
+  <div class="float tone-money b" data-t="3.5" data-k="pop" style="right:-20px;top:470px">${PS.chip('tone-money','check',60,'claro')}<span><small>Novo agendamento</small><b>Luna · Tosa 10:30</b></span></div>`,
+  fecho: 'O site já nasce com o botão de agendar.' });
+</script></body></html>

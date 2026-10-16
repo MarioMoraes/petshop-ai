@@ -1,0 +1,93 @@
+/* kit.css · tokens do padrão-base (valores aprovados no projeto "layouts de capa", out/2026) + anatomia + dispositivos.
+   Um quadro = 1080x1350. Troque os VALORES pelo MARCA.md, nunca os nomes. */
+@font-face { font-family: 'Geist';      src: url('../../assets/fonts/Geist-Variable.ttf') format('truetype');      font-weight: 100 900; }
+@font-face { font-family: 'Geist Mono'; src: url('../../assets/fonts/GeistMono-Variable.ttf') format('truetype');  font-weight: 100 900; }
+@font-face { font-family: 'DM Serif';   src: url('../../assets/fonts/DMSerifDisplay-Regular.ttf') format('truetype'); font-style: normal; }
+@font-face { font-family: 'DM Serif';   src: url('../../assets/fonts/DMSerifDisplay-Italic.ttf') format('truetype');  font-style: italic; }
+
+:root {
+  --papel:   #EDE9E1;   /* linho claro (fundo claro) */
+  --marinho: #181D26;   /* escuro texturizado (fundo escuro) */
+  --tinta:   #15130F;   /* texto sobre papel; número e barra */
+  --laranja: #F2511F;   /* o único acento */
+  --creme:   #FBF4E8;   /* texto sobre foto e sobre marinho */
+  --mudo: rgba(21,19,15,.62);
+  --fio: rgba(21,19,15,.14);
+  --margem: 72px;
+  /* as vozes: troque em src/kit/marca.css quando a referência ou o MARCA.md pedir outra família */
+  --alta:   'Geist';        /* a fonte alta: títulos, nomes, números, lockups */
+  --quieta: 'DM Serif';     /* a quieta: a palavra-assinatura (itálica por padrão; .serifa.romana pra reta) */
+  --mono:   'Geist Mono';   /* a etiqueta: rodapé, cabeçalho, rótulos */
+  --tracking-alta: -0.045em;
+  --raio: 0px;              /* raio dos cantos dos cartões/blocos (a referência manda: 0 seco, 22 a 28 macio) */
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1080px; height: 1350px; overflow: hidden; background: #000; }
+body { -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; font-kerning: normal; font-family: var(--alta); }
+
+#quadro { position: absolute; left: 0; top: 0; width: 1080px; height: 1350px; overflow: hidden; }
+#quadro.papel   { background: var(--papel);   color: var(--tinta); }
+#quadro.marinho { background: var(--marinho); color: var(--creme); --mudo: rgba(251,244,232,.66); --fio: rgba(251,244,232,.16); }
+#quadro.foto    { background: #111;           color: var(--creme); }
+.abs { position: absolute; }
+canvas.linho { position: absolute; left: 0; top: 0; width: 1080px; height: 1350px; }
+.camada { position: absolute; left: 0; top: 0; width: 1080px; height: 1350px; }       /* camada de parallax */
+.camada img, .foto-fundo { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- anatomia fixa ---------- */
+.rodape { position: absolute; font: 500 20px/1 var(--mono); letter-spacing: 0.01em; white-space: nowrap; }
+.cabecalho { position: absolute; top: 64px; left: var(--margem); right: var(--margem); display: flex; justify-content: space-between; font: 500 18px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--mudo); }
+.cabecalho .meio { position: absolute; left: 50%; transform: translateX(-50%); }
+
+/* ---------- as duas vozes ---------- */
+.sans   { font-family: var(--alta); font-weight: 800; letter-spacing: var(--tracking-alta); line-height: 1; }          /* grotesca pesada: nomes, lockups */
+.sans.caps { text-transform: uppercase; }
+.serifa { font-family: var(--quieta); font-style: italic; font-weight: 400; line-height: 1; letter-spacing: -0.02em; } /* a palavra-assinatura */
+.serifa.romana { font-style: normal; }
+.corpo  { font: 500 34px/1.3 var(--alta); letter-spacing: -0.012em; }
+.definicao { font-family: var(--quieta); font-style: italic; font-size: 46px; line-height: 1.1; letter-spacing: -0.01em; }
+.fecho  { font: 700 34px/1.25 var(--alta); letter-spacing: -0.02em; }
+.mono   { font-family: var(--mono); font-weight: 500; letter-spacing: .12em; text-transform: uppercase; }
+.trio   { display: flex; justify-content: space-between; font: 700 28px/1 var(--alta); letter-spacing: -0.01em; }
+.capa-t { position: absolute; white-space: nowrap; color: var(--creme); }   /* linhas do lockup da capa/CTA sobre foto */
+
+/* ---------- slide de layout / regra editorial (círculo · nome · subtítulo · cartão · frases · barra) ---------- */
+.circulo { position: absolute; left: 72px; top: 140px; width: 172px; height: 172px; border-radius: 50%; background: var(--laranja); }
+.circulo span { position: absolute; left: 0; right: 0; top: 50%; text-align: center; font: 800 88px/1 var(--alta); letter-spacing: -0.04em; color: var(--tinta); font-variant-numeric: tabular-nums; transform: translateY(-52%); }
+.titulo { position: absolute; left: 270px; white-space: nowrap; font-family: var(--alta); font-weight: 800; letter-spacing: var(--tracking-alta); line-height: 1; }
+.subtitulo { position: absolute; left: 274px; white-space: nowrap; font: 500 38px/1 var(--alta); letter-spacing: -0.015em; }
+.cartao { position: absolute; left: 72px; top: 352px; width: 560px; height: 700px; overflow: hidden; background: #2a1410; border-radius: var(--raio); }
+.frases { position: absolute; left: 676px; width: 332px; }
+.frase { font: 500 31px/1.14 var(--alta); letter-spacing: -0.012em; text-wrap: pretty; }
+.fio { height: 3px; width: 250px; margin: 30px 0; background: currentColor; }
+.barra { position: absolute; left: 72px; top: 1096px; background: var(--laranja); color: var(--tinta); padding: 25px 30px 27px; font: 700 36px/1.17 var(--alta); letter-spacing: -0.018em; white-space: nowrap; }
+
+/* ---------- o cartão "a mesma capa" (560x700): a mesma foto, o texto em cada layout ---------- */
+.mc { position: absolute; left: 0; top: 0; width: 560px; height: 700px; overflow: hidden; color: var(--creme); }
+.mc .foto { position: absolute; left: 0; top: 0; width: 560px; height: 700px; object-fit: cover; }
+.mc .t { position: absolute; white-space: nowrap; }
+.mc .k { font: 600 18px/1 var(--alta); letter-spacing: 0.005em; }
+.mc .c { font-family: var(--alta); font-weight: 900; letter-spacing: var(--tracking-alta); line-height: 0.8; }
+.mc .l { font-family: var(--quieta); font-style: italic; font-weight: 400; letter-spacing: -0.01em; line-height: 0.9; }
+.mc .s { font: 500 17px/1 var(--alta); letter-spacing: 0.005em; }
+
+/* ---------- outros dispositivos do catálogo (02-padrao-base) ---------- */
+.pilula { display: inline-flex; align-items: center; height: 56px; padding: 0 22px; border-radius: 12px; background: var(--laranja); color: var(--tinta); font: 800 28px/1 var(--alta); letter-spacing: .02em; text-transform: uppercase; }
+.pilula.torta { transform: rotate(-7deg); }
+.pilula.vazada { background: transparent; border: 3px solid currentColor; color: inherit; text-transform: none; font-weight: 700; border-radius: 16px; }
+.bolinha { width: 76px; height: 76px; border-radius: 50%; background: var(--laranja); color: var(--tinta); display: grid; place-items: center; font: 800 30px/1 var(--alta); }
+.caixa { background: var(--creme); color: var(--tinta); border-left: 10px solid var(--laranja); padding: 24px 28px; font: 700 34px/1.1 var(--alta); letter-spacing: -0.02em; }
+.faixa { position: absolute; left: var(--margem); right: var(--margem); height: 92px; background: var(--laranja); color: var(--tinta); display: flex; align-items: center; padding: 0 36px; font: 700 31px/1 var(--alta); letter-spacing: -0.01em; }
+.par { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.par .lado { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.par img, .par .cartao-par { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: max(var(--raio), 22px); background: #EEDCC8; }
+.par.baixo img, .par.baixo .cartao-par { aspect-ratio: 1 / 1; }
+.par .rotulo { font: 800 38px/1 var(--alta); letter-spacing: -0.02em; text-transform: uppercase; }
+.par .legenda { font-family: var(--quieta); font-style: italic; font-size: 32px; line-height: 1.15; text-align: center; color: var(--mudo); }
+.tabela { width: 100%; border-collapse: collapse; font: 500 32px/1.2 var(--alta); }
+.tabela th { background: var(--laranja); color: var(--tinta); text-align: left; padding: 18px 24px; font: 800 24px/1 var(--alta); letter-spacing: .1em; text-transform: uppercase; }
+.tabela td { padding: 20px 24px; border-bottom: 2px solid var(--fio); }
+.check { display: flex; gap: 20px; align-items: flex-start; font: 700 36px/1.2 var(--alta); letter-spacing: -0.02em; }
+.check::before { content: "✓"; color: var(--laranja); font-weight: 900; }
+.polaroid { background: var(--creme); color: var(--tinta); padding: 14px 14px 44px; border-radius: 6px; box-shadow: 0 18px 40px rgba(0,0,0,.18); }
