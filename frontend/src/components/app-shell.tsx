@@ -32,7 +32,8 @@ import {
   WaveIcon,
   type IconTone,
 } from './icons'
-import { ButtonLink, NavLink, NavPill } from './links'
+import { ButtonLink, NavLink } from './links'
+import { MobileNav } from './mobile-nav'
 import { temRecurso } from './plano-indisponivel'
 import { RouteProgress } from './route-progress'
 import { TenantSwitcher } from './tenant-switcher'
@@ -279,6 +280,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
   const trialDaysLeft =
     me.currentTenant?.status === 'TRIAL' ? trialDaysLeftOf(me.currentTenant.trialEndsAt) : null
   const roleLabel = roleLabelOf(me)
+  const tenantName = me.currentTenant?.name ?? null
 
   // `--color-focus` chega de `/v1/me` como a cor de marca do tenant corrente
   // (Configurações → Identidade visual). Sem tenant, `me.primaryColor` é `null` e o
@@ -296,7 +298,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
        */}
       <RouteProgress />
 
-      <Sidebar active={active} items={items} tenantName={me.currentTenant?.name ?? null} />
+      <Sidebar active={active} items={items} tenantName={tenantName} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-line bg-surface/85 px-4 py-3 backdrop-blur sm:px-8">
@@ -308,6 +310,10 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
            * palmos de distância.
            */}
           <div className="flex min-w-0 items-center gap-3">
+            {/* Abaixo de `lg` a lateral some e vira gaveta, aberta por este botão. */}
+            <MobileNav>
+              <SidebarContent active={active} items={items} tenantName={tenantName} />
+            </MobileNav>
             <Saudacao name={me.user.fullName} timezone={timezone} asTitle={active === 'inicio'} />
             <TenantSwitcher
               memberships={me.memberships}
@@ -413,18 +419,6 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
             </span>
           </div>
         </header>
-
-        {/* Navegação de bolso: abaixo de `lg` a lateral some e vira esta faixa. */}
-        <nav className="flex gap-1 overflow-x-auto border-b border-line px-4 py-2 text-sm lg:hidden">
-          {items.map((item) => (
-            <NavPill
-              key={item.key}
-              href={item.href}
-              label={item.label}
-              active={item.key === active}
-            />
-          ))}
-        </nav>
 
         {/*
          * `overflow-hidden` só com atmosfera: os blooms sangram para fora da caixa e,
@@ -633,20 +627,31 @@ function firstNameOf(fullName: string): string {
  *
  * `sticky` com altura de viewport: a lista acompanha a rolagem do conteúdo em vez de
  * subir junto com ele. Escondido abaixo de `lg`, onde 260px de largura fixa comeriam
- * metade da tela.
+ * metade da tela — ali a mesma lista abre na gaveta de `MobileNav`.
  */
-function Sidebar({
-  active,
-  items,
-  tenantName,
-}: {
+function Sidebar(props: SidebarProps) {
+  return (
+    <aside className="sticky top-0 hidden h-[100svh] w-[260px] shrink-0 flex-col border-r border-line px-4 py-5 lg:flex">
+      <SidebarContent {...props} />
+    </aside>
+  )
+}
+
+interface SidebarProps {
   active: NavKey
   items: Array<NavItem & { tag?: string | undefined }>
   /** Nome do estabelecimento aberto; `null` enquanto não há tenant resolvido. */
   tenantName: string | null
-}) {
+}
+
+/** A marca e a lista — o miolo comum à lateral e à gaveta do celular. */
+function SidebarContent({
+  active,
+  items,
+  tenantName,
+}: SidebarProps) {
   return (
-    <aside className="sticky top-0 hidden h-[100svh] w-[260px] shrink-0 flex-col border-r border-line px-4 py-5 lg:flex">
+    <>
       <Link
         href="/dashboard"
         prefetch={false}
@@ -671,7 +676,7 @@ function Sidebar({
           />
         ))}
       </nav>
-    </aside>
+    </>
   )
 }
 
