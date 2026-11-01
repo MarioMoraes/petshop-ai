@@ -334,6 +334,31 @@ api.{$VITRINE_DOMAIN:vitrine.officestecnologia.com.br} {
 	}
 }
 
+# Landing page do Vitrine AI: nginx estático (`landing` no compose do vitrine).
+lp.{$VITRINE_DOMAIN:vitrine.officestecnologia.com.br} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	reverse_proxy vitrine-landing:80
+
+	log {
+		output stdout
+		format json
+	}
+}
+
 # ── Site institucional da Offices (www) ───────────────────────────────────────
 #
 # HTML estático do repositório da imobiliária (`site/`), servido por um nginx
