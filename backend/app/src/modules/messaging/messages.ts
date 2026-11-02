@@ -134,10 +134,9 @@ async function baseVariables(
    * enquadramento que o MOD-NOTIF existe para evitar.
    */
   if (recipient.kind === 'USER') {
-    const user = await tx.user.findUnique({
-      where: { id: recipient.userId },
-      select: { fullName: true },
-    })
+    const user = recipient.userId
+      ? await tx.user.findUnique({ where: { id: recipient.userId }, select: { fullName: true } })
+      : null
     const fullName = user?.fullName ?? ''
     return {
       ...common,
@@ -183,13 +182,14 @@ async function baseVariables(
  */
 type Recipient =
   | { kind: 'TUTOR'; tutorId: string }
-  | { kind: 'USER'; userId: string }
+  /** `userId` nulo é o convidado (MOD-NOTIF-12), que ainda não tem conta. */
+  | { kind: 'USER'; userId: string | null }
 
 function recipientOf(input: EnqueueMessageInput): Recipient {
   // O `as string` é o que o `.refine()` do schema já garantiu: `recipientKind` e o id
   // correspondente chegam juntos, ou a requisição nem passou da validação.
   return input.recipientKind === 'USER'
-    ? { kind: 'USER', userId: input.userId as string }
+    ? { kind: 'USER', userId: input.userId ?? null }
     : { kind: 'TUTOR', tutorId: input.tutorId as string }
 }
 
@@ -321,10 +321,9 @@ export async function enqueueMessage(
    * ninguém precisar lembrar deste arquivo enquanto escrevia o outro.
    */
   if (input.overrideAddress) {
-    if (recipientKind === 'USER') {
-      // O convite de equipe é o único destinatário do sistema sem `user_id` — e ele
-      // ficou fora da v1 (MOD-NOTIF-12). Enquanto não migrar, endereço imposto é coisa
-      // de tutor, e aceitar aqui abriria o caminho antes de haver quem o usasse.
+    // Na equipe, o endereço imposto é só do convidado (MOD-NOTIF-12): o único
+    // destinatário sem `user_id`. Quem já tem conta recebe no e-mail da conta.
+    if (recipientKind === 'USER' && (input.userId || input.originType !== 'INVITATION')) {
       throw invalid('Contato fora da ficha não se aplica a mensagem de equipe')
     }
     if (category === 'MARKETING') {
@@ -382,7 +381,7 @@ export async function enqueueMessage(
       }
 
       const cipher = await openCipher(tx, actor.tenantId)
-      let decision = recipient.kind === 'USER'
+      let decision = recipient.kind === 'USER' && recipient.userId
         ? await resolveUserDelivery(tx, { tenantId: actor.tenantId, userId: recipient.userId })
         : input.overrideAddress
         ? await resolveOverrideDelivery(tx, {

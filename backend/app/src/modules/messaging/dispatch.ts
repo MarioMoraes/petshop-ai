@@ -325,6 +325,18 @@ async function dispatchOne(
     }
 
     /**
+     * O convite (MOD-NOTIF-12) é a mesma pergunta para quem ainda não tem vínculo: o
+     * admin pode tê-lo revogado, ou ele pode ter vencido, enquanto a mensagem esperava.
+     */
+    if (message.recipientKind === 'USER' && !message.userId && message.originId) {
+      const invitation = await tx.invitation.findFirst({
+        where: { id: message.originId, status: 'PENDING', expiresAt: { gt: new Date() } },
+        select: { id: true },
+      })
+      if (!invitation) return { kind: 'block' as const, block: 'NO_CHANNEL' as const, message }
+    }
+
+    /**
      * AC-02 de MOD-CRM-06 — **a falha mais cara que este módulo pode cometer**.
      *
      * Os jobs já filtram pet falecido na seleção, e mesmo assim a pergunta é refeita

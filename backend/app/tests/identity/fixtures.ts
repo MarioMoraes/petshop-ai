@@ -27,7 +27,9 @@ export * from '../harness.js'
 import type { SchedulingPort } from '../../src/modules/identity/scheduling-port.js'
 
 const { setClerkPort } = await import('../../src/modules/identity/clerk.js')
-const { setMailerPort } = await import('../../src/modules/identity/mailer.js')
+const { setInvitationMessagingPort } = await import(
+  '../../src/modules/identity/messaging-port.js'
+)
 
 // ─── Dublê do Clerk ──────────────────────────────────────────────────────────
 
@@ -137,7 +139,11 @@ export interface SentMail {
 /** O que teria saído por e-mail. A suíte nunca fala com provedor nenhum. */
 export const sentMails: SentMail[] = []
 
-/** Quando `true`, o envio falha — o convite tem que sobreviver a isso. */
+/**
+ * O motor do MOD-NOTIF é dublado aqui: o caminho de verdade do convite pelo motor é
+ * testado em `tests/messaging/convite.test.ts`. Quando `true`, o enfileiramento estoura —
+ * o convite tem que sobreviver a isso.
+ */
 export const mailerState = { failing: false }
 
 export function resetMailer(): void {
@@ -145,9 +151,9 @@ export function resetMailer(): void {
   mailerState.failing = false
 }
 
-setMailerPort({
+setInvitationMessagingPort({
   async sendInvitation(mail) {
-    if (mailerState.failing) return false
+    if (mailerState.failing) throw new Error('motor fora do ar')
     sentMails.push({
       to: mail.to,
       tenantName: mail.tenantName,
@@ -155,7 +161,7 @@ setMailerPort({
       inviteUrl: mail.inviteUrl,
       invitedByName: mail.invitedByName,
     })
-    return true
+    return 'QUEUED'
   },
 })
 

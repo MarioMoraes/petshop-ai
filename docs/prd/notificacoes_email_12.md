@@ -40,7 +40,7 @@ A segunda: **o bounce assíncrono não tem quem o escute.** `dispatch.ts` suprim
 | MOD-NOTIF-09 | Boas-vindas do usuário | Primeiro acesso de um membro da equipe | Should Have |
 | MOD-NOTIF-10 | Retorno do provedor | Webhook do Resend: bounce e reclamação viram supressão | Must Have |
 | MOD-NOTIF-11 | Histórico da equipe | O painel de entregas passa a mostrar o que foi para a equipe | Should Have |
-| MOD-NOTIF-12 | Convite de equipe | Especificado; **não migrado na v1** | Nice to Have |
+| MOD-NOTIF-12 | Convite de equipe | **Migrado em 2026-11-02** (`identity/messaging-port.ts`, template `team_invitation`) | Nice to Have |
 
 ---
 

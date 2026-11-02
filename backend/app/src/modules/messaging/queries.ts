@@ -61,6 +61,8 @@ function displayName(
   tutors: Map<string, string>,
   users: Map<string, string>,
 ): string {
+  // `USER` sem usuário é sempre o convidado (MOD-NOTIF-12): o CHECK só o admite assim.
+  if (row.recipientKind === 'USER' && !row.userId) return 'Convidado para a equipe'
   return row.recipientKind === 'USER'
     ? (row.userId ? users.get(row.userId) : undefined) ?? UNKNOWN_USER
     : (row.tutorId ? tutors.get(row.tutorId) : undefined) ?? UNKNOWN_TUTOR

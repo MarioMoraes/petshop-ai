@@ -28,7 +28,7 @@ import { getClerk } from '../clerk.js'
 import { conflict, forbidden, gone, notFound, planLimitReached, tenantBlocked } from '../errors.js'
 import { publishEvent } from '../../../shared/events.js'
 import { logger } from '../../../shared/logger.js'
-import { getMailer } from '../mailer.js'
+import { getInvitationMessagingPort } from '../messaging-port.js'
 import { mfaGraceFor } from '../../security/mfa.js'
 import { invalidatePermissions } from '../rbac/service.js'
 import { getScheduling } from '../scheduling-port.js'
@@ -117,6 +117,7 @@ export async function createInvitation(
 
   const inviteUrl = buildInviteUrl(token)
   await deliver(actor.tenantId, actor.actorUserId, {
+    invitationId: created.id,
     to: email,
     roleKey: input.role,
     inviteUrl,
@@ -223,6 +224,7 @@ export async function resendInvitation(
 
   const inviteUrl = buildInviteUrl(token)
   await deliver(actor.tenantId, actor.actorUserId, {
+    invitationId: row.id,
     to: email,
     roleKey: row.roleKey as AssignableRoleKey,
     inviteUrl,
@@ -624,6 +626,7 @@ async function publishPermVersion(
 }
 
 interface DeliverParams {
+  invitationId: string
   to: string
   roleKey: AssignableRoleKey
   inviteUrl: string
@@ -635,6 +638,9 @@ interface DeliverParams {
  * aqui, e o link volta na resposta da API. Um provedor fora do ar não pode impedir o
  * admin de convidar alguém — ele copia o link e manda pelo WhatsApp, que é como
  * metade dos petshops faria de qualquer jeito.
+ *
+ * Sai pelo motor do MOD-NOTIF (MOD-NOTIF-12): o convite que não chegou aparece no painel
+ * de entregas, com o motivo, em vez de sumir num log.
  */
 async function deliver(
   tenantId: string,
@@ -643,21 +649,35 @@ async function deliver(
 ): Promise<void> {
   const [tenant, inviter] = await Promise.all([
     withTenant(tenantId, (tx) =>
-      tx.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { name: true } }),
+      tx.tenant.findUniqueOrThrow({
+        where: { id: tenantId },
+        select: { name: true, settings: { select: { timezone: true } } },
+      }),
     ),
     getPrisma().user.findUnique({ where: { id: actorUserId }, select: { fullName: true } }),
   ])
 
-  const sent = await getMailer().sendInvitation({
-    to: params.to,
-    tenantName: tenant.name,
-    roleLabel: ROLE_LABELS[params.roleKey],
-    inviteUrl: params.inviteUrl,
-    invitedByName: inviter?.fullName ?? null,
-    expiresAt: params.expiresAt,
-  })
-
-  if (!sent) logger.warn({ tenantId }, 'convite criado sem e-mail entregue')
+  try {
+    const status = await getInvitationMessagingPort().sendInvitation({
+      tenantId,
+      invitationId: params.invitationId,
+      actorUserId,
+      to: params.to,
+      tenantName: tenant.name,
+      roleLabel: ROLE_LABELS[params.roleKey],
+      inviteUrl: params.inviteUrl,
+      invitedByName: inviter?.fullName ?? null,
+      validUntil: new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: 'long',
+        timeZone: tenant.settings?.timezone ?? 'America/Sao_Paulo',
+      }).format(params.expiresAt),
+      dedupeKey: `team-invitation:${params.invitationId}:${params.expiresAt.getTime()}`,
+    })
+    if (status === 'BLOCKED') logger.warn({ tenantId }, 'convite criado com e-mail bloqueado')
+  } catch (error) {
+    logger.warn({ err: error, tenantId }, 'convite criado sem e-mail enfileirado')
+  }
 }
 
 async function decryptEmails(

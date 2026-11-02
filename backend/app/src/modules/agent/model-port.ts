@@ -8,7 +8,7 @@ import { DEFAULT_RATES, type ModelPort, type ModelUsage } from './model-contract
 /**
  * O provedor do modelo, atrás de uma porta (§10 do PRD).
  *
- * O mesmo desenho do `ClerkPort` e do `MailerPort`, e pela mesma razão: **a suíte inteira
+ * O mesmo desenho do `ClerkPort`, e pela mesma razão: **a suíte inteira
  * roda sem chave de provedor e sem gastar dinheiro**. O dublê dos testes responde com
  * turnos roteirizados — "chame esta tool, depois responda isto" — e o que fica de fora do
  * teste é só o HTTP.

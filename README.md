@@ -123,8 +123,6 @@ deixou.
 - **Webhooks `organization.*` do Clerk.** Os de usuário e a saída de Organization estão
   ligados (MOD-IDENT-03); renomear ou excluir a Organization pelo painel do Clerk não
   chega ao tenant local.
-- **O convite de equipe sai por fora do motor do MOD-NOTIF.** `identity/mailer.ts` chama o
-  Resend direto — sem fila, sem retentativa e sem histórico no painel de entregas.
 - **Trocar de ciclo numa assinatura viva.** Mensal e anual se escolhem ao assinar; passar
   de um para o outro depois exigiria mover o dinheiro de um ano no Asaas.
 - **Cobrança real conferida de ponta a ponta.** O PIX da assinatura e o da cobrança do

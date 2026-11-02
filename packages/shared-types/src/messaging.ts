@@ -122,6 +122,8 @@ export const MessageOriginTypeSchema = z.enum([
    * `AgentMessagingPort` e nunca exercitam este schema.
    */
   'AGENT_HANDOFF',
+  /** O convite de equipe (MOD-NOTIF-12): o `originId` é o do convite. */
+  'INVITATION',
 ])
 export type MessageOriginType = z.infer<typeof MessageOriginTypeSchema>
 
@@ -245,7 +247,11 @@ export const EnqueueMessageSchema = z
     (input) =>
       input.recipientKind === 'TUTOR'
         ? Boolean(input.tutorId) && !input.userId
-        : Boolean(input.userId) && !input.tutorId,
+        : !input.tutorId &&
+          // O convidado (MOD-NOTIF-12) é o único `USER` sem conta: vai ao endereço que o
+          // admin digitou, e só nasce de um convite.
+          (Boolean(input.userId) ||
+            (Boolean(input.overrideAddress) && input.originType === 'INVITATION')),
     { message: 'Informe exatamente um destinatário, coerente com recipientKind' },
   )
 export type EnqueueMessageInput = z.output<typeof EnqueueMessageSchema>

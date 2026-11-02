@@ -806,6 +806,34 @@ export const MESSAGE_TEMPLATES: readonly MessageTemplateDefinition[] = [
     },
   },
   {
+    /**
+     * O convite de equipe (MOD-NOTIF-12). Até 2026-11-02 saía por um segundo caminho de
+     * e-mail, direto ao Resend, sem fila nem painel — o convite que não chegava era
+     * invisível ao admin. O destinatário é o único da equipe sem conta: as variáveis
+     * vêm todas do chamador, e não há `usuario.*`.
+     */
+    key: 'team_invitation',
+    label: 'Convite de equipe',
+    category: 'TRANSACTIONAL',
+    variables: ['petshop.nome', 'convite.papel', 'convite.link', 'convite.validade', 'convite.convidou'],
+    audience: 'USER',
+    authored: 'SYSTEM',
+    subject: '{{petshop.nome}} convidou você para a equipe',
+    body: {
+      WHATSAPP:
+        '{{convite.convidou}} convidou você para a equipe do {{petshop.nome}}, como ' +
+        '{{convite.papel}}. Aceite em {{convite.link}}',
+      EMAIL:
+        'Olá!\n\n' +
+        '{{convite.convidou}} convidou você para trabalhar no {{petshop.nome}}, com o ' +
+        'acesso de {{convite.papel}}.\n\n' +
+        'Para entrar, crie sua conta com este mesmo e-mail — o acesso é liberado na hora:\n' +
+        '{{convite.link}}\n\n' +
+        'O convite vale até {{convite.validade}}. Depois disso, peça um novo a quem ' +
+        'administra o petshop.',
+    },
+  },
+  {
     key: 'user_welcome',
     label: 'Boas-vindas de membro da equipe',
     category: 'TRANSACTIONAL',

@@ -3008,6 +3008,8 @@ enum MessageOriginType {
   /// Separada de `MANUAL` porque aqui o cliente escreveu primeiro, e é o que torna as
   /// duas distinguíveis no painel de entregas sem ler o corpo de nada.
   AGENT_HANDOFF
+  /// O convite de equipe (MOD-NOTIF-12) — o único recado de equipe sem `user_id`.
+  INVITATION
 }
 
 enum SuppressionReason {

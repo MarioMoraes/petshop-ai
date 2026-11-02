@@ -431,7 +431,9 @@ cadastra em Integrações, e ele é registrado na conta Resend **da plataforma**
 Domains (`messaging/email-domain.ts`, que exige `RESEND_API_KEY` de acesso total). O
 `from` sai de `ResolvedSettings.fromAddress`, que só existe com `email_domains.status =
 VERIFIED`; até lá o e-mail ao tutor sai pelo `MAIL_FROM`, e os e-mails da plataforma
-(convite, alerta) nunca mudam. O domínio é único entre tenants, e a varredura
+(alerta do console) nunca mudam. O **convite de equipe** passa pelo motor desde 2026-11-02
+(MOD-NOTIF-12): é `USER` sem `user_id`, ao endereço digitado, com origem `INVITATION` — o
+único caso que o CHECK de `messages` admite —, e sai pelo domínio do petshop como o resto. O domínio é único entre tenants, e a varredura
 `messaging.email-domain-check` desiste em 72 horas.
 
 **Um terceiro prefixo anônimo entrou com o MOD-NOTIF:** `/internal/`, onde moram os
