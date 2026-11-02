@@ -264,14 +264,18 @@ export function EmailDomainCard({ data, canEdit }: Props) {
 
 function describe(data: EmailDomainResponse): string {
   const current = data.domain
+  // Sem domínio próprio, o e-mail já sai com o nome do petshop no endereço — nada a fazer.
+  const padrao = data.defaultFromAddress
+    ? `Hoje o e-mail ao tutor sai de ${data.defaultFromAddress}, sem nenhuma configuração.`
+    : 'Hoje o e-mail ao tutor sai pelo endereço da PetShop AI.'
   if (!data.available) {
-    return 'O domínio próprio não está disponível nesta instalação. Os e-mails saem pelo endereço da PetShop AI.'
+    return `${padrao} O domínio próprio não está disponível nesta instalação.`
   }
   if (!current) {
-    return 'Hoje o e-mail ao tutor sai pelo endereço da PetShop AI. Com o domínio do petshop, ele chega como contato@seupetshop.com.br.'
+    return `${padrao} Opcional: quem tem domínio próprio pode usá-lo (contato@seupetshop.com.br), o que exige publicar registros no DNS — se precisar, a equipe PetShop AI ajuda.`
   }
   if (current.status === 'VERIFIED') {
     return `Os e-mails ao tutor saem de ${current.fromAddress}.`
   }
-  return `Assim que o DNS verificar, os e-mails passam a sair de ${current.fromAddress}. A conferência é automática, por até 72 horas; até lá, eles saem pelo endereço da PetShop AI.`
+  return `Assim que o DNS verificar, os e-mails passam a sair de ${current.fromAddress}. A conferência é automática, por até 72 horas; até lá, eles saem de ${data.defaultFromAddress ?? 'endereço da PetShop AI'}.`
 }

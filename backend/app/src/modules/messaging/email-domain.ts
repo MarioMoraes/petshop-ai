@@ -1,3 +1,4 @@
+import { platformAddressFor } from './settings.js'
 import { Prisma, getMaintenancePrisma, withTenant } from '@petshop/db'
 import {
   EMAIL_DOMAIN_CHECK_WINDOW_HOURS,
@@ -75,10 +76,16 @@ function translate(error: unknown): never {
 }
 
 export async function getEmailDomain(tenantId: string): Promise<EmailDomainResponse> {
-  const row = await withTenant(tenantId, (tx) => tx.emailDomain.findUnique({ where: { tenantId } }))
+  const [row, tenant] = await withTenant(tenantId, (tx) =>
+    Promise.all([
+      tx.emailDomain.findUnique({ where: { tenantId } }),
+      tx.tenant.findFirst({ select: { slug: true } }),
+    ]),
+  )
   return {
     available: getResendDomainsPort().configured(),
     domain: row ? toApi(row) : null,
+    defaultFromAddress: platformAddressFor(tenant?.slug ?? null),
   }
 }
 

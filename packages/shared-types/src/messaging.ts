@@ -948,6 +948,11 @@ export const EmailDomainResponseSchema = z.object({
   /** `false` quando a instalação não tem chave do Resend com acesso a domínios. */
   available: z.boolean(),
   domain: EmailDomainSchema.nullable(),
+  /**
+   * De onde o e-mail ao tutor sai **sem** domínio próprio: o endereço do petshop no
+   * domínio da plataforma, ou `null` quando a instalação não o tem (sai pelo da PetShop AI).
+   */
+  defaultFromAddress: z.string().nullable(),
 })
 export type EmailDomainResponse = z.infer<typeof EmailDomainResponseSchema>
 

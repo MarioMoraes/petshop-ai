@@ -92,6 +92,7 @@ x-backend: &backend
     GOTENBERG_URL: http://gotenberg:3000
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     MAIL_FROM: ${MAIL_FROM:-}
+    TENANT_MAIL_DOMAIN: ${TENANT_MAIL_DOMAIN:-}
     # ─── MOD-AI: o agente de atendimento (Fase 8) ───────────────────────────────
     # A chave é opcional no schema, e a ausência é um estado legítimo: sem ela o
     # agente se comporta como desligado e toda conversa vai para a recepção (AC-02 de
@@ -366,6 +367,7 @@ services:
       BILLING_GRACE_DAYS: ${BILLING_GRACE_DAYS:-7}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      TENANT_MAIL_DOMAIN: ${TENANT_MAIL_DOMAIN:-}
       # MOD-TUTOR: a consulta de CEP e a régua de inatividade, que vieram com o módulo.
       VIACEP_BASE_URL: ${VIACEP_BASE_URL:-https://viacep.com.br/ws}
       CEP_LOOKUP_TIMEOUT_MS: ${CEP_LOOKUP_TIMEOUT_MS:-3000}

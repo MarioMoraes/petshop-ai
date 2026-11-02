@@ -101,6 +101,18 @@ export const { loadEnv, resetEnvCache } = defineEnv('petshop-app', {
   RESEND_API_KEY: z.string().min(1).optional(),
   /** Remetente com domínio verificado no Resend. Sem ele o provedor recusa tudo. */
   MAIL_FROM: z.string().min(1).optional(),
+  /**
+   * O domínio dos endereços de cada petshop, sem DNS por parte dele: o e-mail ao tutor
+   * sai de `<slug>@<este domínio>` (ex.: `petshopdojoao@petshop.officestecnologia.com.br`).
+   * Verificado **uma vez** no Resend pela plataforma. Opcional: sem ele, o e-mail ao tutor
+   * sai pelo `MAIL_FROM`. O domínio próprio verificado de um petshop continua mandando.
+   */
+  TENANT_MAIL_DOMAIN: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'Domínio inválido (ex.: petshop.seudominio.com.br)')
+    .optional(),
 
   /**
    * Quantas mensagens o worker tira da fila por passada. Vinte é o teto por minuto

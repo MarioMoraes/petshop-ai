@@ -432,7 +432,9 @@ aviso só é o `dedupeKey` da mensagem, não uma coluna de estado.
 cadastra em Integrações, e ele é registrado na conta Resend **da plataforma** pela API de
 Domains (`messaging/email-domain.ts`, que exige `RESEND_API_KEY` de acesso total). O
 `from` sai de `ResolvedSettings.fromAddress`, que só existe com `email_domains.status =
-VERIFIED`; até lá o e-mail ao tutor sai pelo `MAIL_FROM`, e os e-mails da plataforma
+VERIFIED`; até lá o e-mail ao tutor sai de `<slug>@TENANT_MAIL_DOMAIN` (desde 2026-11-02:
+o endereço do petshop no subdomínio da plataforma, sem DNS da parte dele) ou, sem a
+variável, pelo `MAIL_FROM`, e os e-mails da plataforma
 (alerta do console) nunca mudam. O **convite de equipe** passa pelo motor desde 2026-11-02
 (MOD-NOTIF-12): é `USER` sem `user_id`, ao endereço digitado, com origem `INVITATION` — o
 único caso que o CHECK de `messages` admite —, e sai pelo `MAIL_FROM`, como todo recado de

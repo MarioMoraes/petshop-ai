@@ -1,4 +1,5 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { resetEnvCache } from '../../src/config/env.js'
 import {
   asAdmin,
   asReceptionist,
@@ -234,6 +235,70 @@ describe('o remetente', () => {
 
     expect(email.sent[0]?.from).toBeNull()
     expect(domains.removed).toEqual(['dom_1'])
+  })
+
+  describe('com o domínio da plataforma para os petshops (TENANT_MAIL_DOMAIN)', () => {
+    beforeEach(() => {
+      process.env.TENANT_MAIL_DOMAIN = 'petshop.exemplo.com.br'
+      resetEnvCache()
+    })
+    afterEach(() => {
+      delete process.env.TENANT_MAIL_DOMAIN
+      resetEnvCache()
+    })
+
+    async function slug() {
+      const row = await ownerPrisma.tenant.findUniqueOrThrow({
+        where: { id: tenant.tenantId },
+        select: { slug: true },
+      })
+      return row.slug
+    }
+
+    it('sem DNS nenhum, o e-mail ao tutor sai do endereço do petshop', async () => {
+      await enableMessaging(tenant)
+      await enviarLembrete('padrao')
+
+      expect(email.sent[0]?.from).toBe(`${await slug()}@petshop.exemplo.com.br`)
+      const tela = await callApi({
+        ...asAdmin(tenant),
+        method: 'GET',
+        url: '/v1/messaging/email-domain',
+      })
+      expect(tela.json().defaultFromAddress).toBe(`${await slug()}@petshop.exemplo.com.br`)
+    })
+
+    it('o domínio próprio verificado continua mandando', async () => {
+      await enableMessaging(tenant)
+      await cadastrar({ domain: 'meupet.com.br' })
+      domains.status.set('dom_1', 'VERIFIED')
+      await callApi({
+        ...asAdmin(tenant),
+        method: 'POST',
+        url: '/v1/messaging/email-domain/verify',
+      })
+
+      await enviarLembrete('proprio')
+      expect(email.sent[0]?.from).toBe('contato@meupet.com.br')
+    })
+
+    it('o recado à equipe não muda: sai pelo MAIL_FROM', async () => {
+      await enableMessaging(tenant)
+      await callApi({
+        ...asAdmin(tenant),
+        method: 'POST',
+        url: '/v1/messages',
+        payload: {
+          recipientKind: 'USER',
+          userId: tenant.userId,
+          templateKey: 'tenant_welcome',
+          dedupeKey: 'boas-vindas-plataforma',
+        },
+      })
+      await dispatchTenant(tenant.tenantId, { jitter: false })
+
+      expect(email.sent[0]?.from).toBeNull()
+    })
   })
 })
 

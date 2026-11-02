@@ -1,3 +1,4 @@
+import { loadEnv } from '../../config/env.js'
 import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
   DEFAULT_TIMEZONE,
@@ -40,8 +41,9 @@ export interface ResolvedSettings {
   /** Do `tenant_settings`, não da configuração de mensagens: o fuso é do petshop. */
   timezone: string
   /**
-   * O endereço do domínio próprio, **só quando verificado** — `null` é "sai pelo
-   * `MAIL_FROM` da plataforma". Ver `email-domain.ts`.
+   * De onde o e-mail ao **tutor** sai: o domínio próprio, só quando verificado; senão
+   * o endereço do petshop no domínio da plataforma (`TENANT_MAIL_DOMAIN`); `null` é
+   * "sai pelo `MAIL_FROM`". Ver `email-domain.ts`.
    */
   fromAddress: string | null
   /**
@@ -49,6 +51,16 @@ export interface ResolvedSettings {
    * não escreveu um `senderName` — o cliente reconhece o petshop, e não a PetShop AI.
    */
   tenantName: string | null
+}
+
+/**
+ * O endereço do petshop no domínio da plataforma, sem DNS nenhum da parte dele: o slug é
+ * o mesmo do site, único entre tenants e já restrito a letras, números e hífen — um
+ * local-part válido sem tradução. `null` quando a instalação não definiu o domínio.
+ */
+export function platformAddressFor(slug: string | null): string | null {
+  const domain = loadEnv().TENANT_MAIL_DOMAIN
+  return domain && slug ? `${slug}@${domain}` : null
 }
 
 function minutesFromTime(value: string): number {
@@ -72,13 +84,15 @@ export async function loadSettings(
       where: { tenantId },
       select: { status: true, localPart: true, domain: true },
     }),
-    tx.tenant.findFirst({ select: { name: true } }),
+    tx.tenant.findFirst({ select: { name: true, slug: true } }),
   ])
   const tenantName = tenant?.name ?? null
 
   const timezone = tenantSettings?.timezone ?? DEFAULT_TIMEZONE
   const fromAddress =
-    emailDomain?.status === 'VERIFIED' ? `${emailDomain.localPart}@${emailDomain.domain}` : null
+    emailDomain?.status === 'VERIFIED'
+      ? `${emailDomain.localPart}@${emailDomain.domain}`
+      : platformAddressFor(tenant?.slug ?? null)
 
   if (!row) {
     return {

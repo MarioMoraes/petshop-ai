@@ -64,6 +64,7 @@ x-backend-env: &backend-env
   GOTENBERG_URL: http://gotenberg:3000
   RESEND_API_KEY: ${RESEND_API_KEY:-}
   MAIL_FROM: ${MAIL_FROM:-}
+  TENANT_MAIL_DOMAIN: ${TENANT_MAIL_DOMAIN:-}
   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
 
 services:
