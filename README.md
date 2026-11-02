@@ -120,8 +120,6 @@ deixou.
   anonimiza o dado pessoal e destrói a chave do estabelecimento), mas os lançamentos, o
   caixa, os documentos e a trilha guardados pela obrigação fiscal não têm quem os apague
   ao fim dos 5 anos — nem a linha do tenant, cujo cascade continua incompleto.
-- **Trocar de ciclo numa assinatura viva.** Mensal e anual se escolhem ao assinar; passar
-  de um para o outro depois exigiria mover o dinheiro de um ano no Asaas.
 - **Cobrança real conferida de ponta a ponta.** O PIX da assinatura e o da cobrança do
   tutor foram pagos no sandbox; o cartão (Checkout) e a cobrança avulsa da subida de plano
   anual ainda não, e a conta Asaas de produção da plataforma não está ligada.

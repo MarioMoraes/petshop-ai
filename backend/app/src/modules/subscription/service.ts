@@ -6,6 +6,7 @@ import {
   todayIn,
   type BillingCycle,
   type ChangeSubscriptionPlanInput,
+  type ChangeSubscriptionCycleInput,
   type CheckoutResponse,
   type Plan,
   type StartCheckoutInput,
@@ -64,6 +65,7 @@ export async function getSubscription(tenantId: string): Promise<SubscriptionVie
           priceCents: row.priceCents,
           scheduledPlan: (row.scheduledPlan as Plan | null) ?? null,
           scheduledPriceCents: row.scheduledPriceCents,
+          scheduledCycle: (row.scheduledCycle as BillingCycle | null) ?? null,
           currentPeriodEndsAt: row.currentPeriodEndsAt?.toISOString() ?? null,
           paymentUrl: row.paymentUrl,
           overdueSince: row.overdueSince?.toISOString() ?? null,
@@ -314,6 +316,13 @@ export async function changePlan(
     throw invalidState('Sem assinatura ativa. Assine um plano primeiro.')
   }
 
+  if (row.scheduledCycle) {
+    // As duas mudanças agendadas competiriam pelo mesmo `scheduledPriceCents`.
+    throw invalidState(
+      'Há uma troca de ciclo agendada para a renovação. Desfaça-a antes de mudar de plano.',
+    )
+  }
+
   const cycle = row.cycle as BillingCycle
   const emVigor = row.plan as Plan
   const agendado = (row.scheduledPlan as Plan | null) ?? null
@@ -450,6 +459,7 @@ async function gravarTroca(
     priceCents?: number
     scheduledPlan?: Plan | null
     scheduledPriceCents?: number | null
+    scheduledCycle?: BillingCycle | null
     paymentUrl?: string
   },
   action: string,
@@ -478,6 +488,7 @@ async function gravarTroca(
         priceCents: after.priceCents,
         scheduledPlan: after.scheduledPlan,
         cycle: after.cycle,
+        scheduledCycle: after.scheduledCycle,
         ...(auditoria.extra ?? {}),
       },
       ipAddress: auditoria.ipAddress,
@@ -523,4 +534,84 @@ export async function cancelSubscriptionForTermination(tenantId: string): Promis
     })
   })
   return true
+}
+
+/**
+ * Trocar de ciclo numa assinatura viva (mensal ↔ anual).
+ *
+ * **Vale na renovação, nos dois sentidos** (decisão de 2026-11-02). O período corrente já
+ * foi pago no ciclo de antes: trocar na hora exigiria crédito proporcional ou estorno, e
+ * o produto não tem nenhum dos dois. O Asaas aceita mudar o ciclo da própria assinatura,
+ * então a cobrança da renovação já sai no ciclo e no valor novos, e o webhook que a baixa
+ * é quem põe o ciclo em vigor — o mesmo desenho da descida de plano no anual.
+ *
+ * O valor é o preço **de hoje** do plano no ciclo novo: mudar de ciclo é contratar de
+ * novo, e o grandfathering do preço é por par plano×ciclo. Pedir o ciclo atual desfaz a
+ * troca agendada e devolve ao Asaas o ciclo e o valor contratados.
+ */
+export async function changeCycle(
+  actor: SubscriptionActor,
+  input: ChangeSubscriptionCycleInput,
+): Promise<SubscriptionView> {
+  const row = await withTenant(actor.tenantId, (tx) =>
+    tx.tenantSubscription.findUnique({ where: { tenantId: actor.tenantId } }),
+  )
+  if (!row || row.status !== 'ACTIVE') {
+    // `PAST_DUE` fica de fora: a cobrança em aberto é a do período corrente, e o
+    // `updatePendingPayments` a mudaria de ciclo e de valor.
+    throw invalidState('A troca de ciclo exige assinatura ativa e em dia.')
+  }
+  if (row.scheduledPlan) {
+    throw invalidState(
+      'Há uma mudança de plano agendada para a renovação. Desfaça-a antes de trocar o ciclo.',
+    )
+  }
+
+  const atual = row.cycle as BillingCycle
+  const agendado = (row.scheduledCycle as BillingCycle | null) ?? null
+  if (input.cycle === atual && !agendado) {
+    throw invalidState(`A assinatura já é ${input.cycle === 'YEARLY' ? 'anual' : 'mensal'}.`)
+  }
+  if (input.cycle === agendado) {
+    throw invalidState('Essa troca de ciclo já está agendada para a renovação.')
+  }
+
+  const provider = getBillingProviderPort()
+  if (!provider.configured()) throw notConfigured()
+  if (!row.providerSubscriptionId) {
+    throw invalidState(
+      'A assinatura ainda está sendo confirmada pelo Asaas. Tente de novo em alguns minutos.',
+    )
+  }
+
+  const auditoria = {
+    actorUserId: actor.actorUserId ?? null,
+    ipAddress: actor.ipAddress ?? null,
+    userAgent: actor.userAgent ?? null,
+  }
+
+  if (input.cycle === atual) {
+    const contratado = row.priceCents ?? (await effectivePlanPrice(row.plan as Plan, atual)) ?? 0
+    await provider.updateSubscriptionCycle(row.providerSubscriptionId, atual, contratado)
+    await gravarTroca(
+      actor.tenantId,
+      { scheduledCycle: null, scheduledPriceCents: null },
+      'subscription.cycle_schedule_canceled',
+      auditoria,
+    )
+    return getSubscription(actor.tenantId)
+  }
+
+  const valor = await effectivePlanPrice(row.plan as Plan, input.cycle)
+  if (valor === null) {
+    throw invalidState('O Enterprise é sob consulta: fale com a equipe PetShop AI')
+  }
+  await provider.updateSubscriptionCycle(row.providerSubscriptionId, input.cycle, valor)
+  await gravarTroca(
+    actor.tenantId,
+    { scheduledCycle: input.cycle, scheduledPriceCents: valor },
+    'subscription.cycle_scheduled',
+    auditoria,
+  )
+  return getSubscription(actor.tenantId)
 }

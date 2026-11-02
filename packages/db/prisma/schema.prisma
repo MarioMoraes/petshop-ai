@@ -4273,6 +4273,9 @@ model TenantSubscription {
   scheduledPlan       Plan?     @map("scheduled_plan")
   /// O preço que a descida agendada vai custar, fixado quando ela foi agendada.
   scheduledPriceCents Int?      @map("scheduled_price_cents")
+  /// A troca de ciclo que espera a renovação. Com ela, `scheduledPriceCents` é o valor
+  /// do plano em vigor no ciclo novo — ela e `scheduledPlan` não convivem.
+  scheduledCycle      BillingCycle? @map("scheduled_cycle")
   /// O fim do período pago. É por ele que a subida proporcional sabe quantos meses faltam.
   currentPeriodEndsAt DateTime? @map("current_period_ends_at") @db.Timestamptz(6)
 

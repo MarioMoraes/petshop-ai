@@ -36,6 +36,7 @@ interface Chamadas {
   checkouts: Array<{ valueCents: number; cycle: string; externalReference: string }>
   updates: Array<{ subscriptionId: string; valueCents: number; updatePendingPayments: boolean }>
   charges: Array<{ valueCents: number; externalReference: string }>
+  cycles: Array<{ subscriptionId: string; cycle: string; valueCents: number }>
   cancels: string[]
 }
 
@@ -46,7 +47,15 @@ let admin: Caller
 let sequencia = 0
 
 function dublarAsaas(): void {
-  chamadas = { customers: 0, pix: [], checkouts: [], updates: [], charges: [], cancels: [] }
+  chamadas = {
+    customers: 0,
+    pix: [],
+    checkouts: [],
+    updates: [],
+    charges: [],
+    cycles: [],
+    cancels: [],
+  }
   const porta: BillingProviderPort = {
     configured: () => configurado,
     async createCustomer() {
@@ -74,6 +83,9 @@ function dublarAsaas(): void {
         valueCents,
         updatePendingPayments: options.updatePendingPayments,
       })
+    },
+    async updateSubscriptionCycle(subscriptionId, cycle, valueCents) {
+      chamadas.cycles.push({ subscriptionId, cycle, valueCents })
     },
     async cancelSubscription(subscriptionId) {
       chamadas.cancels.push(subscriptionId)
@@ -771,5 +783,103 @@ describe('a leitura', () => {
         currentPeriodEndsAt: null,
       },
     })
+  })
+})
+
+describe('a troca de ciclo numa assinatura viva', () => {
+  function trocarCiclo(cycle: string) {
+    return callApi({ ...admin, method: 'POST', url: '/v1/subscription/cycle', payload: { cycle } })
+  }
+
+  async function pago(cycle: 'MONTHLY' | 'YEARLY', plan = 'PRO') {
+    await assinar({ plan, method: 'PIX', cycle, cpfCnpj: CPF })
+    const row = await linha()
+    await webhook({
+      event: 'PAYMENT_CONFIRMED',
+      payment: {
+        customer: row!.providerCustomerId,
+        subscription: row!.providerSubscriptionId,
+        dueDate: '2026-09-18',
+      },
+    })
+    return row!
+  }
+
+  it('mensal para anual fica para a renovação, e o Asaas já recebe o ciclo novo', async () => {
+    await pago('MONTHLY')
+
+    const response = await trocarCiclo('YEARLY')
+
+    expect(response.statusCode).toBe(200)
+    expect(chamadas.cycles).toEqual([
+      expect.objectContaining({ cycle: 'YEARLY', valueCents: 287_000 }),
+    ])
+    expect(chamadas.charges).toHaveLength(0)
+    expect(await linha()).toMatchObject({
+      cycle: 'MONTHLY',
+      scheduledCycle: 'YEARLY',
+      scheduledPriceCents: 287_000,
+    })
+    expect(response.json().subscription).toMatchObject({ scheduledCycle: 'YEARLY' })
+  })
+
+  it('a renovação põe o ciclo em vigor e conta o período nele', async () => {
+    const row = await pago('MONTHLY')
+    await trocarCiclo('YEARLY')
+
+    await webhook({
+      event: 'PAYMENT_CONFIRMED',
+      payment: {
+        customer: row.providerCustomerId,
+        subscription: row.providerSubscriptionId,
+        dueDate: '2026-10-18',
+      },
+    })
+
+    expect(await linha()).toMatchObject({
+      cycle: 'YEARLY',
+      scheduledCycle: null,
+      priceCents: 287_000,
+    })
+    expect((await linha())?.currentPeriodEndsAt?.toISOString().slice(0, 10)).toBe('2027-10-18')
+  })
+
+  it('anual para mensal também espera o ano pago', async () => {
+    await pago('YEARLY')
+
+    expect((await trocarCiclo('MONTHLY')).statusCode).toBe(200)
+    expect(chamadas.cycles.at(-1)).toMatchObject({ cycle: 'MONTHLY', valueCents: 29_900 })
+    expect(await linha()).toMatchObject({ cycle: 'YEARLY', scheduledCycle: 'MONTHLY' })
+  })
+
+  it('pedir o ciclo atual desfaz a troca e devolve o valor contratado', async () => {
+    await pago('MONTHLY')
+    await trocarCiclo('YEARLY')
+
+    expect((await trocarCiclo('MONTHLY')).statusCode).toBe(200)
+    expect(chamadas.cycles.at(-1)).toMatchObject({ cycle: 'MONTHLY', valueCents: 29_900 })
+    expect(await linha()).toMatchObject({ scheduledCycle: null, scheduledPriceCents: null })
+  })
+
+  it('o ciclo que já vale é recusado, e a troca não convive com a de plano', async () => {
+    await pago('YEARLY')
+    expect((await trocarCiclo('YEARLY')).statusCode).toBe(409)
+
+    await callApi({
+      ...admin,
+      method: 'POST',
+      url: '/v1/subscription/plan',
+      payload: { plan: 'STARTER' },
+    })
+    expect((await trocarCiclo('MONTHLY')).statusCode).toBe(409)
+  })
+
+  it('em atraso não troca de ciclo', async () => {
+    await pago('MONTHLY')
+    await ownerPrisma.tenantSubscription.update({
+      where: { tenantId: tenant.tenantId },
+      data: { status: 'PAST_DUE' },
+    })
+    expect((await trocarCiclo('YEARLY')).statusCode).toBe(409)
   })
 })

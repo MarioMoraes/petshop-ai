@@ -268,6 +268,10 @@ async function ativar(
   // novo que a autoriza, e não a data.
   const aplicaAgendada = pagamento.renova && row.scheduledPlan !== null
   const plano = aplicaAgendada ? (row.scheduledPlan as Plan) : (row.plan as Plan)
+  // A troca de ciclo agendada também: a cobrança da renovação já saiu no ciclo novo, e o
+  // período que ela compra é contado nele.
+  const aplicaCiclo = pagamento.renova && row.scheduledCycle !== null
+  const ciclo = aplicaCiclo ? (row.scheduledCycle as BillingCycle) : (row.cycle as BillingCycle)
 
   await atualizar(
     row.tenantId,
@@ -279,17 +283,19 @@ async function ativar(
       ...(pagamento.renova
         ? {
             plan: plano,
+            cycle: ciclo,
             scheduledPlan: null,
+            scheduledCycle: null,
             scheduledPriceCents: null,
             /**
              * O preço contratado só muda quando a descida agendada entra em vigor, e o
              * valor é o que foi fixado no dia do agendamento — que é o que o Asaas acabou
              * de cobrar. Numa renovação comum ele fica como está: é o grandfathering.
              */
-            ...(aplicaAgendada && row.scheduledPriceCents !== null
+            ...((aplicaAgendada || aplicaCiclo) && row.scheduledPriceCents !== null
               ? { priceCents: row.scheduledPriceCents }
               : {}),
-            currentPeriodEndsAt: fimDoPeriodo(row.cycle as BillingCycle, pagamento.dueDate),
+            currentPeriodEndsAt: fimDoPeriodo(ciclo, pagamento.dueDate),
           }
         : {}),
       ...(ids.customerId && !row.providerCustomerId ? { providerCustomerId: ids.customerId } : {}),

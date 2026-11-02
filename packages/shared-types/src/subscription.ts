@@ -58,6 +58,15 @@ export const ChangeSubscriptionPlanSchema = z.strictObject({
 })
 export type ChangeSubscriptionPlanInput = z.output<typeof ChangeSubscriptionPlanSchema>
 
+/**
+ * Trocar de ciclo numa assinatura viva. Vale na renovação, como a descida no anual: o
+ * período corrente já foi pago. Pedir o ciclo atual desfaz a troca agendada.
+ */
+export const ChangeSubscriptionCycleSchema = z.strictObject({
+  cycle: BillingCycleSchema,
+})
+export type ChangeSubscriptionCycleInput = z.output<typeof ChangeSubscriptionCycleSchema>
+
 export const SubscriptionViewSchema = z.object({
   tenantStatus: TenantStatusSchema,
   /** O plano em vigor — o que decide o que responde. */
@@ -95,6 +104,8 @@ export const SubscriptionViewSchema = z.object({
       scheduledPlan: PlanSchema.nullable(),
       /** O que a descida agendada vai custar, fixado no dia em que foi agendada. */
       scheduledPriceCents: z.number().int().nullable(),
+      /** O ciclo que entra na renovação, quando a troca foi pedida. */
+      scheduledCycle: BillingCycleSchema.nullable(),
       /** O fim do período pago — a data em que a renovação cobra. */
       currentPeriodEndsAt: z.iso.datetime().nullable(),
       paymentUrl: z.string().nullable(),

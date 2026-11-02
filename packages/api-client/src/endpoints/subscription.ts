@@ -1,6 +1,7 @@
 import {
   CheckoutResponseSchema,
   SubscriptionViewSchema,
+  type ChangeSubscriptionCycleInput,
   type ChangeSubscriptionPlanInput,
   type StartCheckoutInput,
   BillingSettingsSchema,
@@ -22,6 +23,15 @@ export function subscriptionEndpoints({ request }: Transport) {
         path: '/v1/subscription/checkout',
         body: input,
         schema: CheckoutResponseSchema,
+      }),
+
+    /** Mensal ↔ anual, na renovação. Pedir o ciclo atual desfaz a troca agendada. */
+    changeSubscriptionCycle: (input: ChangeSubscriptionCycleInput) =>
+      request({
+        method: 'POST',
+        path: '/v1/subscription/cycle',
+        body: input,
+        schema: SubscriptionViewSchema,
       }),
 
     changeSubscriptionPlan: (input: ChangeSubscriptionPlanInput) =>

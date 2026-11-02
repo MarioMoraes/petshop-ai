@@ -1,9 +1,19 @@
-import { ChangeSubscriptionPlanSchema, StartCheckoutSchema } from '@petshop/shared-types'
+import {
+  ChangeSubscriptionCycleSchema,
+  ChangeSubscriptionPlanSchema,
+  StartCheckoutSchema,
+} from '@petshop/shared-types'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { recordSecurityEvent } from '../../shared/security-events.js'
 import { requirePermission, requireTenantContext } from './auth.js'
 import { unauthorized } from './errors.js'
-import { changePlan, getSubscription, startCheckout, type SubscriptionActor } from './service.js'
+import {
+  changeCycle,
+  changePlan,
+  getSubscription,
+  startCheckout,
+  type SubscriptionActor,
+} from './service.js'
 import { parseInput } from './validate.js'
 import { applyAsaasWebhook, isValidAsaasToken, type AsaasWebhookPayload } from './webhook.js'
 
@@ -44,6 +54,12 @@ export async function registerSubscriptionRoutes(app: FastifyInstance): Promise<
   app.post('/v1/subscription/plan', ADMIN, async (request) => {
     const input = parseInput(ChangeSubscriptionPlanSchema, request.body)
     return changePlan(actorOf(request), input)
+  })
+
+  /** Mensal ↔ anual, na renovação. Pedir o ciclo atual desfaz a troca agendada. */
+  app.post('/v1/subscription/cycle', ADMIN, async (request) => {
+    const input = parseInput(ChangeSubscriptionCycleSchema, request.body)
+    return changeCycle(actorOf(request), input)
   })
 }
 

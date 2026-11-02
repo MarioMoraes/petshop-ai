@@ -176,6 +176,7 @@ describe('a landing e o checkout leem a mesma tabela', () => {
         return { paymentId: 'pay_1', paymentUrl: null }
       },
       async updateSubscriptionValue() {},
+      async updateSubscriptionCycle() {},
       async cancelSubscription() {},
     })
 

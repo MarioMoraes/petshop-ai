@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { ApiError } from '@petshop/api-client'
 import {
+  ChangeSubscriptionCycleSchema,
   ChangeSubscriptionPlanSchema,
   StartCheckoutSchema,
   type CheckoutResponse,
@@ -60,6 +61,20 @@ export async function trocarPlanoAction(input: unknown): Promise<ActionResult<Su
     revalidatePath('/assinatura')
     // O plano muda o menu e as telas bloqueadas: a moldura inteira precisa reler o `/me`.
     revalidatePath('/', 'layout')
+    return { ok: true, data: result }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/** Troca de ciclo (mensal ↔ anual): agenda para a renovação, ou desfaz a agendada. */
+export async function trocarCicloAction(input: unknown): Promise<ActionResult<SubscriptionView>> {
+  const parsed = ChangeSubscriptionCycleSchema.safeParse(input)
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const result = await serverApi().changeSubscriptionCycle(parsed.data)
+    revalidatePath('/assinatura')
     return { ok: true, data: result }
   } catch (error) {
     return toFailure(error)

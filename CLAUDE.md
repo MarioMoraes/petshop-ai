@@ -375,8 +375,10 @@ porque os dois renderizam em paralelo. Starter e Pro mudam pela assinatura
 (`/v1/subscription`); o Enterprise, a cortesia e a correção, pelo console da plataforma
 (`PATCH /platform/v1/tenants/:id/plan`). Os dois gravam por `applyTenantPlan`.
 
-**O ciclo é escolhido ao assinar e não muda depois** — mensal, ou anual com
-`ANNUAL_DISCOUNT_PERCENT` de desconto. Preço é sempre o par plano×ciclo (`planPriceCents`);
+**O ciclo é escolhido ao assinar e só muda na renovação** — mensal, ou anual com
+`ANNUAL_DISCOUNT_PERCENT` de desconto. A troca (`POST /v1/subscription/cycle`, desde
+2026-11-02) muda o ciclo da própria assinatura no Asaas e fica em `scheduled_cycle` até o
+pagamento que renova; ela e a descida de plano agendada não convivem. Preço é sempre o par plano×ciclo (`planPriceCents`);
 quem multiplicar por doze à mão está reinventando o desconto. **O anual quebra a simetria
 da troca de plano**, porque o ano já foi pago: subir vale na hora e cobra a diferença dos
 meses que faltam numa cobrança avulsa, marcada no `externalReference` para o webhook saber

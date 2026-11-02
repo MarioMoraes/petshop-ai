@@ -86,6 +86,16 @@ export interface BillingProviderPort {
    * (a diferença de um mês é uma mensalidade); no anual, não — o ano corrente já foi pago
    * pelo que valia, e a diferença é cobrada à parte.
    */
+  /**
+   * Muda o ciclo e o valor da assinatura. `updatePendingPayments: true` de propósito: a
+   * cobrança em aberto que o Asaas já gerou é a da renovação, e ela tem de sair no ciclo
+   * novo. Quem chama garante que não há cobrança do período corrente em atraso.
+   */
+  updateSubscriptionCycle(
+    subscriptionId: string,
+    cycle: 'MONTHLY' | 'YEARLY',
+    valueCents: number,
+  ): Promise<void>
   updateSubscriptionValue(
     subscriptionId: string,
     valueCents: number,
@@ -193,6 +203,14 @@ function createAsaasPort(): BillingProviderPort {
         externalReference: input.externalReference,
       })
       return { paymentId: payment.id, paymentUrl: payment.invoiceUrl ?? null }
+    },
+
+    async updateSubscriptionCycle(subscriptionId, cycle, valueCents) {
+      await call('PUT', `/subscriptions/${subscriptionId}`, {
+        cycle,
+        value: reais(valueCents),
+        updatePendingPayments: true,
+      })
     },
 
     async updateSubscriptionValue(subscriptionId, valueCents, options) {

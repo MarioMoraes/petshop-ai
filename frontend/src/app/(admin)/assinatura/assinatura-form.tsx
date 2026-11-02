@@ -20,7 +20,7 @@ import {
 } from '@petshop/shared-types'
 import { Alert, Button, Card, Field, FormError, SectionHead, Segmented } from '@/components/ui'
 import { ReceiptIcon, SparkleIcon, WalletIcon } from '@/components/icons'
-import { assinarAction, trocarPlanoAction } from './actions'
+import { assinarAction, trocarCicloAction, trocarPlanoAction } from './actions'
 
 /**
  * A ficha da assinatura.
@@ -123,6 +123,7 @@ export function AssinaturaForm({ view, retorno }: Props) {
 
       {view.configured && !assinada && <Assinar view={view} />}
       {assinada && <TrocarPlano view={view} />}
+      {sub?.status === 'ACTIVE' && view.plan !== 'ENTERPRISE' && <TrocarCiclo view={view} />}
     </div>
   )
 }
@@ -136,9 +137,9 @@ export function AssinaturaForm({ view, retorno }: Props) {
  *
  * **`ambosCiclos` é a diferença entre escolher e já ter escolhido.** Ao assinar, a linha
  * de cada plano mostra a mensalidade **e** a anuidade, porque o ciclo está sendo decidido
- * nesta mesma tela e comparar os dois é a decisão. Na troca de plano não: o ciclo foi
- * escolhido na assinatura e não muda depois, então o preço do outro ciclo ali seria um
- * valor que ninguém pode contratar.
+ * nesta mesma tela e comparar os dois é a decisão. Na troca de plano não: o ciclo tem
+ * cartão próprio (`TrocarCiclo`), e misturar os dois aqui faria um clique trocar plano e
+ * ciclo de uma vez, com regras de vigência diferentes.
  */
 function OpcoesDePlano({
   nome,
@@ -465,5 +466,69 @@ function TrocarPlano({ view }: { view: SubscriptionView }) {
         </div>
       </Card>
     </form>
+  )
+}
+
+/**
+ * Mensal ↔ anual numa assinatura viva. Vale na renovação, nos dois sentidos: o período
+ * corrente já foi pago no ciclo de antes, e não há crédito nem estorno a calcular.
+ */
+function TrocarCiclo({ view }: { view: SubscriptionView }) {
+  const router = useRouter()
+  const sub = view.subscription!
+  const agendado = sub.scheduledCycle
+  const destino: BillingCycle = agendado ?? (sub.cycle === 'YEARLY' ? 'MONTHLY' : 'YEARLY')
+  const desfaz = agendado !== null
+  const [erro, setErro] = useState<string | null>(null)
+  const [pendente, startTransition] = useTransition()
+
+  const renovacao = sub.currentPeriodEndsAt ? dia(sub.currentPeriodEndsAt) : 'a renovação'
+  const tabela = view.prices.find((linha) => linha.plan === view.plan)
+  const precoNovo = destino === 'YEARLY' ? tabela?.yearlyCents : tabela?.monthlyCents
+  const nome = (cycle: BillingCycle) => (cycle === 'YEARLY' ? 'anual' : 'mensal')
+
+  function enviar() {
+    setErro(null)
+    startTransition(async () => {
+      const resultado = await trocarCicloAction({ cycle: desfaz ? sub.cycle : destino })
+      if (!resultado.ok) {
+        setErro(resultado.message)
+        return
+      }
+      router.refresh()
+    })
+  }
+
+  return (
+    <Card tone="soft" className="space-y-5">
+      <SectionHead
+        icon={<WalletIcon />}
+        tone="icon-money"
+        eyebrow="Ciclo"
+        title="Trocar de ciclo"
+        description={
+          desfaz
+            ? `A passagem para o ${nome(destino)} está agendada para ${renovacao}. Até lá a assinatura continua ${nome(sub.cycle)}.`
+            : `Hoje a assinatura é ${nome(sub.cycle)}. A troca vale a partir de ${renovacao}: o período já pago continua como está, e a cobrança seguinte sai no ciclo novo${
+                precoNovo != null ? `, por ${porCiclo(precoNovo, destino)}` : ''
+              }.`
+        }
+      />
+      <FormError message={erro} />
+      {sub.scheduledPlan && (
+        <p className="hint">Há uma mudança de plano agendada; desfaça-a antes de trocar o ciclo.</p>
+      )}
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          onClick={enviar}
+          busy={pendente}
+          busyLabel="Salvando…"
+          disabled={sub.scheduledPlan !== null}
+        >
+          {desfaz ? `Manter o ${nome(sub.cycle)}` : `Passar para o ${nome(destino)}`}
+        </Button>
+      </div>
+    </Card>
   )
 }
