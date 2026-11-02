@@ -47,6 +47,8 @@ export interface FakeClerkState {
   organizationRemovals: string[]
   /** Organizations apagadas pelo D+30 do encerramento (MOD-IDENT-10). */
   deletedOrganizations: Set<string>
+  /** `org_...` → último nome empurrado pelo `updateTenant`. */
+  renamedOrganizations: Map<string, string>
   createOrganizationCalls: number
 }
 
@@ -59,6 +61,7 @@ export const fakeClerk: FakeClerkState = {
   failAddOrganizationMembership: null,
   organizationRemovals: [],
   deletedOrganizations: new Set(),
+  renamedOrganizations: new Map(),
   createOrganizationCalls: 0,
 }
 
@@ -68,6 +71,7 @@ export function resetFakeClerk(): void {
   fakeClerk.permVersions.clear()
   fakeClerk.organizationMembers.clear()
   fakeClerk.deletedOrganizations.clear()
+  fakeClerk.renamedOrganizations.clear()
   fakeClerk.failCreateOrganization = null
   fakeClerk.failAddOrganizationMembership = null
   fakeClerk.organizationRemovals.length = 0
@@ -110,6 +114,10 @@ setClerkPort({
   async addOrganizationMembership({ organizationId, clerkUserId }) {
     if (fakeClerk.failAddOrganizationMembership) throw fakeClerk.failAddOrganizationMembership
     fakeClerk.organizationMembers.add(`${organizationId}:${clerkUserId}`)
+  },
+
+  async renameOrganization(organizationId, name) {
+    fakeClerk.renamedOrganizations.set(organizationId, name)
   },
 
   async deleteOrganization(organizationId) {

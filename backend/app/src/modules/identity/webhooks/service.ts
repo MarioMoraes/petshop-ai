@@ -41,6 +41,8 @@ const HANDLED = new Set([
   'user.updated',
   'user.deleted',
   'organizationMembership.deleted',
+  'organization.updated',
+  'organization.deleted',
 ])
 
 export type ClerkWebhookOutcome = 'PROCESSED' | 'IGNORED' | 'FAILED'
@@ -130,6 +132,8 @@ async function aplicar(
 ): Promise<{ outcome: ClerkWebhookOutcome; reason?: string }> {
   if (eventType === 'user.deleted') return aplicarUsuarioApagado(data)
   if (eventType === 'organizationMembership.deleted') return aplicarSaidaDaOrganization(data)
+  if (eventType === 'organization.updated') return aplicarOrganizationAlterada(data)
+  if (eventType === 'organization.deleted') return aplicarOrganizationApagada(data)
   return aplicarUsuario(data)
 }
 
@@ -318,6 +322,90 @@ async function aplicarSaidaDaOrganization(
   const suspensos = await suspenderVinculo(tenant.id, user.id, 'clerk_organization_removed')
   if (suspensos === 0) return { outcome: 'IGNORED', reason: 'vínculo já não estava ativo' }
 
+  return { outcome: 'PROCESSED' }
+}
+
+// ─── organization.updated e organization.deleted ──────────────────────────────
+
+/**
+ * Renomear no painel do Clerk **não** renomeia o estabelecimento (decisão de 2026-11-02).
+ *
+ * Nome e endereço são do produto: o petshop edita o nome em Configurações, e o slug é o
+ * subdomínio do site e do Portal — mudá-lo por um clique no painel de terceiros tiraria o
+ * site do ar. O caminho que vale é o inverso (`updateTenant` empurra o nome ao Clerk);
+ * daqui, o que diverge só fica na trilha, para quem investigar.
+ */
+async function aplicarOrganizationAlterada(
+  data: Record<string, unknown>,
+): Promise<{ outcome: ClerkWebhookOutcome; reason?: string }> {
+  const clerkOrgId = texto(data.id)
+  if (!clerkOrgId) return { outcome: 'IGNORED', reason: 'payload sem Organization' }
+
+  const tenant = await resolveTenantByClerkOrgId(clerkOrgId)
+  if (!tenant) return { outcome: 'IGNORED', reason: 'Organization sem tenant local' }
+
+  const atual = await withTenant(tenant.id, (tx) =>
+    tx.tenant.findUnique({ where: { id: tenant.id }, select: { name: true, slug: true } }),
+  )
+  const nome = texto(data.name)
+  const slug = texto(data.slug)
+  if (atual && (nome ?? atual.name) === atual.name && (slug ?? atual.slug) === atual.slug) {
+    // O eco do próprio `updateTenant`: o nome já é o nosso.
+    return { outcome: 'IGNORED', reason: 'Organization já coincide com o estabelecimento' }
+  }
+
+  await withTenant(tenant.id, (tx) =>
+    recordAudit(tx, {
+      tenantId: tenant.id,
+      action: 'tenant.clerk_organization_diverged',
+      entity: 'tenant',
+      entityId: tenant.id,
+      before: { name: atual?.name ?? null, slug: atual?.slug ?? null },
+      after: { name: nome, slug, applied: false },
+    }),
+  )
+  return { outcome: 'PROCESSED' }
+}
+
+/**
+ * Apagar a Organization no painel do Clerk **não** encerra nem suspende o estabelecimento
+ * (decisão de 2026-11-02): um clique errado num painel de terceiros não pode virar a
+ * contagem regressiva do expurgo. O que muda é o fato — o vínculo com o Clerk deixa de
+ * existir, e ninguém da equipe consegue entrar —, e a regra de alerta
+ * `tenant_without_organization` acende no console para a equipe decidir.
+ *
+ * O expurgo do encerramento apaga a Organization por conta própria; quando o aviso chega,
+ * o `clerk_org_id` já está nulo e o evento cai no `IGNORED` de baixo.
+ */
+async function aplicarOrganizationApagada(
+  data: Record<string, unknown>,
+): Promise<{ outcome: ClerkWebhookOutcome; reason?: string }> {
+  const clerkOrgId = texto(data.id)
+  if (!clerkOrgId) return { outcome: 'IGNORED', reason: 'payload sem Organization' }
+
+  const tenant = await resolveTenantByClerkOrgId(clerkOrgId)
+  if (!tenant) return { outcome: 'IGNORED', reason: 'Organization sem tenant local' }
+
+  await withTenant(tenant.id, async (tx) => {
+    await tx.tenant.update({ where: { id: tenant.id }, data: { clerkOrgId: null } })
+    await recordAudit(tx, {
+      tenantId: tenant.id,
+      action: 'tenant.clerk_organization_deleted',
+      entity: 'tenant',
+      entityId: tenant.id,
+      before: { clerkOrgId },
+      after: { clerkOrgId: null, source: 'clerk_webhook' },
+    })
+  })
+  await Promise.all([
+    cacheDelete(CACHE_KEYS.tenantByOrg(clerkOrgId)),
+    recordPlatformAudit({
+      action: 'tenant.clerk_organization_deleted',
+      entity: 'tenant',
+      entityId: tenant.id,
+      after: { clerkOrgId, source: 'clerk_webhook' },
+    }),
+  ])
   return { outcome: 'PROCESSED' }
 }
 

@@ -120,9 +120,6 @@ deixou.
   anonimiza o dado pessoal e destrói a chave do estabelecimento), mas os lançamentos, o
   caixa, os documentos e a trilha guardados pela obrigação fiscal não têm quem os apague
   ao fim dos 5 anos — nem a linha do tenant, cujo cascade continua incompleto.
-- **Webhooks `organization.*` do Clerk.** Os de usuário e a saída de Organization estão
-  ligados (MOD-IDENT-03); renomear ou excluir a Organization pelo painel do Clerk não
-  chega ao tenant local.
 - **Trocar de ciclo numa assinatura viva.** Mensal e anual se escolhem ao assinar; passar
   de um para o outro depois exigiria mover o dinheiro de um ano no Asaas.
 - **Cobrança real conferida de ponta a ponta.** O PIX da assinatura e o da cobrança do

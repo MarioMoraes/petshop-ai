@@ -8,7 +8,10 @@ import {
   ownerPrisma,
   resetDatabase,
   resetFakeClerk,
+  callApi,
+  fakeClerk,
 } from './fixtures.js'
+import { ruleByKey } from '../../src/modules/platform/alert-rules.js'
 
 /**
  * MOD-IDENT-03 — a sincronização com o Clerk.
@@ -333,5 +336,83 @@ describe('organizationMembership.deleted', () => {
     expect(response.statusCode).toBe(204)
     const evento = await ownerPrisma.webhookEvent.findFirstOrThrow({ where: { status: 'IGNORED' } })
     expect(evento.error).toBe('Organization sem tenant local')
+  })
+})
+
+describe('organization.* — o produto manda no estabelecimento', () => {
+  it('organization.updated não renomeia o estabelecimento, só deixa a divergência na trilha', async () => {
+    const session = await givenTenant('renomeada')
+    const antes = await ownerPrisma.tenant.findUniqueOrThrow({ where: { id: session.tenantId } })
+
+    const response = await callClerkWebhook({
+      type: 'organization.updated',
+      data: { id: session.clerkOrgId, name: 'Outro Nome', slug: 'outro-slug' },
+    })
+
+    expect(response.statusCode).toBe(204)
+    const depois = await ownerPrisma.tenant.findUniqueOrThrow({ where: { id: session.tenantId } })
+    expect(depois.name).toBe(antes.name)
+    expect(depois.slug).toBe(antes.slug)
+    const linha = await ownerPrisma.auditLog.findFirst({
+      where: { tenantId: session.tenantId, action: 'tenant.clerk_organization_diverged' },
+    })
+    expect(linha?.after).toMatchObject({ name: 'Outro Nome', applied: false })
+  })
+
+  it('o eco do próprio nome é ignorado', async () => {
+    const session = await givenTenant('eco')
+    const tenant = await ownerPrisma.tenant.findUniqueOrThrow({ where: { id: session.tenantId } })
+
+    await callClerkWebhook({
+      type: 'organization.updated',
+      data: { id: session.clerkOrgId, name: tenant.name, slug: tenant.slug },
+    })
+
+    const evento = await ownerPrisma.webhookEvent.findFirstOrThrow({
+      where: { eventType: 'organization.updated' },
+    })
+    expect(evento.status).toBe('IGNORED')
+  })
+
+  it('renomear em Configurações empurra o nome ao Clerk', async () => {
+    const session = await givenTenant('empurra')
+    const response = await callApi({
+      method: 'PATCH',
+      url: '/v1/tenants/me',
+      clerkUserId: session.clerkUserId,
+      clerkOrgId: session.clerkOrgId,
+      payload: { name: 'Petshop Renomeado' },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(fakeClerk.renamedOrganizations.get(session.clerkOrgId)).toBe('Petshop Renomeado')
+  })
+
+  it('organization.deleted solta o vínculo, não mexe no estado e acende o alerta', async () => {
+    const session = await givenTenant('apagada')
+    const antes = await ownerPrisma.tenant.findUniqueOrThrow({ where: { id: session.tenantId } })
+
+    const response = await callClerkWebhook({
+      type: 'organization.deleted',
+      data: { id: session.clerkOrgId, deleted: true },
+    })
+
+    expect(response.statusCode).toBe(204)
+    const depois = await ownerPrisma.tenant.findUniqueOrThrow({ where: { id: session.tenantId } })
+    expect(depois.clerkOrgId).toBeNull()
+    expect(depois.status).toBe(antes.status)
+
+    const alertas = await ruleByKey('tenant_without_organization')!.evaluate(new Date())
+    expect(alertas).toEqual([{ tenantId: session.tenantId, value: 1, detail: antes.slug }])
+  })
+
+  it('o alerta não acende para o encerrado, cuja Organization o expurgo apagou', async () => {
+    const session = await givenTenant('encerrada')
+    await ownerPrisma.tenant.update({
+      where: { id: session.tenantId },
+      data: { status: 'TERMINATED', clerkOrgId: null },
+    })
+
+    expect(await ruleByKey('tenant_without_organization')!.evaluate(new Date())).toEqual([])
   })
 })

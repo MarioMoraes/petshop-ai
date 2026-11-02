@@ -173,6 +173,30 @@ export const ALERT_RULES: AlertRule[] = [
       return [{ tenantId: null, value: falhas }]
     },
   },
+
+  {
+    key: 'tenant_without_organization',
+    label: 'Estabelecimento sem Organization no Clerk',
+    action:
+      'A Organization foi apagada no painel do Clerk e a equipe do estabelecimento não consegue entrar. Os dados estão intactos. Ou se recria a Organization e se grava o novo id em `tenants.clerk_org_id` (com os membros adicionados de novo), ou se encerra a conta pelo console.',
+    /**
+     * O `organization.deleted` do Clerk não muda o estado da conta (decisão de 2026-11-02):
+     * ele zera `clerk_org_id` e é esta regra que leva o fato à equipe. Encerrado fica de
+     * fora — o expurgo apaga a Organization de propósito —, e o provisionamento também,
+     * porque ali a Organization ainda não nasceu.
+     */
+    async evaluate() {
+      const orfaos = await getMaintenancePrisma().tenant.findMany({
+        where: {
+          clerkOrgId: null,
+          deletedAt: null,
+          status: { notIn: ['PROVISIONING', 'PROVISIONING_FAILED', 'TERMINATED'] },
+        },
+        select: { id: true, slug: true },
+      })
+      return orfaos.map((tenant) => ({ tenantId: tenant.id, value: 1, detail: tenant.slug }))
+    },
+  },
 ]
 
 export function ruleByKey(key: string): AlertRule | undefined {

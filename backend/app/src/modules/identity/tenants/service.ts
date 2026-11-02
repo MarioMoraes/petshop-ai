@@ -467,6 +467,19 @@ export async function updateTenant(params: UpdateTenantParams): Promise<TenantRe
     params.actorUserId ? { userId: params.actorUserId } : {},
   )
 
+  /**
+   * O nome segue para o Clerk, que é o que o seletor de estabelecimento dele mostra. Depois
+   * do commit e best-effort: o nome do produto já mudou, e o eco que volta pelo
+   * `organization.updated` é reconhecido e ignorado.
+   */
+  if (data.name !== undefined && row.clerkOrgId) {
+    await getClerk()
+      .renameOrganization(row.clerkOrgId, row.name)
+      .catch((error: unknown) => {
+        logger.warn({ err: error, tenantId }, 'nome do estabelecimento não chegou ao Clerk')
+      })
+  }
+
   return toTenantResponse(row, await readCnpj(row))
 }
 

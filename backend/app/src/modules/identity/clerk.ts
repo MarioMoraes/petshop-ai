@@ -80,6 +80,9 @@ export interface ClerkPort {
    * sucesso: o expurgo é reexecutável.
    */
   deleteOrganization(organizationId: string): Promise<void>
+
+  /** O nome do estabelecimento é do produto; o da Organization acompanha (MOD-IDENT-03). */
+  renameOrganization(organizationId: string, name: string): Promise<void>
 }
 
 export class ClerkNotFoundError extends Error {}
@@ -167,6 +170,10 @@ function createRealClerkPort(): ClerkPort {
         if (isNotFound(error)) return
         throw error
       }
+    },
+
+    async renameOrganization(organizationId, name) {
+      await clerk.organizations.updateOrganization(organizationId, { name })
     },
 
     async setMembershipPermVersion({ organizationId, clerkUserId, permVersion }) {
