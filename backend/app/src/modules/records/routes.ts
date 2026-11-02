@@ -17,6 +17,8 @@ import { petAlerts } from './alerts.js'
 import { criticalPets } from './critical-pets.js'
 import { overdueVaccines, overdueVaccinesList } from './overdue-vaccines.js'
 import { renderOverdueVaccinesHtml } from './overdue-vaccines-template.js'
+import { petSheet } from './pet-sheet.js'
+import { renderPetSheetHtml } from './pet-sheet-template.js'
 import { PdfUnavailableError, renderPdf } from './pdf-port.js'
 import {
   checkAllergies,
@@ -96,6 +98,25 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
     async (request) => {
       const auth = requireTenantContext(request)
       return getSafetyRecord(auth.tenantId, request.params.petId)
+    },
+  )
+
+  /**
+   * A ficha do pet para impressão (MOD-PET-11): a folha da sala de banho e tosa.
+   *
+   * `record:read_alerts`, que o banhista e o tosador têm — a folha é deles. O contato do
+   * tutor só entra para quem tem `tutor:read`; o resto da folha é o que a aba Prontuário
+   * já mostra a esse mesmo papel.
+   */
+  app.get<{ Params: PetParams }>(
+    '/v1/pets/:petId/sheet/pdf',
+    { preHandler: requirePermission('record:read_alerts') },
+    async (request, reply) => {
+      const auth = requireTenantContext(request)
+      const sheet = await petSheet(auth.tenantId, request.params.petId, {
+        withContact: hasPermission(request, 'tutor:read'),
+      })
+      return sendPdf(reply, renderPetSheetHtml(sheet), 'ficha-do-pet.pdf')
     },
   )
 
@@ -268,10 +289,7 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
   app.post<{ Params: PetParams & { id: string } }>(
     '/v1/pets/:petId/vaccinations/:id/void',
     {
-      preHandler: requirePermission(
-        'record:write_alerts',
-        'Seu perfil não permite anular vacinas',
-      ),
+      preHandler: requirePermission('record:write_alerts', 'Seu perfil não permite anular vacinas'),
     },
     async (request) => {
       const input = parseInput(VoidVaccinationSchema, request.body)

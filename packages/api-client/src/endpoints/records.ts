@@ -143,6 +143,10 @@ export function recordEndpoints({ request, download }: Transport) {
     downloadOverdueVaccinesPdf: () =>
       download('/v1/records/reports/overdue-vaccines/pdf', 'vacinas-atrasadas.pdf'),
 
+    /** A ficha do pet para a sala de banho e tosa (MOD-PET-11). */
+    downloadPetSheetPdf: (petId: string) =>
+      download(`/v1/pets/${petId}/sheet/pdf`, 'ficha-do-pet.pdf'),
+
     getAttendance: (id: string) =>
       request({ method: 'GET', path: `/v1/attendances/${id}`, schema: AttendanceSchema }),
 

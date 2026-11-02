@@ -69,6 +69,7 @@ export default async function PetPage({ params }: PageProps) {
 
   const canUpdate = me.permissions.includes('pet:update')
   const canBook = me.permissions.includes('schedule:write_all')
+  const canPrintSheet = me.permissions.includes('record:read_alerts')
   const editable = pet.status !== 'DECEASED' && pet.status !== 'TRANSFERRED_OUT'
   const primary = pet.tutors.find((tutor) => tutor.role === 'PRIMARY') ?? pet.tutors[0]
 
@@ -101,15 +102,29 @@ export default async function PetPage({ params }: PageProps) {
           // Falecido e transferido não se editam nem se agendam — é a mesma regra que a
           // aba Dados seguia. "Marcar horário" leva o pet já escolhido: é daqui que a
           // recepção sai quando o cliente pede o próximo banho no balcão.
-          editable &&
-          (canUpdate || canBook) && (
-            <>
-              {canBook && pet.status === 'ACTIVE' && (
-                <ButtonLink href={`/agenda/novo?petId=${pet.id}`}>Marcar horário</ButtonLink>
-              )}
-              {canUpdate && <ButtonLink href={`/pets/${pet.id}/editar`}>Editar</ButtonLink>}
-            </>
-          )
+          <>
+            {/*
+             * `<a>` e não `<ButtonLink>`: o prefetch do Link chamaria a rota que gera o
+             * PDF no Gotenberg a cada vez que a ficha abrisse. Aba nova, para a folha não
+             * tirar a pessoa da ficha.
+             */}
+            {canPrintSheet && (
+              <a
+                href={`/pets/${pet.id}/ficha`}
+                target="_blank"
+                rel="noopener"
+                className="btn btn-primary"
+              >
+                Imprimir Ficha
+              </a>
+            )}
+            {editable && canBook && pet.status === 'ACTIVE' && (
+              <ButtonLink href={`/agenda/novo?petId=${pet.id}`}>Marcar horário</ButtonLink>
+            )}
+            {editable && canUpdate && (
+              <ButtonLink href={`/pets/${pet.id}/editar`}>Editar</ButtonLink>
+            )}
+          </>
         }
         facts={[
           { label: 'Idade', value: pet.ageLabel ?? '—' },

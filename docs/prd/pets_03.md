@@ -33,7 +33,7 @@
 | MOD-PET-08 | Status do Pet e Óbito | Ativo, inativo e falecido — com supressão imediata de campanhas | Must Have |
 | MOD-PET-09 | Microchip | Registro e validação de formato, único por tenant | Should Have |
 | MOD-PET-10 | Busca de Pets | Busca por nome do pet, tutor, raça e microchip | Must Have |
-| MOD-PET-11 | Ficha para Impressão | Ficha resumida do pet para uso na sala de banho e tosa | Nice to Have |
+| MOD-PET-11 | Ficha para Impressão | Ficha resumida do pet para uso na sala de banho e tosa — **entregue em 2026-11-02** (`records/pet-sheet.ts`) | Nice to Have |
 
 ## 3. Critérios de Aceite
 
