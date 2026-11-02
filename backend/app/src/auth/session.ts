@@ -133,6 +133,16 @@ export async function resolveSession(
     return { context, tenantStatus: null, mfa: notApplicable(claims) }
   }
 
+  /**
+   * Encerrado (MOD-IDENT-10 AC-02) revoga **todo** acesso, inclusive a leitura que a
+   * suspensão deixa. Só o `/v1/me` responde, para a moldura dizer o que aconteceu.
+   */
+  if (tenant.status === 'TERMINATED' && (origin.path ?? '').split('?')[0] !== '/v1/me') {
+    throw new AppError('ERR_IDENT_008', BLOCKED_DETAIL.TERMINATED ?? 'Estabelecimento encerrado.', undefined, {
+      tenantStatus: tenant.status,
+    })
+  }
+
   if (
     BLOCKED_STATUSES.has(tenant.status) &&
     !READ_METHODS.has(method) &&

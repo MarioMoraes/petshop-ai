@@ -74,6 +74,12 @@ export interface ClerkPort {
     clerkUserId: string
     permVersion: number
   }): Promise<void>
+
+  /**
+   * Apaga a Organization (MOD-IDENT-10, o D+30 do encerramento). Já não existir é
+   * sucesso: o expurgo é reexecutável.
+   */
+  deleteOrganization(organizationId: string): Promise<void>
 }
 
 export class ClerkNotFoundError extends Error {}
@@ -149,6 +155,15 @@ function createRealClerkPort(): ClerkPort {
       } catch (error) {
         // 404 é quem já não era membro: o Clerk e o banco local podem ter saído de
         // sincronia, e a operação é idempotente por decisão.
+        if (isNotFound(error)) return
+        throw error
+      }
+    },
+
+    async deleteOrganization(organizationId) {
+      try {
+        await clerk.organizations.deleteOrganization(organizationId)
+      } catch (error) {
         if (isNotFound(error)) return
         throw error
       }

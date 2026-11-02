@@ -3,6 +3,7 @@ import { runExpireInvitationsOnce } from '../modules/identity/invitations/expire
 import { runExpireTrialsOnce } from '../modules/identity/tenants/expire-trials.js'
 import { runProvisioningRetryOnce } from '../modules/identity/tenants/provisioning-retry.js'
 import { runTrialWarningsOnce } from '../modules/identity/tenants/trial-warnings.js'
+import { runTenantPurgeOnce } from '../modules/identity/termination.js'
 
 /**
  * A grade da identidade.
@@ -58,5 +59,14 @@ export const identityJobs: JobDefinition[] = [
     schedule: '10 12 * * *',
     timeoutMs: 120_000,
     run: (now) => runTrialWarningsOnce(now).then(() => undefined),
+  },
+  {
+    // O D+30 do encerramento (MOD-IDENT-10): de madrugada, depois da retenção do agente
+    // (03h50). Teto largo: um estabelecimento grande anonimiza milhares de tutores, um
+    // por transação; o que não couber retoma na noite seguinte.
+    name: 'identity.tenant-purge',
+    schedule: '30 4 * * *',
+    timeoutMs: 30 * 60_000,
+    run: (now) => runTenantPurgeOnce(now).then(() => undefined),
   },
 ]

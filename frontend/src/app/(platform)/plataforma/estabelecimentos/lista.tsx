@@ -13,7 +13,12 @@ import {
 import { Alert, Badge, Button, FormError, Segmented } from '@/components/ui'
 import { Modal } from '@/components/modal'
 import { AlertTriangleIcon, ShieldCheckIcon, SparkleIcon, StoreIcon } from '@/components/icons'
-import { mudarPlanoAction, pedirAcessoAction } from '../actions'
+import {
+  encerrarContaAction,
+  mudarPlanoAction,
+  pedirAcessoAction,
+  reabrirContaAction,
+} from '../actions'
 import { bytes, dia, desde, numero } from '../formato'
 
 /**
@@ -47,6 +52,8 @@ const STATUS: Record<
 export function Estabelecimentos({ itens }: { itens: PlatformTenant[] }) {
   const [pedindo, setPedindo] = useState<PlatformTenant | null>(null)
   const [mudandoPlano, setMudandoPlano] = useState<PlatformTenant | null>(null)
+  const [encerrando, setEncerrando] = useState<PlatformTenant | null>(null)
+  const [reabrindo, setReabrindo] = useState<PlatformTenant | null>(null)
   /** Para quem já se pediu nesta sessão de tela: o botão não deve convidar duas vezes. */
   const [pedidos, setPedidos] = useState<string[]>([])
 
@@ -84,15 +91,46 @@ export function Estabelecimentos({ itens }: { itens: PlatformTenant[] }) {
                       ? ` · teste até ${dia(tenant.trialEndsAt)}`
                       : ''}
                   </p>
+                  {tenant.terminatedAt && (
+                    <p className="hint mt-1">
+                      Encerrado em {dia(tenant.terminatedAt)} ·{' '}
+                      {tenant.purgedAt
+                        ? `dados pessoais apagados em ${dia(tenant.purgedAt)}`
+                        : `dados pessoais apagados em ${dia(expurgoEm(tenant.terminatedAt))}`}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <Button type="button" variant="ghost" onClick={() => setMudandoPlano(tenant)}>
-                    Mudar plano
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => setPedindo(tenant)}>
-                    {pedidos.includes(tenant.id) ? 'Pedir de novo' : 'Pedir acesso'}
-                  </Button>
+                  {tenant.status === 'TERMINATED' ? (
+                    reabrivel(tenant) && (
+                      <Button type="button" variant="ghost" onClick={() => setReabrindo(tenant)}>
+                        Reabrir conta
+                      </Button>
+                    )
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setMudandoPlano(tenant)}
+                      >
+                        Mudar plano
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => setPedindo(tenant)}>
+                        {pedidos.includes(tenant.id) ? 'Pedir de novo' : 'Pedir acesso'}
+                      </Button>
+                      {tenant.status !== 'PROVISIONING' && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setEncerrando(tenant)}
+                        >
+                          Encerrar conta
+                        </Button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -127,6 +165,18 @@ export function Estabelecimentos({ itens }: { itens: PlatformTenant[] }) {
         key={mudandoPlano?.id ?? 'fechado'}
         tenant={mudandoPlano}
         onClose={() => setMudandoPlano(null)}
+      />
+
+      <EncerrarConta
+        key={`encerrar-${encerrando?.id ?? 'fechado'}`}
+        tenant={encerrando}
+        onClose={() => setEncerrando(null)}
+      />
+
+      <ReabrirConta
+        key={`reabrir-${reabrindo?.id ?? 'fechado'}`}
+        tenant={reabrindo}
+        onClose={() => setReabrindo(null)}
       />
     </>
   )
@@ -375,6 +425,195 @@ function MudarPlano({ tenant, onClose }: { tenant: PlatformTenant | null; onClos
           <p className="hint mt-1.5">
             Fica na trilha de auditoria do estabelecimento, que o administrador dele lê.
           </p>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/** A janela de 30 dias do MOD-IDENT-10, a mesma de `TENANT_TERMINATION_GRACE_DAYS`. */
+const DIAS_ATE_EXPURGO = 30
+
+function expurgoEm(terminatedAt: string): string {
+  return new Date(new Date(terminatedAt).getTime() + DIAS_ATE_EXPURGO * 86_400_000).toISOString()
+}
+
+function reabrivel(tenant: PlatformTenant): boolean {
+  return (
+    tenant.purgedAt === null &&
+    tenant.terminatedAt !== null &&
+    new Date(expurgoEm(tenant.terminatedAt)).getTime() > Date.now()
+  )
+}
+
+/**
+ * Encerrar a conta (MOD-IDENT-10 AC-02).
+ *
+ * Digitar o endereço é a trava contra o clique na linha errada: a lista tem dezenas de
+ * estabelecimentos parecidos, e o que este botão faz só se desfaz por 30 dias.
+ */
+function EncerrarConta({
+  tenant,
+  onClose,
+}: {
+  tenant: PlatformTenant | null
+  onClose: () => void
+}) {
+  const [motivo, setMotivo] = useState('')
+  const [endereco, setEndereco] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [pendente, startTransition] = useTransition()
+
+  function enviar(event: React.FormEvent) {
+    event.preventDefault()
+    if (!tenant) return
+    setErro(null)
+    startTransition(async () => {
+      const resultado = await encerrarContaAction(tenant.id, motivo, endereco)
+      if (!resultado.ok) {
+        setErro(resultado.fieldErrors.confirmSlug ?? resultado.message)
+        return
+      }
+      onClose()
+    })
+  }
+
+  return (
+    <Modal
+      open={tenant !== null}
+      onClose={onClose}
+      icon={<AlertTriangleIcon />}
+      tone="icon-brand"
+      eyebrow="Conta"
+      title="Encerrar conta"
+      subtitle={tenant ? `${tenant.name} · ${tenant.slug}` : undefined}
+      busy={pendente}
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={pendente}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form="encerrar-conta"
+            busy={pendente}
+            busyLabel="Encerrando…"
+            disabled={!tenant || endereco.trim().toLowerCase() !== tenant.slug}
+          >
+            Encerrar conta
+          </Button>
+        </>
+      }
+    >
+      <form id="encerrar-conta" onSubmit={enviar} className="flex flex-col gap-4">
+        <FormError message={erro} />
+
+        <Alert tone="danger" role="status" icon={<AlertTriangleIcon />} title="O que acontece">
+          A equipe do estabelecimento perde o acesso agora, a mensalidade é cancelada no Asaas e
+          o WhatsApp, o e-mail próprio e as chaves de integração são desligados. Em 30 dias os
+          dados pessoais de tutores, fotos e conversas são apagados de vez; os lançamentos
+          financeiros e a trilha ficam guardados por 5 anos. Até lá, dá para reabrir.
+        </Alert>
+
+        <div>
+          <label className="label" htmlFor="motivo-encerrar">
+            Motivo
+          </label>
+          <textarea
+            id="motivo-encerrar"
+            className="field"
+            rows={3}
+            maxLength={500}
+            value={motivo}
+            onChange={(event) => setMotivo(event.target.value)}
+            placeholder="Pedido do dono por e-mail em 02/11, fechou a loja"
+          />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="confirmar-encerrar">
+            Digite {tenant?.slug ?? 'o endereço'} para confirmar
+          </label>
+          <input
+            id="confirmar-encerrar"
+            className="field"
+            autoComplete="off"
+            value={endereco}
+            onChange={(event) => setEndereco(event.target.value)}
+          />
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/** Reabrir antes do D+30: volta suspenso, e o petshop assina de novo pela tela dele. */
+function ReabrirConta({
+  tenant,
+  onClose,
+}: {
+  tenant: PlatformTenant | null
+  onClose: () => void
+}) {
+  const [motivo, setMotivo] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [pendente, startTransition] = useTransition()
+
+  function enviar(event: React.FormEvent) {
+    event.preventDefault()
+    if (!tenant) return
+    setErro(null)
+    startTransition(async () => {
+      const resultado = await reabrirContaAction(tenant.id, motivo)
+      if (!resultado.ok) {
+        setErro(resultado.message)
+        return
+      }
+      onClose()
+    })
+  }
+
+  return (
+    <Modal
+      open={tenant !== null}
+      onClose={onClose}
+      icon={<StoreIcon />}
+      tone="icon-brand"
+      eyebrow="Conta"
+      title="Reabrir conta"
+      subtitle={tenant?.name}
+      busy={pendente}
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={pendente}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="reabrir-conta" busy={pendente} busyLabel="Reabrindo…">
+            Reabrir conta
+          </Button>
+        </>
+      }
+    >
+      <form id="reabrir-conta" onSubmit={enviar} className="flex flex-col gap-4">
+        <FormError message={erro} />
+        <p className="hint">
+          A conta volta suspensa: a equipe consulta os dados e o administrador assina de novo
+          para voltar a operar. WhatsApp, e-mail próprio e chaves de integração precisam ser
+          conectados outra vez.
+        </p>
+        <div>
+          <label className="label" htmlFor="motivo-reabrir">
+            Motivo
+          </label>
+          <textarea
+            id="motivo-reabrir"
+            className="field"
+            rows={3}
+            maxLength={300}
+            value={motivo}
+            onChange={(event) => setMotivo(event.target.value)}
+            placeholder="Dono desistiu do encerramento por telefone em 05/11"
+          />
         </div>
       </form>
     </Modal>

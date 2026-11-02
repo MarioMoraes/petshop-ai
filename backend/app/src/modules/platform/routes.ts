@@ -6,7 +6,9 @@ import {
   PlatformAuditQuerySchema,
   PlanSchema,
   PlatformMetricsQuerySchema,
+  ReopenTenantSchema,
   RequestSupportAccessSchema,
+  TerminateTenantSchema,
   TenantListQuerySchema,
   UpdatePlanPriceSchema,
 } from '@petshop/shared-types'
@@ -22,6 +24,7 @@ import { listPlanPrices, resetPlanPrice, updatePlanPrice } from './prices.js'
 import { grantPlatformAdmin, listPlatformAdmins, revokePlatformAdmin } from './service.js'
 import { queryMetrics } from './metrics.js'
 import { listTenants, tenantUsage } from './tenants.js'
+import { reopenTenantFromConsole, terminateTenantFromConsole } from './termination.js'
 import { parseInput } from './validate.js'
 
 const IdParamSchema = z.object({ id: z.uuid() })
@@ -130,6 +133,22 @@ export async function registerPlatformRoutes(app: FastifyInstance): Promise<void
   app.delete('/platform/v1/plans/:plan', async (request) => {
     const { plan } = parseInput(PlanParamSchema, request.params)
     return resetPlanPrice(actorOf(request), plan)
+  })
+
+  /**
+   * Encerrar e reabrir (MOD-IDENT-10 AC-02). Sem grant, como o plano: o estado da conta é
+   * dado comercial, e quem encerra não lê nada do negócio do estabelecimento.
+   */
+  app.post('/platform/v1/tenants/:tenantId/terminate', async (request) => {
+    const { tenantId } = parseInput(TenantParamSchema, request.params)
+    const input = parseInput(TerminateTenantSchema, request.body)
+    return terminateTenantFromConsole(actorOf(request), tenantId, input)
+  })
+
+  app.post('/platform/v1/tenants/:tenantId/reopen', async (request) => {
+    const { tenantId } = parseInput(TenantParamSchema, request.params)
+    const input = parseInput(ReopenTenantSchema, request.body)
+    return reopenTenantFromConsole(actorOf(request), tenantId, input)
   })
 
   app.get('/platform/v1/tenants/:tenantId/usage', async (request) => {

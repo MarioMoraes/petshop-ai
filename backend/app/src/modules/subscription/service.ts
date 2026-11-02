@@ -495,3 +495,32 @@ async function actorEmail(userId: string | undefined): Promise<string | undefine
   })
   return user ? decryptPlatform(user.emailEncrypted) : undefined
 }
+
+/**
+ * O encerramento do estabelecimento (MOD-IDENT-10) cancela a assinatura no Asaas — sem
+ * isso o cartão continuaria cobrado por uma conta fechada. Quem é reaberto pelo console
+ * assina de novo: a linha `CANCELED` é justamente o estado de onde `startCheckout` parte.
+ */
+export async function cancelSubscriptionForTermination(tenantId: string): Promise<boolean> {
+  const atual = await getMaintenancePrisma().tenantSubscription.findUnique({
+    where: { tenantId },
+    select: { status: true, providerSubscriptionId: true },
+  })
+  if (!atual || atual.status === 'CANCELED') return false
+
+  if (atual.providerSubscriptionId) {
+    await getBillingProviderPort().cancelSubscription(atual.providerSubscriptionId)
+  }
+  await withTenant(tenantId, async (tx) => {
+    await tx.tenantSubscription.update({ where: { tenantId }, data: { status: 'CANCELED' } })
+    await recordAudit(tx, {
+      tenantId,
+      action: 'subscription.canceled',
+      entity: 'tenant_subscription',
+      entityId: tenantId,
+      before: { status: atual.status },
+      after: { status: 'CANCELED', reason: 'TENANT_TERMINATED' },
+    })
+  })
+  return true
+}

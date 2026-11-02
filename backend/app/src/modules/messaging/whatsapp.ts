@@ -899,3 +899,46 @@ export async function reaffirmWebhooks(): Promise<{ reaffirmed: number; failed: 
   }
   return { reaffirmed, failed }
 }
+
+/**
+ * O encerramento do estabelecimento (MOD-IDENT-10) desfaz o canal **no provedor** e
+ * apaga a linha — o número do petshop deixa de ser ouvido por este sistema. Diferente do
+ * `recreateWhatsapp`, não pergunta o estado: conectado ou não, a conta acabou. O provedor
+ * é best-effort, como lá.
+ */
+export async function dropWhatsappInstance(tenantId: string): Promise<boolean> {
+  const row = await withTenant(tenantId, async (tx) => {
+    const found = await readInstance(tx, tenantId)
+    if (!found) return null
+    const cipher = await openCipher(tx, tenantId)
+    return {
+      instanceName: found.instanceName,
+      apiKey: found.apiKeyEncrypted ? cipher.decrypt(found.apiKeyEncrypted) : null,
+    }
+  })
+  if (!row) return false
+
+  if (row.apiKey) {
+    const evolution = getEvolutionPort()
+    await evolution.logout(row.instanceName, row.apiKey).catch((error: unknown) => {
+      logger.warn({ err: error, tenantId }, 'logout do encerramento falhou')
+    })
+    await evolution.deleteInstance(row.instanceName, row.apiKey).catch((error: unknown) => {
+      logger.warn({ err: error, tenantId }, 'apagar a instância do encerramento falhou')
+    })
+  }
+
+  await withTenant(tenantId, async (tx) => {
+    await tx.whatsappInstance.delete({ where: { tenantId } })
+    await recordAudit(tx, {
+      tenantId,
+      action: 'whatsapp_instance.dropped',
+      entity: 'whatsapp_instance',
+      entityId: tenantId,
+      before: { instanceName: row.instanceName },
+    })
+  })
+  await invalidateCache(tenantId)
+  await forgetQrCode(tenantId)
+  return true
+}

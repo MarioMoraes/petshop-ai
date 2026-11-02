@@ -134,3 +134,18 @@ export async function removeSuppression(actor: ActorContext, id: string): Promis
     tenantOptions(actor),
   )
 }
+
+/**
+ * O D+30 do encerramento (MOD-IDENT-10). O corpo e o destinatário das mensagens são
+ * cifrados e morrem com a chave do estabelecimento; o que fica legível é o **hash** do
+ * endereço — de telefone, que se reverte por força bruta —, e por isso sai aqui. A linha da
+ * mensagem fica, como estatística de envio.
+ */
+export async function purgeTenantMessagingContacts(tenantId: string): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx.messagingSuppression.deleteMany({})
+    await tx.pushDevice.deleteMany({})
+    await tx.message.updateMany({ where: { toHash: { not: '' } }, data: { toHash: '' } })
+    await tx.messagingSettings.updateMany({ data: { replyToEmail: null } })
+  })
+}

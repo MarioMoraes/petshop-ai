@@ -574,6 +574,7 @@ export async function anonymizeTutor(
   actor: ActorContext,
   tutorId: string,
   input: AnonymizeTutorInput,
+  options: { tenantPurge?: boolean } = {},
 ): Promise<void> {
   const phoneHashes = await withTenant(
     actor.tenantId,
@@ -581,10 +582,14 @@ export async function anonymizeTutor(
       const row = await tx.tutor.findFirst({ where: { id: tutorId } })
       if (!row) throw notFound()
       if (row.anonymizedAt) throw terminalState('Este cadastro já foi anonimizado')
-      if (row.status === 'MERGED') {
-        throw terminalState('Cadastro mesclado — anonimize o cadastro de destino')
+      // O encerramento do estabelecimento (MOD-IDENT-10) apaga **todo** cadastro, inclusive
+      // o mesclado, e a agenda futura de uma conta encerrada não vai acontecer.
+      if (!options.tenantPurge) {
+        if (row.status === 'MERGED') {
+          throw terminalState('Cadastro mesclado — anonimize o cadastro de destino')
+        }
+        await assertNoFutureAppointments(tx, row)
       }
-      await assertNoFutureAppointments(tx, row)
 
       const anonymousName = `Tutor Anonimizado #${randomBytes(2).toString('hex').toUpperCase()}`
 
@@ -651,6 +656,26 @@ export async function anonymizeTutor(
     value: 1,
     unit: 'count',
   })
+}
+
+/**
+ * O expurgo do D+30 de um estabelecimento encerrado: todo tutor ainda não anonimizado
+ * passa pelo mesmo `anonymizeTutor`, um por transação — falhar no 300º deixa os 299 feitos,
+ * e a próxima rodada do job retoma do que sobrou.
+ */
+export async function anonymizeAllTutors(tenantId: string): Promise<number> {
+  const ids = await withTenant(tenantId, (tx) =>
+    tx.tutor.findMany({ where: { anonymizedAt: null }, select: { id: true } }),
+  )
+  for (const { id } of ids) {
+    await anonymizeTutor(
+      { tenantId },
+      id,
+      { confirmation: 'CONFIRMO_A_ANONIMIZACAO', reason: 'Encerramento do estabelecimento' },
+      { tenantPurge: true },
+    )
+  }
+  return ids.length
 }
 
 // ─── Regras compartilhadas ───────────────────────────────────────────────────

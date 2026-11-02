@@ -432,7 +432,13 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
           <MfaAviso mfa={me.mfa} />
           {/* `z-10`: elemento posicionado pinta sobre bloco não posicionado — sem isso
               os blooms cobririam o texto. */}
-          <div className="relative z-10">{children}</div>
+          <div className="relative z-10">
+            {/*
+             * Encerrado não lê nada: o gateway recusa toda rota menos `/v1/me`, então a
+             * tela seria um erro atrás do outro. O cartão diz o que aconteceu.
+             */}
+            {me.currentTenant?.status === 'TERMINATED' ? <ContaEncerrada /> : children}
+          </div>
         </main>
       </div>
     </div>
@@ -541,6 +547,16 @@ function ContaAviso({ me }: { me: MeResponse }) {
         )}
       </Alert>
     </div>
+  )
+}
+
+/** O estabelecimento encerrado pela equipe PetShop AI (MOD-IDENT-10). */
+function ContaEncerrada() {
+  return (
+    <Alert tone="danger" icon={<AlertTriangleIcon />} title="Conta Encerrada" role="alert">
+      Este estabelecimento foi encerrado e o acesso aos dados está fechado. Para reabrir a
+      conta nos próximos dias, fale com a equipe PetShop AI.
+    </Alert>
   )
 }
 

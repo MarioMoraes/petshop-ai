@@ -188,6 +188,9 @@ export const PlatformTenantSchema = z.object({
    * requisição, que é escrita por leitura — caro justamente onde o produto é lido.
    */
   lastActivityAt: z.iso.datetime().nullable(),
+  /** Encerramento (MOD-IDENT-10): quando fechou e quando o dado pessoal foi apagado. */
+  terminatedAt: z.iso.datetime().nullable(),
+  purgedAt: z.iso.datetime().nullable(),
   provisioning: TenantProvisioningSchema.nullable(),
   usage: TenantUsageSchema,
 })
@@ -207,6 +210,21 @@ export const ChangeTenantPlanSchema = z.strictObject({
   reason: z.string().trim().min(10).max(300),
 })
 export type ChangeTenantPlanInput = z.output<typeof ChangeTenantPlanSchema>
+
+/**
+ * O encerramento do estabelecimento (MOD-IDENT-10 AC-02). `confirmSlug` é a prova de que a
+ * equipe sabe **qual** conta fecha: o endereço digitado tem de ser o do estabelecimento.
+ */
+export const TerminateTenantSchema = z.strictObject({
+  reason: z.string().trim().min(10).max(500),
+  confirmSlug: z.string().trim().min(1).max(50),
+})
+export type TerminateTenantInput = z.output<typeof TerminateTenantSchema>
+
+export const ReopenTenantSchema = z.strictObject({
+  reason: z.string().trim().min(10).max(300),
+})
+export type ReopenTenantInput = z.output<typeof ReopenTenantSchema>
 
 /**
  * O preço de um plano, mudado pelo console (camada comercial).

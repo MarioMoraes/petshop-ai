@@ -34,6 +34,8 @@ interface TenantRow {
   onboarding_completed_at: Date | null
   provisioning_attempts: number
   provisioning_last_error: string | null
+  terminated_at: Date | null
+  purged_at: Date | null
 }
 
 interface CountRow {
@@ -60,7 +62,8 @@ export async function listTenants(query: TenantListQuery): Promise<PlatformTenan
     prisma.$queryRaw<TenantRow[]>(Prisma.sql`
       SELECT t."id", t."slug", t."name", t."status"::text, t."plan"::text,
              t."trial_ends_at", t."created_at", t."onboarding_completed_at",
-             t."provisioning_attempts", t."provisioning_last_error"
+             t."provisioning_attempts", t."provisioning_last_error",
+             t."terminated_at", t."purged_at"
         FROM "tenants" t
         ${where}
        ORDER BY (t."status" = 'PROVISIONING_FAILED') DESC, t."created_at" DESC
@@ -126,6 +129,8 @@ function toTenant(
     createdAt: row.created_at.toISOString(),
     onboardingCompletedAt: row.onboarding_completed_at?.toISOString() ?? null,
     lastActivityAt: lastActivityAt?.toISOString() ?? null,
+    terminatedAt: row.terminated_at?.toISOString() ?? null,
+    purgedAt: row.purged_at?.toISOString() ?? null,
     /**
      * Só quem falhou o provisionamento carrega o bloco.
      *

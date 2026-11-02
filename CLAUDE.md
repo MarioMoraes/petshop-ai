@@ -387,6 +387,16 @@ o par `PAYMENT_CONFIRMED` + `PAYMENT_RECEIVED` que o Asaas manda para a mesma co
 é ele, e não mais um palpite de 31 dias sobre `last_paid_at`, que diz até quando uma
 assinatura cancelada continua respondendo.
 
+**O encerramento é do console, e tem três tempos** (MOD-IDENT-10,
+`modules/identity/termination.ts`). Encerrar (`POST /platform/v1/tenants/:id/terminate`,
+com o slug digitado) põe `TERMINATED`, fecha **toda** rota da equipe menos `/v1/me` — a
+moldura mostra o cartão de conta encerrada —, cancela a mensalidade e desliga WhatsApp,
+domínio de e-mail e chaves. Até o D+30 o console reabre, para `SUSPENDED`. Depois, o job
+`identity.tenant-purge` anonimiza tutores, fotos, conversas e contatos pelo módulo dono
+(`identity/purge-port.ts`), apaga a Organization no Clerk e **destrói a DEK** — que é o
+que torna ilegível o campo cifrado das tabelas append-only, onde nenhum `UPDATE` chega. A
+linha do tenant fica: ela ancora os 5 anos de lançamento e trilha.
+
 **O estado da conta muda por um caminho só:** `shared/tenant-status.ts`, com a transição
 condicional ao estado de origem no `WHERE` — é o que torna idempotentes o job do fim do
 teste (`TRIAL` → `TRIAL_EXPIRED`), o webhook do Asaas (pagamento → `ACTIVE`, atraso →

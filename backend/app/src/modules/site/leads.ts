@@ -319,3 +319,9 @@ export async function convertLead(
   recordMetric({ metric: 'site_lead_converted', tenantId: actor.tenantId, value: 1, unit: 'count' })
   return result
 }
+
+/** O D+30 do encerramento (MOD-IDENT-10): o contato de quem escreveu pelo site sai. */
+export async function purgeTenantLeads(tenantId: string): Promise<number> {
+  const { count } = await withTenant(tenantId, (tx) => tx.siteLead.deleteMany({}))
+  return count
+}

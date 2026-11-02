@@ -30,7 +30,17 @@ import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheDelete, cacheGet, cacheSet } from '
 function routingKeyFor(
   from: TenantStatus,
   to: TenantStatus,
-): 'tenant.ativado' | 'tenant.suspenso' | 'tenant.reativado' | 'tenant.em_atraso' | null {
+):
+  | 'tenant.ativado'
+  | 'tenant.suspenso'
+  | 'tenant.reativado'
+  | 'tenant.em_atraso'
+  | 'tenant.encerrado'
+  | null {
+  if (to === 'TERMINATED') return 'tenant.encerrado'
+  // Reabrir um encerrado volta a `SUSPENDED`, mas não é uma suspensão nova: publicar
+  // `tenant.suspenso` mandaria ao administrador o aviso de mensalidade em atraso.
+  if (from === 'TERMINATED') return null
   if (to === 'SUSPENDED' || to === 'TRIAL_EXPIRED') return 'tenant.suspenso'
   if (to === 'PAST_DUE') return 'tenant.em_atraso'
   if (to !== 'ACTIVE') return null
@@ -43,6 +53,13 @@ export interface TenantStatusTransition {
   /** Vai na trilha e no evento: `TRIAL_EXPIRED`, `PAYMENT_CONFIRMED`, `OVERDUE_GRACE_ENDED`. */
   reason: string
   actorUserId?: string | null
+  /**
+   * Colunas gravadas na **mesma** escrita da mudança de estado — o encerramento carimba
+   * `terminatedAt`, e um estado sem o carimbo deixaria o D+30 sem ponto de partida.
+   */
+  data?: { terminatedAt?: Date | null; terminationReason?: string | null }
+  /** Condição a mais no `WHERE` da transição, para a regra que não é só o estado. */
+  where?: { purgedAt?: null; terminatedAt?: { gt: Date } }
 }
 
 /** `true` quando mudou; `false` quando o estabelecimento já não estava num dos `from`. */
@@ -58,8 +75,8 @@ export async function transitionTenantStatus(
 
   const changed = await withTenant(tenantId, async (tx) => {
     const { count } = await tx.tenant.updateMany({
-      where: { id: tenantId, status: { in: [...transition.from] } },
-      data: { status: transition.to },
+      where: { id: tenantId, status: { in: [...transition.from] }, ...transition.where },
+      data: { status: transition.to, ...transition.data },
     })
     if (count === 0) return false
 
@@ -70,7 +87,7 @@ export async function transitionTenantStatus(
       entityId: tenantId,
       actorUserId: transition.actorUserId ?? null,
       before: { status: tenant.status },
-      after: { status: transition.to, reason: transition.reason },
+      after: { status: transition.to, reason: transition.reason, ...transition.data },
     })
     return true
   })
@@ -139,4 +156,50 @@ export async function tenantOperational(tenantId: string): Promise<boolean> {
 
   await cacheSet(CACHE_KEYS.tenantStatus(tenantId), tenant.status, CACHE_TTL_SECONDS.tenantStatus)
   return tenantOperates(tenant.status)
+}
+
+/** Os dias entre o encerramento e a anonimização — a janela em que o console reabre. */
+export const TENANT_TERMINATION_GRACE_DAYS = 30
+
+/** Quando a anonimização do encerramento vence. */
+export function tenantPurgeDueAt(terminatedAt: Date): Date {
+  return new Date(terminatedAt.getTime() + TENANT_TERMINATION_GRACE_DAYS * 24 * 60 * 60_000)
+}
+
+/**
+ * Encerra a conta (MOD-IDENT-10 AC-02). Vale de qualquer estado que já tenha conta no
+ * Clerk; `PROVISIONING` fica de fora porque ainda não há o que encerrar.
+ */
+export function terminateTenantStatus(
+  tenantId: string,
+  input: { reason: string; actorUserId?: string | null; now?: Date },
+): Promise<boolean> {
+  return transitionTenantStatus(tenantId, {
+    from: ['TRIAL', 'TRIAL_EXPIRED', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'PROVISIONING_FAILED'],
+    to: 'TERMINATED',
+    reason: 'TERMINATED_BY_PLATFORM',
+    actorUserId: input.actorUserId ?? null,
+    data: { terminatedAt: input.now ?? new Date(), terminationReason: input.reason },
+  })
+}
+
+/**
+ * Desfaz o encerramento enquanto a anonimização não passou. Volta a `SUSPENDED`, e não ao
+ * estado anterior: quem reabre paga pela assinatura, que é o caminho que já reativa.
+ */
+export function reopenTenantStatus(
+  tenantId: string,
+  input: { actorUserId?: string | null; now?: Date },
+): Promise<boolean> {
+  const now = input.now ?? new Date()
+  const limite = new Date(now.getTime() - TENANT_TERMINATION_GRACE_DAYS * 24 * 60 * 60_000)
+  return transitionTenantStatus(tenantId, {
+    from: ['TERMINATED'],
+    to: 'SUSPENDED',
+    reason: 'REOPENED_BY_PLATFORM',
+    actorUserId: input.actorUserId ?? null,
+    data: { terminatedAt: null, terminationReason: null },
+    // No `WHERE`, e não numa leitura antes: o expurgo do D+30 pode estar rodando agora.
+    where: { purgedAt: null, terminatedAt: { gt: limite } },
+  })
 }

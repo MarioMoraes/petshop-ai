@@ -6,7 +6,9 @@ import {
   ChangeTenantPlanSchema,
   GrantPlatformAdminSchema,
   PlanSchema,
+  ReopenTenantSchema,
   RequestSupportAccessSchema,
+  TerminateTenantSchema,
   UpdatePlanPriceSchema,
   type PlanPriceAdminRow,
   type PlatformAdminResponse,
@@ -111,6 +113,44 @@ export async function mudarPlanoAction(
     const result = await serverApi().changeTenantPlan(tenantId, parsed.data)
     revalidatePath('/plataforma/estabelecimentos')
     return { ok: true, data: result }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/**
+ * Encerra a conta de um estabelecimento (MOD-IDENT-10). Fecha o acesso agora e apaga o dado
+ * pessoal no D+30; até lá, `reabrirContaAction` desfaz.
+ */
+export async function encerrarContaAction(
+  tenantId: string,
+  reason: string,
+  confirmSlug: string,
+): Promise<ActionResult<{ tenantId: string }>> {
+  const parsed = TerminateTenantSchema.safeParse({ reason, confirmSlug })
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const result = await serverApi().terminateTenant(tenantId, parsed.data)
+    revalidatePath('/plataforma/estabelecimentos')
+    return { ok: true, data: { tenantId: result.tenantId } }
+  } catch (error) {
+    return toFailure(error)
+  }
+}
+
+/** Reabre um encerrado antes do D+30; ele volta suspenso e assina de novo. */
+export async function reabrirContaAction(
+  tenantId: string,
+  reason: string,
+): Promise<ActionResult<{ tenantId: string }>> {
+  const parsed = ReopenTenantSchema.safeParse({ reason })
+  if (!parsed.success) return fromZod(parsed.error)
+
+  try {
+    const result = await serverApi().reopenTenant(tenantId, parsed.data)
+    revalidatePath('/plataforma/estabelecimentos')
+    return { ok: true, data: { tenantId: result.tenantId } }
   } catch (error) {
     return toFailure(error)
   }

@@ -180,3 +180,23 @@ async function wipe(row: StaleConversation): Promise<{ turns: number; toolCalls:
     return { turns: turns.count, toolCalls: toolCalls.count }
   })
 }
+
+/**
+ * O expurgo do D+30 de um estabelecimento encerrado (MOD-IDENT-10): toda conversa dele,
+ * sem esperar os 24 meses — o mesmo `wipe`, então a linha fica como estatística.
+ */
+export async function purgeTenantConversations(tenantId: string): Promise<number> {
+  let total = 0
+  for (;;) {
+    const rows = await getMaintenancePrisma().agentConversation.findMany({
+      where: { tenantId, contactEncrypted: { not: VAZIO } },
+      select: { id: true, tenantId: true, status: true, lastTurnAt: true },
+      take: 200,
+    })
+    for (const row of rows) {
+      await wipe(row)
+      total += 1
+    }
+    if (rows.length < 200) return total
+  }
+}

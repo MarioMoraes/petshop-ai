@@ -289,3 +289,14 @@ async function floorElapsed(startedAt: number): Promise<void> {
   if (remaining <= 0) return
   await new Promise((resolve) => setTimeout(resolve, remaining))
 }
+
+/**
+ * O D+30 do encerramento (MOD-IDENT-10): os códigos de vínculo e as trocas de contato
+ * pendentes guardam o hash do telefone ou e-mail de quem pediu.
+ */
+export async function purgeTenantPortalCodes(tenantId: string): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx.portalLinkChallenge.deleteMany({})
+    await tx.portalContactChange.deleteMany({})
+  })
+}

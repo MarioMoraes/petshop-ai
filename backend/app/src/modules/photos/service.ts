@@ -362,6 +362,29 @@ export async function deletePhoto(actor: ActorContext, petId: string, photoId: s
   await getStorage().remove(keys)
 }
 
+/**
+ * O expurgo do D+30 de um estabelecimento encerrado (MOD-IDENT-10): toda foto sai do
+ * bucket e a linha é marcada apagada. O banco primeiro — o objeto que sobrar no bucket
+ * por uma falha não é mais alcançável por tela nenhuma.
+ */
+export async function purgeTenantPhotos(tenantId: string): Promise<number> {
+  const keys = await withTenant(tenantId, async (tx) => {
+    const photos = await tx.petPhoto.findMany({
+      where: { deletedAt: null },
+      select: { id: true, variants: true },
+    })
+    if (photos.length === 0) return []
+    await tx.pet.updateMany({ data: { coverPhotoId: null } })
+    await tx.petPhoto.updateMany({
+      where: { id: { in: photos.map((p) => p.id) } },
+      data: { deletedAt: new Date() },
+    })
+    return photos.flatMap((p) => Object.values(keysOf(p.variants)))
+  })
+  if (keys.length > 0) await getStorage().remove(keys)
+  return keys.length
+}
+
 // ─── Regras compartilhadas ───────────────────────────────────────────────────
 
 function quotaOf(plan: Plan | undefined): number | null {

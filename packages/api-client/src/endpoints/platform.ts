@@ -1,6 +1,8 @@
 import {
   PlanSchema,
   type ChangeTenantPlanInput,
+  type ReopenTenantInput,
+  type TerminateTenantInput,
   type Plan,
   type UpdatePlanPriceInput,
   SupportGrantResponseSchema,
@@ -163,6 +165,24 @@ export function platformEndpoints({ request }: Transport) {
         path: `/platform/v1/tenants/${tenantId}/plan`,
         body: input,
         schema: z.object({ tenantId: z.uuid(), plan: PlanSchema }),
+      }),
+
+    /** Encerrar a conta (MOD-IDENT-10). O dado pessoal sai no D+30. */
+    terminateTenant: (tenantId: string, input: TerminateTenantInput) =>
+      request({
+        method: 'POST',
+        path: `/platform/v1/tenants/${tenantId}/terminate`,
+        body: input,
+        schema: z.object({ tenantId: z.uuid(), status: z.literal('TERMINATED') }),
+      }),
+
+    /** Reabrir um encerrado, até o D+30. Volta suspenso: o petshop assina de novo. */
+    reopenTenant: (tenantId: string, input: ReopenTenantInput) =>
+      request({
+        method: 'POST',
+        path: `/platform/v1/tenants/${tenantId}/reopen`,
+        body: input,
+        schema: z.object({ tenantId: z.uuid(), status: z.literal('SUSPENDED') }),
       }),
   }
 }

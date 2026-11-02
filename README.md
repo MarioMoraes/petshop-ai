@@ -115,10 +115,11 @@ deixou.
 
 ## O que ainda não existe
 
-- **Encerramento de tenant (a outra metade do MOD-IDENT-10).** A suspensão existe — teste
-  vencido, atraso e carência mudam o estado por `shared/tenant-status.ts`, e a assinatura
-  é a tela de regularização —, mas nada grava `TERMINATED`: falta o encerramento com
-  retenção legal. Apagar o tenant hoje deixa órfãs as tabelas fora do cascade.
+- **O expurgo dos 5 anos de um estabelecimento encerrado.** O encerramento existe
+  (MOD-IDENT-10: o console encerra, reabre até o D+30, e o job `identity.tenant-purge`
+  anonimiza o dado pessoal e destrói a chave do estabelecimento), mas os lançamentos, o
+  caixa, os documentos e a trilha guardados pela obrigação fiscal não têm quem os apague
+  ao fim dos 5 anos — nem a linha do tenant, cujo cascade continua incompleto.
 - **Webhooks `organization.*` do Clerk.** Os de usuário e a saída de Organization estão
   ligados (MOD-IDENT-03); renomear ou excluir a Organization pelo painel do Clerk não
   chega ao tenant local.
