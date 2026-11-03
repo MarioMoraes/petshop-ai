@@ -13,7 +13,8 @@ import {
   WalletIcon,
   type IconTone,
 } from '@/components/icons'
-import { ButtonLink, NavLink, NavPill } from '@/components/links'
+import { ButtonLink, NavLink } from '@/components/links'
+import { MobileNav } from '@/components/mobile-nav'
 import { RouteProgress } from '@/components/route-progress'
 import { Badge, Logo } from '@/components/ui'
 import { ContaPessoal } from './conta-pessoal'
@@ -118,37 +119,20 @@ export function PlataformaShell({ active, children }: { active: NavKey; children
       <RouteProgress />
 
       <aside className="sticky top-0 hidden h-[100svh] w-[260px] shrink-0 flex-col border-r border-line px-4 py-5 lg:flex">
-        <Link href="/plataforma" aria-label="Ir para a saúde" className="block min-w-0 px-2 py-1">
-          <Logo />
-        </Link>
-        {/*
-          O selo é o que separa esta tela do Admin num relance. As duas moldurais são
-          quase iguais de propósito — mesma física, mesmo tipo —, e sem uma marca de
-          contexto a única diferença visível seria a lista do menu.
-        */}
-        <div className="mt-3 px-2">
-          <Badge tone="accent">Plataforma</Badge>
-        </div>
-
-        <nav className="mt-8 flex flex-col gap-1 text-sm">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.key}
-              href={item.href}
-              label={item.label}
-              icon={item.icon}
-              tone={item.tone}
-              active={item.key === active}
-            />
-          ))}
-        </nav>
+        <MenuConteudo active={active} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-line bg-surface/85 px-4 py-3 backdrop-blur sm:px-8">
-          <p className="flex min-w-0 items-center gap-2 text-[21px] font-semibold leading-8">
-            <span className="truncate">Console da plataforma</span>
-          </p>
+          {/* Abaixo de `lg` a lateral some e vira gaveta, como no Admin. */}
+          <div className="flex min-w-0 items-center gap-3">
+            <MobileNav>
+              <MenuConteudo active={active} />
+            </MobileNav>
+            <p className="flex min-w-0 items-center gap-2 text-[21px] font-semibold leading-8">
+              <span className="truncate">Console da plataforma</span>
+            </p>
+          </div>
 
           <div className="flex min-w-0 items-center gap-3">
             {/*
@@ -172,17 +156,6 @@ export function PlataformaShell({ active, children }: { active: NavKey; children
             </span>
           </div>
         </header>
-
-        <nav className="flex gap-1 overflow-x-auto border-b border-line px-4 py-2 text-sm lg:hidden">
-          {NAV.map((item) => (
-            <NavPill
-              key={item.key}
-              href={item.href}
-              label={item.label}
-              active={item.key === active}
-            />
-          ))}
-        </nav>
 
         <main className="relative flex-1 px-4 pb-16 pt-8 sm:px-8">{children}</main>
       </div>
@@ -265,5 +238,37 @@ export function Falha({ titulo, mensagem }: { titulo: string; mensagem: string }
       <h3 className="mt-4 text-lg font-semibold">{titleCase(titulo)}</h3>
       <p className="hint mt-2 max-w-md">{mensagem}</p>
     </div>
+  )
+}
+
+/** A marca, o selo e a lista — a mesma na lateral e na gaveta do celular. */
+function MenuConteudo({ active }: { active: NavKey }) {
+  return (
+    <>
+      <Link href="/plataforma" aria-label="Ir para a saúde" className="block min-w-0 px-2 py-1">
+        <Logo />
+      </Link>
+      {/*
+        O selo é o que separa esta tela do Admin num relance. As duas moldurais são
+        quase iguais de propósito — mesma física, mesmo tipo —, e sem uma marca de
+        contexto a única diferença visível seria a lista do menu.
+      */}
+      <div className="mt-3 px-2">
+        <Badge tone="accent">Plataforma</Badge>
+      </div>
+
+      <nav className="mt-8 flex flex-col gap-1 text-sm">
+        {NAV.map((item) => (
+          <NavLink
+            key={item.key}
+            href={item.href}
+            label={item.label}
+            icon={item.icon}
+            tone={item.tone}
+            active={item.key === active}
+          />
+        ))}
+      </nav>
+    </>
   )
 }
