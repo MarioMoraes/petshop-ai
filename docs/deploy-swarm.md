@@ -217,15 +217,64 @@ de subir uma migration destrutiva, tire um dump.
 
 ## Backup
 
-Não há rotina automática ainda. No mínimo, e fora desta máquina:
+`scripts/backup-banco.sh` faz o `pg_dump` (formato custom, como `postgres`, que ignora o
+RLS), confere o arquivo com `pg_restore --list`, guarda 14 dias em
+`/opt/petshop/backups` e envia uma cópia ao bucket R2 **privado** `R2_BACKUP_BUCKET`
+(`db/petshop-<data>.dump`). Nunca use o bucket das mídias.
 
-```sh
-docker exec $(docker ps -qf name=petshop_postgres) \
-  pg_dump -U postgres petshop | gzip > petshop-$(date +%F).sql.gz
+O dump **não** protege o PII sozinho: sem a `ENCRYPTION_KEK`, o que está nele é ilegível.
+Os dois precisam sobreviver, e em lugares diferentes — a KEK **fora** do bucket do backup
+(num gerenciador de senhas, por exemplo).
+
+Preparação (uma vez):
+
+1. No Cloudflare, crie o bucket `petshop-backups` **sem** acesso público, com uma regra
+   de ciclo de vida apagando objetos após 30 dias.
+2. Crie um token R2 só dele (*Object Read & Write*, restrito a esse bucket) e preencha
+   `R2_BACKUP_BUCKET`, `R2_BACKUP_ACCESS_KEY_ID` e `R2_BACKUP_SECRET_ACCESS_KEY` no
+   `.env.production`. Sem o par próprio, o script usa o token das mídias.
+3. Rode uma vez à mão: `cd /opt/petshop && bash scripts/backup-banco.sh`.
+4. Agende com um timer do systemd, às 04:30 — depois das varreduras de retenção da
+   madrugada:
+
+```ini
+# /etc/systemd/system/petshop-backup.service
+[Unit]
+Description=Backup do banco do PetShop AI
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/petshop
+ExecStart=/bin/bash -c "bash scripts/backup-banco.sh >> backups/backup.log 2>&1"
+
+# /etc/systemd/system/petshop-backup.timer
+[Unit]
+Description=Backup diario do PetShop AI
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
 ```
 
-O dump **não** protege o PII sozinho: sem a KEK, o que está nele é ilegível. Os
-dois precisam sobreviver, e em lugares diferentes.
+```sh
+systemctl daemon-reload && systemctl enable --now petshop-backup.timer
+systemctl list-timers petshop-backup.timer     # próxima execução
+tail -5 /opt/petshop/backups/backup.log        # resultado das últimas
+```
+
+Restaurar (apaga os dados atuais; o script para e religa o `api-gateway` sozinho):
+
+```sh
+bash scripts/backup-banco.sh                   # o estado de agora, antes de tudo
+bash scripts/restaurar-banco.sh backups/petshop-AAAAMMDDTHHMMZ.dump
+```
+
+Para baixar um dump do R2, use o painel do Cloudflare ou o mesmo `amazon/aws-cli` com
+`s3 cp s3://petshop-backups/db/<arquivo> .`. As mídias ficam no R2 (`R2_BUCKET`) e
+**não** entram no dump.
 
 ## Manutenção com acesso ao banco
 
@@ -273,7 +322,7 @@ docker service inspect petshop_frontend \
 - **Observabilidade.** Nenhum OpenTelemetry, nenhum Sentry. `docker service logs`
   é tudo. Um job que parar de rodar não avisa ninguém.
 - **CI.** As imagens saem do Mac, à mão. Nada roda a suíte antes.
-- **Backup automático** e teste de restauração.
+- **Teste de restauração** periódico: o backup é diário, mas ninguém confere que ele volta.
 - **Alta disponibilidade.** Um nó, `replicas: 1`, volumes locais. As restrições
   `node.role == manager` existem para que um segundo nó não reagende o Postgres
   para uma máquina de volume vazio — o banco subiria limpo, sem erro, e o estrago
