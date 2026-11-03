@@ -1,5 +1,6 @@
 import type { JobDefinition } from '@petshop/job-scheduler'
 import { evaluateAlerts } from '../modules/platform/alerts.js'
+import { pruneJobRuns } from '../modules/platform/job-runs-retention.js'
 import { compactMetrics, rollUpMetrics } from '../modules/platform/metrics.js'
 
 /**
@@ -42,5 +43,15 @@ export const platformJobs: JobDefinition[] = [
     schedule: '50 3 * * *',
     timeoutMs: 10 * 60_000,
     run: (now) => compactMetrics(now),
+  },
+  {
+    /**
+     * Depois do backup das 04:30 (timer do systemd na VPS), para o dump do dia ainda
+     * levar o que esta passada apaga. O nome é identidade em `job_leases`: não renomear.
+     */
+    name: 'platform.prune-job-runs',
+    schedule: '45 4 * * *',
+    timeoutMs: 5 * 60_000,
+    run: (now) => pruneJobRuns(now),
   },
 ]
