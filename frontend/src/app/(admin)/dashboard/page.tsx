@@ -5,16 +5,13 @@ import {
   formatBRL,
   todayIn,
   type FinanceIndicators,
-  type NoShowReport,
   type OverdueVaccinesReport,
 } from '@petshop/shared-types'
 import {
-  CalendarXDuoIcon,
   HandCoinsDuoIcon,
   BillClockDuoIcon,
   PawDuoIcon,
   SyringeDuoIcon,
-  StopwatchDuoIcon,
   AlarmClockDuoIcon,
   CalendarIcon,
   PawPrintIcon,
@@ -135,7 +132,6 @@ export default async function DashboardPage() {
     receivables,
     cashflow,
     finance,
-    noShows,
     vaccines,
     dayView,
     agentStats,
@@ -167,12 +163,6 @@ export default async function DashboardPage() {
     can('finance:configure')
       ? serverApi()
           .getFinanceIndicators({ days: REPORT_DAYS })
-          .catch(() => null)
-      : Promise.resolve(null),
-    // As faltas servem para decidir ligar a multa, e quem liga é quem configura a casa.
-    can('tenant:configure')
-      ? serverApi()
-          .getNoShows({ days: REPORT_DAYS })
           .catch(() => null)
       : Promise.resolve(null),
     // A contagem da casa inteira é leitura de gestão, como a rota diz: a recepção e o
@@ -286,7 +276,7 @@ export default async function DashboardPage() {
       href: '/pets',
     },
   ]
-  const financeStats = financeCards(finance, noShows)
+  const financeStats = financeCards(finance)
 
   return (
     <>
@@ -459,19 +449,12 @@ function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
  * O cartão das faltas não diz "quanto foi cobrado", que é a outra metade do indicador no
  * PRD: a multa é calculada na falta e não vira lançamento, então não há cobrança a somar.
  */
-function financeCards(finance: FinanceIndicators | null, noShows: NoShowReport | null): Stat[] {
+function financeCards(finance: FinanceIndicators | null): Stat[] {
   const cards: Stat[] = []
 
   if (finance) {
-    const { averageDays } = finance.collection
+    // "Prazo médio" e "Faltas" saíram a pedido do usuário (2026-11-04).
     const { valueCents } = finance.expired
-
-    cards.push({
-      label: 'Prazo médio',
-      value: averageDays === null ? null : `${formatDays(averageDays)} para receber`,
-      icon: <StopwatchDuoIcon />,
-      iconTone: 'icon-metric',
-    })
 
     cards.push({
       label: 'Crédito vencido',
@@ -479,15 +462,6 @@ function financeCards(finance: FinanceIndicators | null, noShows: NoShowReport |
       icon: <AlarmClockDuoIcon />,
       iconTone: 'icon-money',
       href: '/configuracoes/pacotes',
-    })
-  }
-
-  if (noShows) {
-    cards.push({
-      label: 'Faltas',
-      value: `${formatBRL(noShows.totalCents)} perdidos`,
-      icon: <CalendarXDuoIcon />,
-      iconTone: 'icon-time',
     })
   }
 
@@ -517,17 +491,6 @@ function overdueVaccinesCard(report: OverdueVaccinesReport): Stat {
       ? { tone: 'danger' as const, document: '/dashboard/vacinas-atrasadas' as const }
       : {}),
   }
-}
-
-/** "12,5 dias", e "1 dia": uma casa decimal. */
-function formatDays(days: number): string {
-  const rounded = Math.round(days * 10) / 10
-  return `${formatDecimal(rounded)} ${rounded === 1 ? 'dia' : 'dias'}`
-}
-
-/** Uma casa, com vírgula: 22,4 — e "22" quando o decimal é zero. */
-function formatDecimal(value: number): string {
-  return value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
 }
 
 /** Total de uma listagem paginada, ou `null` se o serviço não respondeu. */

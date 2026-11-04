@@ -252,7 +252,7 @@ class Tons {
 /// aceso —, então o suave é a cor **afundada** no fundo, e a tinta sobe de clareza.
 ({Color fundo, Color aro, Color cor}) tonalDe(Color base, Brightness brilho) {
   if (brilho == Brightness.dark) {
-    const fundoDoApp = Color(0xFF17181C);
+    const fundoDoApp = Color(0xFF110C22);
     return (
       fundo: Color.lerp(base, fundoDoApp, 0.80)!,
       aro: Color.lerp(base, fundoDoApp, 0.58)!,
@@ -278,7 +278,8 @@ extension TemaDoApp on BuildContext {
 /// peças coladas, e não como uma tela desenhada. O que dá hierarquia aqui é o Inter em
 /// três pesos, com o entrelinha e o `letterSpacing` apertando conforme o corpo cresce —
 /// o mesmo desenho do nome do pet na ficha, que é a referência que o usuário escolheu.
-const _familia = 'Inter';
+/// Sora desde a Aurora (2026-11-04), a mesma voz do Admin e do Portal.
+const _familia = 'Sora';
 
 ThemeData temaDoPetshop(String? brandColor, Brightness brilho) {
   final marca = _corDe(brandColor) ?? const Color(0xFFE34A32);
@@ -419,7 +420,7 @@ ThemeData temaDoPetshop(String? brandColor, Brightness brilho) {
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: tokens.cartaoAlto,
       surfaceTintColor: Colors.transparent,
-      modalBarrierColor: escuro ? const Color(0xB3000000) : const Color(0x59171719),
+      modalBarrierColor: escuro ? const Color(0xB3000000) : const Color(0x591B1530),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(Raio.folha)),
       ),
@@ -551,7 +552,7 @@ ColorScheme _esquema(Color marca, Brightness brilho, TokensDoApp t) {
     onError: Colors.white,
     errorContainer: t.perigoSuave,
     onErrorContainer: t.perigo,
-    shadow: const Color(0xFF171719),
+    shadow: const Color(0xFF1B1530),
   );
 }
 
@@ -562,18 +563,20 @@ TokensDoApp _tokensClaros(Color marca) {
     fundo: const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFBFBFC), Color(0xFFF1F2F4), Color(0xFFEAEBEE)],
+      // Aurora: o lilás quase branco da web, claro em cima.
+      colors: [Color(0xFFFAF8FE), Color(0xFFF6F4FB), Color(0xFFEFECF7)],
       stops: [0, 0.45, 1],
     ),
-    brilhoDaMarca: acento.withValues(alpha: 0.11),
+    // Aurora: a luz violeta no topo, a mesma do fundo da web.
+    brilhoDaMarca: const Color(0xFF7B5CFF).withValues(alpha: 0.16),
     cartao: Colors.white,
     cartaoAlto: Colors.white,
-    bordaDoCartao: const Color(0xFFE6E7EA),
-    linha: const Color(0xFFDFE0E2),
-    chip: const Color(0xFFF4F5F7),
-    tinta: const Color(0xFF232427),
-    fraca: const Color(0xFF55585E),
-    discreta: const Color(0xFF86888D),
+    bordaDoCartao: const Color(0xFFF0EDF8),
+    linha: const Color(0xFFE6E3EF),
+    chip: const Color(0xFFF4F1FB),
+    tinta: const Color(0xFF1B1530),
+    fraca: const Color(0xFF4D4766),
+    discreta: const Color(0xFF6A6484),
     acento: acento,
     acentoSuave: Color.lerp(acento, Colors.white, 0.90)!,
     acentoAro: Color.lerp(acento, Colors.white, 0.72)!,
@@ -584,18 +587,18 @@ TokensDoApp _tokensClaros(Color marca) {
     perigo: const Color(0xFFB4231B),
     perigoSuave: const Color(0xFFFDECEB),
     sombraDoCartao: const [
-      BoxShadow(color: Color(0x0F171719), blurRadius: 2, offset: Offset(0, 1)),
+      BoxShadow(color: Color(0x0F1B1530), blurRadius: 2, offset: Offset(0, 1)),
       BoxShadow(
-        color: Color(0x14171719),
+        color: Color(0x1A5032A0),
         blurRadius: 24,
         spreadRadius: -12,
         offset: Offset(0, 12),
       ),
     ],
     sombraAlta: const [
-      BoxShadow(color: Color(0x10171719), blurRadius: 3, offset: Offset(0, 1)),
+      BoxShadow(color: Color(0x101B1530), blurRadius: 3, offset: Offset(0, 1)),
       BoxShadow(
-        color: Color(0x1F171719),
+        color: Color(0x245032A0),
         blurRadius: 46,
         spreadRadius: -18,
         offset: Offset(0, 16),
@@ -603,24 +606,26 @@ TokensDoApp _tokensClaros(Color marca) {
     ],
     sombraDoBotao: const [
       BoxShadow(
-        color: Color(0x40171719),
+        color: Color(0x597B5CFF),
         blurRadius: 20,
         spreadRadius: -8,
         offset: Offset(0, 10),
       ),
     ],
+    // Aurora: a ação principal no degradê coral → violeta.
     gradienteDoBotao: const LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Color(0xFF34363B), Color(0xFF17181A)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFFF7A59), Color(0xFFC04CFF), Color(0xFF7B5CFF)],
+      stops: [0, 0.55, 1],
     ),
     sobreBotao: Colors.white,
     gradienteEscuro: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF2B2D33), Color(0xFF17181A)],
+      colors: [Color(0xFF2A1D5C), Color(0xFF1B1530)],
     ),
-    escuro: const Color(0xFF171719),
+    escuro: const Color(0xFF1B1530),
   );
 }
 
@@ -637,21 +642,22 @@ TokensDoApp _tokensEscuros(Color marca) {
     fundo: const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFF17181C), Color(0xFF101114), Color(0xFF0C0D0F)],
+      // Aurora: a tinta violeta escura do Mural, e não o grafite.
+      colors: [Color(0xFF17122A), Color(0xFF110C22), Color(0xFF0C0918)],
       stops: [0, 0.5, 1],
     ),
     brilhoDaMarca: acento.withValues(alpha: 0.16),
-    cartao: const Color(0xFF1A1B1F),
-    cartaoAlto: const Color(0xFF212328),
+    cartao: const Color(0xFF1C1631),
+    cartaoAlto: const Color(0xFF241D3D),
     bordaDoCartao: const Color(0x14FFFFFF),
     linha: const Color(0x1FFFFFFF),
-    chip: const Color(0xFF24262B),
-    tinta: const Color(0xFFF3F4F6),
-    fraca: const Color(0xFFB2B5BC),
-    discreta: const Color(0xFF878A92),
+    chip: const Color(0xFF2A2244),
+    tinta: const Color(0xFFF4F1FB),
+    fraca: const Color(0xFFB0A8C8),
+    discreta: const Color(0xFF8C84A6),
     acento: acento,
-    acentoSuave: Color.lerp(acento, const Color(0xFF17181C), 0.82)!,
-    acentoAro: Color.lerp(acento, const Color(0xFF17181C), 0.60)!,
+    acentoSuave: Color.lerp(acento, const Color(0xFF110C22), 0.82)!,
+    acentoAro: Color.lerp(acento, const Color(0xFF110C22), 0.60)!,
     acentoTinta: Color.lerp(acento, Colors.white, 0.18)!,
     sobreAcento: _sobre(acento),
     sucesso: const Color(0xFF5FCB92),
@@ -677,13 +683,14 @@ TokensDoApp _tokensEscuros(Color marca) {
     gradienteDoBotao: const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFAFAFA), Color(0xFFE2E3E6)],
+      colors: [Color(0xFFFF7A59), Color(0xFFC04CFF), Color(0xFF7B5CFF)],
+      stops: [0, 0.55, 1],
     ),
-    sobreBotao: const Color(0xFF17181A),
+    sobreBotao: Colors.white,
     gradienteEscuro: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF2A2C32), Color(0xFF191A1E)],
+      colors: [Color(0xFF2A1D5C), Color(0xFF1B1530)],
     ),
     escuro: const Color(0xFFF4F5F6),
   );

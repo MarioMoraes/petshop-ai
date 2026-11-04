@@ -92,6 +92,19 @@ flutter:
   # Quatro pesos do Inter, e não a variável: o Flutter mapeia `FontWeight` para
   # instância estática sem depender do eixo `wght`, que nem toda plataforma interpola.
   fonts:
+    # Aurora (2026-11-04): a voz do texto, a mesma do Admin e do Portal.
+    - family: Sora
+      fonts:
+        - asset: assets/fonts/Sora-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Sora-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Sora-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Sora-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Sora-Bold.ttf
+          weight: 700
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter-Regular.ttf

@@ -115,22 +115,24 @@ const NAV: NavItem[] = [
 
 export function PlataformaShell({ active, children }: { active: NavKey; children: ReactNode }) {
   return (
-    <div className="flex min-h-[100svh] bg-surface">
+    <div className="aurora-bg flex min-h-[100svh]">
       <RouteProgress />
 
-      <aside className="sticky top-0 hidden h-[100svh] w-[260px] shrink-0 flex-col border-r border-line px-4 py-5 lg:flex">
+      <aside className="aurora-side sticky top-4 m-4 mr-0 hidden h-[calc(100svh-2rem)] w-[260px] shrink-0 flex-col overflow-y-auto rounded-[32px] px-4 py-6 lg:flex">
         <MenuConteudo active={active} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-line bg-surface/85 px-4 py-3 backdrop-blur sm:px-8">
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-4 bg-surface/60 px-4 py-4 backdrop-blur-xl sm:px-8">
           {/* Abaixo de `lg` a lateral some e vira gaveta, como no Admin. */}
           <div className="flex min-w-0 items-center gap-3">
             <MobileNav>
               <MenuConteudo active={active} />
             </MobileNav>
             <p className="flex min-w-0 items-center gap-2 text-[21px] font-semibold leading-8">
-              <span className="truncate">Console da plataforma</span>
+              <span className="truncate font-light tracking-[-0.02em]">
+                Console da <span className="aurora-text font-semibold">Plataforma</span>
+              </span>
             </p>
           </div>
 

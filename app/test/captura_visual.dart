@@ -23,6 +23,13 @@ void main() {
     // Sem isto o texto sai no tipo de reserva do `flutter_test`, onde toda letra é um
     // quadrado do tamanho do corpo — e a captura diria mais sobre a fonte de teste do
     // que sobre o desenho.
+    await _carregar('Sora', [
+      'Sora-Light.ttf',
+      'Sora-Regular.ttf',
+      'Sora-Medium.ttf',
+      'Sora-SemiBold.ttf',
+      'Sora-Bold.ttf',
+    ]);
     await _carregar('Inter', [
       'Inter-Regular.ttf',
       'Inter-Medium.ttf',
