@@ -324,7 +324,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
               <Link
                 href={me.permissions.includes('tenant:configure') ? '/assinatura' : '/dashboard'}
                 prefetch={false}
-                className="shrink-0"
+                className="hidden shrink-0 md:block"
               >
                 <Badge tone="accent">
                   {trialDaysLeft === 0
@@ -592,7 +592,7 @@ function Saudacao({
   const Tag = asTitle ? 'h1' : 'p'
 
   return (
-    <Tag className="flex min-w-0 items-center gap-2 text-[21px] leading-8 font-semibold">
+    <Tag className="hidden min-w-0 items-center gap-2 text-[21px] md:flex leading-8 font-semibold">
       <span className="truncate">
         {greetingFor(timezone)}, {firstNameOf(name)}.
       </span>
