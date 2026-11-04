@@ -648,3 +648,26 @@ export function sniffImageMime(bytes: Uint8Array): AcceptedPhotoMime | null {
 
   return null
 }
+
+// ─── Aniversariantes (Início, 2026-11-04) ────────────────────────────────────
+
+export const PetBirthdaysQuerySchema = z.object({
+  /** `YYYY-MM-DD` no fuso do estabelecimento: o primeiro dia da janela. */
+  from: z.iso.date(),
+  days: z.coerce.number().int().min(1).max(31).default(7),
+})
+export type PetBirthdaysQuery = z.output<typeof PetBirthdaysQuerySchema>
+
+export const PetBirthdaySchema = z.object({
+  petId: z.uuid(),
+  name: z.string(),
+  speciesName: z.string(),
+  /** A chave da espécie (`dog`, `cat`…), que escolhe o ícone. */
+  speciesKey: z.string(),
+  /** O dia do aniversário dentro da janela, `YYYY-MM-DD`. */
+  date: z.string(),
+  /** Os anos que completa nesse dia. */
+  turning: z.number().int(),
+})
+export const PetBirthdaysSchema = z.object({ items: z.array(PetBirthdaySchema) })
+export type PetBirthday = z.output<typeof PetBirthdaySchema>

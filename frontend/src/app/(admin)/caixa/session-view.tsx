@@ -103,17 +103,34 @@ export function SessionNumbers({
   ]
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      {facts.map((fact) => (
-        // Cada cartão desce do branco para o claro do seu assunto — dinheiro em verde,
-        // o horário em azul, a conferência em verde-azulado —, com o chip do mesmo tom.
-        // Nenhum grita sozinho: a fila inteira ganha cor, como o menu lateral.
-        <Card key={fact.label} className={`card-tint ${fact.tone}`}>
-          <span className={`icon-chip icon-chip-sm ${fact.tone}`}>{fact.icon}</span>
-          <p className="mt-4 text-3xl font-semibold tabular-nums">{fact.value}</p>
-          <p className="text-base font-semibold">{fact.label}</p>
-          <p className="hint mt-2">{fact.hint}</p>
-        </Card>
+    <div className="grid gap-[18px] sm:grid-cols-3">
+      {facts.map((fact, index) => (
+        // Aurora (2026-11-04): a mesma fila de números do Início. O dinheiro da gaveta é o
+        // cartão escuro de destaque — é o número que se confere no fim do dia —, e os
+        // outros são vidro, com o chip redondo no tom do assunto.
+        <div
+          key={fact.label}
+          className={`${index === 0 ? 'stat-hero' : 'card'} relative flex min-h-[148px] flex-col overflow-hidden p-5`}
+        >
+          <span className={`aurora-chip ${fact.tone} ${index === 0 ? 'stat-hero-chip' : ''}`}>
+            {fact.icon}
+          </span>
+          <p
+            className={`relative z-10 mt-auto pt-4 text-[13px] font-medium ${
+              index === 0 ? 'text-white/70' : 'text-subtle'
+            }`}
+          >
+            {fact.label}
+          </p>
+          <p className="relative z-10 mt-1 text-4xl font-light leading-none tracking-[-0.03em] tabular-nums">
+            {fact.value}
+          </p>
+          <p
+            className={`relative z-10 mt-2 text-xs ${index === 0 ? 'text-white/60' : 'text-subtle'}`}
+          >
+            {fact.hint}
+          </p>
+        </div>
       ))}
     </div>
   )

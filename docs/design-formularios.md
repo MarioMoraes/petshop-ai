@@ -48,6 +48,17 @@ a forma que tem; aqui fica só a regra de uso.
 
 ## As nove regras
 
+> **Aurora (2026-11-04).** O usuário escolheu, entre três direções mostradas em imagem, a
+> **Aurora**: fundo lilás quase branco (`--color-surface` #f6f4fb) com três luzes paradas
+> (`.aurora-bg`), lateral flutuante de vidro (`.aurora-side`), cartão de vidro claro
+> (`--color-panel` = branco 66%, aresta branca, sombra violeta, **sem** `backdrop-filter`,
+> que prenderia todo `fixed` de dentro), campo branco de canto 16px com foco violeta, Sora
+> no texto (`--font-sora`, Inter como reserva) e **o `primary` no degradê coral → violeta**
+> (`--color-aurora-from/via/to`). O item ativo do menu é a pílula escura `--color-shell`.
+> O que as regras abaixo dizem de **papel** continua valendo — ficha em `Card tone="soft"`,
+> uma ação principal, `ghost` só para desistir, destrutivo sem `text-danger` —, mas onde
+> elas dizem "escuro" leia "degradê", e onde dizem "cinza" leia "vidro".
+
 ### 1. Todo cartão é cinza; o campo é branco. Ficha leva `tone="soft"`.
 
 Desde 2026-10-05 o cartão (`.card`) é cinza slate — `--color-panel` (#f1f3f6) com aresta

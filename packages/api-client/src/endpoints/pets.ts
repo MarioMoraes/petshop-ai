@@ -2,6 +2,7 @@ import {
   BreedSchema,
   CoatSchema,
   PaginatedPetsSchema,
+  PetBirthdaysSchema,
   ManagedBreedSchema,
   PetAlbumSchema,
   PetPhotoSchema,
@@ -31,6 +32,14 @@ import { type Transport, toQueryString } from '../transport.js'
 export function petEndpoints({ request, upload }: Transport) {
   return {
     // ─── MOD-PET ───────────────────────────────────────────────────────────
+
+    /** Os aniversariantes da janela — o cartão do Início. `from` é o dia civil do tenant. */
+    listPetBirthdays: (query: { from: string; days?: number }) =>
+      request({
+        method: 'GET',
+        path: `/v1/pets/birthdays${toQueryString(query)}`,
+        schema: PetBirthdaysSchema,
+      }),
 
     listPets: (query: Partial<ListPetsQuery> = {}) =>
       request({

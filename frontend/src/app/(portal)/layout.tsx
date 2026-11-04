@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Instrument_Serif } from 'next/font/google'
+import { Inter, Instrument_Serif, Sora } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ptBR } from '@clerk/localizations'
 import '../globals.css'
@@ -23,6 +23,14 @@ import '../globals.css'
  */
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
+
+/** A voz do texto desde a Aurora (2026-11-04), a mesma do Admin. */
+const sora = Sora({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-sora',
+  display: 'swap',
+})
 
 const instrumentSerif = Instrument_Serif({
   subsets: ['latin'],
@@ -48,15 +56,20 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       localization={ptBR}
       appearance={{
         variables: {
-          colorPrimary: '#171719',
-          colorText: '#232427',
+          colorPrimary: '#7b5cff',
+          colorText: '#1b1530',
           colorBackground: '#ffffff',
           borderRadius: '14px',
         },
       }}
     >
-      <html lang="pt-BR" className={`${inter.variable} ${instrumentSerif.variable}`}>
-        <body suppressHydrationWarning>{children}</body>
+      <html
+        lang="pt-BR"
+        className={`${sora.variable} ${inter.variable} ${instrumentSerif.variable}`}
+      >
+        <body suppressHydrationWarning className="aurora-bg">
+          {children}
+        </body>
       </html>
     </ClerkProvider>
   )

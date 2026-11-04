@@ -2,6 +2,7 @@ import {
   CreatePetSchema,
   LinkTutorSchema,
   ListPetsQuerySchema,
+  PetBirthdaysQuerySchema,
   RecordWeightSchema,
   RegisterDeathSchema,
   RevertDeathSchema,
@@ -13,6 +14,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { requirePermission, requireTenantContext } from './auth.js'
 import { parseInput } from './validate.js'
 import type { ActorContext } from './actor.js'
+import { listPetBirthdays } from './birthdays.js'
 import { registerDeath, revertDeath } from './lifecycle.js'
 import { createPet, deletePet, getPet, listPets, revealMicrochip, updatePet } from './service.js'
 import { listTransfers, transferPet } from './transfer.js'
@@ -43,6 +45,11 @@ function actorOf(request: FastifyRequest): ActorContext {
 
 export async function registerPetRoutes(app: FastifyInstance): Promise<void> {
   // ─── Listagem e busca ──────────────────────────────────────────────────────
+
+  app.get('/v1/pets/birthdays', { preHandler: requirePermission('pet:read') }, async (request) => {
+    const auth = requireTenantContext(request)
+    return listPetBirthdays(auth.tenantId, parseInput(PetBirthdaysQuerySchema, request.query))
+  })
 
   app.get('/v1/pets', { preHandler: requirePermission('pet:read') }, async (request) => {
     const auth = requireTenantContext(request)

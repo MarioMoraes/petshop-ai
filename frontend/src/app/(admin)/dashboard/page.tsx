@@ -9,7 +9,6 @@ import {
   type OverdueVaccinesReport,
 } from '@petshop/shared-types'
 import {
-  CalendarCheckDuoIcon,
   CalendarXDuoIcon,
   HandCoinsDuoIcon,
   BillClockDuoIcon,
@@ -17,11 +16,19 @@ import {
   SyringeDuoIcon,
   StopwatchDuoIcon,
   AlarmClockDuoIcon,
+  CalendarIcon,
+  PawPrintIcon,
+  SparkleIcon,
+  BanknoteIcon,
   UsersDuoIcon,
   type IconTone,
 } from '@/components/icons'
 import { carregarMe, serverApi } from '@/lib/api'
 import { STAT_GRID, STAT_SHAPE } from './stat-grid'
+import { AgendaCard, BirthdaysCard, KpiCard, StockCard, WeekChart } from './aurora-blocks'
+import { temRecurso } from '@/components/plano-indisponivel'
+import { agendaDeHoje } from '@/lib/agenda-de-hoje'
+import { minutosNoFuso } from '@/lib/agenda-dia'
 
 /**
  * Início — o painel do estabelecimento.
@@ -121,48 +128,108 @@ export default async function DashboardPage() {
    * A agenda e o financeiro só são consultados por quem pode vê-los — pedir e receber
    * 403 funcionaria, mas gastaria a viagem e sujaria o log de segurança todo dia.
    */
-  const [activeTutors, activePets, movement, receivables, cashflow, finance, noShows, vaccines] =
-    await Promise.all([
-      countOf(() => serverApi().listTutors({ status: 'ACTIVE', limit: 1 })),
-      countOf(() => serverApi().listPets({ status: 'ACTIVE', limit: 1 })),
-      // A série é contada pelo serviço, não somada a partir de uma listagem: a listagem
-      // de agendamentos corta em 200 linhas e a semana de um petshop cheio passaria.
-      can('schedule:read_all')
-        ? serverApi()
-            .getMovement({ date: hoje, days: 7 })
-            .catch(() => null)
-        : Promise.resolve(null),
-      can('finance:read')
-        ? serverApi()
-            .getReceivables()
-            .catch(() => null)
-        : Promise.resolve(null),
-      // O caixa do dia é do gestor: a recepção registra o pagamento, mas o faturamento
-      // do estabelecimento não é informação de balcão (§9).
-      can('finance:configure')
-        ? serverApi()
-            .getCashflow()
-            .catch(() => null)
-        : Promise.resolve(null),
-      can('finance:configure')
-        ? serverApi()
-            .getFinanceIndicators({ days: REPORT_DAYS })
-            .catch(() => null)
-        : Promise.resolve(null),
-      // As faltas servem para decidir ligar a multa, e quem liga é quem configura a casa.
-      can('tenant:configure')
-        ? serverApi()
-            .getNoShows({ days: REPORT_DAYS })
-            .catch(() => null)
-        : Promise.resolve(null),
-      // A contagem da casa inteira é leitura de gestão, como a rota diz: a recepção e o
-      // veterinário a têm, o banhista e o motorista não.
-      can('record:read_summary')
-        ? serverApi()
-            .getOverdueVaccines()
-            .catch(() => null)
-        : Promise.resolve(null),
-    ])
+  const [
+    activeTutors,
+    activePets,
+    movement,
+    receivables,
+    cashflow,
+    finance,
+    noShows,
+    vaccines,
+    dayView,
+    agentStats,
+    birthdays,
+    stockLow,
+    stockExpiring,
+  ] = await Promise.all([
+    countOf(() => serverApi().listTutors({ status: 'ACTIVE', limit: 1 })),
+    countOf(() => serverApi().listPets({ status: 'ACTIVE', limit: 1 })),
+    // A série é contada pelo serviço, não somada a partir de uma listagem: a listagem
+    // de agendamentos corta em 200 linhas e a semana de um petshop cheio passaria.
+    can('schedule:read_all')
+      ? serverApi()
+          .getMovement({ date: hoje, days: 7 })
+          .catch(() => null)
+      : Promise.resolve(null),
+    can('finance:read')
+      ? serverApi()
+          .getReceivables()
+          .catch(() => null)
+      : Promise.resolve(null),
+    // O caixa do dia é do gestor: a recepção registra o pagamento, mas o faturamento
+    // do estabelecimento não é informação de balcão (§9).
+    can('finance:configure')
+      ? serverApi()
+          .getCashflow()
+          .catch(() => null)
+      : Promise.resolve(null),
+    can('finance:configure')
+      ? serverApi()
+          .getFinanceIndicators({ days: REPORT_DAYS })
+          .catch(() => null)
+      : Promise.resolve(null),
+    // As faltas servem para decidir ligar a multa, e quem liga é quem configura a casa.
+    can('tenant:configure')
+      ? serverApi()
+          .getNoShows({ days: REPORT_DAYS })
+          .catch(() => null)
+      : Promise.resolve(null),
+    // A contagem da casa inteira é leitura de gestão, como a rota diz: a recepção e o
+    // veterinário a têm, o banhista e o motorista não.
+    can('record:read_summary')
+      ? serverApi()
+          .getOverdueVaccines()
+          .catch(() => null)
+      : Promise.resolve(null),
+    // A agenda de hoje (Aurora): a mesma leitura do quadro da Agenda, sob a mesma permissão.
+    can('schedule:read_all')
+      ? serverApi()
+          .getDayView(hoje)
+          .catch(() => null)
+      : Promise.resolve(null),
+    // O agente: a taxa do painel de qualidade, sob o mesmo plano e a mesma permissão.
+    can('crm:read') && temRecurso(me, 'AI_AGENT') && temRecurso(me, 'AI_QUALITY')
+      ? serverApi()
+          .getAgentStats()
+          .catch(() => null)
+      : Promise.resolve(null),
+    can('pet:read')
+      ? serverApi()
+          .listPetBirthdays({ from: hoje, days: 7 })
+          .catch(() => null)
+      : Promise.resolve(null),
+    can('inventory:read') && temRecurso(me, 'INVENTORY')
+      ? serverApi()
+          .listProducts({ alert: 'LOW' })
+          .catch(() => null)
+      : Promise.resolve(null),
+    can('inventory:read') && temRecurso(me, 'INVENTORY')
+      ? serverApi()
+          .listProducts({ alert: 'EXPIRING' })
+          .catch(() => null)
+      : Promise.resolve(null),
+  ])
+
+  const horariosDeHoje = dayView
+    ? agendaDeHoje(dayView, minutosNoFuso(new Date().toISOString(), dayView.timezone), 7)
+    : null
+
+  // ─── Os números do alto (Aurora) ──────────────────────────────────────────
+  const hojeMov = movement?.days.at(-1) ?? null
+  const ontemMov = movement?.days.at(-2) ?? null
+  const variacao = (atual: number, anterior: number): string | null => {
+    if (anterior <= 0) return null
+    const pct = Math.round(((atual - anterior) / anterior) * 100)
+    return `${pct >= 0 ? '+' : ''}${pct}%`
+  }
+  const colunasAtivas = dayView?.columns.filter((c) => !c.absent) ?? []
+  const ocupacao =
+    colunasAtivas.length > 0
+      ? Math.round(
+          colunasAtivas.reduce((sum, c) => sum + c.occupancyPercent, 0) / colunasAtivas.length,
+        )
+      : null
 
   /*
    * A faixa era três cartões: atendimentos de hoje, ocupação de hoje e caixa. Os dois
@@ -171,15 +238,6 @@ export default async function DashboardPage() {
    * dia inteiro clica no cartão e cai na agenda, que é onde ele está de verdade.
    */
   const fluxo: Stat[] = []
-  if (movement) {
-    fluxo.push({
-      label: 'Atendimentos',
-      value: `${format(movement.days.reduce((sum, day) => sum + day.total, 0))} em 7 dias`,
-      icon: <CalendarCheckDuoIcon />,
-      iconTone: 'icon-time',
-      href: '/agenda/dia',
-    })
-  }
   if (cashflow) {
     fluxo.push({
       label: 'Recebido',
@@ -232,10 +290,74 @@ export default async function DashboardPage() {
 
   return (
     <>
-      {fluxo.length > 0 && <StatSection title="Movimento" stats={fluxo} />}
-      {financeStats.length > 0 && <StatSection title="Financeiro" stats={financeStats} />}
+      {/*
+        A composição da Aurora aprovada em imagem (2026-11-04): quatro números, a semana
+        e a agenda, os aniversariantes e o estoque. Doze colunas a partir de `xl`; abaixo
+        disso, um bloco por linha.
+      */}
+      <div className="grid gap-[18px] xl:grid-cols-12 xl:grid-rows-[auto_318px_auto]">
+        {hojeMov && (
+          <div className="grid gap-[18px] sm:grid-cols-2 xl:col-span-12 xl:grid-cols-4">
+            <KpiCard
+              hero
+              label="Atendimentos Hoje"
+              value={String(hojeMov.total)}
+              pill={
+                ontemMov
+                  ? `${hojeMov.total - ontemMov.total >= 0 ? '+' : ''}${hojeMov.total - ontemMov.total} vs. ontem`
+                  : null
+              }
+              icon={<CalendarIcon />}
+              tone="icon-time"
+              href="/agenda/dia"
+              spark={movement!.days.map((d) => d.total)}
+            />
+            <KpiCard
+              label="Faturamento do Dia"
+              prefix="R$"
+              value={(hojeMov.totalCents / 100).toLocaleString('pt-BR', {
+                maximumFractionDigits: 0,
+              })}
+              pill={ontemMov ? variacao(hojeMov.totalCents, ontemMov.totalCents) : null}
+              icon={<BanknoteIcon />}
+              tone="icon-money"
+              href="/agenda/dia"
+            />
+            {ocupacao !== null && (
+              <KpiCard
+                label="Ocupação da Agenda"
+                value={String(ocupacao)}
+                unit="%"
+                pill={`${colunasAtivas.length} na escala`}
+                icon={<PawPrintIcon />}
+                tone="icon-pet"
+                href="/agenda/dia"
+              />
+            )}
+            {agentStats && (
+              <KpiCard
+                label="Resolvidas pelo Agente"
+                value={String(agentStats.resolved)}
+                pill={`${Math.round(agentStats.resolutionRate)}%`}
+                icon={<SparkleIcon />}
+                tone="icon-metric"
+                href="/crm/atendimentos"
+              />
+            )}
+          </div>
+        )}
 
-      <StatSection title="Sua base" stats={base} />
+        {movement && <WeekChart days={movement.days} today={hoje} />}
+        {horariosDeHoje && <AgendaCard horarios={horariosDeHoje} />}
+        {birthdays && <BirthdaysCard items={birthdays.items} today={hoje} />}
+        {stockLow && stockExpiring && <StockCard low={stockLow} expiring={stockExpiring} />}
+      </div>
+
+      <div className="mt-10">
+        {fluxo.length > 0 && <StatSection title="Financeiro do dia" stats={fluxo} />}
+        {financeStats.length > 0 && <StatSection title="Financeiro" stats={financeStats} />}
+        <StatSection title="Sua base" stats={base} />
+      </div>
     </>
   )
 }
@@ -301,7 +423,7 @@ function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
                 href={stat.document}
                 target="_blank"
                 rel="noopener"
-                className={`card card-interactive flex flex-col bg-card p-4 sm:p-6 ${STAT_SHAPE}`}
+                className={`card card-interactive flex flex-col p-4 sm:p-6 ${STAT_SHAPE}`}
               >
                 {body}
               </a>
@@ -311,12 +433,12 @@ function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
             <Link
               key={stat.label}
               href={stat.href}
-              className={`card card-interactive flex flex-col bg-card p-4 sm:p-6 ${STAT_SHAPE}`}
+              className={`card card-interactive flex flex-col p-4 sm:p-6 ${STAT_SHAPE}`}
             >
               {body}
             </Link>
           ) : (
-            <div key={stat.label} className={`card flex flex-col bg-card p-4 sm:p-6 ${STAT_SHAPE}`}>
+            <div key={stat.label} className={`card flex flex-col p-4 sm:p-6 ${STAT_SHAPE}`}>
               {body}
             </div>
           )

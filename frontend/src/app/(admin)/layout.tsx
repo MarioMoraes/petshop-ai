@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Instrument_Serif } from 'next/font/google'
+import { Inter, Instrument_Serif, Sora } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ptBR } from '@clerk/localizations'
 import { ToastProvider } from '@/components/toast'
@@ -12,6 +12,14 @@ import '../globals.css'
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+  display: 'swap',
+})
+
+/** A voz do texto desde a Aurora (2026-11-04). Inter fica como reserva no `--font-sans`. */
+const sora = Sora({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-sora',
   display: 'swap',
 })
 
@@ -46,14 +54,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       localization={ptBR}
       appearance={{
         variables: {
-          colorPrimary: '#171719',
-          colorText: '#232427',
+          colorPrimary: '#7b5cff',
+          colorText: '#1b1530',
           colorBackground: '#ffffff',
           borderRadius: '14px',
         },
       }}
     >
-      <html lang="pt-BR" className={`${inter.variable} ${instrumentSerif.variable}`}>
+      <html lang="pt-BR" className={`${sora.variable} ${inter.variable} ${instrumentSerif.variable}`}>
         {/*
           `suppressHydrationWarning`: o `<body>` é o único nó do app que só renderiza
           uma vez, e é onde extensão de navegador (gerenciador de senha, Grammarly,

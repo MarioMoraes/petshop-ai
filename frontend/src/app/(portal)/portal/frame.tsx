@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { titleCase } from '@petshop/shared-types'
 import { RouteProgress } from '@/components/route-progress'
-import { Logo } from '@/components/ui'
+import { Logo, tituloAurora } from '@/components/ui'
 
 /**
  * A moldura das telas do Portal.
@@ -77,7 +76,9 @@ export function PortalFrame({
         )}
 
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-[1.75rem] leading-tight font-semibold">{titleCase(titulo)}</h1>
+          <h1 className="text-[2rem] leading-[1.05] font-light tracking-[-0.035em]">
+            {tituloAurora(titulo)}
+          </h1>
           {acao}
         </div>
 

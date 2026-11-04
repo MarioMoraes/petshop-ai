@@ -72,6 +72,7 @@ export function NavLink<T extends string>({
   tone,
   active,
   tag,
+  count = 0,
 }: {
   href: Parameters<typeof Link<T>>[0]['href']
   label: string
@@ -80,6 +81,8 @@ export function NavLink<T extends string>({
   active: boolean
   /** O plano que libera o item, quando o do estabelecimento não libera ("Pro"). */
   tag?: string | undefined
+  /** As pendências do sino que moram nesta seção (Aurora). Zero não aparece. */
+  count?: number | undefined
 }) {
   return (
     <Link
@@ -88,9 +91,16 @@ export function NavLink<T extends string>({
       prefetch={false}
       className={`nav-item ${active ? 'nav-item-active' : ''}`}
     >
-      <LinkSpinner className={`icon-tint ${tone}`}>{icon}</LinkSpinner>
+      {/* Aurora: o ícone mora num chip redondo do tom, e não solto. */}
+      <span className={`nav-chip ${tone}`}>
+        <LinkSpinner className="flex">{icon}</LinkSpinner>
+      </span>
       {titleCase(label)}
-      {tag && <span className="ml-auto text-xs font-medium text-subtle">{tag}</span>}
+      {tag ? (
+        <span className="ml-auto text-xs font-medium text-subtle">{tag}</span>
+      ) : count > 0 ? (
+        <span className="nav-count">{count > 99 ? '99+' : count}</span>
+      ) : null}
     </Link>
   )
 }

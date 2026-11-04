@@ -16,6 +16,8 @@ import { Atmosphere } from './atmosphere'
 import { NotificationsBell } from './notifications-bell'
 import {
   AlertTriangleIcon,
+  PlusIcon,
+  SearchIcon,
   BanknoteIcon,
   BellIcon,
   GlobeIcon,
@@ -271,6 +273,21 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
    * navegação gravava uma negação na trilha.
    */
   const pendencias = montarPendencias(await carregarPendencias(me))
+  /*
+   * O contador ao lado do item do menu (Aurora): a soma das pendências do sino cujo destino
+   * mora na seção do item. É a mesma contagem do sino, e não uma segunda — o menu só diz
+   * onde ela está.
+   */
+  const contadores = new Map<string, number>()
+  for (const p of pendencias) {
+    const secao = `/${String(p.href).split('?')[0]!.split('/')[1] ?? ''}`
+    contadores.set(secao, (contadores.get(secao) ?? 0) + p.count)
+  }
+  const itemsComContador = items.map((item) => ({
+    ...item,
+    count: contadores.get(`/${String(item.href).split('/')[1] ?? ''}`) ?? 0,
+  }))
+  const plano = me.currentTenant ? PLAN_CATALOG[me.currentTenant.plan].name : null
   const timezone = me.timezone ?? DEFAULT_TIMEZONE
 
   // Só quem está em TRIAL conta dias de teste. `trialEndsAt` não é zerado quando o
@@ -279,7 +296,6 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
   // "2 dias de teste" até o prazo antigo vencer. Quem manda é o status.
   const trialDaysLeft =
     me.currentTenant?.status === 'TRIAL' ? trialDaysLeftOf(me.currentTenant.trialEndsAt) : null
-  const roleLabel = roleLabelOf(me)
   const tenantName = me.currentTenant?.name ?? null
 
   // `--color-focus` chega de `/v1/me` como a cor de marca do tenant corrente
@@ -290,7 +306,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
     : undefined
 
   return (
-    <div className="flex min-h-[100svh] bg-surface" style={brandStyle}>
+    <div className="aurora-bg flex min-h-[100svh]" style={brandStyle}>
       {/*
        * Dentro do `brandStyle`, e não fora: a barra se pinta com `--color-focus`, que é
        * onde a cor de marca do tenant chega. Montada aqui, ela vale para todas as telas
@@ -298,10 +314,15 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
        */}
       <RouteProgress />
 
-      <Sidebar active={active} items={items} tenantName={tenantName} />
+      <Sidebar
+        active={active}
+        items={itemsComContador}
+        tenantName={tenantName}
+        user={{ name: me.user.fullName, detail: [tenantName, plano].filter(Boolean).join(' · ') }}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-line bg-surface/85 px-4 py-3 backdrop-blur sm:px-8">
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-4 bg-surface/60 px-4 py-4 backdrop-blur-xl sm:px-8">
           {/*
            * À esquerda, a saudação — em toda tela, não só no Início — e o que é da
            * conta: o prazo do teste e, para quem trabalha em mais de um estabelecimento,
@@ -312,9 +333,13 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
           <div className="flex min-w-0 items-center gap-3">
             {/* Abaixo de `lg` a lateral some e vira gaveta, aberta por este botão. */}
             <MobileNav>
-              <SidebarContent active={active} items={items} tenantName={tenantName} />
+              <SidebarContent active={active} items={itemsComContador} tenantName={tenantName} />
             </MobileNav>
-            <Saudacao name={me.user.fullName} timezone={timezone} asTitle={active === 'inicio'} />
+            {active === 'inicio' ? (
+              <SaudacaoGrande name={me.user.fullName} timezone={timezone} />
+            ) : (
+              <Saudacao name={me.user.fullName} timezone={timezone} asTitle={false} />
+            )}
             <TenantSwitcher
               memberships={me.memberships}
               currentSlug={me.currentTenant?.slug ?? null}
@@ -393,21 +418,26 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
               faria a linha sumir debaixo do cursor de quem ia clicar nela. Ela some
               na próxima navegação, que é quando o contador sempre se atualizou.
             */}
-            <NotificationsBell pendencias={pendencias} aoVer={marcarAgendamentosVistos} />
-            <div className="min-w-0 text-right leading-tight">
-              <p className="truncate text-sm font-medium">{me.user.fullName}</p>
-              {roleLabel && <p className="hint truncate">{roleLabel}</p>}
-            </div>
             {/*
-             * Avatar bem acima do padrão do Clerk (28px): a foto ocupa tudo que sobra
-             * dentro do anel de `.avatar-ring`, que só reserva os 3px da borda. Mexer
-             * neste tamanho sem mexer no padding de lá muda o diâmetro externo.
-             *
-             * `userButtonAvatarBox` além de `avatarBox`: os dois descritores caem no mesmo
-             * elemento, e só o específico vence a regra interna do widget. A `<img>` de
-             * dentro é 100% da caixa, então a foto cresce junto.
-             */}
-            <span className="avatar-ring">
+              A busca da Aurora: um formulário GET para a lista de tutores, que já busca por
+              nome, documento, telefone e pet (`?q=`). Sem JavaScript, e sem índice novo.
+            */}
+            <form action="/tutores" role="search" className="aurora-search hidden xl:flex">
+              <SearchIcon />
+              <input
+                name="q"
+                type="search"
+                placeholder="Buscar tutor, pet ou telefone"
+                aria-label="Buscar tutor, pet ou telefone"
+              />
+            </form>
+            <NotificationsBell pendencias={pendencias} aoVer={marcarAgendamentosVistos} />
+            {me.permissions.includes('schedule:write_all') && (
+              <ButtonLink href="/agenda/novo" icon={<PlusIcon />} className="hidden sm:inline-flex">
+                Marcar horário
+              </ButtonLink>
+            )}
+            <span className="avatar-ring lg:hidden">
               <UserButton
                 appearance={{
                   elements: {
@@ -554,8 +584,8 @@ function ContaAviso({ me }: { me: MeResponse }) {
 function ContaEncerrada() {
   return (
     <Alert tone="danger" icon={<AlertTriangleIcon />} title="Conta Encerrada" role="alert">
-      Este estabelecimento foi encerrado e o acesso aos dados está fechado. Para reabrir a
-      conta nos próximos dias, fale com a equipe PetShop AI.
+      Este estabelecimento foi encerrado e o acesso aos dados está fechado. Para reabrir a conta nos
+      próximos dias, fale com a equipe PetShop AI.
     </Alert>
   )
 }
@@ -579,6 +609,31 @@ function prazo(iso: string): string {
  * `truncate` no texto e não no bloco: o recorte precisa cair na frase, senão o aceno é a
  * primeira coisa que a faixa estreita corta.
  */
+/**
+ * A saudação do Início na Aurora: a data como olho-de-boi e o primeiro nome no degradê.
+ * É o título da página — o Início não tem `PageHeader`.
+ */
+function SaudacaoGrande({ name, timezone }: { name: string; timezone: string }) {
+  const data = new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: timezone,
+  })
+    .format(new Date())
+    // "quarta-feira, 4 de novembro" → "quarta, 4 de novembro": o olho-de-boi é curto.
+    .replace('-feira', '')
+  return (
+    <div className="hidden min-w-0 md:block">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-subtle">{data}</p>
+      <h1 className="mt-1 truncate text-[42px] font-light leading-[1.05] tracking-[-0.04em]">
+        {greetingFor(timezone)},{' '}
+        <span className="aurora-text font-semibold">{firstNameOf(name)}</span>
+      </h1>
+    </div>
+  )
+}
+
 function Saudacao({
   name,
   timezone,
@@ -645,27 +700,40 @@ function firstNameOf(fullName: string): string {
  * subir junto com ele. Escondido abaixo de `lg`, onde 260px de largura fixa comeriam
  * metade da tela — ali a mesma lista abre na gaveta de `MobileNav`.
  */
-function Sidebar(props: SidebarProps) {
+function Sidebar({ user, ...props }: SidebarProps & { user: { name: string; detail: string } }) {
   return (
-    <aside className="sticky top-0 hidden h-[100svh] w-[260px] shrink-0 flex-col border-r border-line px-4 py-5 lg:flex">
+    <aside className="aurora-side sticky top-4 m-4 mr-0 hidden h-[calc(100svh-2rem)] w-[260px] shrink-0 flex-col overflow-y-auto rounded-[32px] px-4 py-6 lg:flex">
       <SidebarContent {...props} />
+      {/* Quem está logado, no pé da lateral, como na Aurora aprovada. */}
+      <div className="mt-auto flex items-center gap-3 rounded-2xl bg-white/70 p-3 pt-3">
+        <span className="avatar-ring">
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: { width: '34px', height: '34px' },
+                userButtonAvatarBox: { width: '34px', height: '34px' },
+              },
+            }}
+          />
+        </span>
+        <div className="min-w-0 leading-tight">
+          <p className="truncate text-sm font-medium">{user.name}</p>
+          {user.detail && <p className="truncate text-xs text-subtle">{user.detail}</p>}
+        </div>
+      </div>
     </aside>
   )
 }
 
 interface SidebarProps {
   active: NavKey
-  items: Array<NavItem & { tag?: string | undefined }>
+  items: Array<NavItem & { tag?: string | undefined; count?: number }>
   /** Nome do estabelecimento aberto; `null` enquanto não há tenant resolvido. */
   tenantName: string | null
 }
 
 /** A marca e a lista — o miolo comum à lateral e à gaveta do celular. */
-function SidebarContent({
-  active,
-  items,
-  tenantName,
-}: SidebarProps) {
+function SidebarContent({ active, items, tenantName }: SidebarProps) {
   return (
     <>
       <Link
@@ -677,7 +745,7 @@ function SidebarContent({
         <Logo name={tenantName} />
       </Link>
 
-      <nav className="mt-8 flex flex-col gap-1 text-sm">
+      <nav className="mt-7 flex flex-col gap-1 text-sm">
         {items.map((item) => (
           // O tom não muda com o estado: azul é Agenda em repouso, em hover, ativa e
           // carregando. O que muda é o desenho — ver `NavLink`.
@@ -689,18 +757,12 @@ function SidebarContent({
             tone={item.tone}
             active={item.key === active}
             tag={item.tag}
+            count={item.count}
           />
         ))}
       </nav>
     </>
   )
-}
-
-/** Papel do usuário no tenant corrente; `null` se ele ainda não tem vínculo ativo. */
-function roleLabelOf(me: MeResponse): string | null {
-  const tenantId = me.currentTenant?.id
-  if (!tenantId) return null
-  return me.memberships.find((m) => m.tenantId === tenantId)?.roleLabel ?? null
 }
 
 /** Dias inteiros até o fim do teste, nunca negativo. Não decide se o selo aparece. */

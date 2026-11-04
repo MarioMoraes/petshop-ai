@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, KeyboardEvent, ReactNode } from 'react'
 import { titleCase } from '@petshop/shared-types'
-import { SpinnerIcon, type IconTone } from './icons'
+import { PawPrintIcon, SpinnerIcon, type IconTone } from './icons'
 import { titleCaseNode } from './title-case-node'
 
 /**
@@ -69,11 +69,17 @@ export function Card({
 export function Logo({ name }: { name?: string | null }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
-      <span className="relative flex h-6 w-9 shrink-0 items-center" aria-hidden="true">
-        <span className="absolute left-0 h-6 w-6 rounded-full bg-shell" />
-        <span className="absolute left-3.5 h-6 w-6 rounded-full bg-accent" />
+      {/* Aurora: o quadrado no degradê coral → violeta, com a pata. */}
+      <span className="aurora-mark" aria-hidden="true">
+        <PawPrintIcon />
       </span>
-      <span className="truncate font-semibold">{name || 'PetShop AI'}</span>
+      <span className="truncate text-lg font-semibold tracking-tight">
+        {name || (
+          <>
+            PetShop <span className="aurora-text">AI</span>
+          </>
+        )}
+      </span>
     </div>
   )
 }
@@ -157,7 +163,11 @@ export function StepProgress({
             role="listitem"
             aria-current={step === current ? 'step' : undefined}
             className={`h-1.5 flex-1 rounded-full transition-colors ${
-              step < current ? 'bg-shell' : step === current ? 'bg-accent' : 'bg-black/10'
+              step < current
+                ? 'bg-shell'
+                : step === current
+                  ? 'bg-[linear-gradient(90deg,var(--color-aurora-from),var(--color-aurora-to))]'
+                  : 'bg-black/10'
             }`}
           />
         ))}
@@ -166,6 +176,23 @@ export function StepProgress({
         Etapa {current} de {total} · {titles[current]}
       </p>
     </div>
+  )
+}
+
+/**
+ * Aurora: a última palavra do título no degradê ("Novo **Tutor**"), como na ficha
+ * aprovada. Só em texto puro; título montado à mão passa como veio.
+ */
+export function tituloAurora(node: ReactNode): ReactNode {
+  if (typeof node !== 'string') return node
+  const texto = titleCase(node)
+  const corte = texto.lastIndexOf(' ')
+  if (corte < 0) return <span className="aurora-text font-semibold">{texto}</span>
+  return (
+    <>
+      {texto.slice(0, corte + 1)}
+      <span className="aurora-text font-semibold">{texto.slice(corte + 1)}</span>
+    </>
   )
 }
 
@@ -184,8 +211,12 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        {eyebrow && <p className="hint">{eyebrow}</p>}
-        <h1 className="mt-1 text-3xl font-semibold leading-tight sm:text-4xl">{titulo(title)}</h1>
+        {eyebrow && (
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-subtle">{eyebrow}</p>
+        )}
+        <h1 className="mt-1 text-3xl font-light leading-[1.05] tracking-[-0.035em] sm:text-[42px]">
+          {tituloAurora(title)}
+        </h1>
         {subtitle && <p className="hint mt-2">{subtitle}</p>}
       </div>
       {actions && <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div>}

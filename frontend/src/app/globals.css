@@ -3,20 +3,21 @@
 /*
  * Sistema visual do Admin do PetShop AI.
  *
- * Extraído de `design/design-modelo.html`: neutros frios com um único acento quente,
- * tudo em pílula ou cartão, raios grandes e sombras que sugerem elevação em vez de
- * desenhá-la. Inter para o texto, Instrument Serif como voz de destaque.
+ * **Aurora** (2026-11-04, escolhida pelo usuário entre três direções): fundo lilás quase
+ * branco com luz coral, violeta e ciano; cartões de vidro claro; Sora no texto; a ação
+ * principal no degradê coral → violeta. Tudo em pílula ou cartão, raios grandes, e os
+ * tons de domínio dos ícones intactos. Instrument Serif continua só como acento.
  */
 
 @theme {
   /* Neutros frios */
-  --color-canvas: #ecedee;
+  --color-canvas: #efecf7;
   /*
    * Fundo da área de trabalho do Admin (o `bg-surface` da moldura). Era #f4f5f5; desde
    * 2026-10-05 é o slate quase branco da Imobiliária, para o cartão cinza ter onde
    * assentar — cartão cinza sobre fundo cinza do mesmo valor sumiria.
    */
-  --color-surface: #f8fafc;
+  --color-surface: #f6f4fb;
   /* Branco: campo, polegar do segmento, item ativo do menu. Não é mais o fundo do cartão. */
   --color-card: #ffffff;
   /*
@@ -24,11 +25,12 @@
    * 2026-10-05 entre quatro lado a lado). Vale para lista e ficha — o campo branco
    * se destaca sobre ele sem a ficha precisar de cor própria.
    */
-  --color-panel: #f1f3f6;
-  --color-panel-line: #e2e8f0;
-  --color-ink: #232427;
-  --color-ink-soft: #2e3034;
-  --color-muted: #4b4d52;
+  /* Aurora: vidro claro sobre a luz do fundo, com a aresta branca que recorta o vidro. */
+  --color-panel: rgb(255 255 255 / 0.66);
+  --color-panel-line: rgb(255 255 255 / 0.95);
+  --color-ink: #1b1530;
+  --color-ink-soft: #2a2244;
+  --color-muted: #4d4766;
   /*
    * Texto secundário: `.hint`, olho-de-boi, placeholder, rótulo de dado.
    *
@@ -40,9 +42,15 @@
    * canvas 4,62 · chip 5,05. Continua claramente mais claro que `--color-muted`,
    * então a hierarquia de três tons de texto não se achata.
    */
-  --color-subtle: #686a6f;
-  --color-line: #dfe0e2;
-  --color-shell: #171719;
+  /* #6a6484: 5,3:1 sobre branco e 4,9:1 sobre a surface — passa o AA como o anterior. */
+  --color-subtle: #6a6484;
+  --color-line: #e6e3ef;
+  --color-shell: #1b1530;
+
+  /* O degradê da Aurora: botão principal, interruptor ligado, barra de hoje. */
+  --color-aurora-from: #ff7a59;
+  --color-aurora-via: #c04cff;
+  --color-aurora-to: #7b5cff;
   /* Off-white morno dos chips de ícone e das pílulas de meta-informação. */
   --color-chip: #f7f7f5;
   /*
@@ -134,10 +142,10 @@
   --color-icon-system-ring: #d9dafc;
 
   /* As variáveis vêm do `next/font` no layout raiz. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
 
-  --radius-card: 24px;
+  --radius-card: 28px;
   --radius-shell: 40px;
 }
 
@@ -151,7 +159,7 @@
      * cor que escolheu. Fora do shell autenticado — login, onboarding, antes de a marca
      * existir — o acento padrão é a única opção sensata.
      */
-    --color-focus: var(--color-accent);
+    --color-focus: var(--color-aurora-to);
   }
 
   body {
@@ -175,7 +183,7 @@
     border-radius: var(--radius-shell);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 20px 60px -30px rgb(35 36 39 / 0.25);
+      0 20px 60px -30px rgb(27 21 48 / 0.25);
   }
 
   /*
@@ -187,13 +195,230 @@
    * cinza para tudo; quem faz o recorte agora é a aresta, porque cinza claro sobre
    * quase branco não tem contraste bastante sozinho.
    */
+  /*
+   * Aurora: o vidro é o branco translúcido com a aresta branca, sem `backdrop-filter` —
+   * o filtro cria bloco de contenção e prenderia todo `fixed` de dentro do cartão (a
+   * gaveta do celular já pagou isso uma vez). Sobre a luz do fundo o efeito é o mesmo.
+   */
   .card {
     background-color: var(--color-panel);
     border: 1px solid var(--color-panel-line);
     border-radius: var(--radius-card);
     box-shadow:
-      0 1px 2px rgb(15 23 42 / 0.04),
-      0 1px 3px rgb(15 23 42 / 0.06);
+      0 1px 0 rgb(255 255 255 / 0.9) inset,
+      0 20px 50px -28px rgb(80 50 160 / 0.32);
+  }
+
+  /*
+   * O fundo da Aurora: três luzes paradas sobre a surface, presas à janela para não
+   * esticarem com a página longa.
+   */
+  .aurora-bg {
+    background-color: var(--color-surface);
+    background-image:
+      radial-gradient(520px 420px at 12% 0%, rgb(255 122 89 / 0.22), rgb(246 244 251 / 0) 70%),
+      radial-gradient(640px 480px at 92% 0%, rgb(123 92 255 / 0.24), rgb(246 244 251 / 0) 70%),
+      radial-gradient(560px 440px at 60% 100%, rgb(19 169 196 / 0.14), rgb(246 244 251 / 0) 70%);
+    background-attachment: fixed;
+  }
+
+  /*
+   * O cartão de destaque do Início: tinta escura com uma luz coral → violeta no canto.
+   * Texto branco; o chip é vidro, e o ícone leva o tom do assunto clareado.
+   */
+  .stat-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-card);
+    color: #ffffff;
+    background-image: linear-gradient(150deg, #2a1d5c 0%, var(--color-shell) 100%);
+    box-shadow: 0 24px 50px -24px rgb(27 21 48 / 0.7);
+  }
+
+  .stat-hero::after {
+    content: '';
+    position: absolute;
+    top: -110px;
+    right: -80px;
+    width: 260px;
+    height: 260px;
+    border-radius: 9999px;
+    background: radial-gradient(
+      circle,
+      var(--color-aurora-from) 0%,
+      var(--color-aurora-to) 50%,
+      rgb(123 92 255 / 0) 70%
+    );
+    opacity: 0.55;
+    filter: blur(10px);
+    pointer-events: none;
+  }
+
+  /*
+   * O chip vira vidro branco sobre o escuro, mas o ícone **continua no tom do assunto**
+   * (regra dos ícones sempre coloridos): o tom claro do domínio, misturado com branco
+   * para se ler sobre a tinta.
+   */
+  .stat-hero .stat-hero-chip {
+    background-color: rgb(255 255 255 / 0.14);
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12) inset;
+    color: color-mix(in srgb, var(--icon, #ffffff) 45%, #ffffff);
+  }
+
+  .stat-hero-bar {
+    width: 100%;
+    max-width: 2.5rem;
+    border-radius: 9999px;
+    background-color: rgb(255 255 255 / 0.14);
+  }
+
+  .stat-hero-bar-today {
+    background-image: linear-gradient(180deg, var(--color-aurora-from), var(--color-aurora-to));
+    box-shadow: 0 10px 24px -6px rgb(123 92 255 / 0.7);
+  }
+
+  /* O chip redondo do ícone no menu, no tom do domínio; sobre a pílula ativa vira vidro. */
+  .nav-chip {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border-radius: 9999px;
+    color: var(--icon);
+    background-color: var(--icon-soft);
+  }
+
+  .nav-chip svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .nav-item-active .nav-chip {
+    background-color: rgb(255 255 255 / 0.14);
+    color: color-mix(in srgb, var(--icon) 40%, #ffffff);
+  }
+
+  .nav-count {
+    margin-left: auto;
+    min-width: 1.375rem;
+    border-radius: 9999px;
+    padding: 0.125rem 0.4375rem;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #ffffff;
+    background-color: var(--color-aurora-to);
+  }
+
+  .aurora-mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border-radius: 11px;
+    color: #ffffff;
+    background-image: linear-gradient(135deg, var(--color-aurora-from), var(--color-aurora-to));
+    box-shadow: 0 8px 18px -8px rgb(123 92 255 / 0.6);
+  }
+
+  .aurora-mark svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* As barras da semana no Início: pílula lilás, e o dia de hoje no degradê com brilho. */
+  .week-bar {
+    width: 100%;
+    max-width: 5.25rem;
+    border-radius: 9999px;
+    background-color: rgb(123 92 255 / 0.12);
+  }
+
+  .week-bar-today {
+    background-image: linear-gradient(180deg, var(--color-aurora-from), var(--color-aurora-to));
+    box-shadow: 0 10px 30px -6px rgb(123 92 255 / 0.55);
+  }
+
+  /* O chip redondo dos cartões do Início, no tom do domínio. */
+  .aurora-chip {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border-radius: 9999px;
+    color: var(--icon);
+    background-color: var(--icon-soft);
+  }
+
+  .aurora-chip svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  /* O do pet na lista é um quadrado macio, como a foto que um dia ocupará o lugar. */
+  .aurora-chip-pet {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+
+  /* O nome em degradê da saudação. */
+  .aurora-text {
+    background-image: linear-gradient(90deg, var(--color-aurora-from), var(--color-aurora-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* A busca em pílula de vidro do topo. */
+  .aurora-search {
+    align-items: center;
+    gap: 0.5rem;
+    width: 18rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    padding: 0 1rem;
+    color: var(--color-subtle);
+    background-color: rgb(255 255 255 / 0.7);
+    border: 1px solid rgb(255 255 255 / 0.95);
+    box-shadow: 0 10px 24px -18px rgb(80 50 160 / 0.4);
+  }
+
+  .aurora-search svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+
+  .aurora-search input {
+    min-width: 0;
+    flex: 1;
+    background: transparent;
+    font-size: 0.875rem;
+    color: var(--color-ink);
+    outline: none;
+  }
+
+  .aurora-search input::placeholder {
+    color: var(--color-subtle);
+  }
+
+  .aurora-search:focus-within {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--color-focus) 28%, transparent),
+      0 10px 24px -12px color-mix(in srgb, var(--color-focus) 45%, transparent);
+  }
+
+  /* A lateral flutuante de vidro. */
+  .aurora-side {
+    background-color: rgb(255 255 255 / 0.55);
+    border: 1px solid rgb(255 255 255 / 0.9);
+    box-shadow: 0 20px 50px -28px rgb(80 50 160 / 0.35);
+    backdrop-filter: blur(22px) saturate(1.4);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
   }
 
   /*
@@ -215,7 +440,7 @@
     border-color: #ffffff;
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 14px 30px -18px rgb(35 36 39 / 0.25);
+      0 14px 30px -18px rgb(27 21 48 / 0.25);
   }
 
   /*
@@ -252,13 +477,12 @@
     color: var(--color-ink);
   }
 
+  /* Aurora: o item ativo é a pílula escura; o chip do tom continua colorido sobre ela. */
   .nav-item-active,
   .nav-item-active:hover {
-    background-color: var(--color-card);
-    color: var(--color-ink);
-    box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 8px 18px -12px rgb(35 36 39 / 0.35);
+    background-color: var(--color-shell);
+    color: #ffffff;
+    box-shadow: 0 10px 24px -12px rgb(27 21 48 / 0.6);
   }
 
   /*
@@ -332,8 +556,8 @@
     transform: translateY(-1px);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 0 0 1px rgb(35 36 39 / 0.06),
-      0 12px 26px -12px rgb(35 36 39 / 0.5);
+      0 0 0 1px rgb(27 21 48 / 0.06),
+      0 12px 26px -12px rgb(27 21 48 / 0.5);
   }
 
   a.menu-row:hover::before,
@@ -351,7 +575,7 @@
   button.menu-row:active {
     transform: translateY(0);
     transition-duration: 0.06s;
-    box-shadow: 0 1px 4px -2px rgb(35 36 39 / 0.3);
+    box-shadow: 0 1px 4px -2px rgb(27 21 48 / 0.3);
   }
 
   /*
@@ -392,7 +616,7 @@
 
   .card-interactive:hover {
     transform: translateY(-0.25rem);
-    box-shadow: 0 24px 44px -18px rgb(35 36 39 / 0.3);
+    box-shadow: 0 24px 44px -18px rgb(27 21 48 / 0.3);
   }
 
   /*
@@ -471,8 +695,15 @@
    * 2×2 sem fio, porque um fio no meio de duas colunas estreitas corta mais do que
    * separa.
    */
+  /*
+   * Aurora: o topo da ficha (tutor, pet) ganha a luz violeta no canto, a mesma do cartão
+   * de destaque em versão clara — é o lugar da tela que diz de quem ela é.
+   */
   .record-hero {
     padding: 1.5rem;
+    background-image:
+      radial-gradient(420px 220px at 100% 0%, rgb(123 92 255 / 0.12), rgb(255 255 255 / 0) 70%),
+      radial-gradient(320px 200px at 0% 0%, rgb(255 122 89 / 0.08), rgb(255 255 255 / 0) 70%);
   }
 
   @media (min-width: 40rem) {
@@ -523,8 +754,8 @@
     overflow-x: auto;
     padding: 0.25rem;
     border-radius: 9999px;
-    background-color: rgb(35 36 39 / 0.05);
-    box-shadow: 0 0 0 1px rgb(35 36 39 / 0.05) inset;
+    background-color: rgb(27 21 48 / 0.05);
+    box-shadow: 0 0 0 1px rgb(27 21 48 / 0.05) inset;
     scrollbar-width: none;
   }
 
@@ -560,18 +791,22 @@
     outline-offset: 1px;
   }
 
+  /* Aurora: a aba ativa é a pílula escura do menu, e não mais o levante branco. */
   .tab[aria-selected='true'] {
-    background-color: var(--color-card);
-    color: var(--color-ink);
-    box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 6px 14px -8px rgb(35 36 39 / 0.45);
+    background-color: var(--color-shell);
+    color: #ffffff;
+    box-shadow: 0 10px 22px -12px rgb(27 21 48 / 0.6);
+  }
+
+  .tab[aria-selected='true'] .tab-count {
+    background-color: rgb(255 255 255 / 0.18);
+    color: #ffffff;
   }
 
   .tab-count {
     min-width: 1.25rem;
     border-radius: 9999px;
-    background-color: rgb(35 36 39 / 0.07);
+    background-color: rgb(27 21 48 / 0.07);
     padding: 0 0.375rem;
     text-align: center;
     font-size: 0.6875rem;
@@ -611,7 +846,7 @@
 
   .data-table th {
     padding: 0.75rem 1rem;
-    background-color: rgb(35 36 39 / 0.025);
+    background-color: rgb(27 21 48 / 0.025);
     border-bottom: 1px solid var(--color-line);
     text-align: left;
     white-space: nowrap;
@@ -647,12 +882,12 @@
   }
 
   .data-table tbody tr:hover {
-    background-color: rgb(35 36 39 / 0.025);
+    background-color: rgb(27 21 48 / 0.025);
   }
 
   .data-table tfoot td {
-    border-top: 1px solid rgb(35 36 39 / 0.18);
-    background-color: rgb(35 36 39 / 0.035);
+    border-top: 1px solid rgb(27 21 48 / 0.18);
+    background-color: rgb(27 21 48 / 0.035);
     font-weight: 600;
   }
 
@@ -813,14 +1048,14 @@
     align-items: center;
     gap: 0.375rem;
     border-radius: 9999px;
-    border: 1px solid rgb(35 36 39 / 0.08);
+    border: 1px solid rgb(27 21 48 / 0.08);
     background-color: var(--color-card);
     padding: 0.375rem 0.875rem;
     font-size: 0.8125rem;
     font-weight: 500;
     line-height: 1.25rem;
     color: var(--color-muted);
-    box-shadow: 0 4px 10px -8px rgb(35 36 39 / 0.3);
+    box-shadow: 0 4px 10px -8px rgb(27 21 48 / 0.3);
     transition:
       color 0.2s,
       border-color 0.2s,
@@ -834,7 +1069,7 @@
   }
 
   .filter-chip:hover {
-    border-color: rgb(35 36 39 / 0.16);
+    border-color: rgb(27 21 48 / 0.16);
     color: var(--color-ink);
   }
 
@@ -850,7 +1085,7 @@
     color: #ffffff;
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.12) inset,
-      0 6px 14px -8px rgb(35 36 39 / 0.6);
+      0 6px 14px -8px rgb(27 21 48 / 0.6);
   }
 
   /*
@@ -887,7 +1122,7 @@
   }
 
   .field-clear:hover {
-    background-color: rgb(35 36 39 / 0.06);
+    background-color: rgb(27 21 48 / 0.06);
     color: var(--color-ink);
   }
 
@@ -912,14 +1147,14 @@
     width: 2rem;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
+    border-radius: 16px;
     color: var(--icon, var(--color-subtle));
     transform: translateY(-50%);
     transition: background-color 0.2s;
   }
 
   .field-action:hover:not(:disabled) {
-    background-color: var(--icon-soft, rgb(35 36 39 / 0.06));
+    background-color: var(--icon-soft, rgb(27 21 48 / 0.06));
   }
 
   .field-action:disabled {
@@ -939,7 +1174,7 @@
     align-items: center;
     height: 2.25rem;
     border-radius: 12px;
-    border: 1px solid rgb(35 36 39 / 0.1);
+    border: 1px solid rgb(27 21 48 / 0.1);
     background-color: var(--color-card);
     box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset;
     transition: border-color 0.2s;
@@ -970,7 +1205,7 @@
   }
 
   .stepper-button:hover:not(:disabled) {
-    background-color: rgb(35 36 39 / 0.06);
+    background-color: rgb(27 21 48 / 0.06);
     color: var(--color-ink);
   }
 
@@ -982,7 +1217,7 @@
   .stepper-input {
     width: 3.5rem;
     height: 100%;
-    border-inline: 1px solid rgb(35 36 39 / 0.08);
+    border-inline: 1px solid rgb(27 21 48 / 0.08);
     background: transparent;
     text-align: center;
     font-size: 0.875rem;
@@ -1090,7 +1325,7 @@
     width: 3.5rem;
     border-radius: 1.125rem;
     box-shadow:
-      0 0 0 1px var(--icon-ring, rgb(35 36 39 / 0.06)) inset,
+      0 0 0 1px var(--icon-ring, rgb(27 21 48 / 0.06)) inset,
       0 0 0 8px color-mix(in srgb, var(--icon-soft, var(--color-chip)) 70%, transparent);
   }
 
@@ -1199,22 +1434,27 @@
     transform: translateX(140%);
   }
 
+  /* Aurora: a ação principal no degradê coral → violeta, com a sombra violeta. */
   .btn-primary {
-    background-image: linear-gradient(180deg, #2c2d31 0%, var(--color-shell) 62%);
+    background-image: linear-gradient(
+      135deg,
+      var(--color-aurora-from) 0%,
+      var(--color-aurora-via) 55%,
+      var(--color-aurora-to) 100%
+    );
     color: #ffffff;
+    font-weight: 600;
     box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.14) inset,
-      0 -1px 0 rgb(0 0 0 / 0.5) inset,
-      0 8px 20px -10px rgb(23 23 25 / 0.65);
+      0 1px 0 rgb(255 255 255 / 0.3) inset,
+      0 12px 28px -12px rgb(123 92 255 / 0.65);
   }
 
   .btn-primary:hover:not(:disabled) {
     transform: translateY(-1px);
-    filter: brightness(1.14);
+    filter: brightness(1.06) saturate(1.08);
     box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.2) inset,
-      0 -1px 0 rgb(0 0 0 / 0.5) inset,
-      0 14px 28px -12px rgb(23 23 25 / 0.75);
+      0 1px 0 rgb(255 255 255 / 0.3) inset,
+      0 16px 32px -12px rgb(123 92 255 / 0.75);
   }
 
   /*
@@ -1275,13 +1515,13 @@
     transform: translateY(-1px);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 8px 18px -10px rgb(35 36 39 / 0.3);
+      0 8px 18px -10px rgb(27 21 48 / 0.3);
   }
 
   .btn-ghost:active:not(:disabled) {
     transform: translateY(0);
     transition-duration: 0.06s;
-    box-shadow: 0 1px 4px -2px rgb(35 36 39 / 0.3);
+    box-shadow: 0 1px 4px -2px rgb(27 21 48 / 0.3);
   }
 
   /*
@@ -1406,7 +1646,7 @@
     position: relative;
     overflow: hidden;
     border-radius: 8px;
-    background-color: rgb(35 36 39 / 0.07);
+    background-color: rgb(27 21 48 / 0.07);
   }
 
   .skeleton::after {
@@ -1464,15 +1704,15 @@
      * fica na sombra e as laterais apenas insinuam a espessura — o mesmo truque que
      * dá corpo ao botão, de cabeça para baixo.
      */
-    border: 1px solid var(--color-panel-line);
-    border-top-color: #d5dbe3;
+    border: 1px solid rgb(27 21 48 / 0.08);
+    border-top-color: rgb(27 21 48 / 0.1);
     background-color: var(--color-card);
     padding: 0.75rem 1rem;
     font-size: 0.9375rem;
     color: var(--color-ink);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 8px 20px -14px rgb(35 36 39 / 0.25);
+      0 8px 20px -14px rgb(27 21 48 / 0.25);
     transition:
       border-color 0.2s,
       box-shadow 0.2s;
@@ -1488,8 +1728,9 @@
     outline: none;
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 8px 20px -14px rgb(35 36 39 / 0.25),
-      0 0 0 3px color-mix(in srgb, var(--color-focus) 20%, transparent);
+      0 8px 20px -14px rgb(27 21 48 / 0.25),
+      0 0 0 3px color-mix(in srgb, var(--color-focus) 28%, transparent),
+      0 10px 24px -12px color-mix(in srgb, var(--color-focus) 45%, transparent);
   }
 
   .field:disabled {
@@ -1505,7 +1746,7 @@
   .field[aria-invalid='true']:focus {
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 8px 20px -14px rgb(35 36 39 / 0.25),
+      0 8px 20px -14px rgb(27 21 48 / 0.25),
       0 0 0 3px color-mix(in srgb, var(--color-danger) 20%, transparent);
   }
 
@@ -1690,7 +1931,7 @@
     background-color: var(--color-card);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 4px 10px -8px rgb(35 36 39 / 0.5);
+      0 4px 10px -8px rgb(27 21 48 / 0.5);
     cursor: pointer;
     transition:
       background-color 0.18s,
@@ -1719,7 +1960,8 @@
 
   .check:checked {
     background-color: var(--color-focus);
-    border-color: var(--color-focus);
+    background-image: linear-gradient(135deg, var(--color-aurora-from), var(--color-aurora-to));
+    border-color: transparent;
   }
 
   .check:checked::after {
@@ -1789,7 +2031,7 @@
      * passa a mudar o preenchimento de um objeto que já estava lá, que é o que de
      * fato acontece.
      */
-    border: 1px solid rgb(35 36 39 / 0.07);
+    border: 1px solid rgb(27 21 48 / 0.07);
     padding: 0.75rem 0.875rem;
     cursor: pointer;
     transition:
@@ -1813,7 +2055,7 @@
    */
   .option:hover {
     background-color: rgb(255 255 255 / 0.55);
-    border-color: rgb(35 36 39 / 0.12);
+    border-color: rgb(27 21 48 / 0.12);
   }
 
   /*
@@ -1828,10 +2070,10 @@
    */
   .option:has(.check:checked) {
     background-color: var(--color-card);
-    border-color: rgb(35 36 39 / 0.09);
+    border-color: rgb(27 21 48 / 0.09);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 6px 14px -10px rgb(35 36 39 / 0.35);
+      0 6px 14px -10px rgb(27 21 48 / 0.35);
   }
 
   /* O foco do teclado precisa aparecer na linha, não só nos 20px da caixa. */
@@ -1849,7 +2091,7 @@
   .option-disabled:hover {
     cursor: not-allowed;
     background-color: transparent;
-    border-color: rgb(35 36 39 / 0.07);
+    border-color: rgb(27 21 48 / 0.07);
     opacity: 0.6;
   }
 
@@ -1894,8 +2136,8 @@
     grid-auto-columns: 1fr;
     padding: 0.25rem;
     border-radius: 9999px;
-    background-color: rgb(35 36 39 / 0.05);
-    box-shadow: 0 0 0 1px rgb(35 36 39 / 0.05) inset;
+    background-color: rgb(27 21 48 / 0.05);
+    box-shadow: 0 0 0 1px rgb(27 21 48 / 0.05) inset;
   }
 
   .segment-thumb {
@@ -1907,7 +2149,7 @@
     background-color: var(--color-card);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 6px 14px -8px rgb(35 36 39 / 0.45);
+      0 6px 14px -8px rgb(27 21 48 / 0.45);
     transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
     pointer-events: none;
   }
@@ -2013,7 +2255,7 @@
   .field:hover:not(:disabled):not(:focus) {
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 10px 24px -14px rgb(35 36 39 / 0.35);
+      0 10px 24px -14px rgb(27 21 48 / 0.35);
   }
 
   /* O ícone do seletor de data nativo chega no azul do sistema; em escala de
@@ -2060,12 +2302,13 @@
     gap: 0.75rem;
     border-radius: 9999px;
     padding: 0.625rem 0.75rem;
-    background-color: color-mix(in srgb, var(--color-surface) 80%, transparent);
-    backdrop-filter: blur(14px) saturate(1.5);
+    background-color: rgb(255 255 255 / 0.7);
+    border: 1px solid rgb(255 255 255 / 0.95);
+    backdrop-filter: blur(22px) saturate(1.4);
     -webkit-backdrop-filter: blur(14px) saturate(1.5);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.75) inset,
-      0 12px 30px -18px rgb(35 36 39 / 0.4);
+      0 12px 30px -18px rgb(27 21 48 / 0.4);
   }
 
   /*
@@ -2162,11 +2405,12 @@
     max-height: 88svh;
     background-color: var(--color-card);
     border: 1px solid #ffffff;
+    /* Aurora: a sombra longa puxa para o violeta, como a dos cartões. */
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 2px 4px -2px rgb(35 36 39 / 0.16),
-      0 18px 36px -16px rgb(35 36 39 / 0.24),
-      0 48px 90px -40px rgb(35 36 39 / 0.45);
+      0 2px 4px -2px rgb(27 21 48 / 0.16),
+      0 18px 36px -16px rgb(80 50 160 / 0.24),
+      0 48px 90px -40px rgb(80 50 160 / 0.4);
   }
 
   /*
@@ -2252,7 +2496,7 @@
 
   .dialog-panel-stacked {
     z-index: 71;
-    border-color: rgb(35 36 39 / 0.1);
+    border-color: rgb(27 21 48 / 0.1);
     box-shadow:
       0 2px 4px -2px rgb(23 23 25 / 0.2),
       0 24px 48px -18px rgb(23 23 25 / 0.4),
@@ -2276,7 +2520,7 @@
 
   /* Branco sobre branco não acende: no hover, quem responde é a aresta e a sombra. */
   .dialog-panel-stacked .dialog-body .option:hover:not(:disabled) {
-    border-color: rgb(35 36 39 / 0.2);
+    border-color: rgb(27 21 48 / 0.2);
     box-shadow: 0 6px 16px -10px rgb(23 23 25 / 0.3);
   }
 
@@ -2411,7 +2655,7 @@
     border: 1px solid #ffffff;
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 14px 30px -18px rgb(35 36 39 / 0.25);
+      0 14px 30px -18px rgb(27 21 48 / 0.25);
   }
 
   /*
@@ -2504,7 +2748,7 @@
     position: absolute;
     left: 0;
     right: 0;
-    background-color: rgb(35 36 39 / 0.045);
+    background-color: rgb(27 21 48 / 0.045);
   }
 
   /*
@@ -2521,8 +2765,8 @@
     border-radius: 10px;
     background-image: repeating-linear-gradient(
       -45deg,
-      rgb(35 36 39 / 0.07) 0 6px,
-      rgb(35 36 39 / 0) 6px 12px
+      rgb(27 21 48 / 0.07) 0 6px,
+      rgb(27 21 48 / 0) 6px 12px
     );
     border: 1px solid color-mix(in srgb, var(--color-line) 80%, transparent);
     overflow: hidden;
@@ -2592,7 +2836,7 @@
     background-color: var(--color-card);
     border: 1px solid var(--color-line);
     border-left: 3px solid var(--color-line);
-    box-shadow: 0 6px 14px -10px rgb(35 36 39 / 0.5);
+    box-shadow: 0 6px 14px -10px rgb(27 21 48 / 0.5);
     transition:
       transform 0.18s,
       box-shadow 0.18s,
@@ -2602,7 +2846,7 @@
   .timeline-event:hover {
     z-index: 5;
     transform: translateY(-1px);
-    box-shadow: 0 12px 24px -12px rgb(35 36 39 / 0.55);
+    box-shadow: 0 12px 24px -12px rgb(27 21 48 / 0.55);
   }
 
   .timeline-event:focus-visible {
@@ -2649,7 +2893,7 @@
   .meter {
     height: 0.25rem;
     border-radius: 9999px;
-    background-color: rgb(35 36 39 / 0.08);
+    background-color: rgb(27 21 48 / 0.08);
     overflow: hidden;
   }
 
@@ -2698,7 +2942,7 @@
     color: var(--color-ink);
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.9) inset,
-      0 8px 18px -12px rgb(35 36 39 / 0.35);
+      0 8px 18px -12px rgb(27 21 48 / 0.35);
   }
 
   .day-pill-weekday {
@@ -2806,10 +3050,11 @@
 
 @layer components {
   .mural {
-    --mural-bg: #0d0e11;
-    --mural-fg: #f1f2f5;
-    --mural-muted: #a0a5b0;
-    --mural-subtle: #6a6f7a;
+    /* Aurora (2026-11-04): a tinta violeta escura do cartão de destaque, em vez do preto. */
+    --mural-bg: #110c22;
+    --mural-fg: #f4f1fb;
+    --mural-muted: #b0a8c8;
+    --mural-subtle: #7c7396;
     --mural-line: rgb(255 255 255 / 0.08);
     --mural-line-forte: rgb(255 255 255 / 0.16);
     --mural-vidro: rgb(255 255 255 / 0.035);
@@ -2830,7 +3075,7 @@
    * O clarão de fundo.
    *
    * Duas manchas radiais muito fracas atrás de tudo, nas cores que a tela já usa —
-   * o acento quente à esquerda, o azul da agenda à direita. Sem elas o preto de
+   * o coral à esquerda, o violeta da Aurora à direita. Sem elas o escuro de
    * 1920px lê como tela desligada; com elas, como material. Sobre fundo branco a
    * mesma técnica vira sujeira (é o que `.bloom` já tinha aprendido), e é por isso
    * que ela só aparece aqui.
@@ -2842,9 +3087,9 @@
     z-index: 0;
     pointer-events: none;
     background-image:
-      radial-gradient(62% 46% at 12% -6%, rgb(255 106 77 / 0.14), transparent 68%),
-      radial-gradient(54% 42% at 88% -4%, rgb(70 111 189 / 0.2), transparent 70%),
-      radial-gradient(80% 60% at 50% 112%, rgb(63 191 131 / 0.07), transparent 72%);
+      radial-gradient(62% 46% at 12% -6%, rgb(255 122 89 / 0.2), transparent 68%),
+      radial-gradient(54% 42% at 88% -4%, rgb(123 92 255 / 0.3), transparent 70%),
+      radial-gradient(80% 60% at 50% 112%, rgb(19 169 196 / 0.12), transparent 72%);
   }
 
   .mural > * {
