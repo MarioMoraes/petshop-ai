@@ -27,12 +27,12 @@ class Config {
   /// API sai dela.
   ///
   /// **Tem de ser a mesma instância do backend**, ou todo login vira 401 depois de a
-  /// Clerk dizer que deu certo. Hoje a VPS e o `pnpm dev` compartilham esta:
-  /// `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` no `.env` e no `.env.production`. No dia em
-  /// que a produção passar para uma `pk_live_`, **o app precisa de build nova** — a
+  /// Clerk dizer que deu certo. Desde 2026-11-03 a VPS usa a instância Production (`pk_live_`), e é ela o padrão;
+  /// contra o `pnpm dev`, passe a `pk_test_` do `.env` por `--dart-define`. Trocar de
+  /// instância **exige build nova** do app — a
   /// chave está aqui dentro, não no ambiente do container.
   static const clerkPublishableKey = String.fromEnvironment(
     'CLERK_PUBLISHABLE_KEY',
-    defaultValue: 'pk_test_bWFnaWNhbC1sZW9wYXJkLTI1ODAuY2xlcmsuYWNjb3VudHMuZGV2JA',
+    defaultValue: 'pk_live_Y2xlcmsub2ZmaWNlc3RlY25vbG9naWEuY29tLmJyJA',
   );
 }
