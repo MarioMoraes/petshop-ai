@@ -41,7 +41,9 @@ export function StepPlan({
 
   return (
     <Card>
-      <h1 className="text-2xl font-semibold sm:text-3xl">Escolha Seu Plano</h1>
+      <h1 className="text-3xl font-light leading-[1.1] tracking-[-0.035em] sm:text-[38px]">
+        Escolha Seu <span className="aurora-text font-semibold">Plano</span>
+      </h1>
       <p className="hint mt-2">
         Você tem 14 dias de teste. Nada é cobrado agora, e dá para trocar de plano depois.
       </p>

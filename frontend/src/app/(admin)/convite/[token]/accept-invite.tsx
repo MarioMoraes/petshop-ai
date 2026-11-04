@@ -50,7 +50,9 @@ export function AcceptInvite({ token, preview }: { token: string; preview: Invit
     return (
       <div className="card px-6 py-10 text-center">
         <EnsureActiveOrganization slug={aceito.tenantSlug} redirectTo="/dashboard" />
-        <h1 className="text-xl font-semibold">Tudo Certo, Bem-vindo!</h1>
+        <h1 className="text-3xl font-light leading-[1.1] tracking-[-0.035em] sm:text-[38px]">
+          Tudo Certo, <span className="aurora-text font-semibold">Bem-vindo!</span>
+        </h1>
         <p className="hint mt-3">
           Você agora faz parte do {aceito.tenantName} como {aceito.roleLabel}. Entrando…
         </p>
@@ -61,7 +63,7 @@ export function AcceptInvite({ token, preview }: { token: string; preview: Invit
   return (
     <div className="card px-6 py-10">
       <p className="hint text-center">Convite de equipe</p>
-      <h1 className="mt-2 text-center text-2xl font-semibold leading-tight">
+      <h1 className="mt-2 text-center text-3xl font-light leading-[1.1] tracking-[-0.035em]">
         {titleCase(`Você foi convidado para trabalhar no ${preview.tenantName}`)}
       </h1>
 

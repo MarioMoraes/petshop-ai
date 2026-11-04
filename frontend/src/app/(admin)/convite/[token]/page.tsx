@@ -72,7 +72,9 @@ function ConviteIndisponivel({
 }) {
   return (
     <div className="card px-6 py-10 text-center">
-      <h1 className="text-xl font-semibold">Convite Indisponível</h1>
+      <h1 className="text-3xl font-light leading-[1.1] tracking-[-0.035em] sm:text-[38px]">
+        Convite <span className="aurora-text font-semibold">Indisponível</span>
+      </h1>
       <p className="hint mt-3">{motivo}</p>
       <p className="hint mt-3">
         Peça um convite novo a quem administra {tenantName ? `o ${tenantName}` : 'o petshop'} — o

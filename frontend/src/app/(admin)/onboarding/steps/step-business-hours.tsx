@@ -106,7 +106,9 @@ export function StepBusinessHours(props: Props) {
 
   return (
     <Card>
-      <h1 className="text-2xl font-semibold sm:text-3xl">Como Seu Petshop Funciona</h1>
+      <h1 className="text-3xl font-light leading-[1.1] tracking-[-0.035em] sm:text-[38px]">
+        Como Seu Petshop <span className="aurora-text font-semibold">Funciona</span>
+      </h1>
       <p className="hint mt-2">
         A agenda usa esses horários para oferecer os encaixes disponíveis aos tutores.
       </p>
