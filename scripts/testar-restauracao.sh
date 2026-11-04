@@ -75,14 +75,15 @@ printf '    %-40s %10s %10s\n' tabela produção backup
 LC_ALL=C join -t'|' -a1 -e AUSENTE -o 0,1.2,2.2 "$work/prod.txt" "$work/rest.txt" | while IFS='|' read -r t p r; do
   marca=""
   if [ "$r" = AUSENTE ]; then marca="  ← FALTA NO BACKUP"
-  elif [ "$p" -gt 0 ] && [ "$r" -eq 0 ]; then marca="  ← VAZIA NO BACKUP"
+  elif [ "$p" -ge 10 ] && [ "$r" -eq 0 ]; then marca="  ← VAZIA NO BACKUP"
+  elif [ "$p" -gt 0 ] && [ "$r" -eq 0 ]; then marca="  (vazia no backup: poucas linhas, devem ser posteriores ao dump)"
   elif [ "$p" != "$r" ]; then marca="  (mudou desde o dump)"
   fi
-  [ -n "$marca" ] && printf '    %-40s %10s %10s%s\n' "$t" "$p" "$r" "$marca"
+  if [ -n "$marca" ]; then printf '    %-40s %10s %10s%s\n' "$t" "$p" "$r" "$marca"; fi
 done
 tabelas=$(wc -l < "$work/prod.txt")
 graves=$(LC_ALL=C join -t'|' -a1 -e AUSENTE -o 0,1.2,2.2 "$work/prod.txt" "$work/rest.txt" \
-  | awk -F'|' '$3=="AUSENTE" || ($2>0 && $3==0)' | wc -l)
+  | awk -F'|' '$3=="AUSENTE" || ($2>=10 && $3==0)' | wc -l)
 
 pol() { docker exec "$PG" psql -U postgres -d "$1" -Atc "select count(*) from pg_policies where schemaname='public'"; }
 pp=$(pol petshop); pr=$(pol "$TEST_DB")
