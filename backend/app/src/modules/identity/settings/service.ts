@@ -1,6 +1,7 @@
 import { withTenant, type TenantSettings as TenantSettingsRow } from '@petshop/db'
 import {
   BrandingSchema,
+  withoutUnsafeLogo,
   BusinessHoursSchema,
   DEFAULT_BRANDING,
   DEFAULT_TIMEZONE,
@@ -222,7 +223,7 @@ function addressColumns(patch: UpdateTenantSettingsInput): Record<string, string
 }
 
 function parseBranding(value: unknown): Branding {
-  const parsed = BrandingSchema.safeParse(value)
+  const parsed = BrandingSchema.safeParse(withoutUnsafeLogo(value))
   return parsed.success ? parsed.data : { primaryColor: '#E34A32' }
 }
 

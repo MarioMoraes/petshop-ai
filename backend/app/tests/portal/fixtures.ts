@@ -155,7 +155,7 @@ export async function givenTenant(options: TenantOptions = {}): Promise<TenantFi
       settings: {
         create: {
           timezone: 'America/Sao_Paulo',
-          branding: { primaryColor: '#2E7D32', logoUrl: 'https://cdn/logo.png' },
+          branding: { primaryColor: '#2E7D32', logoUrl: 'https://cdn.exemplo.com.br/logo.png' },
           businessHours: {
             monday: { closed: false, opensAt: '08:00', closesAt: '18:00' },
           },

@@ -6,6 +6,7 @@ import {
   type Plan,
   type PortalDirectoryEntry,
   type PortalDirectoryResponse,
+  safeLogoUrl,
 } from '@petshop/shared-types'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../../shared/redis.js'
 import { withinRate } from './rate-limit.js'
@@ -48,7 +49,7 @@ function toEntry(row: { slug: string; name: string; branding: unknown }): Portal
   return {
     slug: row.slug,
     name: row.name,
-    logoUrl: typeof branding.logoUrl === 'string' ? branding.logoUrl : null,
+    logoUrl: safeLogoUrl(branding.logoUrl),
     brandColor: typeof branding.primaryColor === 'string' ? branding.primaryColor : null,
   }
 }

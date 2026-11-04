@@ -114,6 +114,13 @@ services:
 
   gotenberg:
     image: gotenberg/gotenberg:8
+    # O Chromium daqui está na rede interna: sem esta lista, uma <img> no HTML do PDF
+    # alcançaria `http://backend:3000` ou o Postgres. Só https público e o próprio HTML
+    # (que o Gotenberg grava em /tmp). O schema do logo já recusa o resto; esta é a
+    # segunda camada, para qualquer URL que um template venha a interpolar.
+    command:
+      - gotenberg
+      - '--chromium-deny-list=^(?!https://|file:///tmp/).*'
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'curl', '--silent', '--fail', 'http://localhost:3000/health']

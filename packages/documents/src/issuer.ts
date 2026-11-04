@@ -1,4 +1,5 @@
 import type { TenantTransaction } from '@petshop/db'
+import { safeLogoUrl } from '@petshop/shared-types'
 import type { DocumentAddress, DocumentIssuer } from './layout.js'
 
 /**
@@ -81,7 +82,7 @@ export async function loadIssuer(
       cnpj: null,
       address,
       phone: settings?.publicPhone ?? null,
-      logoUrl: branding.logoUrl ?? null,
+      logoUrl: safeLogoUrl(branding.logoUrl),
       primaryColor: branding.primaryColor ?? null,
     },
     // O endereço **não é cifrado** — é comercial, e o MOD-SITE existe para publicá-lo.

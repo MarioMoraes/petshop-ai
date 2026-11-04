@@ -39,7 +39,7 @@ describe('catálogo de estabelecimentos', () => {
     expect(entrada).toEqual({
       slug: tenant.slug,
       name: 'Petshop Amarillys',
-      logoUrl: 'https://cdn/logo.png',
+      logoUrl: 'https://cdn.exemplo.com.br/logo.png',
       brandColor: '#2E7D32',
     })
     // Nada de operação e nada de pessoa: a fachada é o contrato.

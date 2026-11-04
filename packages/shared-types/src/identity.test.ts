@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BrandingSchema,
   BusinessHoursSchema,
+  isSafeLogoUrl,
+  safeLogoUrl,
+  withoutUnsafeLogo,
   CreateTenantSchema,
   DEFAULT_BUSINESS_HOURS,
   OnboardingStepSchema,
@@ -171,5 +175,39 @@ describe('matriz de permissões (MOD-IDENT-04)', () => {
 
   it('define permissões para os 8 papéis do PRD', () => {
     expect(Object.keys(ROLE_PERMISSIONS)).toHaveLength(8)
+  })
+})
+
+describe('logo do estabelecimento (SSRF no PDF)', () => {
+  it.each([
+    'https://cdn.exemplo.com.br/logo.png',
+    'https://pub-abc.r2.dev/tenants/x/logo.webp',
+  ])('aceita https público: %s', (url) => {
+    expect(isSafeLogoUrl(url)).toBe(true)
+    expect(BrandingSchema.safeParse({ logoUrl: url, primaryColor: '#E34A32' }).success).toBe(true)
+  })
+
+  it.each([
+    'http://cdn.exemplo.com.br/logo.png',
+    'https://backend:3000/v1/me',
+    'https://localhost/logo.png',
+    'https://127.0.0.1/logo.png',
+    'https://169.254.169.254/latest/meta-data',
+    'https://[::1]/logo.png',
+    'https://gotenberg.internal/x',
+    'https://user:senha@cdn.exemplo.com/logo.png',
+    'file:///etc/passwd',
+    'javascript:alert(1)',
+  ])('recusa %s', (url) => {
+    expect(isSafeLogoUrl(url)).toBe(false)
+    expect(BrandingSchema.safeParse({ logoUrl: url, primaryColor: '#E34A32' }).success).toBe(false)
+  })
+
+  it('a leitura tira o logo antigo e preserva a cor', () => {
+    const lido = BrandingSchema.parse(
+      withoutUnsafeLogo({ logoUrl: 'http://backend:3000/x', primaryColor: '#112233' }),
+    )
+    expect(lido).toEqual({ primaryColor: '#112233' })
+    expect(safeLogoUrl('http://backend:3000/x')).toBeNull()
   })
 })

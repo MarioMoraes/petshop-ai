@@ -197,8 +197,49 @@ export const DEFAULT_BUSINESS_HOURS: BusinessHours = {
   sunday: { closed: true, opensAt: '08:00', closesAt: '13:00' },
 }
 
+/**
+ * O logo é buscado por quem **renderiza**: o Chromium do Gotenberg no PDF, o cliente de
+ * e-mail e o navegador do tutor. No PDF, quem busca está dentro da rede interna — uma URL
+ * `http://backend:3000/...` faria o servidor chamar a si mesmo (SSRF). Por isso só
+ * `https:` num nome de host público: sem IP literal, sem `localhost`, sem nome de uma
+ * palavra só (que é como os serviços se chamam no Compose/Swarm).
+ */
+export function isSafeLogoUrl(value: string): boolean {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) return false
+  const host = url.hostname.toLowerCase()
+  if (!host.includes('.') || host.endsWith('.')) return false
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false
+  if (host.endsWith('.internal')) return false
+  if (/^[\d.]+$/.test(host) || host.startsWith('[')) return false
+  return true
+}
+
+/** Para os leitores do JSONB cru: valor antigo que não passa vira "sem logo". */
+export function safeLogoUrl(value: unknown): string | null {
+  return typeof value === 'string' && isSafeLogoUrl(value) ? value : null
+}
+
+/**
+ * O JSONB de `branding` antes do `safeParse` da leitura: tira o logo que a regra nova
+ * recusa, para que um valor gravado antes dela não derrube a cor junto.
+ */
+export function withoutUnsafeLogo(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || !('logoUrl' in value)) return value
+  const { logoUrl, ...rest } = value as Record<string, unknown>
+  return safeLogoUrl(logoUrl) ? value : rest
+}
+
 export const BrandingSchema = z.object({
-  logoUrl: z.url().optional(),
+  logoUrl: z
+    .url()
+    .refine(isSafeLogoUrl, 'Use um endereço https público para o logo')
+    .optional(),
   primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use uma cor no formato #RRGGBB'),
   secondaryColor: z
     .string()

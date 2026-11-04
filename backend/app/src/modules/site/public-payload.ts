@@ -1,6 +1,7 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
 import {
   BrandingSchema,
+  withoutUnsafeLogo,
   BusinessHoursSchema,
   DEFAULT_BRANDING,
   DEFAULT_BUSINESS_HOURS,
@@ -89,7 +90,7 @@ function toAddress(row: SettingsRow): TenantAddress | null {
  * com 500. Cair no padrão é pior que o valor certo e melhor que uma página fora do ar.
  */
 function toBranding(value: unknown): Branding {
-  const parsed = BrandingSchema.safeParse(value)
+  const parsed = BrandingSchema.safeParse(withoutUnsafeLogo(value))
   return parsed.success ? parsed.data : DEFAULT_BRANDING
 }
 

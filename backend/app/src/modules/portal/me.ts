@@ -1,5 +1,6 @@
 import { withTenant, type TenantTransaction } from '@petshop/db'
 import type { PortalContextResponse, PortalTenantResponse } from '@petshop/shared-types'
+import { safeLogoUrl } from '@petshop/shared-types'
 import { notFound } from './errors.js'
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cacheGet, cacheSet } from '../../shared/redis.js'
 
@@ -111,7 +112,7 @@ export async function readPortalTenant(tenantId: string): Promise<PortalTenantRe
     return {
       name: tenant.name,
       slug: tenant.slug,
-      logoUrl: typeof branding.logoUrl === 'string' ? branding.logoUrl : null,
+      logoUrl: safeLogoUrl(branding.logoUrl),
       brandColor: typeof branding.primaryColor === 'string' ? branding.primaryColor : null,
       portalEnabled: settings.portalEnabled,
     } satisfies PortalTenantResponse
