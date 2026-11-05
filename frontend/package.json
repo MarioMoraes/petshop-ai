@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "dotenv -e ../.env -- next dev --port 3002",
+    "dev": "dotenv -e ../.env -v NODE_OPTIONS=--max-old-space-size=6144 -- next dev --port 3002",
     "build": "NEXT_DIST_DIR=.next-build dotenv -e ../.env -- next build",
     "start": "NEXT_DIST_DIR=.next-build next start --port 3002",
     "typecheck": "NEXT_DIST_DIR=.next-build next typegen && tsc -p tsconfig.json --noEmit",
