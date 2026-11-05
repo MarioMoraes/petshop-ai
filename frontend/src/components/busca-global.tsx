@@ -157,7 +157,7 @@ export function BuscaGlobal() {
       {open && q.trim().length >= 2 && (
         <div
           role="listbox"
-          className="card absolute right-0 top-[calc(100%+8px)] z-30 max-h-[70svh] w-[22rem] overflow-y-auto p-2"
+          className="absolute right-0 rounded-2xl border border-line bg-white shadow-[0_18px_40px_-16px_rgb(27_21_48/0.28)] top-[calc(100%+8px)] z-30 max-h-[70svh] w-[22rem] overflow-y-auto p-2"
         >
           {error && (
             <p className="px-3 py-4 text-sm text-subtle">A busca não respondeu. Tente de novo.</p>

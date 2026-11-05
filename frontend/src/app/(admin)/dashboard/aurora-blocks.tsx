@@ -229,9 +229,11 @@ export function AgendaCard({ horarios }: { horarios: HorarioDeHoje[] }) {
         tone="icon-time"
         title="Agenda de Hoje"
         aside={
-          <Link href="/mural" className="hover:text-ink">
+          // Noutra aba, como o atalho da Agenda: o mural fica aberto na TV da recepção
+          // e o Início continua onde estava.
+          <a href="/mural" target="_blank" rel="noopener" className="hover:text-ink">
             Ver Mural →
-          </Link>
+          </a>
         }
       />
       {horarios.length === 0 ? (
