@@ -106,26 +106,18 @@ interface NavItem {
    * o que fazer; fica quem não tem o plano, porque há — e a tela explica o quê.
    */
   feature?: PlanFeature
-  /**
-   * O bloco do menu. O eixo é o de sempre — de dentro para fora, do cadastro ao
-   * público —, só que agora dito na tela: doze linhas soltas liam como uma lista sem
-   * ordem, e o rótulo do bloco é o que faz o olho achar o item sem ler todos.
-   */
-  group?: NavGroup
 }
-
-type NavGroup = 'Cadastros' | 'Operação' | 'Gestão' | 'Divulgação' | 'Sistema'
 
 const NAV: NavItem[] = [
   { key: 'inicio', href: '/dashboard', label: 'Início', icon: <HomeIcon />, tone: 'icon-brand' },
-  { key: 'tutores', group: 'Cadastros', href: '/tutores', label: 'Tutores', icon: <UsersIcon />, tone: 'icon-people' },
-  { key: 'pets', group: 'Cadastros', href: '/pets', label: 'Pets', icon: <PawPrintIcon />, tone: 'icon-pet' },
+  { key: 'tutores', href: '/tutores', label: 'Tutores', icon: <UsersIcon />, tone: 'icon-people' },
+  { key: 'pets', href: '/pets', label: 'Pets', icon: <PawPrintIcon />, tone: 'icon-pet' },
   {
     // Fecha o bloco de cadastro — tutores, pets, equipe: as três listas de **quem** o
     // sistema conhece, antes de o menu passar ao que se faz com eles. E fora de
     // Configurações porque é gente, não ajuste: quem abre este menu pensando em
     // "adicionar a Ana" não procuraria dentro de um item chamado Configurações.
-    key: 'equipe', group: 'Cadastros',
+    key: 'equipe',
     href: '/equipe',
     label: 'Equipe',
     icon: <IdCardIcon />,
@@ -135,7 +127,7 @@ const NAV: NavItem[] = [
   {
     // A visão do dia é o destino: é a tela que a recepção abre de manhã e mantém
     // aberta. Serviços e profissionais são configuração, visitada de vez em quando.
-    key: 'agenda', group: 'Operação',
+    key: 'agenda',
     href: '/agenda/dia',
     label: 'Agenda',
     icon: <CalendarIcon />,
@@ -150,7 +142,7 @@ const NAV: NavItem[] = [
     // faz leva-e-traz ainda vê o item — a permissão existe, o módulo é que está
     // desligado (RN-22) — e a própria tela explica como ligar. É melhor que esconder
     // um recurso que o cliente comprou e não encontra.
-    key: 'taxi', group: 'Operação',
+    key: 'taxi',
     href: '/taxi',
     label: 'Taxi Dog',
     icon: <VanIcon />,
@@ -167,7 +159,7 @@ const NAV: NavItem[] = [
     // O gate é `finance:read`, que a recepção e o administrador têm; cada aba lá dentro
     // pede a sua (`finance:configure` nos relatórios de cobrança, `cash:read` nos do
     // caixa).
-    key: 'financeiro', group: 'Gestão',
+    key: 'financeiro',
     href: '/financeiro',
     label: 'Financeiro',
     icon: <WalletIcon />,
@@ -180,7 +172,7 @@ const NAV: NavItem[] = [
     // que a recepção mantém aberta o dia todo: um clique a mais nela é um clique a mais
     // em cada venda. O gate é `cash:read`, da recepção e do administrador; quem dá banho
     // não abre gaveta. Recurso do Pro, como o estoque cuja venda avulsa ele recebe.
-    key: 'caixa', group: 'Gestão',
+    key: 'caixa',
     href: '/caixa',
     label: 'Caixa',
     icon: <BanknoteIcon />,
@@ -192,7 +184,7 @@ const NAV: NavItem[] = [
     // Fecha o bloco do dinheiro: o estoque é custo parado na prateleira, e a venda do
     // balcão cai na conta corrente do tutor. O gate é `inventory:read`, que toda a
     // equipe que atende tem — quem dá banho precisa saber se o shampoo acabou.
-    key: 'estoque', group: 'Gestão',
+    key: 'estoque',
     href: '/estoque',
     label: 'Estoque',
     icon: <PackageIcon />,
@@ -209,7 +201,7 @@ const NAV: NavItem[] = [
     //
     // O gate é `crm:read`, que a recepção também tem — ela precisa saber se o lembrete
     // chegou antes de pegar o telefone, e é essa pergunta que traz alguém a esta tela.
-    key: 'mensagens', group: 'Divulgação',
+    key: 'mensagens',
     href: '/crm',
     label: 'Mensagens',
     icon: <BellIcon />,
@@ -224,7 +216,7 @@ const NAV: NavItem[] = [
     // O gate é `site:read_leads`, e não `site:manage`: a recepção trabalha o contato
     // que chegou pelo formulário sem poder publicar ou tirar a página do ar. A tela
     // se abre no que cada papel pode fazer.
-    key: 'site', group: 'Divulgação',
+    key: 'site',
     href: '/site',
     label: 'Site',
     icon: <GlobeIcon />,
@@ -233,7 +225,7 @@ const NAV: NavItem[] = [
     feature: 'SITE',
   },
   {
-    key: 'configuracoes', group: 'Sistema',
+    key: 'configuracoes',
     href: '/configuracoes',
     label: 'Configurações',
     icon: <SettingsIcon />,
@@ -326,7 +318,10 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
         active={active}
         items={itemsComContador}
         tenantName={tenantName}
-        user={{ name: firstNameOf(me.user.fullName), detail: [tenantName, plano].filter(Boolean).join(' · ') }}
+        user={{
+          name: firstNameOf(me.user.fullName),
+          detail: [tenantName, plano].filter(Boolean).join(' · '),
+        }}
       />
 
       {/*
@@ -436,7 +431,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
               A busca da Aurora: um formulário GET para a lista de tutores, que já busca por
               nome, documento, telefone e pet (`?q=`). Sem JavaScript, e sem índice novo.
             */}
-<BuscaGlobal />
+            <BuscaGlobal />
             <NotificationsBell pendencias={pendencias} aoVer={marcarAgendamentosVistos} />
             {me.permissions.includes('schedule:write_all') && (
               <ButtonLink href="/agenda/novo" icon={<PlusIcon />} className="hidden sm:inline-flex">
@@ -517,7 +512,8 @@ function MfaAviso({ mfa }: { mfa: MeResponse['mfa'] }) {
             continua liberada. Clique no seu avatar,{' '}
             {/* O avatar mora no pé da lateral em tela larga e no topo no celular. */}
             <span className="hidden lg:inline">no pé do menu lateral</span>
-            <span className="lg:hidden">no canto superior direito</span>, e ative a verificação em duas etapas.
+            <span className="lg:hidden">no canto superior direito</span>, e ative a verificação em
+            duas etapas.
           </>
         ) : (
           <>
@@ -755,12 +751,7 @@ function SidebarContent({ active, items, tenantName }: SidebarProps) {
       </Link>
 
       <nav className="mt-5 flex flex-col gap-0.5 text-sm">
-        {items.map((item, i) => [
-          // Entre blocos, só um respiro de 8px: o rótulo escrito custava uma linha
-          // por bloco e empurrava o menu para a barra de rolagem.
-          item.group && i > 0 && item.group !== items[i - 1]?.group && (
-            <span key={`g-${item.group}`} aria-hidden className="h-2" />
-          ),
+        {items.map((item) => (
           // O tom não muda com o estado: azul é Agenda em repouso, em hover, ativa e
           // carregando. O que muda é o desenho — ver `NavLink`.
           <NavLink
@@ -772,8 +763,8 @@ function SidebarContent({ active, items, tenantName }: SidebarProps) {
             active={item.key === active}
             tag={item.tag}
             count={item.count}
-          />,
-        ])}
+          />
+        ))}
       </nav>
     </>
   )
