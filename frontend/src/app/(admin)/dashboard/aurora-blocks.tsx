@@ -105,10 +105,10 @@ export function KpiCard({
       >
         {label}
       </p>
-      <p className="relative z-10 mt-1 text-4xl font-light leading-none tracking-[-0.03em] tabular-nums">
-        {prefix && <span className="mr-0.5 text-lg font-normal opacity-60">{prefix}</span>}
+      <p className="relative z-10 mt-1 text-[24px] font-light leading-none tracking-[-0.03em] tabular-nums">
+        {prefix && <span className="mr-0.5 text-sm font-normal opacity-60">{prefix}</span>}
         {value}
-        {unit && <span className="ml-0.5 text-lg font-normal opacity-60">{unit}</span>}
+        {unit && <span className="ml-0.5 text-sm font-normal opacity-60">{unit}</span>}
       </p>
       {spark && spark.length > 1 && <Sparkline values={spark} />}
     </Link>

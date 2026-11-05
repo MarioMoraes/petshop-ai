@@ -5,13 +5,11 @@ import {
   formatBRL,
   todayIn,
   type FinanceIndicators,
-  type OverdueVaccinesReport,
 } from '@petshop/shared-types'
 import {
   HandCoinsDuoIcon,
   BillClockDuoIcon,
   PawDuoIcon,
-  SyringeDuoIcon,
   AlarmClockDuoIcon,
   CalendarIcon,
   PawPrintIcon,
@@ -58,8 +56,8 @@ import { minutosNoFuso } from '@/lib/agenda-dia'
  * 2026-10-07, os pets com alerta crítico, os cadastros completos, quem aceita WhatsApp e
  * os clientes com pacote — a faixa ficou com tutores e pets.
  *
- * **Todo cartão tem o mesmo tamanho** (`STAT_SHAPE` e `STAT_GRID`): 280 por 224px — a
- * proporção do cartão de referência, em escala maior —, em qualquer faixa.
+ * **Todo cartão tem o mesmo tamanho** (`STAT_SHAPE` e `STAT_GRID`): o do "Atendimentos de hoje" —
+ * quatro por linha, 148px de altura —, em qualquer faixa (2026-11-05).
  *
  * **O cartão não tem dica.** Até 2026-10-07 cada número vinha com uma frase embaixo — os
  * inativos, a média de pets por tutor, a forma de pagamento que mais entrou, a multa de
@@ -132,7 +130,6 @@ export default async function DashboardPage() {
     receivables,
     cashflow,
     finance,
-    vaccines,
     dayView,
     agentStats,
     birthdays,
@@ -163,13 +160,6 @@ export default async function DashboardPage() {
     can('finance:configure')
       ? serverApi()
           .getFinanceIndicators({ days: REPORT_DAYS })
-          .catch(() => null)
-      : Promise.resolve(null),
-    // A contagem da casa inteira é leitura de gestão, como a rota diz: a recepção e o
-    // veterinário a têm, o banhista e o motorista não.
-    can('record:read_summary')
-      ? serverApi()
-          .getOverdueVaccines()
           .catch(() => null)
       : Promise.resolve(null),
     // A agenda de hoje (Aurora): a mesma leitura do quadro da Agenda, sob a mesma permissão.
@@ -256,10 +246,6 @@ export default async function DashboardPage() {
     })
   }
 
-  if (vaccines) {
-    fluxo.push(overdueVaccinesCard(vaccines))
-  }
-
   const base: Stat[] = [
     {
       label: 'Tutores',
@@ -276,7 +262,10 @@ export default async function DashboardPage() {
       href: '/pets',
     },
   ]
-  const financeStats = financeCards(finance)
+  // Uma faixa só de dinheiro (2026-11-05, a pedido do usuário): o fluxo do dia e o
+  // olhar dos 30 dias lado a lado. As vacinas atrasadas saíram do Início junto — a
+  // lista em PDF continua em `/dashboard/vacinas-atrasadas`, só sem cartão que a abra.
+  const financeStats = [...fluxo, ...financeCards(finance)]
 
   return (
     <>
@@ -344,7 +333,6 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-10">
-        {fluxo.length > 0 && <StatSection title="Financeiro do dia" stats={fluxo} />}
         {financeStats.length > 0 && <StatSection title="Financeiro" stats={financeStats} />}
         <StatSection title="Sua base" stats={base} />
       </div>
@@ -373,33 +361,19 @@ function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
           const body = (
             <>
               <div className="flex flex-1 flex-col">
-                {/*
-                  O molde do cartão de número (2026-10-07): o ícone grande no alto, e no
-                  pé o rótulo e, logo embaixo, o valor na cor do assunto — o tom do chip
-                  pinta o valor também, então dinheiro é verde e agenda é a cor da agenda.
-                  O vermelho da dívida vencida passa por cima do tom, porque é estado e
-                  não assunto. Sem valor, "Sem registros" em cinza, no lugar do traço.
-
-                  O rótulo é uma palavra ou duas, e cabe numa linha; o resto do
-                  que o número quer dizer vai **no valor** ("R$ 450,00 hoje", "12 em 7
-                  dias"), como no cartão de referência ("Amamentação" / "há 7h"). Rótulo
-                  de três palavras quebrava em duas linhas e espremia o cartão.
-                */}
-                <span className={`icon-chip icon-chip-lg ${stat.iconTone}`}>{stat.icon}</span>
-                <div className="mt-auto pt-3">
-                  <p className="text-base font-semibold leading-snug sm:text-xl">{stat.label}</p>
-                  <p
-                    className={`mt-0.5 text-sm font-semibold tabular-nums sm:text-lg ${
-                      stat.value === null
-                        ? 'text-subtle'
-                        : stat.tone === 'danger'
-                          ? 'text-danger'
-                          : `${stat.iconTone} text-[var(--icon)]`
-                    }`}
-                  >
-                    {stat.value ?? 'Sem registros'}
-                  </p>
-                </div>
+                {/* Desde 2026-11-05 o texto é o do `KpiCard` de cima: rótulo pequeno em
+                    cinza e o número grande e fino, para as faixas lerem como uma só. */}
+                <span className={`aurora-chip ${stat.iconTone}`}>{stat.icon}</span>
+                <p className="mt-auto pt-4 text-[13px] font-medium text-subtle">{stat.label}</p>
+                <p
+                  className={`relative z-10 mt-1 whitespace-nowrap font-light leading-none tracking-[-0.03em] tabular-nums ${
+                    stat.value === null
+                      ? 'text-xl text-subtle'
+                      : `text-[24px] ${stat.tone === 'danger' ? 'text-danger' : ''}`
+                  }`}
+                >
+                  <StatValue value={stat.value} />
+                </p>
               </div>
             </>
           )
@@ -413,7 +387,7 @@ function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
                 href={stat.document}
                 target="_blank"
                 rel="noopener"
-                className={`card card-interactive flex flex-col p-4 sm:p-6 ${STAT_SHAPE}`}
+                className={`card card-interactive flex flex-col p-5 ${STAT_SHAPE}`}
               >
                 {body}
               </a>
@@ -423,12 +397,12 @@ function StatSection({ title, stats }: { title: string; stats: Stat[] }) {
             <Link
               key={stat.label}
               href={stat.href}
-              className={`card card-interactive flex flex-col p-4 sm:p-6 ${STAT_SHAPE}`}
+              className={`card card-interactive flex flex-col p-5 ${STAT_SHAPE}`}
             >
               {body}
             </Link>
           ) : (
-            <div key={stat.label} className={`card flex flex-col p-4 sm:p-6 ${STAT_SHAPE}`}>
+            <div key={stat.label} className={`card flex flex-col p-5 ${STAT_SHAPE}`}>
               {body}
             </div>
           )
@@ -469,28 +443,23 @@ function financeCards(finance: FinanceIndicators | null): Stat[] {
 }
 
 /**
- * Pets com vacina atrasada — o indicador que esperava o dado existir, e que voltou como
- * cartão quando a carteira de vacinação (MOD-PRONT-08) passou a gravar a próxima dose.
- *
- * Está no Movimento, e não em "Sua base", pelo mesmo motivo do "Em aberto": é número para
- * agir hoje — ligar para o tutor —, e não cadastro. Conta **pets**, e não doses: quem liga
- * liga uma vez, ainda que o pet deva duas vacinas. A regra do que é atrasada é a da
- * carteira, decidida no servidor.
- *
- * O clique abre a lista em PDF numa aba nova — pet, tutor, telefone e as vacinas que ele
- * deve —, a pedido do usuário em 2026-10-09: é a folha de quem vai ligar. Com zero pets
- * não há o que abrir, e o cartão fica parado.
+ * O valor no molde do `KpiCard`: só o número grande, e o "R$" e a palavra que o
+ * acompanha ("hoje", "ativos", "sem uso") menores e apagados ao lado. Com tudo no
+ * mesmo corpo de 36px, "R$ 1.234,56 hoje" quebrava em duas linhas no cartão de um
+ * quarto de largura.
  */
-function overdueVaccinesCard(report: OverdueVaccinesReport): Stat {
-  return {
-    label: 'Vacinas atrasadas',
-    value: `${report.pets.toLocaleString('pt-BR')} ${report.pets === 1 ? 'pet' : 'pets'}`,
-    icon: <SyringeDuoIcon />,
-    iconTone: 'icon-pet',
-    ...(report.pets > 0
-      ? { tone: 'danger' as const, document: '/dashboard/vacinas-atrasadas' as const }
-      : {}),
-  }
+function StatValue({ value }: { value: string | null }) {
+  if (value === null) return <>Sem registros</>
+  const m = /^(R\$\s)?([\d.,]+)\s*(.*)$/.exec(value)
+  if (!m) return <>{value}</>
+  const [, prefix, number, unit] = m
+  return (
+    <>
+      {prefix && <span className="mr-1 text-sm font-normal opacity-60">R$</span>}
+      {number}
+      {unit && <span className="ml-1 text-sm font-normal opacity-60">{unit}</span>}
+    </>
+  )
 }
 
 /** Total de uma listagem paginada, ou `null` se o serviço não respondeu. */

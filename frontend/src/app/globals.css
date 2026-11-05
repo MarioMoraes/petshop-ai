@@ -281,8 +281,8 @@
   .nav-chip {
     display: grid;
     place-items: center;
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
     flex: none;
     border-radius: 9999px;
     color: var(--icon);
@@ -413,6 +413,19 @@
   }
 
   /* A lateral flutuante de vidro. */
+  /* O painel do conteúdo: a lateral sem o desfoque (ver app-shell). `clip`, e não
+     `hidden`, para o raio recortar sem virar contêiner de rolagem — o que soltaria o
+     cabeçalho `sticky`. Só do `lg` em diante, onde a lateral existe. */
+  @media (min-width: 1024px) {
+    .aurora-panel {
+      background-color: rgb(255 255 255 / 0.45);
+      border: 1px solid rgb(255 255 255 / 0.9);
+      border-radius: 32px;
+      box-shadow: 0 20px 50px -28px rgb(80 50 160 / 0.35);
+      overflow: clip;
+    }
+  }
+
   .aurora-side {
     background-color: rgb(255 255 255 / 0.55);
     border: 1px solid rgb(255 255 255 / 0.9);
@@ -463,8 +476,8 @@
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    border-radius: 14px;
-    padding: 0.625rem 0.75rem;
+    border-radius: 12px;
+    padding: 0.375rem 0.75rem;
     font-weight: 500;
     color: var(--color-muted);
     transition:
@@ -2972,48 +2985,13 @@
     background-color: var(--color-accent);
   }
 
-  /*
-   * Anel do avatar do usuário logado, na topbar. Medido da referência que o usuário
-   * mandou: uma cor em quase toda a volta e um arco claro sobre o topo — é gradiente
-   * cônico, não linear. Um linear clarearia o lado inteiro; na referência o lado
-   * esquerdo e o de baixo continuam cheios e só a hora do relógio entre 11h e 2h abre.
-   *
-   * A cor não é a da referência: é `--color-focus`, a cor principal do tenant
-   * (Configurações → Identidade visual → "Ou informe a cor exata"), que o `AppShell`
-   * põe na raiz. O anel acompanha a marca do estabelecimento como já fazem o foco dos
-   * campos e os botões.
-   *
-   * `--ring-glow` é o arco claro, derivado da mesma cor em vez de fixo. Na referência
-   * ele não é só um tom mais claro do azul: é mais claro, menos saturado e girado uns
-   * 28° no matiz — por isso o `oklch(from ...)`, que reproduz os três de uma vez em
-   * qualquer marca. O `color-mix` antes dele é o que sobra num navegador sem cor
-   * relativa: perde o giro de matiz, mantém o clareado, e o anel continua de pé.
-   *
-   * A referência tem uma folga entre o anel e a foto; aqui não. O anel encosta na
-   * foto de propósito — num avatar deste tamanho a folga virava um fio claro que lia
-   * como falha de alinhamento, não como respiro. Sem ela a foto ficou com os 6px que
-   * a folga ocupava, e o conjunto externo continua nos mesmos 44px.
-   */
+  /* 2026-11-05, a pedido do usuário: o anel na cor do sistema saiu. Fica um fio cinza
+     claro de 1px em volta da foto, sem o gradiente da marca. */
   .avatar-ring {
-    --ring-glow: color-mix(in oklab, var(--color-focus) 60%, #ffffff);
-
     display: inline-flex;
-    padding: 3px;
+    padding: 1px;
     border-radius: 9999px;
-    background: conic-gradient(
-      from 20deg,
-      var(--ring-glow) 0deg,
-      var(--ring-glow) 35deg,
-      var(--color-focus) 80deg,
-      var(--color-focus) 310deg,
-      var(--ring-glow) 360deg
-    );
-  }
-
-  @supports (color: oklch(from red l c h)) {
-    .avatar-ring {
-      --ring-glow: oklch(from var(--color-focus) calc(l + 0.13) calc(c - 0.06) calc(h + 28));
-    }
+    background-color: #e5e7eb;
   }
 
   @media (prefers-reduced-motion: reduce) {

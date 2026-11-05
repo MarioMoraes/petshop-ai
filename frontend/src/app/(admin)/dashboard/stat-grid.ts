@@ -13,7 +13,7 @@
  * Mora fora de `page.tsx` porque página do Next só exporta o que o framework reconhece, e
  * o `loading.tsx` precisa do mesmo tamanho para não trocá-lo quando os dados chegam.
  */
-export const STAT_SHAPE = 'min-h-36 sm:min-h-56'
+export const STAT_SHAPE = 'min-h-[148px]'
 
 /**
  * A grade das faixas: duas colunas no celular e, a partir de `sm`, quantas colunas de
@@ -23,4 +23,4 @@ export const STAT_SHAPE = 'min-h-36 sm:min-h-56'
  * no tamanho de referência em qualquer monitor. As faixas ficam encostadas à esquerda,
  * cada uma com o número de cartões que tem.
  */
-export const STAT_GRID = 'grid grid-cols-2 gap-4 sm:grid-cols-[repeat(auto-fill,17.5rem)]'
+export const STAT_GRID = 'grid gap-[18px] sm:grid-cols-2 xl:grid-cols-4'

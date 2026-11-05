@@ -62,6 +62,16 @@ export function classifyQuery(raw: string | undefined): QueryShape {
   return { kind: 'text', value: term }
 }
 
+/**
+ * O padrão de "contém" para o `ILIKE`: a busca acha por **pedaço** do nome ("ari" acha
+ * a Maria), que o full-text não faz — ele casa palavra inteira, e o trigram só passa do
+ * limiar com metade do nome digitada. `%`, `_` e `\\` do texto viram literais, para quem
+ * digita "50%" não receber a base inteira.
+ */
+function containsPattern(value: string): string {
+  return `%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+}
+
 interface CountRow {
   total: bigint
 }
@@ -133,6 +143,7 @@ function buildWhere(query: ListPetsQuery, shape: QueryShape): Prisma.Sql {
       conditions.push(Prisma.sql`(
         p."search_vector" @@ websearch_to_tsquery('portuguese', unaccent(${shape.value}))
         OR p."name" % ${shape.value}
+        OR unaccent(p."name") ILIKE unaccent(${containsPattern(shape.value)})
         OR EXISTS (
           SELECT 1 FROM "pet_tutors" pt
           JOIN "tutors" t ON t."id" = pt."tutor_id"
