@@ -1,0 +1,1428 @@
+{
+  "ok": false,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 12,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "composition_file_too_large",
+        "severity": "warning",
+        "message": "This HTML composition file has 607 lines. Smaller sub-compositions are easier to read, iterate on, and diff.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Split coherent scenes or layers into separate .html files under compositions/, then mount them from the parent with data-composition-src so each file stays small enough to inspect, revise, and validate independently."
+      },
+      {
+        "code": "timeline_track_too_dense",
+        "severity": "warning",
+        "message": "Track 2 has 10 timed elements in this HTML file. Smaller sub-compositions keep timelines easier to read, iterate on, and diff.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move coherent scene groups into separate .html files under compositions/ and mount them from the parent with data-composition-src so the timeline stays easier to inspect, revise, and validate."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s1\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s1",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s1\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s2\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s2",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s2\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s3\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s3",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s3\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s4\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s4",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s4\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s5\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s5",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s5\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s6\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s6",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s6\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s7\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s7",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s7\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s8\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s8",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s8\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s9\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s9",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s9\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section id=\"s10\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s10",
+        "dataAttributes": {},
+        "sourceFile": "/Users/mariomoraes/Documents/Projetos-IA/petshop/marketing/reel-recursos/index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section id=\"s10\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      }
+    ],
+    "filesScanned": 1
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": false,
+    "errorCount": 3,
+    "warningCount": 0,
+    "infoCount": 3,
+    "findings": [
+      {
+        "code": "content_overlap",
+        "severity": "error",
+        "time": 7.917,
+        "selector": "#s2 > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(2)",
+        "message": "Two text blocks overlap and may render unreadable.",
+        "rect": {
+          "left": 70,
+          "top": 438,
+          "right": 683.42,
+          "bottom": 694.11,
+          "width": 613.42,
+          "height": 256.11
+        },
+        "containerSelector": "#ch-wa",
+        "text": "do jeito do cliente.",
+        "fixHint": "Give each block its own zone, or put data-layout-allow-overlap on the text or on a container inside the scene. A marker on the scene root does not apply.",
+        "dataAttributes": {
+          "data-hf-id": "hf-jjzz"
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 70,
+          "y": 438,
+          "width": 613.42,
+          "height": 256.11
+        },
+        "firstSeen": 4.246,
+        "lastSeen": 8.226,
+        "occurrences": 17,
+        "heldMs": 3980.0000000000005,
+        "times": [
+          4.246,
+          4.511,
+          4.777,
+          5.042,
+          5.307,
+          5.573,
+          5.838,
+          6.103,
+          6.369,
+          6.634,
+          6.899,
+          7.165,
+          7.43,
+          7.696,
+          7.917,
+          7.961,
+          8.226
+        ]
+      },
+      {
+        "code": "text_occluded",
+        "severity": "error",
+        "time": 18.472,
+        "selector": "#s4 > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(2)",
+        "message": "Text is hidden beneath an opaque element.",
+        "rect": {
+          "left": 70,
+          "top": 438,
+          "right": 630.34,
+          "bottom": 694.11,
+          "width": 560.34,
+          "height": 256.11
+        },
+        "containerSelector": "#s4-card",
+        "text": "com a sua história.",
+        "fixHint": "Give the text its own zone, raise its stacking order above the covering element, or mark intentional layering with data-layout-allow-occlusion.",
+        "coveredFraction": 0.17,
+        "lifetime": {
+          "start": 14.5,
+          "end": 20
+        },
+        "dataAttributes": {
+          "data-hf-id": "hf-wpdy"
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 70,
+          "y": 438,
+          "width": 560.34,
+          "height": 256.11
+        },
+        "firstSeen": 18.472,
+        "lastSeen": 18.472,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          18.472
+        ]
+      },
+      {
+        "code": "text_occluded",
+        "severity": "error",
+        "time": 23.75,
+        "selector": "#s5 > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(2)",
+        "message": "Text is hidden beneath an opaque element.",
+        "rect": {
+          "left": 70,
+          "top": 438,
+          "right": 828.02,
+          "bottom": 694.11,
+          "width": 758.02,
+          "height": 256.11
+        },
+        "containerSelector": "#s5-card",
+        "text": "conferido em segundos.",
+        "fixHint": "Give the text its own zone, raise its stacking order above the covering element, or mark intentional layering with data-layout-allow-occlusion.",
+        "coveredFraction": 0.17,
+        "lifetime": {
+          "start": 20,
+          "end": 24.5
+        },
+        "dataAttributes": {
+          "data-hf-id": "hf-nizb"
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 70,
+          "y": 438,
+          "width": 758.02,
+          "height": 256.11
+        },
+        "firstSeen": 23.75,
+        "lastSeen": 23.75,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          23.75
+        ]
+      },
+      {
+        "code": "content_overlap",
+        "severity": "info",
+        "time": 5.042,
+        "selector": "#s2-card > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)",
+        "message": "Two text blocks overlap and may render unreadable.",
+        "rect": {
+          "left": 100,
+          "top": 824,
+          "right": 388.52,
+          "bottom": 880,
+          "width": 288.52,
+          "height": 56
+        },
+        "containerSelector": "#s2-board > div:nth-of-type(11) > b:nth-of-type(1)",
+        "text": "Sábado, 11/10",
+        "fixHint": "Give each block its own zone, or put data-layout-allow-overlap on the text or on a container inside the scene. A marker on the scene root does not apply.",
+        "dataAttributes": {
+          "data-hf-id": "hf-ktoh"
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 100,
+          "y": 824,
+          "width": 288.52,
+          "height": 56
+        },
+        "firstSeen": 5.042,
+        "lastSeen": 5.042,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          5.042
+        ]
+      },
+      {
+        "code": "content_overlap",
+        "severity": "info",
+        "time": 5.838,
+        "selector": "#s2-board > div:nth-of-type(11) > span:nth-of-type(1)",
+        "message": "Two text blocks overlap and may render unreadable.",
+        "rect": {
+          "left": 215,
+          "top": 974.5,
+          "right": 359.95,
+          "bottom": 1000.5,
+          "width": 144.95,
+          "height": 26
+        },
+        "containerSelector": "#s2-board > div:nth-of-type(13) > b:nth-of-type(1)",
+        "text": "09:00 · Bruno",
+        "fixHint": "Give each block its own zone, or put data-layout-allow-overlap on the text or on a container inside the scene. A marker on the scene root does not apply.",
+        "dataAttributes": {
+          "data-hf-id": "hf-vah5"
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 215,
+          "y": 974.5,
+          "width": 144.95,
+          "height": 26
+        },
+        "firstSeen": 5.838,
+        "lastSeen": 5.838,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          5.838
+        ]
+      },
+      {
+        "code": "content_overlap",
+        "severity": "info",
+        "time": 16.718,
+        "selector": "div.vac.tone-pet > div:nth-of-type(1) > span:nth-of-type(1)",
+        "message": "Two text blocks overlap and may render unreadable.",
+        "rect": {
+          "left": 100,
+          "top": 1066,
+          "right": 436.45,
+          "bottom": 1096,
+          "width": 336.45,
+          "height": 30
+        },
+        "containerSelector": "#pane-1 > div:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(1)",
+        "text": "Gosta de petisco, tem medo de secador",
+        "fixHint": "Give each block its own zone, or put data-layout-allow-overlap on the text or on a container inside the scene. A marker on the scene root does not apply.",
+        "dataAttributes": {
+          "data-hf-id": "hf-51ze"
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 100,
+          "y": 1066,
+          "width": 336.45,
+          "height": 30
+        },
+        "firstSeen": 16.718,
+        "lastSeen": 16.718,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          16.718
+        ]
+      }
+    ],
+    "duration": 47.5,
+    "samples": [
+      2.639,
+      7.917,
+      13.194,
+      18.472,
+      23.75,
+      29.028,
+      34.306,
+      39.583,
+      44.861
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 6,
+    "truncated": false
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "samples": [
+      2.639,
+      13.194,
+      23.75,
+      34.306,
+      44.861
+    ],
+    "checked": 50,
+    "passed": 50
+  },
+  "craft": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 9,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "text_below_floor",
+        "severity": "warning",
+        "message": "Type floor is 28 px (2.6% of the 1080 px short side, what a phone can read) and 88 text elements stay under it for 0.5 s or more, the smallest \"09:00 · Bruno\" at 14 px: set reading text to at least 28 px, or put data-layout-ignore on text that is texture rather than reading; see references/look.md.",
+        "text": "09:00 · Bruno",
+        "selector": "#s2-board > div:nth-of-type(11) > span:nth-of-type(1)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 169.87,
+          "y": 826.09,
+          "width": 95.69,
+          "height": 23.49
+        },
+        "time": 5,
+        "times": [
+          4.25,
+          4.25,
+          4.25,
+          4.25,
+          4.25,
+          4.25,
+          4.25,
+          4.25,
+          4.75,
+          5,
+          5,
+          5.375,
+          5.375,
+          5.5,
+          5.75,
+          5.75,
+          5.875,
+          6.125,
+          6.125,
+          6.25,
+          6.5,
+          6.5,
+          6.875,
+          6.875,
+          9,
+          9.625,
+          10,
+          10.75,
+          10.75,
+          10.75,
+          10.75,
+          11,
+          11.375,
+          12.125,
+          12.125,
+          12.125,
+          12.875,
+          13.375,
+          13.75,
+          15.25,
+          15.375,
+          15.5,
+          15.5,
+          15.5,
+          15.5,
+          15.625,
+          15.75,
+          16.75,
+          16.75,
+          16.75,
+          17.875,
+          19,
+          19,
+          19,
+          20.5,
+          20.5,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          27.5,
+          29.5,
+          32.375,
+          34,
+          34.875,
+          35.125,
+          35.25,
+          35.5,
+          35.625,
+          35.75,
+          35.75,
+          39,
+          39,
+          39,
+          39.125,
+          39.125,
+          39.25,
+          39.375,
+          39.375,
+          41.25,
+          45.375,
+          45.375
+        ],
+        "fontPx": 13.73,
+        "floorPx": 28,
+        "seconds": 3.5,
+        "elements": [
+          {
+            "selector": "#s2-board > div:nth-of-type(11) > span:nth-of-type(1)",
+            "text": "09:00 · Bruno",
+            "fontPx": 13.73,
+            "time": 5,
+            "seconds": 3.5
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(12) > span:nth-of-type(1)",
+            "text": "09:30 · Carla",
+            "fontPx": 14.09,
+            "time": 5.375,
+            "seconds": 3.125
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(13) > span:nth-of-type(1)",
+            "text": "10:00 · Bruno",
+            "fontPx": 14.44,
+            "time": 5.75,
+            "seconds": 2.75
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(14) > span:nth-of-type(1)",
+            "text": "11:00 · Carla",
+            "fontPx": 14.78,
+            "time": 6.125,
+            "seconds": 2.375
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(11) > b:nth-of-type(1)",
+            "text": "Thor · Banho",
+            "fontPx": 16.34,
+            "time": 5,
+            "seconds": 3.5
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(15) > span:nth-of-type(1)",
+            "text": "12:00 · Bruno",
+            "fontPx": 16.55,
+            "time": 6.5,
+            "seconds": 2
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(12) > b:nth-of-type(1)",
+            "text": "Bob · Hidratação",
+            "fontPx": 16.78,
+            "time": 5.375,
+            "seconds": 3.125
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(16) > span:nth-of-type(1)",
+            "text": "12:30 · Carla",
+            "fontPx": 16.8,
+            "time": 6.875,
+            "seconds": 1.625
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(13) > b:nth-of-type(1)",
+            "text": "Luna · Tosa",
+            "fontPx": 17.2,
+            "time": 5.75,
+            "seconds": 2.75
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(14) > b:nth-of-type(1)",
+            "text": "Nina · Banho",
+            "fontPx": 17.6,
+            "time": 6.125,
+            "seconds": 2.375
+          },
+          {
+            "selector": "#s4-bell > span:nth-of-type(2) > small:nth-of-type(1)",
+            "text": "Próxima dose em 12 dias",
+            "fontPx": 17.95,
+            "time": 17.875,
+            "seconds": 2.125
+          },
+          {
+            "selector": "#s2-count > span:nth-of-type(2) > small:nth-of-type(1)",
+            "text": "Agendamentos hoje",
+            "fontPx": 18.84,
+            "time": 4.75,
+            "seconds": 3.75
+          },
+          {
+            "selector": "span.pill.tone-time",
+            "text": "Banho · Thor",
+            "fontPx": 18.84,
+            "time": 12.125,
+            "seconds": 2.375
+          },
+          {
+            "selector": "#s3-audio > span:nth-of-type(2) > small:nth-of-type(1)",
+            "text": "Mandou áudio?",
+            "fontPx": 19.63,
+            "time": 11,
+            "seconds": 3.5
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(15) > b:nth-of-type(1)",
+            "text": "Mel · Banho e Tosa",
+            "fontPx": 19.7,
+            "time": 6.5,
+            "seconds": 2
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(16) > b:nth-of-type(1)",
+            "text": "Max · Tosa",
+            "fontPx": 20,
+            "time": 6.875,
+            "seconds": 1.625
+          },
+          {
+            "selector": "span.pill.tone-metric",
+            "text": "Banho e Tosa · Vila Mariana",
+            "fontPx": 20,
+            "time": 34.875,
+            "seconds": 3.125
+          },
+          {
+            "selector": "span.on",
+            "text": "online",
+            "fontPx": 21,
+            "time": 9,
+            "seconds": 1
+          },
+          {
+            "selector": "span.typ",
+            "text": "digitando…",
+            "fontPx": 21,
+            "time": 10,
+            "seconds": 0.625
+          },
+          {
+            "selector": "div.svc.tone-time > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "a partir de R$ 60",
+            "fontPx": 21,
+            "time": 35.5,
+            "seconds": 2.5
+          },
+          {
+            "selector": "div.svc.tone-pet > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "a partir de R$ 80",
+            "fontPx": 21,
+            "time": 35.625,
+            "seconds": 2.375
+          },
+          {
+            "selector": "div.svc.tone-health > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "com carteira digital",
+            "fontPx": 21,
+            "time": 35.75,
+            "seconds": 2.25
+          },
+          {
+            "selector": "div.svc.tone-people > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "a partir de R$ 20",
+            "fontPx": 21,
+            "time": 35.75,
+            "seconds": 2.25
+          },
+          {
+            "selector": "#s7-alert > span:nth-of-type(2) > small:nth-of-type(1)",
+            "text": "Abaixo do mínimo",
+            "fontPx": 21.02,
+            "time": 32.375,
+            "seconds": 1.125
+          },
+          {
+            "selector": "div.screen > div:nth-of-type(3) > div:nth-of-type(3)",
+            "text": "10:30",
+            "fontPx": 21.17,
+            "time": 11.375,
+            "seconds": 3.125
+          },
+          {
+            "selector": "div.screen > div:nth-of-type(3) > div:nth-of-type(6)",
+            "text": "Prontinho, está agendado! Até sábado.",
+            "fontPx": 21.17,
+            "time": 13.375,
+            "seconds": 1.125
+          },
+          {
+            "selector": "#s6-pct",
+            "text": "+18%",
+            "fontPx": 21.42,
+            "time": 27.5,
+            "seconds": 1.5
+          },
+          {
+            "selector": "#s9-ok > span:nth-of-type(2) > small:nth-of-type(1)",
+            "text": "R$ 180,00 via PIX",
+            "fontPx": 21.81,
+            "time": 41.25,
+            "seconds": 1.125
+          },
+          {
+            "selector": "#s9-phone > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > span:nth-of-type(1)",
+            "text": "Thor",
+            "fontPx": 21.89,
+            "time": 39,
+            "seconds": 3.375
+          },
+          {
+            "selector": "#s9-phone > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > span:nth-of-type(2)",
+            "text": "Mel",
+            "fontPx": 21.89,
+            "time": 39,
+            "seconds": 3.375
+          },
+          {
+            "selector": "#s2-card > div:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(1)",
+            "text": "B",
+            "fontPx": 22,
+            "time": 4.25,
+            "seconds": 4.25
+          },
+          {
+            "selector": "#s2-card > div:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(2)",
+            "text": "C",
+            "fontPx": 22,
+            "time": 4.25,
+            "seconds": 4.25
+          },
+          {
+            "selector": "#s3-ok > span:nth-of-type(2) > small:nth-of-type(1)",
+            "text": "Thor · Sáb 10:30",
+            "fontPx": 22,
+            "time": 13.75,
+            "seconds": 0.75
+          },
+          {
+            "selector": "#s6-card > div:nth-of-type(2) > span:nth-of-type(1)",
+            "text": "Entradas",
+            "fontPx": 22,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#s6-card > div:nth-of-type(2) > span:nth-of-type(2)",
+            "text": "Saídas",
+            "fontPx": 22,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#s6-card > div:nth-of-type(2) > span:nth-of-type(3)",
+            "text": "Saldo",
+            "fontPx": 22,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#s6-card > svg:nth-of-type(1) > g:nth-of-type(5) > text:nth-of-type(1)",
+            "text": "Mai",
+            "fontPx": 22,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#s6-card > svg:nth-of-type(1) > g:nth-of-type(5) > text:nth-of-type(2)",
+            "text": "Jun",
+            "fontPx": 22,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#s6-card > svg:nth-of-type(1) > g:nth-of-type(5) > text:nth-of-type(3)",
+            "text": "Jul",
+            "fontPx": 22,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#s6-card > svg:nth-of-type(1) > g:nth-of-type(5) > text:nth-of-type(4)",
+            "text": "Ago",
+            "fontPx": 22,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#s6-card > svg:nth-of-type(1) > g:nth-of-type(5) > text:nth-of-type(5)",
+            "text": "Set",
+            "fontPx": 22,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#s6-card > svg:nth-of-type(1) > g:nth-of-type(5) > text:nth-of-type(6)",
+            "text": "Out",
+            "fontPx": 22,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#ch-app",
+            "text": "App",
+            "fontPx": 22.58,
+            "time": 6.25,
+            "seconds": 2.25
+          },
+          {
+            "selector": "div.screen > div:nth-of-type(3) > div:nth-of-type(1)",
+            "text": "Oi! Tem horário no sábado pro banho do Thor?",
+            "fontPx": 22.61,
+            "time": 9.625,
+            "seconds": 4.875
+          },
+          {
+            "selector": "div.bub.out > span:nth-of-type(2)",
+            "text": "Posso confirmar?",
+            "fontPx": 22.61,
+            "time": 12.125,
+            "seconds": 2.375
+          },
+          {
+            "selector": "div.screen > div:nth-of-type(3) > div:nth-of-type(2)",
+            "text": "Oi, Ana! Sábado tenho , ou . Qual prefere?",
+            "fontPx": 23.63,
+            "time": 10.75,
+            "seconds": 3.75
+          },
+          {
+            "selector": "div.screen > div:nth-of-type(3) > div:nth-of-type(2) > b:nth-of-type(1)",
+            "text": "09:00",
+            "fontPx": 23.63,
+            "time": 10.75,
+            "seconds": 3.75
+          },
+          {
+            "selector": "div.bub.out > b:nth-of-type(2)",
+            "text": "10:30",
+            "fontPx": 23.63,
+            "time": 10.75,
+            "seconds": 3.75
+          },
+          {
+            "selector": "div.bub.out > b:nth-of-type(3)",
+            "text": "14:00",
+            "fontPx": 23.63,
+            "time": 10.75,
+            "seconds": 3.75
+          },
+          {
+            "selector": "#s5-card > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+            "text": "Caixa Aberto · 08:02",
+            "fontPx": 23.88,
+            "time": 20.5,
+            "seconds": 3.875
+          },
+          {
+            "selector": "#s5-card > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "Bruno",
+            "fontPx": 23.88,
+            "time": 20.5,
+            "seconds": 3.875
+          },
+          {
+            "selector": "#s9-phone > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1)",
+            "text": "Olá,",
+            "fontPx": 23.88,
+            "time": 39,
+            "seconds": 3.375
+          },
+          {
+            "selector": "#s9-phone > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(3) > div:nth-of-type(1)",
+            "text": "Saldo em aberto",
+            "fontPx": 23.88,
+            "time": 39.125,
+            "seconds": 3.25
+          },
+          {
+            "selector": "#s2-card > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+            "text": "Agenda do Dia",
+            "fontPx": 24,
+            "time": 4.25,
+            "seconds": 4.25
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(1)",
+            "text": "09h",
+            "fontPx": 24,
+            "time": 4.25,
+            "seconds": 4.25
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(2)",
+            "text": "10h",
+            "fontPx": 24,
+            "time": 4.25,
+            "seconds": 4.25
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(3)",
+            "text": "11h",
+            "fontPx": 24,
+            "time": 4.25,
+            "seconds": 4.25
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(4)",
+            "text": "12h",
+            "fontPx": 24,
+            "time": 4.25,
+            "seconds": 4.25
+          },
+          {
+            "selector": "#s2-board > div:nth-of-type(5)",
+            "text": "13h",
+            "fontPx": 24,
+            "time": 4.25,
+            "seconds": 4.25
+          },
+          {
+            "selector": "#ch-wa",
+            "text": "WhatsApp",
+            "fontPx": 24,
+            "time": 5.5,
+            "seconds": 3
+          },
+          {
+            "selector": "#ch-site",
+            "text": "Site",
+            "fontPx": 24,
+            "time": 5.875,
+            "seconds": 2.625
+          },
+          {
+            "selector": "div.screen > div:nth-of-type(3) > div:nth-of-type(5)",
+            "text": "Sim!",
+            "fontPx": 24,
+            "time": 12.875,
+            "seconds": 1.625
+          },
+          {
+            "selector": "div.row.s4-in > div:nth-of-type(1) > div:nth-of-type(2)",
+            "text": "Golden Retriever · 4 anos · Tutora Ana",
+            "fontPx": 24,
+            "time": 15.25,
+            "seconds": 4.75
+          },
+          {
+            "selector": "div.vac.tone-pet > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "Gosta de petisco, tem medo de secador",
+            "fontPx": 24,
+            "time": 15.5,
+            "seconds": 1.25
+          },
+          {
+            "selector": "#pane-0 > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "Pesado em 02/10/2026",
+            "fontPx": 24,
+            "time": 15.625,
+            "seconds": 1.125
+          },
+          {
+            "selector": "div.vac.tone-system > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "02/10 · Dra. Paula · retorno ok",
+            "fontPx": 24,
+            "time": 15.75,
+            "seconds": 1
+          },
+          {
+            "selector": "#pane-1 > div:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "Aplicada 02/03/2026",
+            "fontPx": 24,
+            "time": 16.75,
+            "seconds": 2.25
+          },
+          {
+            "selector": "#pane-1 > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "Aplicada 15/04/2026",
+            "fontPx": 24,
+            "time": 16.75,
+            "seconds": 2.25
+          },
+          {
+            "selector": "#pane-1 > div:nth-of-type(3) > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "2ª dose em 22/10",
+            "fontPx": 24,
+            "time": 16.75,
+            "seconds": 2.25
+          },
+          {
+            "selector": "div.vac.tone-time > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "11/10 · com Bruno",
+            "fontPx": 24,
+            "time": 19,
+            "seconds": 1
+          },
+          {
+            "selector": "#pane-2 > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "02/10 · Dra. Paula",
+            "fontPx": 24,
+            "time": 19,
+            "seconds": 1
+          },
+          {
+            "selector": "#pane-2 > div:nth-of-type(3) > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "02/03 · 3ª dose",
+            "fontPx": 24,
+            "time": 19,
+            "seconds": 1
+          },
+          {
+            "selector": "#s6-card > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+            "text": "Saldo de Outubro",
+            "fontPx": 24,
+            "time": 25,
+            "seconds": 4
+          },
+          {
+            "selector": "#s7-card > div:nth-of-type(1) > div:nth-of-type(1)",
+            "text": "Posição do Estoque",
+            "fontPx": 24,
+            "time": 29.5,
+            "seconds": 4
+          },
+          {
+            "selector": "#s8-url",
+            "text": "p",
+            "fontPx": 24,
+            "time": 34,
+            "seconds": 4
+          },
+          {
+            "selector": "div.lbl.s8-h",
+            "text": "Seg a Sáb · 8h às 18h · Leva-e-traz",
+            "fontPx": 24,
+            "time": 35.125,
+            "seconds": 2.875
+          },
+          {
+            "selector": "div.screen > div:nth-of-type(3) > div:nth-of-type(4) > b:nth-of-type(1)",
+            "text": "Sábado, 11/10 às 10:30",
+            "fontPx": 24.49,
+            "time": 12.125,
+            "seconds": 2.25
+          },
+          {
+            "selector": "#s8-btn",
+            "text": "Agendar Online",
+            "fontPx": 24.64,
+            "time": 35.25,
+            "seconds": 2.75
+          },
+          {
+            "selector": "#s9-btn",
+            "text": "Pagar Agora com PIX",
+            "fontPx": 24.85,
+            "time": 39.125,
+            "seconds": 3.25
+          },
+          {
+            "selector": "div.row.tone-health > b:nth-of-type(1)",
+            "text": "Carteira de Vacinas",
+            "fontPx": 25.87,
+            "time": 39.25,
+            "seconds": 3.125
+          },
+          {
+            "selector": "div.row.tone-time > b:nth-of-type(1)",
+            "text": "Sáb, 11/10 · 10:30",
+            "fontPx": 25.87,
+            "time": 39.375,
+            "seconds": 3
+          },
+          {
+            "selector": "div.row.tone-system > b:nth-of-type(1)",
+            "text": "Meus Documentos",
+            "fontPx": 25.87,
+            "time": 39.375,
+            "seconds": 3
+          },
+          {
+            "selector": "#s4-card > div:nth-of-type(2)",
+            "text": "Alérgico a dipirona",
+            "fontPx": 26,
+            "time": 15.375,
+            "seconds": 4.625
+          },
+          {
+            "selector": "#seg-0",
+            "text": "Prontuário",
+            "fontPx": 26,
+            "time": 15.5,
+            "seconds": 4.5
+          },
+          {
+            "selector": "#seg-1",
+            "text": "Vacinas",
+            "fontPx": 26,
+            "time": 15.5,
+            "seconds": 4.5
+          },
+          {
+            "selector": "#seg-2",
+            "text": "Histórico",
+            "fontPx": 26,
+            "time": 15.5,
+            "seconds": 4.5
+          },
+          {
+            "selector": "#s10-by",
+            "text": "um produto",
+            "fontPx": 26,
+            "time": 45.375,
+            "seconds": 2.125
+          },
+          {
+            "selector": "#s10-by > b:nth-of-type(1)",
+            "text": "Offices Aplicativos",
+            "fontPx": 26,
+            "time": 45.375,
+            "seconds": 2.125
+          }
+        ]
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Banho · Thor Sábado, 11/10 às 10:30 Posso confirmar?\" (10 words) is on screen 2.34 s (±0.01 s), under its 2.63 s floor: hold it about 0.5 s + 0.3 s a word (3.50 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Banho · Thor Sábado, 11/10 às 10:30 Posso confirmar?",
+        "selector": "div.screen > div:nth-of-type(3) > div:nth-of-type(4)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 508.27,
+          "y": 1188.21,
+          "width": 198.76999999999998,
+          "height": 103.6099999999999
+        },
+        "time": 12.07,
+        "words": 10,
+        "seconds": 2.336,
+        "floorSeconds": 2.625
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Prontinho, está agendado! Até sábado.\" (5 words) is on screen 1.04 s (±0.01 s), under its 1.50 s floor: hold it about 0.5 s + 0.3 s a word (2.00 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Prontinho, está agendado! Até sábado.",
+        "selector": "div.screen > div:nth-of-type(3) > div:nth-of-type(6)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 454.25,
+          "y": 1435,
+          "width": 324.77,
+          "height": 55.02999999999997
+        },
+        "time": 13.367,
+        "words": 5,
+        "seconds": 1.039,
+        "floorSeconds": 1.5
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Temperamento Dócil Gosta de petisco, tem medo de secador\" (9 words) is on screen 1.20 s (±0.01 s), under its 2.40 s floor: hold it about 0.5 s + 0.3 s a word (3.20 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Temperamento Dócil Gosta de petisco, tem medo de secador",
+        "selector": "div.vac.tone-pet > div:nth-of-type(1)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 211.31,
+          "y": 1066,
+          "width": 486.2699999999999,
+          "height": 30
+        },
+        "time": 15.5,
+        "words": 9,
+        "seconds": 1.203,
+        "floorSeconds": 2.4
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Peso 32 kg Pesado em 02/10/2026\" (8 words) is on screen 1.10 s (±0.01 s), under its 2.17 s floor: hold it about 0.5 s + 0.3 s a word (2.90 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Peso 32 kg Pesado em 02/10/2026",
+        "selector": "#pane-0 > div:nth-of-type(2) > div:nth-of-type(1)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 211.31,
+          "y": 1182,
+          "width": 281.41,
+          "height": 30
+        },
+        "time": 15.602,
+        "words": 8,
+        "seconds": 1.102,
+        "floorSeconds": 2.175
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Última Consulta 02/10 · Dra. Paula · retorno ok\" (8 words) is on screen 1.00 s (±0.01 s), under its 2.17 s floor: hold it about 0.5 s + 0.3 s a word (2.90 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Última Consulta 02/10 · Dra. Paula · retorno ok",
+        "selector": "div.vac.tone-system > div:nth-of-type(1)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 203.78,
+          "y": 1298,
+          "width": 352.69000000000005,
+          "height": 30
+        },
+        "time": 15.703,
+        "words": 8,
+        "seconds": 1,
+        "floorSeconds": 2.175
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Banho e Tosa 11/10 · com Bruno\" (7 words) is on screen 1.06 s (±0.01 s), under its 1.95 s floor: hold it about 0.5 s + 0.3 s a word (2.60 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Banho e Tosa 11/10 · com Bruno",
+        "selector": "div.vac.tone-time > div:nth-of-type(1)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 312.77,
+          "y": 1058.89,
+          "width": 207.11,
+          "height": 30
+        },
+        "time": 18.938,
+        "words": 7,
+        "seconds": 1.063,
+        "floorSeconds": 1.95
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Consulta 02/10 · Dra. Paula\" (5 words) is on screen 1.06 s (±0.01 s), under its 1.50 s floor: hold it about 0.5 s + 0.3 s a word (2.00 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Consulta 02/10 · Dra. Paula",
+        "selector": "#pane-2 > div:nth-of-type(2) > div:nth-of-type(1)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 312.77,
+          "y": 1167.55,
+          "width": 207,
+          "height": 30
+        },
+        "time": 18.938,
+        "words": 5,
+        "seconds": 1.063,
+        "floorSeconds": 1.5
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Vacina V10 02/03 · 3ª dose\" (6 words) is on screen 1.06 s (±0.01 s), under its 1.72 s floor: hold it about 0.5 s + 0.3 s a word (2.30 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Vacina V10 02/03 · 3ª dose",
+        "selector": "#pane-2 > div:nth-of-type(3) > div:nth-of-type(1)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 312.77,
+          "y": 1274,
+          "width": 182.63,
+          "height": 30
+        },
+        "time": 18.938,
+        "words": 6,
+        "seconds": 1.063,
+        "floorSeconds": 1.725
+      }
+    ],
+    "enabled": true,
+    "step": 0.125,
+    "samples": 380
+  },
+  "audio": {
+    "ok": false,
+    "errorCount": 1,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "audio_source_unreadable",
+        "severity": "error",
+        "message": "assets/trilha.wav cannot be read as audio ([FFmpeg] ffprobe not found. Please install FFmpeg.), so the render's audio mix fails and the render stops.",
+        "selector": "#trilha",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "timeRange": [
+          0,
+          47.5
+        ],
+        "fixHint": "Point src at a file with an audio track, or re-export this one."
+      }
+    ]
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  }
+}

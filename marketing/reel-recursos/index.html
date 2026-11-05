@@ -7,18 +7,18 @@
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
 <style>
 /* Tokens e peças do reel de recursos — herdados de marketing/reel-instagram/reel.html */
-@font-face { font-family: Inter; src: url(fonts/Inter-Regular.ttf); font-weight: 400; }
-@font-face { font-family: Inter; src: url(fonts/Inter-Medium.ttf); font-weight: 500; }
-@font-face { font-family: Inter; src: url(fonts/Inter-SemiBold.ttf); font-weight: 600; }
-@font-face { font-family: Inter; src: url(fonts/Inter-Bold.ttf); font-weight: 700; }
-@font-face { font-family: 'Instrument Serif'; src: url(fonts/InstrumentSerif-Italic.ttf); font-style: italic; }
+@font-face { font-family: Sora; src: url(fonts/Sora-Light.ttf); font-weight: 300; }
+@font-face { font-family: Sora; src: url(fonts/Sora-Regular.ttf); font-weight: 400; }
+@font-face { font-family: Sora; src: url(fonts/Sora-Medium.ttf); font-weight: 500; }
+@font-face { font-family: Sora; src: url(fonts/Sora-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: Sora; src: url(fonts/Sora-Bold.ttf); font-weight: 700; }
 
 :root {
-  --bg: #141416; --bg-2: #1d1e22;
-  --ink: #232427; --ink-strong: #171719; --muted: #5d6068; --subtle: #7d8089;
-  --line: rgb(35 36 39 / 0.09);
-  --accent: #e34a32; --accent-2: #f05a3c;
-  --gold-1: #b8862f; --gold-2: #f2d27a;
+  --bg: #130e26; --bg-2: #2a1d5c;
+  --ink: #2a2440; --ink-strong: #1b1530; --muted: #5d6068; --subtle: #7d8089;
+  --line: rgb(27 21 48 / 0.08);
+  --accent: #7b5cff; --accent-2: #ff7a59; --au-from: #ff7a59; --au-to: #7b5cff;
+  --gold-1: #ff7a59; --gold-2: #b9a6ff;
   --wa: #25d366; --wa-dark: #0b6b57; --wa-bg: #efe7dd;
   --t-brand: #b0503e; --t-brand-soft: #fff1ee; --t-brand-ring: #ffd4cb; --d-brand: #f28a73;
   --t-people: #7e5db1; --t-people-soft: #f6f2ff; --t-people-ring: #e4d9fd; --d-people: #b39cf0;
@@ -43,7 +43,7 @@
 
 .stage, .stage * { box-sizing: border-box; margin: 0; padding: 0; }
 .stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; color: #fff;
-  font-family: Inter, sans-serif; -webkit-font-smoothing: antialiased;
+  font-family: Sora, sans-serif; -webkit-font-smoothing: antialiased;
   background: radial-gradient(120% 70% at 50% 0%, var(--bg-2), var(--bg) 70%); }
 .stage .abs { position: absolute; }
 .stage .cx { left: 0; right: 0; text-align: center; }
@@ -51,9 +51,9 @@
 /* fundo: dois brilhos no tom da cena + pontilhado */
 .glow { position: absolute; border-radius: 50%; pointer-events: none; }
 .glow-a { left: -260px; top: -180px; width: 1100px; height: 1100px; background: radial-gradient(circle, color-mix(in srgb, var(--dark, var(--accent)) 30%, transparent), transparent 62%); }
-.glow-b { right: -380px; bottom: 120px; width: 1200px; height: 1200px; background: radial-gradient(circle, rgb(70 111 189 / 0.22), transparent 62%); }
+.glow-b { right: -380px; bottom: 120px; width: 1200px; height: 1200px; background: radial-gradient(circle, rgb(123 92 255 / 0.30), transparent 62%); }
 .grain { position: absolute; inset: 0; background-image: radial-gradient(rgb(255 255 255 / 0.04) 1.4px, transparent 1.4px); background-size: 24px 24px; }
-.ghost { position: absolute; font-family: 'Instrument Serif', serif; font-style: italic; font-size: 420px; line-height: 1;
+.ghost { position: absolute; font-family: Sora, sans-serif; font-weight: 300; letter-spacing: -0.06em; font-size: 420px; line-height: 1;
   color: rgb(255 255 255 / 0.045); white-space: nowrap; }
 
 svg.icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
@@ -67,8 +67,8 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 .kicker .chip { width: 48px; height: 48px; font-size: 26px; border-radius: 14px; }
 .kicker .n { color: var(--dark); font-variant-numeric: tabular-nums; }
 .h1 { margin-top: 28px; font-size: 104px; line-height: 1.0; font-weight: 600; letter-spacing: -0.04em; }
-.h1 .serif { display: block; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400;
-  letter-spacing: -0.01em; color: var(--accent-2); font-size: 1.1em; line-height: 0.98; }
+.h1 .serif { display: block; width: fit-content; font-family: Sora, sans-serif; font-weight: 300; background-image: linear-gradient(90deg,#ff7a59,#c04cff 55%,#7b5cff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: -0.01em; color: var(--accent-2); font-size: 0.86em; line-height: 1.08; letter-spacing: -0.035em; }
 
 .chip { display: grid; place-items: center; border-radius: 18px; flex: none; }
 .chip-dark { background: color-mix(in srgb, var(--dark) 20%, transparent); color: var(--dark);
@@ -76,9 +76,9 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 .chip-light { background: var(--tone-soft); color: var(--tone); box-shadow: 0 0 0 2px var(--tone-ring) inset; }
 
 /* cartão branco de UI */
-.card { position: absolute; background: #fff; color: var(--ink); border-radius: 40px;
-  box-shadow: 0 60px 120px -40px rgb(0 0 0 / 0.85), 0 0 0 2px rgb(255 255 255 / 0.18); overflow: hidden; }
-.card-soft { background: #f1f3f6; }
+.card { position: absolute; background: radial-gradient(70% 40% at 10% 0%, rgb(255 122 89 / 0.16), transparent 70%), radial-gradient(70% 40% at 95% 0%, rgb(123 92 255 / 0.18), transparent 70%), #f6f4fb; border-radius: 48px; color: var(--ink); border-radius: 40px;
+  box-shadow: 0 60px 120px -40px rgb(0 0 0 / 0.85), 0 0 0 2px rgb(255 255 255 / 0.5); overflow: hidden; }
+.card-soft { background: rgb(255 255 255 / 0.62); }
 .row { display: flex; align-items: center; gap: 20px; }
 .lbl { font-size: 24px; color: var(--subtle); font-weight: 500; }
 .val { font-size: 34px; font-weight: 600; color: var(--ink-strong); letter-spacing: -0.01em; }
@@ -96,8 +96,8 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 
 /* celular */
 .phone { position: absolute; width: 640px; height: 1180px; padding: 18px; border-radius: 84px;
-  background: linear-gradient(180deg, #2c2d31, #0f0f11); box-shadow: 0 0 0 3px rgb(255 255 255 / 0.12) inset, 0 90px 150px -50px rgb(0 0 0 / 0.95); }
-.screen { position: relative; width: 100%; height: 100%; border-radius: 68px; overflow: hidden; background: #fff; color: var(--ink); }
+  background: linear-gradient(180deg, #3a2f5e, #130e26); box-shadow: 0 0 0 3px rgb(255 255 255 / 0.12) inset, 0 90px 150px -50px rgb(0 0 0 / 0.95); }
+.screen { position: relative; width: 100%; height: 100%; border-radius: 68px; overflow: hidden; background: radial-gradient(80% 30% at 10% 0%, rgb(255 122 89 / 0.16), transparent 70%), radial-gradient(80% 30% at 95% 0%, rgb(123 92 255 / 0.18), transparent 70%), #f6f4fb; color: var(--ink); }
 .notch { position: absolute; left: 50%; top: 18px; width: 170px; height: 44px; margin-left: -85px; border-radius: 30px; background: #0f0f11; z-index: 5; }
 
 /* janela de navegador */
@@ -109,13 +109,13 @@ svg.icon.fill { fill: currentColor; stroke: none; }
 
 /* barra dourada de progresso */
 .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: rgb(255 255 255 / 0.08); }
-.progress i { display: block; height: 100%; width: var(--p, 0%); background: linear-gradient(90deg, var(--gold-1), var(--gold-2)); box-shadow: 0 0 18px rgb(242 210 122 / 0.6); }
+.progress i { display: block; height: 100%; width: var(--p, 0%); background: linear-gradient(90deg, var(--gold-1), var(--gold-2)); box-shadow: 0 0 18px rgb(123 92 255 / 0.6); }
 
 .btn-dark { display: inline-flex; align-items: center; gap: 12px; padding: 18px 32px; border-radius: 999px; font-size: 26px; font-weight: 600; color: #fff;
-  background: linear-gradient(180deg, #2c2d31, #171719 62%); }
+  background: linear-gradient(135deg, #ff7a59, #7b5cff); box-shadow: 0 14px 30px -10px rgb(123 92 255 / 0.7); }
 
 
-html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #141416; }
+html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #130e26; }
 #root { width: 100%; height: 100%; }
 .scene { position: absolute; inset: 0; }
 .sc { position: absolute; inset: 0; }
@@ -125,7 +125,7 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
 .pawp { position: absolute; color: rgb(255 255 255 / 0.07); }
 .ring { position: absolute; inset: 0; transform-origin: 540px 1100px; }
 #progress-track { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: rgb(255 255 255 / 0.08); }
-#progress { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold-1), var(--gold-2)); box-shadow: 0 0 18px rgb(242 210 122 / 0.6); }
+#progress { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold-1), var(--gold-2)); box-shadow: 0 0 18px rgb(123 92 255 / 0.6); }
 
   /* peças só das cenas */
   .appt { position: absolute; padding: 12px 16px; border-radius: 16px; background: var(--tone-soft); box-shadow: 0 0 0 2px var(--tone-ring) inset; border-left: 7px solid var(--tone); font-size: 21px; line-height: 1.3; overflow: hidden; }
@@ -149,15 +149,15 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
   .bar i { display: block; height: 100%; border-radius: 9px; background: var(--tone); }
   .bar em { position: absolute; top: -6px; width: 4px; height: 30px; border-radius: 2px; background: var(--ink); opacity: 0.45; }
   .minus { padding: 10px 20px; border-radius: 999px; background: var(--t-danger); color: #fff; font-size: 34px; font-weight: 700; box-shadow: 0 20px 40px -16px rgb(194 65 44 / 0.9); }
-  .svc { display: flex; align-items: center; gap: 18px; padding: 20px; border-radius: 24px; background: #f1f3f6; }
+  .svc { display: flex; align-items: center; gap: 18px; padding: 20px; border-radius: 24px; background: rgb(255 255 255 / 0.62); }
   .svc b { display: block; font-size: 28px; font-weight: 600; } .svc span { font-size: 21px; color: var(--muted); }
   .plist { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
   .plist .row { padding: 18px 22px; border-radius: 24px; background: #fff; box-shadow: 0 0 0 2px var(--line) inset; font-size: 26px; }
   .plist b { font-weight: 600; }
   .logo { display: inline-flex; align-items: center; gap: 24px; font-size: 60px; font-weight: 600; letter-spacing: -0.02em; }
-  .logo .mark { width: 110px; height: 110px; border-radius: 34px; display: grid; place-items: center; font-size: 62px; color: #fff; background: linear-gradient(180deg, #f05a3c, #c93a24); box-shadow: 0 24px 50px -20px rgb(227 74 50 / 0.8); }
+  .logo .mark { width: 110px; height: 110px; border-radius: 34px; display: grid; place-items: center; font-size: 62px; color: #fff; background: linear-gradient(135deg, #ff7a59, #7b5cff); box-shadow: 0 24px 50px -20px rgb(227 74 50 / 0.8); }
   .tagline { font-size: 112px; line-height: 1.0; font-weight: 600; letter-spacing: -0.045em; }
-  .tagline .serif { display: block; margin-top: 10px; font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; color: var(--accent-2); font-size: 1.12em; letter-spacing: -0.01em; line-height: 0.95; }
+  .tagline .serif { display: block; width: fit-content; margin-left: auto; margin-right: auto; margin-top: 10px; font-family: Sora, sans-serif; font-weight: 300; background-image: linear-gradient(90deg,#ff7a59,#c04cff 55%,#7b5cff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 1.12em; letter-spacing: -0.01em; line-height: 0.95; }
   .mini { width: 96px; height: 96px; font-size: 46px; border-radius: 28px; }
   .cta { display: inline-flex; align-items: center; gap: 16px; padding: 32px 52px; border-radius: 999px; font-size: 40px; font-weight: 600; color: var(--ink-strong); background: linear-gradient(180deg, #fff, #eceae6); box-shadow: 0 30px 60px -24px rgb(0 0 0 / 0.8), 0 0 0 4px rgb(242 210 122 / 0.5); }
   .cta .icon { font-size: 42px; color: var(--accent); }
@@ -183,7 +183,7 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
 .cta { position: relative; overflow: hidden; }
 .shine { position: absolute; top: 0; bottom: 0; left: 0; width: 160px; background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.95), transparent); opacity: 0.9; }
 .tap { position: absolute; width: 74px; height: 74px; border-radius: 50%; background: rgb(255 255 255 / 0.55); box-shadow: 0 0 0 4px rgb(255 255 255 / 0.8); opacity: 0; }
-.ripple { position: absolute; border-radius: 999px; border: 4px solid #f05a3c; opacity: 0; }
+.ripple { position: absolute; border-radius: 999px; border: 4px solid #b9a6ff; opacity: 0; }
 .tagline .t { display: block; }
 .tagline .serif .t { display: block; }
 .url-t { color: var(--ink); }
@@ -242,7 +242,7 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
       </div>
       <div data-hf-id="hf-6koe" class="abs orb" style="left:210px; top:770px; width:660px; height:660px; border-radius:50%; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.12) inset"></div>
       <div data-hf-id="hf-mchn" class="abs orb" style="left:330px; top:890px; width:420px; height:420px; border-radius:50%; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.06) inset"></div>
-      <div data-hf-id="hf-xd27" class="abs" id="s1-mark" style="left:450px; top:1010px; width:180px; height:180px; border-radius:56px; display:grid; place-items:center; font-size:96px; color:#fff; background: linear-gradient(180deg,#f05a3c,#c93a24); box-shadow: 0 30px 70px -20px rgb(227 74 50 / 0.9)"><svg data-hf-id="hf-gc52" class="icon"><use data-hf-id="hf-4wb0" href="#i-paw" /></svg></div>
+      <div data-hf-id="hf-xd27" class="abs" id="s1-mark" style="left:450px; top:1010px; width:180px; height:180px; border-radius:56px; display:grid; place-items:center; font-size:96px; color:#fff; background: linear-gradient(135deg,#ff7a59,#7b5cff); box-shadow: 0 30px 70px -20px rgb(227 74 50 / 0.9)"><svg data-hf-id="hf-gc52" class="icon"><use data-hf-id="hf-4wb0" href="#i-paw" /></svg></div>
       <div data-hf-id="hf-ggfb" class="ring" id="s1-ring">
         <div data-hf-id="hf-8prd" class="abs sat tone-time" style="left:470px; top:700px"><div data-hf-id="hf-o0vf" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-gqg3" class="icon"><use data-hf-id="hf-gbfe" href="#i-cal" /></svg></div></div>
         <div data-hf-id="hf-2ece" class="abs sat tone-system" style="left:703px; top:797px"><div data-hf-id="hf-o2tn" class="chip chip-dark" style="width:140px;height:140px;font-size:68px;border-radius:40px"><svg data-hf-id="hf-h4r4" class="icon"><use data-hf-id="hf-iqr9" href="#i-spark" /></svg></div></div>
@@ -330,7 +330,7 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
           <div data-hf-id="hf-y7yw"><div data-hf-id="hf-hxkq" style="font-size:48px;font-weight:600;letter-spacing:-0.02em">Thor</div><div data-hf-id="hf-10lt" class="lbl">Golden Retriever · 4 anos · Tutora Ana</div></div>
         </div>
         <div data-hf-id="hf-jbl8" class="row tone-health s4-in" style="margin:0 40px; padding:16px 22px; border-radius:20px; background:var(--tone-soft); box-shadow:0 0 0 2px var(--tone-ring) inset; color:var(--tone); font-size:26px; font-weight:600; gap:14px"><svg data-hf-id="hf-zcew" class="icon" style="font-size:30px"><use data-hf-id="hf-q7rs" href="#i-alert" /></svg>Alérgico a dipirona</div>
-        <div data-hf-id="hf-scmj" class="row tabs s4-in" style="margin:24px 40px 10px; padding:8px; border-radius:22px; background:#f1f3f6; gap:8px">
+        <div data-hf-id="hf-scmj" class="row tabs s4-in" style="margin:24px 40px 10px; padding:8px; border-radius:22px; background:rgb(255 255 255 / 0.62); gap:8px">
           <span data-hf-id="hf-89y7" class="seg-ind" id="s4-ind"></span>
           <span data-hf-id="hf-5frp" class="seg" id="seg-0">Prontuário</span><span data-hf-id="hf-cjzc" class="seg" id="seg-1">Vacinas</span><span data-hf-id="hf-qoy6" class="seg" id="seg-2">Histórico</span>
         </div>
@@ -361,7 +361,7 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
     <div data-hf-id="hf-9wsg" class="sc">
       <div data-hf-id="hf-hphw" class="head">
         <span data-hf-id="hf-pwnm" class="kicker"><span data-hf-id="hf-6q8j" class="chip chip-dark"><svg data-hf-id="hf-qog6" class="icon"><use data-hf-id="hf-8ipr" href="#i-cash" /></svg></span><span data-hf-id="hf-ipm5" class="n">04</span> Caixa</span>
-        <div data-hf-id="hf-b2eu" class="h1"><span data-hf-id="hf-hotj" class="l1">Caixa do Dia</span><span data-hf-id="hf-nizb" class="serif">conferido em segundos.</span></div>
+        <div data-hf-id="hf-b2eu" class="h1"><span data-hf-id="hf-hotj" class="l1">Caixa do Dia</span><span data-hf-id="hf-nizb" class="serif" style="font-size:0.78em; white-space:nowrap">conferido em segundos.</span></div>
       </div>
       <div data-hf-id="hf-4f5q" class="card" id="s5-card" style="left:60px; top:650px; width:960px; height:780px">
         <div data-hf-id="hf-nzrf" class="row" style="padding:38px 40px 18px; justify-content:space-between">
@@ -375,7 +375,7 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
           <div data-hf-id="hf-i8fg" class="mov"><span data-hf-id="hf-4y5c" class="row" style="gap:14px"><span data-hf-id="hf-sxcd" class="chip chip-light tone-money" style="width:52px;height:52px;font-size:26px"><svg data-hf-id="hf-p382" class="icon"><use data-hf-id="hf-7q3p" href="#i-cash" /></svg></span>Dinheiro</span><span data-hf-id="hf-9cjp" class="val num" style="color:var(--t-money)">+ R$ 312,00</span></div>
           <div data-hf-id="hf-imqh" class="mov"><span data-hf-id="hf-svft" class="row" style="gap:14px"><span data-hf-id="hf-a4aa" class="chip chip-light tone-danger" style="width:52px;height:52px;font-size:26px"><svg data-hf-id="hf-oox1" class="icon"><use data-hf-id="hf-o4qd" href="#i-arrow" /></svg></span>Sangria</span><span data-hf-id="hf-rwkl" class="val num" style="color:var(--t-danger)">− R$ 80,00</span></div>
         </div>
-        <div data-hf-id="hf-bv5u" class="row" style="position:absolute; left:40px; right:40px; bottom:40px; padding:28px 32px; border-radius:28px; background:#f1f3f6; justify-content:space-between">
+        <div data-hf-id="hf-bv5u" class="row" style="position:absolute; left:40px; right:40px; bottom:40px; padding:28px 32px; border-radius:28px; background:rgb(255 255 255 / 0.62); justify-content:space-between">
           <span data-hf-id="hf-n0td" style="font-size:28px;font-weight:600;color:var(--muted)">Esperado na Gaveta</span><span data-hf-id="hf-y82s" class="num" id="s5-total" style="font-size:64px;font-weight:700;letter-spacing:-0.03em;color:var(--ink-strong)">R$ 0,00</span>
         </div>
       </div>
@@ -410,7 +410,7 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
           </g>
           <polyline data-hf-id="hf-uprr" id="s6-line" fill="none" stroke="#00818c" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" points="89,300 235,266 381,312 527,255 673,232 819,196" />
           <g data-hf-id="hf-4duw" fill="#fff" stroke="#00818c" stroke-width="5" class="dots-g"><circle data-hf-id="hf-bdh5" cx="89" cy="300" r="9" /><circle data-hf-id="hf-xyr9" cx="235" cy="266" r="9" /><circle data-hf-id="hf-b47h" cx="381" cy="312" r="9" /><circle data-hf-id="hf-hf7x" cx="527" cy="255" r="9" /><circle data-hf-id="hf-n8hs" cx="673" cy="232" r="9" /><circle data-hf-id="hf-qif7" cx="819" cy="196" r="12" /></g>
-          <g data-hf-id="hf-4hpm" fill="#7d8089" font-size="22" font-family="Inter" text-anchor="middle"><text data-hf-id="hf-5bqb" x="89" y="425">Mai</text><text data-hf-id="hf-nfue" x="235" y="425">Jun</text><text data-hf-id="hf-oyqk" x="381" y="425">Jul</text><text data-hf-id="hf-v4v0" x="527" y="425">Ago</text><text data-hf-id="hf-mwu1" x="673" y="425">Set</text><text data-hf-id="hf-oe4r" x="819" y="425">Out</text></g>
+          <g data-hf-id="hf-4hpm" fill="#7d8089" font-size="22" font-family="Sora" text-anchor="middle"><text data-hf-id="hf-5bqb" x="89" y="425">Mai</text><text data-hf-id="hf-nfue" x="235" y="425">Jun</text><text data-hf-id="hf-oyqk" x="381" y="425">Jul</text><text data-hf-id="hf-v4v0" x="527" y="425">Ago</text><text data-hf-id="hf-mwu1" x="673" y="425">Set</text><text data-hf-id="hf-oe4r" x="819" y="425">Out</text></g>
         </svg>
       </div>
     </div>
@@ -451,11 +451,11 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
         <div data-hf-id="hf-80ig" class="browser-bar"><span data-hf-id="hf-r6mh" class="dots"><i data-hf-id="hf-zeb8"></i><i data-hf-id="hf-y7e5"></i><i data-hf-id="hf-ylp6"></i></span><span data-hf-id="hf-yjmo" class="url"><svg data-hf-id="hf-cz0m" class="icon"><use data-hf-id="hf-i53r" href="#i-lock" /></svg><span data-hf-id="hf-bx50" class="url-t" id="s8-url">p</span></span></div>
         <div data-hf-id="hf-zat3" id="s8-hero" style="height:400px; padding:48px 48px 0; background: radial-gradient(90% 120% at 100% 0%, #ffe4d9, #fff6f1 55%, #fff); position:relative">
           <span data-hf-id="hf-bfp8" class="pill tone-metric s8-h" style="font-size:20px"><svg data-hf-id="hf-8lnb" class="icon"><use data-hf-id="hf-lcy7" href="#i-paw" /></svg>Banho e Tosa · Vila Mariana</span>
-          <div data-hf-id="hf-0dam" class="s8-h" style="font-family:'Instrument Serif',serif; font-style:italic; font-size:96px; line-height:0.95; color:var(--ink-strong); margin-top:22px">Pet Amigo</div>
+          <div data-hf-id="hf-0dam" class="s8-h" style="font-family:Sora,sans-serif; font-weight:300; letter-spacing:-0.04em; font-size:96px; line-height:0.95; color:var(--ink-strong); margin-top:22px">Pet Amigo</div>
           <div data-hf-id="hf-coxr" class="lbl s8-h" style="margin-top:10px">Seg a Sáb · 8h às 18h · Leva-e-traz</div>
           <span data-hf-id="hf-desy" class="ripple" id="s8-rip" style="left:48px; bottom:40px; width:297px; height:66px"></span>
-          <span data-hf-id="hf-vr52" class="btn-dark" id="s8-btn" style="position:absolute; left:48px; bottom:40px; background:linear-gradient(180deg,#f05a3c,#c93a24)">Agendar Online<svg data-hf-id="hf-8zyc" class="icon"><use data-hf-id="hf-uxwp" href="#i-arrow" /></svg></span>
-          <svg data-hf-id="hf-wne8" class="icon fill" id="s8-cur" style="position:absolute; left:330px; bottom:12px; font-size:54px; color:#171719; stroke:#fff; stroke-width:1.5"><use data-hf-id="hf-ich5" href="#i-pointer" /></svg>
+          <span data-hf-id="hf-vr52" class="btn-dark" id="s8-btn" style="position:absolute; left:48px; bottom:40px; background:linear-gradient(135deg,#ff7a59,#7b5cff)">Agendar Online<svg data-hf-id="hf-8zyc" class="icon"><use data-hf-id="hf-uxwp" href="#i-arrow" /></svg></span>
+          <svg data-hf-id="hf-wne8" class="icon fill" id="s8-cur" style="position:absolute; left:330px; bottom:12px; font-size:54px; color:#1b1530; stroke:#fff; stroke-width:1.5"><use data-hf-id="hf-ich5" href="#i-pointer" /></svg>
         </div>
         <div data-hf-id="hf-oa14" style="padding:30px 48px 0; display:grid; grid-template-columns:1fr 1fr; gap:18px">
           <div data-hf-id="hf-vuq0" class="svc tone-time"><span data-hf-id="hf-h27c" class="chip chip-light" style="width:56px;height:56px;font-size:28px"><svg data-hf-id="hf-b0fq" class="icon"><use data-hf-id="hf-ctyx" href="#i-drop" /></svg></span><div data-hf-id="hf-w8fr"><b data-hf-id="hf-on8f">Banho</b><span data-hf-id="hf-k1g9">a partir de R$ 60</span></div></div>
@@ -643,13 +643,13 @@ document.fonts.ready.then(() => {
     const panes = [0, 1, 2].map((i) => $('#pane-' + i));
     const segX = (i) => segs[i].offsetLeft - 8;
     tl.fromTo('#s4-ind', { x: segX(0) }, { x: segX(0), duration: 0.01 }, t0);
-    tl.fromTo(segs[0], { color: '#7d8089' }, { color: '#171719', duration: 0.2 }, t0 + 0.8);
+    tl.fromTo(segs[0], { color: '#7d8089' }, { color: '#1b1530', duration: 0.2 }, t0 + 0.8);
     tl.fromTo('#pane-0 .vac', { x: 60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: 'power2.out', stagger: 0.1 }, t0 + 0.9);
     // aba Vacinas
     const toTab = (i, t) => {
       tl.to('#s4-ind', { x: segX(i), duration: 0.45, ease: 'power3.inOut' }, t);
-      tl.fromTo(segs[i - 1], { color: '#171719' }, { color: '#7d8089', duration: 0.2, ...NI }, t);
-      tl.fromTo(segs[i], { color: '#7d8089' }, { color: '#171719', duration: 0.2, immediateRender: i === 1 }, t + 0.2);
+      tl.fromTo(segs[i - 1], { color: '#1b1530' }, { color: '#7d8089', duration: 0.2, ...NI }, t);
+      tl.fromTo(segs[i], { color: '#7d8089' }, { color: '#1b1530', duration: 0.2, immediateRender: i === 1 }, t + 0.2);
       tl.fromTo(panes[i - 1], { xPercent: 0, opacity: 1 }, { xPercent: -40, opacity: 0, duration: 0.4, ease: 'power2.in', ...NI }, t);
       tl.fromTo(panes[i], { xPercent: 60, opacity: 0 }, { xPercent: 0, opacity: 1, duration: 0.5, ease: 'power3.out' }, t + 0.2);
     };

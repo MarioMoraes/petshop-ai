@@ -6,7 +6,7 @@
 <script src="../kit/anim.js"></script>
 <script src="../kit/icones.js"></script>
 <script src="../kit/ps.js"></script>
-<style>.h1 .serif { font-size: 196px; line-height: .95; }</style></head><body><div id="quadro"></div><script>
+<style>.h1 .serif { font-size: 132px; line-height: 1.04; }</style></head><body><div id="quadro"></div><script>
 const R = 236, CX = 468, CY = 290;
 const chips = PS.OITO.map((c, k) => { const a = -Math.PI / 2 + k * Math.PI / 4; return `<div class="abs sat" style="left:${CX + R * Math.cos(a) - 58}px;top:${CY + R * Math.sin(a) - 58}px"><div class="b" data-t="${1 + k * 0.25}" data-k="pop">${PS.chip(c.tone, c.icon, 116, 'escuro', 34)}</div></div>`; }).join('');
 PS.recurso({ index: 1, duration: 8, fundo: 'escuro', tone: 'tone-brand', travessia: false,

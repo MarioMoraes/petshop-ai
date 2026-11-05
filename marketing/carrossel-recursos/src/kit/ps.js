@@ -4,7 +4,7 @@
 (function () {
   const K = window.KIT, A = K.A;
   const PS = (window.PS = {});
-  PS.FONTES = ['400 100px Inter', '500 100px Inter', '600 100px Inter', '700 100px Inter', 'italic 100px "Instrument Serif"'];
+  PS.FONTES = ['300 100px Sora', '400 100px Sora', '500 100px Sora', '600 100px Sora', '700 100px Sora'];
   PS.i = (nome, cls = '') => `<svg class="icon ${cls}"><use href="#i-${nome}"/></svg>`;
   PS.chip = (tone, icon, px, fundo, raio) => `<span class="${tone}"><span class="chip ${fundo === 'claro' ? 'chip-light' : 'chip-dark'}" style="width:${px}px;height:${px}px;font-size:${Math.round(px * 0.48)}px;border-radius:${raio || Math.round(px * 0.29)}px">${PS.i(icon)}</span></span>`;
   // os oito, na ordem do carrossel

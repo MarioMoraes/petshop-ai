@@ -21,7 +21,7 @@ PS.recurso({ index: 9, fundo: 'escuro', tone: 'tone-money', icon: 'trend', n: '0
   corpo: 'Entradas e saídas por semana, no mesmo gráfico.<br>O saldo do mês aparece sem fórmula.',
   prova: `<div class="card" style="left:0;top:0;width:936px;height:560px">
       <div class="abs" style="left:40px;top:30px"><div class="lbl">Saldo de outubro</div><div class="num b" data-t="1.0" data-k="conta" data-to="12480" data-fmt="brl0" style="font-size:60px;font-weight:700;letter-spacing:-0.03em;color:var(--t-money)">+R$ 12.480</div></div>
-      <div class="abs row" style="right:40px;top:44px;gap:10px"><span class="pill tone-money"><span class="dot"></span>Entradas</span><span class="pill" style="background:#f1f3f6;color:var(--muted);box-shadow:0 0 0 2px var(--line) inset"><span class="dot" style="background:#cfd3da"></span>Saídas</span></div>
+      <div class="abs row" style="right:40px;top:44px;gap:10px"><span class="pill tone-money"><span class="dot"></span>Entradas</span><span class="pill" style="background:rgb(255 255 255 / 0.62);color:var(--muted);box-shadow:0 0 0 2px var(--line) inset"><span class="dot" style="background:#cfd3da"></span>Saídas</span></div>
       <div class="ch">${sem}
         <svg class="abs b" data-t="3.0" data-k="desenha" style="left:0;top:0" width="856" height="300" viewBox="0 0 856 300"><polyline points="85,210 299,150 513,120 727,40" fill="none" stroke="#00818c" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>${[[85,210],[299,150],[513,120],[727,40]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="10" fill="#fff" stroke="#00818c" stroke-width="5"/>`).join('')}</svg>
       </div></div>`,
