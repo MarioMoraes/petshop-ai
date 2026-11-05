@@ -1,5 +1,5 @@
 import { PetAvatar, SpeciesIcon } from '@/components/pet-avatar'
-import { PawPrintIcon, UsersIcon } from '@/components/icons'
+import { PawPrintIcon, SyringeIcon, UsersIcon } from '@/components/icons'
 import { Badge, EmptyState, PageHeader } from '@/components/ui'
 import { ButtonLink } from '@/components/links'
 import { ListSearch } from '@/components/list-search'
@@ -33,7 +33,7 @@ export default async function PetsPage({ searchParams }: PageProps) {
   const params = await searchParams
   const page = Number(params.page ?? '1')
 
-  const [result, species] = await Promise.all([
+  const [result, species, vaccines] = await Promise.all([
     serverApi().listPets({
       q: params.q,
       speciesId: params.speciesId,
@@ -41,6 +41,12 @@ export default async function PetsPage({ searchParams }: PageProps) {
       limit: 20,
     }),
     serverApi().listSpecies(),
+    // A lista das vacinas atrasadas mora aqui desde 2026-11-05, quando o cartão saiu do
+    // Início. A rota responde só a quem tem `record:read_summary`: o 403 de um banhista
+    // vira `null`, e o botão simplesmente não aparece.
+    serverApi()
+      .getOverdueVaccines()
+      .catch(() => null),
   ])
 
   const isSearching = Boolean(params.q ?? params.speciesId)
@@ -52,7 +58,26 @@ export default async function PetsPage({ searchParams }: PageProps) {
         eyebrow="Cadastros"
         title="Pets"
         subtitle={subtitle(result.total, isSearching)}
-        actions={<ButtonLink href="/pets/novo">Novo pet</ButtonLink>}
+        actions={
+          <>
+            {/*
+              `<a>` e não `ButtonLink`: abre o PDF numa aba nova, a folha de quem vai
+              ligar para os tutores. Com zero pets atrasados não há folha, e o botão some.
+            */}
+            {vaccines && vaccines.pets > 0 && (
+              <a
+                href="/dashboard/vacinas-atrasadas"
+                target="_blank"
+                rel="noopener"
+                className="btn btn-primary"
+              >
+                <SyringeIcon />
+                Vacinas Atrasadas ({vaccines.pets.toLocaleString('pt-BR')})
+              </a>
+            )}
+            <ButtonLink href="/pets/novo">Novo pet</ButtonLink>
+          </>
+        }
       />
 
       <ListSearch
