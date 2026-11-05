@@ -326,7 +326,7 @@ export async function AppShell({ active, me, atmosphere = false, children }: App
         active={active}
         items={itemsComContador}
         tenantName={tenantName}
-        user={{ name: me.user.fullName, detail: [tenantName, plano].filter(Boolean).join(' · ') }}
+        user={{ name: firstNameOf(me.user.fullName), detail: [tenantName, plano].filter(Boolean).join(' · ') }}
       />
 
       {/*

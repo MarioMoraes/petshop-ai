@@ -2989,9 +2989,10 @@
      claro de 1px em volta da foto, sem o gradiente da marca. */
   .avatar-ring {
     display: inline-flex;
-    padding: 1px;
+    /* Meio pixel: fio de cabelo nas telas de alta densidade, 1px nas comuns. */
+    padding: 0.5px;
     border-radius: 9999px;
-    background-color: #e5e7eb;
+    background-color: #eef0f3;
   }
 
   @media (prefers-reduced-motion: reduce) {
