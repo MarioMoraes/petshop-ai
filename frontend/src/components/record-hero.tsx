@@ -81,7 +81,7 @@ export function RecordHero<T extends string>({
             espremiam o nome em duas linhas e empurravam os selos para uma terceira.
           */}
           {actions && (
-            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
+            <div className="flex w-full flex-wrap items-center gap-2 max-sm:[&>*]:grow max-sm:[&>*]:justify-center max-sm:[&>*]:whitespace-nowrap sm:w-auto sm:shrink-0">
               {actions}
             </div>
           )}
@@ -93,7 +93,7 @@ export function RecordHero<T extends string>({
               <div key={fact.label} className="hero-fact">
                 <dt className="section-eyebrow">{fact.label}</dt>
                 <dd
-                  className={`mt-1 truncate text-lg font-semibold tabular-nums ${
+                  className={`mt-1 text-lg font-semibold leading-snug tabular-nums break-words sm:truncate ${
                     fact.tone ? FACT_TONES[fact.tone] : ''
                   }`}
                 >

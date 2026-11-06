@@ -264,7 +264,7 @@ export function StepBusinessHours(props: Props) {
                 key={person.key}
                 className="flex flex-wrap items-end gap-3 rounded-2xl border border-line bg-card px-4 py-3"
               >
-                <div className="min-w-[12rem] flex-1">
+                <div className="min-w-[min(12rem,100%)] flex-1">
                   <label className="label text-xs" htmlFor={`nome-${person.key}`}>
                     Nome
                   </label>

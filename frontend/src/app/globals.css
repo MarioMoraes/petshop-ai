@@ -772,6 +772,21 @@
     scrollbar-width: none;
   }
 
+  /* No celular as abas não cabem: o esmaecido na borda direita avisa que o trilho rola. */
+  @media (max-width: 639px) {
+    .tabs-rail {
+      width: 100%;
+      scroll-snap-type: x proximity;
+      padding-right: 2.5rem;
+      -webkit-mask-image: linear-gradient(to right, #000 85%, transparent);
+      mask-image: linear-gradient(to right, #000 85%, transparent);
+    }
+
+    .tabs-rail > * {
+      scroll-snap-align: start;
+    }
+  }
+
   .tabs-rail::-webkit-scrollbar {
     display: none;
   }
@@ -2145,12 +2160,24 @@
   .segment {
     position: relative;
     display: inline-grid;
+    /* No celular (360px) quatro opções passam da largura: o trilho rola em vez de estourar a página. */
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
     grid-auto-flow: column;
     grid-auto-columns: 1fr;
     padding: 0.25rem;
     border-radius: 9999px;
     background-color: rgb(27 21 48 / 0.05);
     box-shadow: 0 0 0 1px rgb(27 21 48 / 0.05) inset;
+  }
+
+  .segment::-webkit-scrollbar {
+    display: none;
+  }
+
+  .segment-option {
+    white-space: nowrap;
   }
 
   .segment-thumb {
@@ -2308,6 +2335,9 @@
      * retângulo de ponta a ponta encerra.
      */
     width: fit-content;
+    /* Três botões não cabem numa linha de 360px: a pílula quebra em vez de vazar. */
+    max-width: 100%;
+    flex-wrap: wrap;
     margin-left: auto;
     display: flex;
     align-items: center;
@@ -2322,6 +2352,12 @@
     box-shadow:
       0 1px 0 rgb(255 255 255 / 0.75) inset,
       0 12px 30px -18px rgb(27 21 48 / 0.4);
+  }
+
+  @media (max-width: 479px) {
+    .form-actions {
+      border-radius: 1.5rem;
+    }
   }
 
   /*

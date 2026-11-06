@@ -169,7 +169,7 @@ export function TeamManager({
           </div>
 
           <form onSubmit={convidar} className="mt-5 flex flex-wrap items-end gap-3">
-            <div className="min-w-[15rem] flex-1">
+            <div className="min-w-[min(15rem,100%)] flex-1">
               <Field label="E-mail" htmlFor="convite-email" error={fieldErrors.email}>
                 <input
                   id="convite-email"
@@ -186,7 +186,7 @@ export function TeamManager({
               </Field>
             </div>
 
-            <div className="min-w-[11rem]">
+            <div className="min-w-[min(11rem,100%)]">
               <Field label="Perfil de acesso" htmlFor="convite-papel" error={fieldErrors.role}>
                 <select
                   id="convite-papel"
@@ -521,7 +521,7 @@ function LinkDoConvite({ email, url }: { email: string; url: string }) {
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <input
-          className="field min-w-[15rem] flex-1 text-xs"
+          className="field min-w-[min(15rem,100%)] flex-1 text-xs"
           value={url}
           readOnly
           onFocus={(event) => event.target.select()}

@@ -60,7 +60,7 @@ export function Filtros({
         startTransition(() => router.push(`/plataforma/trilha?${search.toString()}`))
       }}
     >
-      <label className="block min-w-[14rem] flex-1">
+      <label className="block min-w-[min(14rem,100%)] flex-1">
         <span className="hint">Ação</span>
         <input
           type="text"
@@ -77,7 +77,7 @@ export function Filtros({
         </datalist>
       </label>
 
-      <label className="block min-w-[12rem]">
+      <label className="block min-w-[min(12rem,100%)]">
         <span className="hint">Estabelecimento</span>
         <select name="tenantId" className="field mt-1" defaultValue={tenantId}>
           <option value="">Todos</option>

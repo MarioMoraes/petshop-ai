@@ -53,7 +53,7 @@ export function Consulta({
         startTransition(() => router.push(`/plataforma/metricas?${search.toString()}`))
       }}
     >
-      <label className="block min-w-[16rem] flex-1">
+      <label className="block min-w-[min(16rem,100%)] flex-1">
         <span className="hint">Métrica</span>
         <input
           type="text"

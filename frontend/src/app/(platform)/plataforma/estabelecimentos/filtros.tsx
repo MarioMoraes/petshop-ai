@@ -49,7 +49,7 @@ export function Filtros({ status, plan, q }: { status: string; plan: string; q: 
         startTransition(() => router.push(`/plataforma/estabelecimentos?${search.toString()}`))
       }}
     >
-      <label className="block min-w-[14rem] flex-1">
+      <label className="block min-w-[min(14rem,100%)] flex-1">
         <span className="hint">Buscar</span>
         <input
           type="search"

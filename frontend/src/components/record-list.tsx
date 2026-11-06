@@ -24,7 +24,7 @@ import { ButtonLink, LinkSpinner } from './links'
  */
 
 export function RecordGrid({ children }: { children: ReactNode }) {
-  return <ul className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">{children}</ul>
+  return <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">{children}</ul>
 }
 
 export function RecordCard<T extends string>({
@@ -55,7 +55,7 @@ export function RecordCard<T extends string>({
    * próprio sobe por cima da camada com `RecordFootLink`.
    */
   return (
-    <li className="card card-interactive record-card">
+    <li className="card card-interactive record-card min-w-0">
       <Link href={href} className="record-link flex items-start gap-4">
         {avatar}
         <div className="min-w-0 flex-1 pt-0.5">

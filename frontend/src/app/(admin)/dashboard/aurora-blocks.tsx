@@ -250,7 +250,7 @@ export function AgendaCard({ horarios }: { horarios: HorarioDeHoje[] }) {
               )}
               <Link
                 href="/agenda/dia"
-                className="grid grid-cols-[48px_1fr_auto] items-center gap-3 py-2.5"
+                className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 py-2.5"
               >
                 <span className="text-[15px] font-semibold tabular-nums">{h.hora}</span>
                 <span className="flex min-w-0 items-center gap-2.5">
