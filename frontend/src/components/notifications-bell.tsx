@@ -186,7 +186,7 @@ export function NotificationsBell({
            * Abaixo de `sm` ele vira uma faixa presa às duas margens, que não tem como
            * não caber. De `sm` para cima volta a ser o popover ancorado no sino.
            */
-          className="card fixed left-4 right-4 top-16 z-30 overflow-hidden p-0 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-24px_rgba(35,36,39,0.35)] sm:absolute sm:left-auto sm:right-0 sm:top-11 sm:w-80"
+          className="card fixed bg-white left-4 right-4 top-16 z-30 overflow-hidden p-0 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-24px_rgba(35,36,39,0.35)] sm:absolute sm:left-auto sm:right-0 sm:top-11 sm:w-80"
         >
           <p className="border-b border-line px-4 py-3 text-sm font-semibold">Pendências</p>
 
