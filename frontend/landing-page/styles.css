@@ -2670,3 +2670,201 @@ ul {
     transform: none;
   }
 }
+
+/* ═══ Aurora — a página inteira (hero em 2026-11-07, o resto logo depois) ═══════
+ * Mesma linguagem do Admin: luz coral/violeta/ciano, vidro, Sora e pílula com
+ * degradê. Vai por cima dos tokens do topo do arquivo, como o Admin foi pelos do
+ * globals.css: quem lê var(--card), var(--accent) ou .serif já recebe o Aurora. */
+:root {
+  --au-ink: #1b1530;
+  --au-soft: #5d5675;
+  --au-grad: linear-gradient(120deg, #ff7a59, #c04cff 55%, #7b5cff);
+  --font-display: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --canvas: #ebe8f3;
+  --shell: #f6f4fb;
+  --card: rgb(255 255 255 / 0.62);
+  --ink: #1b1530;
+  --ink-strong: #1b1530;
+  --muted: #5d5675;
+  --subtle: #8a83a3;
+  --line: rgb(27 21 48 / 0.08);
+  --line-strong: rgb(27 21 48 / 0.14);
+  --accent: #9a52ff;
+  --accent-soft: #f1eaff;
+  --accent-ink: #6b3fd6;
+  --font-sans: var(--font-display);
+  --r-card: 28px;
+  --shadow-card: 0 0 0 1px #fff inset, 0 20px 50px -30px rgb(27 21 48 / 0.25);
+  --shadow-float: 0 0 0 1px #fff inset, 0 30px 60px -28px rgb(27 21 48 / 0.35);
+}
+
+/* A luz: as três manchas do Admin, presas ao shell e repetidas ao longo da página. */
+.shell {
+  background-color: var(--shell);
+  background-image:
+    radial-gradient(900px 700px at 0% 8%, rgb(255 122 89 / 0.16), transparent 70%),
+    radial-gradient(900px 700px at 100% 22%, rgb(123 92 255 / 0.16), transparent 70%),
+    radial-gradient(900px 700px at 10% 48%, rgb(19 169 196 / 0.11), transparent 70%),
+    radial-gradient(900px 700px at 95% 70%, rgb(255 122 89 / 0.12), transparent 70%),
+    radial-gradient(900px 700px at 20% 92%, rgb(123 92 255 / 0.13), transparent 70%);
+}
+.bloom { display: none; }
+
+/* Vidro: tudo que era cartão branco. */
+.card,
+.plan,
+.nav {
+  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
+}
+
+/* Títulos: Sora fina, e o trecho que era serifa itálica vira o destaque em degradê. */
+.h2 { font-weight: 300; letter-spacing: -0.03em; }
+.serif,
+.h2 .serif {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 600;
+  font-size: 1em;
+  letter-spacing: -0.03em;
+  background: var(--au-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* A ação: pílula em degradê coral→violeta, como o .btn-primary do Admin. */
+.btn { font-weight: 600; }
+.btn-dark { background-image: var(--au-grad); box-shadow: 0 12px 28px -12px rgb(192 76 255 / 0.7); }
+.btn-dark:hover { filter: brightness(1.06); box-shadow: 0 16px 32px -12px rgb(192 76 255 / 0.85); }
+.btn-light { box-shadow: 0 0 0 1px #fff inset, 0 8px 20px -14px rgb(27 21 48 / 0.3); }
+.eyebrow-dot { background: var(--au-grad); }
+
+/* O plano em destaque é o cartão escuro do Início do Admin, com a luz por cima. */
+.plan-featured {
+  background:
+    radial-gradient(circle at 100% 0%, rgb(192 76 255 / 0.45), transparent 55%),
+    radial-gradient(circle at 0% 100%, rgb(255 122 89 / 0.25), transparent 55%),
+    linear-gradient(180deg, #241c3d, #1b1530);
+}
+.plan-featured .btn-light,
+.on-dark .btn-light { background: #fff; }
+
+.brand-mark { background: var(--au-grad); box-shadow: 0 6px 14px -6px rgb(192 76 255 / 0.7); }
+.brand-ai { background: var(--au-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.nav { font-family: var(--font-display); }
+.nav .btn-dark, .mobile-menu .btn-dark { background: var(--au-grad); box-shadow: 0 10px 24px -12px rgb(192 76 255 / 0.7); }
+.nav .btn-dark::before, .mobile-menu .btn-dark::before { display: none; }
+
+.au-glass {
+  background: rgb(255 255 255 / 0.62);
+  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
+  border: 1px solid #fff;
+  border-radius: 28px;
+  box-shadow: 0 20px 50px -30px rgb(27 21 48 / 0.25);
+}
+
+.au-hero { position: relative; text-align: left; padding: 64px 0 72px; font-family: var(--font-display); color: var(--au-ink); }
+.au-hero::before {
+  content: '';
+  position: absolute;
+  inset: -120px 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 50% at 12% 10%, rgb(255 122 89 / 0.25), transparent 70%),
+    radial-gradient(45% 55% at 90% 15%, rgb(123 92 255 / 0.22), transparent 70%),
+    radial-gradient(40% 45% at 70% 100%, rgb(19 169 196 / 0.18), transparent 70%);
+}
+.au-hero-grid {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  gap: 48px;
+  align-items: center;
+}
+.au-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: 9999px;
+  font-size: 12px; font-weight: 600;
+  background: rgb(255 255 255 / 0.7); border: 1px solid #fff;
+}
+.au-pill b { width: 6px; height: 6px; border-radius: 50%; background: var(--au-grad); }
+.au-hero h1 {
+  margin: 22px 0 18px; max-width: none;
+  font-weight: 300; font-size: clamp(40px, 5.2vw, 62px);
+  line-height: 1.03; letter-spacing: -0.03em; color: var(--au-ink);
+}
+.au-hero h1 em {
+  font-style: normal; font-weight: 600;
+  background: var(--au-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.au-hero .lead { margin: 0; max-width: 30em; font-size: 16.5px; line-height: 1.6; color: var(--au-soft); }
+.au-cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 18px; }
+.au-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 24px; border-radius: 9999px;
+  font: 600 15px var(--font-display); text-decoration: none;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.au-btn .icon { width: 16px; height: 16px; }
+.au-btn-pri { background: var(--au-grad); color: #fff; box-shadow: 0 12px 28px -12px rgb(192 76 255 / 0.7); }
+.au-btn-pri:hover { transform: translateY(-1px); box-shadow: 0 16px 32px -12px rgb(192 76 255 / 0.85); }
+.au-btn-sec { background: rgb(255 255 255 / 0.7); border: 1px solid #fff; color: var(--au-ink); }
+.au-note { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--au-soft); }
+.au-note span { display: inline-flex; align-items: center; gap: 6px; }
+.au-note .icon { width: 15px; height: 15px; stroke-width: 2; color: #7b5cff; }
+.au-new { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.au-new span { font-size: 12px; padding: 6px 12px; border-radius: 9999px; background: #fff; border: 1px solid #ece8f6; }
+.au-new span::before { content: 'Novo · '; font-weight: 600; color: #c04cff; }
+
+.au-scene { position: relative; padding: 18px; }
+.au-scene-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.au-scene-head h3 { font-size: 15px; font-weight: 600; }
+.au-seg { display: flex; padding: 3px; border-radius: 9999px; background: #efecf7; font-size: 12px; }
+.au-seg span { padding: 5px 12px; border-radius: 9999px; }
+.au-seg .on { background: var(--au-ink); color: #fff; }
+.au-board { display: grid; grid-template-columns: 44px repeat(3, 1fr); gap: 6px; font-size: 12px; }
+.au-board .t { padding-top: 4px; color: #9a93b0; }
+.au-board .ap { padding: 9px 10px; border-radius: 14px; line-height: 1.35; }
+.au-board .ap b { display: block; font-weight: 600; }
+.au-board .c { background: #ffe7df; }
+.au-board .v { background: #ece6ff; }
+.au-board .y { background: #dcf4f8; }
+.au-board .e { min-height: 44px; }
+.au-float { position: absolute; width: 236px; padding: 14px 16px; border-radius: 20px; font-size: 12.5px; line-height: 1.45; }
+.au-float small { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; color: var(--au-soft); }
+.au-float small .icon { width: 13px; height: 13px; color: #c04cff; }
+.au-float strong { font-weight: 600; }
+.au-float .dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #7b5cff; }
+.au-f-chat { left: -34px; top: 96px; width: 210px; }
+.au-f-vac { right: -18px; bottom: -26px; }
+
+@media (max-width: 960px) {
+  .au-hero { padding: 40px 0 48px; }
+  .au-hero-grid { grid-template-columns: 1fr; gap: 36px; padding: 0 16px; }
+  .au-f-chat { display: none; }
+  .au-f-vac { position: static; width: auto; margin-top: 12px; }
+}
+@media (max-width: 480px) {
+  .au-board { grid-template-columns: 38px repeat(2, 1fr); }
+  .au-board > :nth-child(4n) { display: none; }
+}
+
+/* As duas faixas escuras (segurança e o convite final) no escuro violeta do Aurora. */
+.dark-band {
+  background:
+    radial-gradient(circle at 90% 0%, rgb(192 76 255 / 0.35), transparent 45%),
+    radial-gradient(circle at 0% 100%, rgb(255 122 89 / 0.22), transparent 50%),
+    linear-gradient(180deg, #241c3d, #1b1530);
+}
+.final {
+  background:
+    radial-gradient(ellipse at 50% 120%, rgb(192 76 255 / 0.55), transparent 60%),
+    radial-gradient(ellipse at 15% -10%, rgb(255 122 89 / 0.3), transparent 55%),
+    linear-gradient(180deg, #241c3d, #1b1530);
+}

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Atmosphere } from '@/components/atmosphere'
 import { Logo } from '@/components/ui'
 import {
   BellIcon,
@@ -100,7 +99,7 @@ const RECURSOS: Recurso[] = [
   {
     icone: <HeartPulseIcon />,
     tom: 'icon-health',
-    titulo: 'Prontuário e Atendimento',
+    titulo: 'Prontuário e Vacinas',
   },
   {
     icone: <WalletIcon />,
@@ -169,15 +168,13 @@ export function AuthSplit({
    * Aqui não há aplicativo ainda, e a moldura só acrescentava uma borda contornando o
    * hero. Sem ela o fundo é a própria página, que é o que o hero do modelo faz.
    *
-   * O que se mantém é o fundo: a mesma `--color-surface` de `.shell` pintada na camada
-   * inteira, e a `<Atmosphere />` por cima. O `overflow-hidden` continua sendo o que
+   * O que se mantém é o fundo: o `.aurora-bg` das telas internas (desde 2026-11-07) pintado na camada
+   * inteira. O `overflow-hidden` continua sendo o que
    * segura os blooms dentro da tela — sem ele os três estouram e criam rolagem
    * horizontal.
    */
   return (
-    <div className="relative flex min-h-[100svh] flex-col overflow-hidden bg-surface">
-      <Atmosphere />
-
+    <div className="aurora-bg relative flex min-h-[100svh] flex-col overflow-hidden">
       {/*
         `items-center` em vez de esticar as colunas: as duas metades têm alturas
         naturais bem diferentes (a do Clerk cresce com o método de login habilitado),
@@ -210,40 +207,31 @@ function ProdutoLado() {
   return (
     <div className="hidden lg:block">
       <span
-        className="rise pill inline-flex items-center gap-2 border border-white bg-white/70 px-4 py-2 text-xs font-semibold text-accent shadow-[0_6px_16px_-8px_rgb(35_36_39/0.25)] backdrop-blur"
+        className="rise pill inline-flex items-center gap-2 border border-white bg-white/70 px-4 py-2 text-xs font-semibold text-ink shadow-[0_6px_16px_-8px_rgb(35_36_39/0.25)] backdrop-blur"
         style={{ animationDelay: ATRASO.selo }}
       >
-        <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+        <span
+          className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-aurora-from to-aurora-to"
+          aria-hidden="true"
+        />
         Gestão de Petshop
       </span>
 
       <h1
-        className="rise mt-7 text-5xl font-semibold leading-[1.04] text-ink-soft xl:text-6xl"
+        className="rise mt-7 text-5xl font-light leading-[1.04] tracking-[-0.03em] text-ink xl:text-6xl"
         style={{ animationDelay: ATRASO.titulo }}
       >
-        Administre seu{' '}
-        <span className="relative inline-block text-accent">
-          {/*
-            O calor sob a palavra de destaque.
-
-            No hero do modelo esta peça é uma lasca sólida de gradiente que encosta no
-            título e escapa para fora do bloco — funciona lá porque o título ocupa a
-            largura inteira da página e sobra espaço à direita para ela transbordar.
-            Nesta coluna, que é metade da tela, a mesma forma não transborda: ela para
-            no meio do vazio e o olho a lê como um objeto solto, não como acento.
-
-            Então o que sobrevive aqui é a intenção, não a forma: o mesmo gradiente,
-            desfocado e por baixo do texto, virando luz em vez de peça. É a linguagem
-            dos blooms da atmosfera aplicada a uma palavra só.
-          */}
-          <span
-            className="absolute -inset-x-4 -inset-y-2 -z-10 rounded-full bg-gradient-to-br from-[#f05a3c] to-[#c93a24] opacity-25 blur-2xl"
-            aria-hidden="true"
-          />
-          PetShop
-        </span>
-        <br />e deixe a IA atender
+        Administre seu <span className="aurora-text font-semibold">Petshop</span>
+        <br />
+        de Ponta a Ponta
       </h1>
+
+      <p
+        className="rise mt-5 max-w-[30em] text-base leading-relaxed text-ink-soft"
+        style={{ animationDelay: ATRASO.titulo }}
+      >
+        Tudo o que a recepção, a tosa e o consultório usam no dia, num lugar só.
+      </p>
 
       {/*
         Duas colunas em toda largura, e não só de `xl` para cima. Enquanto cada item
@@ -261,13 +249,16 @@ function ProdutoLado() {
         de texto corrido, e não há mais texto corrido para limitar.
       */}
       <ul
-        className="rise mt-9 grid grid-cols-2 gap-x-8 gap-y-5"
+        className="rise mt-8 grid max-w-xl grid-cols-2 gap-x-3.5 gap-y-2.5"
         style={{ animationDelay: ATRASO.recursos }}
       >
         {RECURSOS.map((recurso) => (
-          <li key={recurso.titulo} className="flex items-center gap-3.5">
+          <li
+            key={recurso.titulo}
+            className="flex items-center gap-2.5 rounded-2xl border border-white bg-white/55 px-3 py-2.5 backdrop-blur"
+          >
             <span className={`icon-chip shrink-0 ${recurso.tom}`}>{recurso.icone}</span>
-            <span className="text-sm font-semibold leading-snug">{recurso.titulo}</span>
+            <span className="text-[13.5px] font-medium leading-snug">{recurso.titulo}</span>
           </li>
         ))}
       </ul>
@@ -324,7 +315,14 @@ function FormularioLado({ chamada, children }: { chamada: string; children: Reac
         para o conteúdo: sem isto o cartão não acompanha a coluna e desalinha do texto
         ao lado em telas largas.
       */}
-      <div className="flex justify-center [&>div]:w-full lg:justify-start">{children}</div>
+      {/*
+        Desde o Aurora (2026-11-07) o vidro é nosso e o cartão do Clerk fica transparente
+        dentro dele: um cartão só, como antes, mas com a aresta branca e o desfoque das
+        telas internas.
+      */}
+      <div className="card flex justify-center p-2 [&>div]:w-full lg:justify-start [&_.cl-card]:border-0 [&_.cl-card]:bg-transparent [&_.cl-card]:shadow-none [&_.cl-cardBox]:border-0 [&_.cl-cardBox]:bg-transparent [&_.cl-cardBox]:shadow-none [&_.cl-footer]:bg-transparent">
+        {children}
+      </div>
     </div>
   )
 }

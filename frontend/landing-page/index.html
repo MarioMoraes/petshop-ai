@@ -26,7 +26,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@300;400;600&family=Instrument+Serif:ital@0;1&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
@@ -110,130 +110,72 @@
       </header>
 
       <main id="topo">
-        <!-- ═══ Hero ═══ -->
-        <section class="hero">
-          <div class="container">
-            <span class="eyebrow reveal"><svg class="icon"><use href="#i-spark" /></svg>Gestão + Atendimento com IA</span>
-            <h1 class="reveal" style="--d: 0.08s">
-              O <span class="hl">Petshop</span> Inteiro,<br />
-              <span class="serif">num Lugar Só</span>
-            </h1>
-            <p class="lead reveal" style="--d: 0.16s">
-              Agenda, fichas de tutores e pets, prontuário, financeiro, caixa, estoque e WhatsApp — com um agente de IA
-              que responde seus clientes e marca horários enquanto a equipe cuida dos bichos.
-            </p>
-            <div class="hero-cta reveal" style="--d: 0.24s">
-              <a class="btn btn-dark btn-lg" href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">
-                Começar teste grátis <svg class="icon icon-arrow"><use href="#i-arrow" /></svg>
-              </a>
-              <a class="btn btn-light btn-lg" href="#planos">Ver planos</a>
-            </div>
-            <div class="hero-note reveal" style="--d: 0.3s">
-              <span><svg class="icon"><use href="#i-check" /></svg>14 dias grátis</span>
-              <span><svg class="icon"><use href="#i-check" /></svg>Sem cartão de crédito</span>
-              <span><svg class="icon"><use href="#i-check" /></svg>Troque de plano quando quiser</span>
-            </div>
-          </div>
-
-          <!-- A cena: a Agenda do Dia, como ela é no produto. -->
-          <div class="stage reveal" style="--d: 0.35s" aria-hidden="true">
-            <div class="window">
-              <div class="window-bar">
-                <div class="dots"><i></i><i></i><i></i></div>
-                <div class="window-url">app.petshop.ai/agenda/dia</div>
+        <!-- ═══ Hero (Aurora, aprovada em 2026-11-07) ═══ -->
+        <section class="hero au-hero">
+          <div class="au-hero-grid">
+            <div class="au-hero-copy">
+              <span class="au-pill reveal"><b aria-hidden="true"></b>Gestão de Petshop com IA</span>
+              <h1 class="reveal" style="--d: 0.08s">O Petshop Inteiro,<br /><em>num Lugar Só</em></h1>
+              <p class="lead reveal" style="--d: 0.16s">
+                Agenda, fichas de tutores e pets, prontuário com carteira de vacinação, financeiro, caixa, estoque e
+                WhatsApp — com um agente de IA que responde seus clientes e marca horários enquanto a equipe cuida dos
+                bichos.
+              </p>
+              <div class="au-cta reveal" style="--d: 0.24s">
+                <a class="au-btn au-btn-pri" href="/sign-up?plan=pro" data-app-path="/sign-up?plan=pro">
+                  Começar Teste Grátis <svg class="icon"><use href="#i-arrow" /></svg>
+                </a>
+                <a class="au-btn au-btn-sec" href="#planos">Ver Planos</a>
               </div>
-              <div class="app">
-                <aside class="app-side">
-                  <div class="brand"><span class="brand-mark"><svg class="icon"><use href="#i-paw" /></svg></span>PetShop AI</div>
-                  <div class="side-item"><span class="chip tone-brand"><svg class="icon"><use href="#i-home" /></svg></span>Início</div>
-                  <div class="side-item"><span class="chip tone-people"><svg class="icon"><use href="#i-users" /></svg></span>Tutores</div>
-                  <div class="side-item"><span class="chip tone-pet"><svg class="icon"><use href="#i-paw" /></svg></span>Pets</div>
-                  <div class="side-item"><span class="chip tone-people"><svg class="icon"><use href="#i-idcard" /></svg></span>Equipe</div>
-                  <div class="side-item is-active"><span class="chip tone-time"><svg class="icon"><use href="#i-cal" /></svg></span>Agenda</div>
-                  <div class="side-item"><span class="chip tone-time"><svg class="icon"><use href="#i-van" /></svg></span>Taxi Dog</div>
-                  <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-wallet" /></svg></span>Financeiro</div>
-                  <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-cash" /></svg></span>Caixa</div>
-                  <div class="side-item"><span class="chip tone-money"><svg class="icon"><use href="#i-box" /></svg></span>Estoque</div>
-                  <div class="side-item"><span class="chip tone-brand"><svg class="icon"><use href="#i-bell" /></svg></span>Mensagens</div>
-                  <div class="side-item"><span class="chip tone-metric"><svg class="icon"><use href="#i-globe" /></svg></span>Site</div>
-                  <div class="side-item"><span class="chip tone-system"><svg class="icon"><use href="#i-gear" /></svg></span>Configurações</div>
-                </aside>
-                <div class="app-main">
-                  <div class="app-head">
-                    <div>
-                      <div class="app-eyebrow">Agenda</div>
-                      <div class="app-title">Hoje</div>
-                      <div class="app-sub">quarta-feira, 16 de setembro</div>
-                    </div>
-                    <span class="app-btn">Marcar horário</span>
-                  </div>
-                  <div class="days">
-                    <div class="day">S<b>13</b></div>
-                    <div class="day">S<b>14</b></div>
-                    <div class="day">T<b>15</b></div>
-                    <div class="day is-active">Q<b>16</b></div>
-                    <div class="day">Q<b>17</b></div>
-                    <div class="day">S<b>18</b></div>
-                    <div class="day">S<b>19</b></div>
-                  </div>
-                  <div class="board">
-                    <div></div>
-                    <div class="board-col-head"><span class="avatar" style="background: #466fbd">A</span>Ana · banho</div>
-                    <div class="board-col-head"><span class="avatar" style="background: #7e5db1">B</span>Bruno · tosa</div>
-                    <div class="board-col-head hide-sm"><span class="avatar" style="background: #a94d79">C</span>Dra. Carla</div>
-
-                    <div class="board-hours"><span>08:00</span><span>09:00</span><span>10:00</span><span>11:00</span><span>12:00</span></div>
-                    <div class="board-col">
-                      <div class="appt tone-time" style="grid-row: 1 / span 3">
-                        <b>Thor</b><span>Banho · Golden</span>
-                        <div class="appt-tag"><svg class="icon"><use href="#i-van" /></svg>Taxi Dog</div>
-                      </div>
-                      <div class="appt tone-time" style="grid-row: 5 / span 2"><b>Mel</b><span>Banho · Shih-tzu</span></div>
-                      <div class="appt tone-time" style="grid-row: 8 / span 2"><b>Pipoca</b><span>Hidratação</span></div>
-                    </div>
-                    <div class="board-col">
-                      <div class="appt tone-people" style="grid-row: 2 / span 4">
-                        <b>Luna</b><span>Banho e tosa · Poodle</span>
-                        <div class="appt-tag" style="color: var(--t-health)">Alergia a clorexidina</div>
-                      </div>
-                      <div class="appt tone-people" style="grid-row: 7 / span 3"><b>Bento</b><span>Tosa higiênica</span></div>
-                    </div>
-                    <div class="board-col hide-sm">
-                      <div class="appt tone-health" style="grid-row: 1 / span 2"><b>Nina</b><span>Consulta</span></div>
-                      <div class="appt tone-health" style="grid-row: 4 / span 2"><b>Fred</b><span>Vacina V10</span></div>
-                    </div>
-                    <div class="now-line"></div>
-                  </div>
-                </div>
+              <div class="au-note reveal" style="--d: 0.3s">
+                <span><svg class="icon"><use href="#i-check" /></svg>14 dias grátis</span>
+                <span><svg class="icon"><use href="#i-check" /></svg>Sem cartão</span>
+                <span><svg class="icon"><use href="#i-check" /></svg>Mensal ou anual</span>
+              </div>
+              <div class="au-new reveal" style="--d: 0.36s">
+                <span>Carteira de Vacinação</span><span>Ficha do Pet em PDF</span><span>E-mail com o nome do petshop</span>
               </div>
             </div>
 
-            <div class="float float-notif">
-              <span class="chip tone-brand"><svg class="icon"><use href="#i-bell" /></svg></span>
-              <div><small>Lembrete enviado · WhatsApp</small><strong>Thor amanhã às 9h ✓</strong></div>
-            </div>
-
-            <div class="float float-money">
-              <small>Recebido hoje</small>
-              <strong>R$ 1.480,00</strong>
-              <em>12 atendimentos concluídos</em>
-            </div>
-
-            <div class="float float-chat">
-              <div class="chat-head">
-                <span class="chip"><svg class="icon icon-fill"><use href="#i-wa" /></svg></span>
-                <div><b>Mariana · tutora da Mel</b><small>respondido pelo agente</small></div>
+            <!-- A cena: a agenda do dia em vidro, com a IA e o lembrete da vacina soltos por cima. -->
+            <div class="au-scene au-glass reveal" style="--d: 0.35s" aria-hidden="true">
+              <div class="au-scene-head">
+                <h3>Agenda de Hoje</h3>
+                <div class="au-seg"><span class="on">Dia</span><span>Semana</span></div>
               </div>
-              <div class="bubbles">
-                <div class="bubble bubble-in">Tem horário amanhã de manhã pra Mel?</div>
-                <div class="bubble bubble-out">Tenho às 9h e às 10h30 com a Ana. Posso reservar às 9h? 🐾</div>
-                <div class="bubble bubble-in">Pode sim!</div>
-                <div class="bubble bubble-out bubble-ok"><svg class="icon"><use href="#i-check" /></svg>Pronto, banho da Mel marcado para quinta às 9h.</div>
+              <div class="au-board">
+                <div></div>
+                <div class="t">Ana · Tosa</div>
+                <div class="t">Bruno · Banho</div>
+                <div class="t">Dra. Lia · Vet</div>
+                <div class="t">09:00</div>
+                <div class="ap c"><b>Thor</b>Tosa na tesoura</div>
+                <div class="ap y"><b>Mel</b>Banho + hidratação</div>
+                <div class="e"></div>
+                <div class="t">10:00</div>
+                <div class="e"></div>
+                <div class="ap y"><b>Luna</b>Banho</div>
+                <div class="ap v"><b>Fred</b>Vacina V10</div>
+                <div class="t">11:00</div>
+                <div class="ap c"><b>Pipoca</b>Tosa higiênica</div>
+                <div class="e"></div>
+                <div class="ap v"><b>Nina</b>Consulta</div>
+                <div class="t">12:00</div>
+                <div class="e"></div>
+                <div class="ap y"><b>Bento</b>Banho · Táxi Dog</div>
+                <div class="e"></div>
+              </div>
+              <div class="au-float au-glass au-f-chat">
+                <small><svg class="icon icon-fill"><use href="#i-wa" /></svg>Agente de IA · WhatsApp</small>
+                “Marquei o banho da Luna amanhã às 10h. Confirma?” <strong>✓ Sim</strong>
+              </div>
+              <div class="au-float au-glass au-f-vac">
+                <small><svg class="icon"><use href="#i-bell" /></svg>Lembrete enviado</small>
+                <span class="dot" aria-hidden="true"></span><strong>Fred</strong> — próxima dose da V10 em 12/12
               </div>
             </div>
           </div>
         </section>
-
         <!-- ═══ Para quem ═══ -->
         <section class="audience">
           <div class="container">
