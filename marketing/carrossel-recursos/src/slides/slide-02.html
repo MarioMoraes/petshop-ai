@@ -6,15 +6,44 @@
 <script src="../kit/anim.js"></script>
 <script src="../kit/icones.js"></script>
 <script src="../kit/ps.js"></script>
+<style>
+  /* Cinco avisos de cinco lugares, como a tela do celular do dono às 18h; riscados, viram um cartão só. */
+  .notif { position: relative; display: flex; align-items: center; gap: 20px; height: 94px; padding: 0 26px 0 18px;
+    border-radius: 28px; background: rgb(255 255 255 / 0.78); box-shadow: 0 0 0 2px #fff inset, 0 18px 40px -26px rgb(80 50 160 / 0.45); }
+  .notif .chip { width: 64px; height: 64px; font-size: 31px; border-radius: 19px; }
+  .notif .tx { flex: 1; min-width: 0; }
+  .notif small { display: block; font-size: 21px; color: var(--subtle); font-weight: 500; }
+  .notif b { display: block; font-size: 28px; font-weight: 600; letter-spacing: -0.015em; color: var(--ink-strong); white-space: nowrap; }
+  .notif .bd { min-width: 44px; height: 44px; padding: 0 12px; border-radius: 22px; display: grid; place-items: center; background: var(--t-danger); color: #fff; font-size: 22px; font-weight: 600; }
+  .lista { display: flex; flex-direction: column; gap: 14px; }
+  .notif .rs { position: absolute; left: 100px; right: 96px; top: 58px; height: 4px; border-radius: 2px; background: var(--t-danger); transform-origin: 0 50%; }
+  .um { position: relative; margin-top: 28px; padding: 26px 28px; border-radius: 32px; color: #fff;
+    background: radial-gradient(circle at 100% 0%, rgb(192 76 255 / 0.55), transparent 55%), radial-gradient(circle at 0% 100%, rgb(255 122 89 / 0.35), transparent 55%), linear-gradient(180deg, #241c3d, #1b1530);
+    box-shadow: 0 40px 80px -36px rgb(60 30 140 / 0.7); }
+  .um .topo { display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; }
+  .um .topo .m { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 26px; background: linear-gradient(135deg,#ff7a59,#7b5cff); }
+  .um .topo em { margin-left: auto; font-style: normal; font-size: 22px; font-weight: 500; color: #5ccb88; display: flex; align-items: center; gap: 8px; }
+  .um .oito { display: flex; justify-content: space-between; padding-top: 26px; }
+  .um .oito > span { display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 19px; font-weight: 500; color: rgb(255 255 255 / 0.75); width: 98px; }
+</style>
 </head><body><div id="quadro"></div><script>
-const L = ['Caderno', 'Planilha', 'WhatsApp do celular', 'Maquininha', 'Grupo da equipe'];
-const riscos = L.map((n, k) => `<span class="risco b" data-t="${1 + k * 0.25}" data-k="pop">${n}<i class="b" data-k="larg" data-t="${2.5 + k * 0.1}"></i></span>`).join('');
-const mapa = PS.OITO.map((c, k) => `<div class="it b" data-t="${3.25 + k * 0.125}" data-k="pop">${PS.chip(c.tone, c.icon, 66, 'claro')}<span><span class="n">0${k + 1}</span><br>${c.nome}</span></div>`).join('');
+const i = PS.i;
+const AV = [
+  ['tone-money', 'wa', 'WhatsApp do celular', 'Tem horário sábado pro Thor?', '47'],
+  ['tone-pet', 'file', 'Caderno', 'Mel às 10h… ou era 10h30?', '!'],
+  ['tone-metric', 'trend', 'Planilha', 'O saldo da Luna não bate', '3'],
+  ['tone-brand', 'cash', 'Maquininha', 'R$ 70,00 — de quem era?', '1'],
+  ['tone-people', 'user', 'Grupo da equipe', 'Quem vai buscar o Bento?', '12'],
+];
+const avisos = AV.map(([tone, ic, de, msg, n], k) => `<div class="notif b" data-t="${1 + k * 0.25}" data-k="pop">${PS.chip(tone, ic, 64, 'claro')}<span class="tx"><small>${de}</small><b>${msg}</b></span><span class="bd">${n}</span><i class="rs b" data-k="larg" data-t="${2.5 + k * 0.1}"></i></div>`).join('');
+const oito = PS.OITO.map((c, k) => `<span class="b" data-t="${3.5 + k * 0.125}" data-k="pop">${PS.chip(c.tone, c.icon, 62, 'escuro')}${c.nome}</span>`).join('');
 PS.recurso({ index: 2, fundo: 'claro', tone: 'tone-brand', travessia: false,
-  t1: 'Quase todo petshop', t2: 'roda em cinco lugares.', h1: { fontSize: '92px', top: '110px' },
-  prova: `<div style="display:flex;flex-wrap:wrap;gap:14px">${riscos}</div>
-    <div style="margin:40px 0 28px;font-size:34px;font-weight:600;letter-spacing:-0.02em">Cada lugar a mais é um recado perdido.</div>
-    <div class="mapa">${mapa}</div>`,
-  provaCss: { top: '380px', height: '760px' },
+  t1: 'Cinco Lugares,', t2: 'cinco recados perdidos.', h1: { fontSize: '96px', top: '110px' },
+  prova: `<div class="lista">${avisos}</div><div style="height:30px"></div>
+    <div class="um b" data-t="3.25" data-k="pop">
+      <div class="topo"><span class="m">${i('paw')}</span>Um Lugar Só<em>${i('check')}Tudo respondido</em></div>
+      <div class="oito">${oito}</div>
+    </div>`,
+  provaCss: { top: '330px', height: '800px' },
   fecho: 'Arrasta. É o dia inteiro, na ordem.', fechoT: 4.75 });
 </script></body></html>

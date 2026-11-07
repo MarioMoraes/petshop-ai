@@ -74,7 +74,7 @@ try {
         const guarda = path.join(ROOT, 'resultados', 'quadros', `slide-${s}`); fs.mkdirSync(guarda, { recursive: true });
         const mp4 = path.join(ROOT, 'resultados', `slide-${s}.mp4`); const wav = path.join(ROOT, 'audio', `slide-${s}.wav`);
         const args = ['-y', '-hide_banner', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', '30', '-c:v', 'png', '-i', '-'];
-        if (fs.existsSync(wav)) args.push('-i', wav, '-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000');
+        if (!process.env.SEM_SOM && fs.existsSync(wav)) args.push('-i', wav, '-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000');
         args.push('-vf', 'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '14', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
           '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', '-r', '30', '-t', String(n / FPS), '-movflags', '+faststart', mp4);
         const ff = spawn('ffmpeg', args); let erro = ''; ff.stderr.on('data', (d) => (erro += d));
