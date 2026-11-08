@@ -39,7 +39,7 @@ export default async function TutorPage({ params }: PageProps) {
   ])
 
   const [finance, comms] = await Promise.all([
-    loadFinance(id, me.permissions),
+    loadFinance(id, me.permissions, temRecurso(me, 'CASH_REGISTER')),
     loadComms(id, me.permissions),
   ])
 
@@ -159,11 +159,16 @@ async function loadComms(tutorId: string, permissions: string[]): Promise<CommsD
  * precisa ver o botão de vender, e o `catch` cobre o caso de a permissão de catálogo
  * ser mais restrita que a de leitura.
  */
-async function loadFinance(tutorId: string, permissions: string[]): Promise<FinanceData | null> {
+async function loadFinance(
+  tutorId: string,
+  permissions: string[],
+  planHasCash: boolean,
+): Promise<FinanceData | null> {
   if (!permissions.includes('finance:read')) return null
 
   const api = serverApi()
-  const [account, statement, packages, catalog, online, charges] = await Promise.all([
+  const canReadCash = planHasCash && permissions.includes('cash:read')
+  const [account, statement, packages, catalog, online, charges, cash] = await Promise.all([
     api.getLedgerAccount(tutorId),
     api.getStatement(tutorId, { limit: 20 }),
     api
@@ -183,6 +188,8 @@ async function loadFinance(tutorId: string, permissions: string[]): Promise<Fina
       .listTutorCharges(tutorId)
       .then((result) => result.data)
       .catch(() => []),
+    // O aviso de caixa fechado é moldura: `null` não afirma que está fechado, e não avisa.
+    canReadCash ? api.getCurrentCash().catch(() => null) : Promise.resolve(null),
   ])
 
   return {
@@ -193,11 +200,13 @@ async function loadFinance(tutorId: string, permissions: string[]): Promise<Fina
     // Chave recusada conta como desconectado: gerar o link daria erro na cara do balcão.
     online: online !== null && online.error === null,
     charges,
+    cashClosed: cash !== null && cash.session === null,
     can: {
       read: true,
       create: permissions.includes('finance:create'),
       refund: permissions.includes('finance:refund'),
       credit: permissions.includes('finance:credit'),
+      openCash: permissions.includes('cash:operate'),
     },
   }
 }

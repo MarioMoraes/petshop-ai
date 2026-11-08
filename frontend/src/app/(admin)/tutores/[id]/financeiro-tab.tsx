@@ -21,8 +21,10 @@ import {
   type TutorCharge,
   type TutorChargeCreated,
 } from '@petshop/shared-types'
-import { ReceiptIcon, WalletIcon } from '@/components/icons'
+import { BanknoteIcon, ReceiptIcon, WalletIcon } from '@/components/icons'
+import { OpenCashButton } from '../../caixa/cash-dialogs'
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -67,7 +69,9 @@ interface Props {
   /** O Asaas do petshop está conectado: a recepção pode gerar link de pagamento. */
   online: boolean
   charges: TutorCharge[]
-  can: { create: boolean; refund: boolean; credit: boolean }
+  /** Há caixa no plano, e a leitura confirmou que nenhum está aberto. */
+  cashClosed: boolean
+  can: { create: boolean; refund: boolean; credit: boolean; openCash: boolean }
 }
 
 type Panel = 'payment' | 'entry' | 'package' | null
@@ -90,6 +94,7 @@ export function FinanceiroTab({
   pets,
   online,
   charges,
+  cashClosed,
   can,
 }: Props) {
   const [panel, setPanel] = useState<Panel>(null)
@@ -178,6 +183,8 @@ export function FinanceiroTab({
         <PaymentPanel
           tutorId={tutorId}
           suggestedCents={account.openDebitsCents}
+          cashClosed={cashClosed}
+          canOpenCash={can.openCash}
           onDone={afterMutation}
           onCancel={() => setPanel(null)}
         />
@@ -854,11 +861,15 @@ function MoneyField({
 function PaymentPanel({
   tutorId,
   suggestedCents,
+  cashClosed,
+  canOpenCash,
   onDone,
   onCancel,
 }: {
   tutorId: string
   suggestedCents: number
+  cashClosed: boolean
+  canOpenCash: boolean
   onDone: () => void
   onCancel: () => void
 }) {
@@ -941,6 +952,25 @@ function PaymentPanel({
           </select>
         </Field>
       </div>
+
+      {/* Só no dinheiro: é a nota que fica na gaveta sem o caixa saber, e sobra na contagem.
+          Abre aqui mesmo, em Modal: ir à tela do Caixa perderia o que já foi digitado. */}
+      {method === 'CASH' && cashClosed && (
+        <div className="mt-4">
+          <Alert tone="accent" role="status" icon={<BanknoteIcon />} title="Nenhum caixa aberto">
+            <p>
+              O pagamento baixa a conta do tutor, mas este valor não vai entrar no fechamento do
+              caixa.
+              {!canOpenCash && ' Peça a quem opera o caixa para abri-lo antes de registrar.'}
+            </p>
+            {canOpenCash && (
+              <div className="mt-3">
+                <OpenCashButton />
+              </div>
+            )}
+          </Alert>
+        </div>
+      )}
 
       <div className="mt-4">
         <Field

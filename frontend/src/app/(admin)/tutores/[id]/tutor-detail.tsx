@@ -71,7 +71,9 @@ export interface FinanceData {
   online: boolean
   /** As cobranças online recentes do tutor. */
   charges: TutorCharge[]
-  can: { read: boolean; create: boolean; refund: boolean; credit: boolean }
+  /** Há caixa no plano, e a leitura confirmou que nenhum está aberto. */
+  cashClosed: boolean
+  can: { read: boolean; create: boolean; refund: boolean; credit: boolean; openCash: boolean }
 }
 
 /** O que a página carregou do messaging-service para a aba Mensagens. */
@@ -131,6 +133,7 @@ export function TutorDetailView({ overview, consents, tags, pets, finance, comms
           catalog={finance.catalog}
           online={finance.online}
           charges={finance.charges}
+          cashClosed={finance.cashClosed}
           pets={pets}
           can={finance.can}
         />
