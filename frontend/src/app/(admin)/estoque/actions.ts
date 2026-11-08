@@ -181,20 +181,31 @@ export interface TutorOption {
   detail: string
 }
 
-/** A busca do tutor dentro do diálogo: a mesma do balcão, por nome, telefone ou CPF. */
-export async function searchTutorsAction(query: string): Promise<TutorOption[]> {
-  if (query.trim().length < 2) return []
+/**
+ * A lista do popup de tutores da venda: por nome, telefone ou CPF, e sem termo os primeiros
+ * ativos. Busca no servidor porque a base pode ter milhares; o `total` diz quantos ficaram
+ * de fora. `null` é o serviço que não respondeu, para a tela não dizer "nenhum tutor".
+ */
+export async function searchTutorsAction(
+  query: string,
+): Promise<{ tutors: TutorOption[]; total: number } | null> {
+  const term = query.trim()
   try {
-    const page = await serverApi().listTutors({ q: query.trim(), limit: 6 })
-    return page.data
-      .filter((tutor) => tutor.status === 'ACTIVE')
-      .map((tutor) => ({
+    const page = await serverApi().listTutors({
+      status: 'ACTIVE',
+      limit: 50,
+      ...(term ? { q: term } : {}),
+    })
+    return {
+      total: page.total,
+      tutors: page.data.map((tutor) => ({
         id: tutor.id,
         name: tutor.displayName,
         detail: [tutor.phoneMasked, tutor.cpfMasked].filter(Boolean).join(' · '),
-      }))
+      })),
+    }
   } catch {
-    return []
+    return null
   }
 }
 

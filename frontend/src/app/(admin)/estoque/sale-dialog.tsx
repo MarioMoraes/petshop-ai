@@ -19,6 +19,7 @@ import {
   PackageIcon,
   PlusIcon,
   SearchIcon,
+  UsersIcon,
   WalletIcon,
   XIcon,
 } from '@/components/icons'
@@ -349,71 +350,147 @@ function SaleDialog({
   )
 }
 
-/** A busca do comprador: digita, escolhe da lista, e a escolha vira uma linha só. */
+/** O comprador: uma linha com o tutor escolhido, e o botão que abre o popup da busca. */
 function TutorPicker({
   value,
   onChange,
 }: {
   value: TutorOption | null
-  onChange: (tutor: TutorOption | null) => void
+  onChange: (tutor: TutorOption) => void
 }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<TutorOption[]>([])
-
-  useEffect(() => {
-    if (value) return
-    const timer = setTimeout(() => {
-      void searchTutorsAction(query).then(setResults)
-    }, 250)
-    return () => clearTimeout(timer)
-  }, [query, value])
-
-  if (value) {
-    return (
-      <div className="option">
-        <span className="min-w-0 flex-1">
-          <span className="option-text block">{value.name}</span>
-          {value.detail && <span className="hint mt-0.5 block">{value.detail}</span>}
-        </span>
-        <Button className="h-9" onClick={() => onChange(null)}>
-          Trocar
-        </Button>
-      </div>
-    )
-  }
+  const [open, setOpen] = useState(false)
 
   return (
-    <Field label="Tutor" htmlFor="sale-tutor" hint="Nome, telefone ou CPF.">
-      <input
-        id="sale-tutor"
-        className="field"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        autoComplete="off"
-      />
-      {results.length > 0 && (
-        <ul className="mt-2 space-y-1">
-          {results.map((tutor) => (
-            <li key={tutor.id}>
-              <button
-                type="button"
-                className="option w-full text-left"
-                onClick={() => {
-                  onChange(tutor)
-                  setQuery('')
-                  setResults([])
-                }}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="option-text block">{tutor.name}</span>
-                  {tutor.detail && <span className="hint mt-0.5 block">{tutor.detail}</span>}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+    <>
+      <div className="option">
+        <span className="min-w-0 flex-1">
+          {value ? (
+            <>
+              <span className="option-text block">{value.name}</span>
+              {value.detail && <span className="hint mt-0.5 block">{value.detail}</span>}
+            </>
+          ) : (
+            <span className="hint block">Nenhum tutor escolhido</span>
+          )}
+        </span>
+        <Button className="h-9" onClick={() => setOpen(true)}>
+          {value ? 'Trocar' : 'Escolher tutor'}
+        </Button>
+      </div>
+      {open && (
+        <TutorCatalogDialog
+          onPick={(tutor) => {
+            onChange(tutor)
+            setOpen(false)
+          }}
+          onClose={() => setOpen(false)}
+        />
       )}
-    </Field>
+    </>
+  )
+}
+
+/**
+ * Os tutores ativos, por cima da venda (o `Modal` empilha), como o catálogo de produtos.
+ *
+ * A diferença é de onde vem a lista: produto desce inteiro ao abrir a venda, e tutor pode
+ * ser milhares, então a busca vai ao servidor a cada pausa na digitação.
+ */
+function TutorCatalogDialog({
+  onPick,
+  onClose,
+}: {
+  onPick: (tutor: TutorOption) => void
+  onClose: () => void
+}) {
+  const [query, setQuery] = useState('')
+  const [result, setResult] = useState<Awaited<ReturnType<typeof searchTutorsAction>> | undefined>(
+    undefined,
+  )
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // O `Modal` leva o foco para o painel ao abrir: o campo só o recebe no quadro seguinte.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => inputRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
+  useEffect(() => {
+    // `active`: a resposta de um termo antigo que chega atrasada não pode trocar a lista.
+    let active = true
+    const timer = setTimeout(() => {
+      void searchTutorsAction(query).then((next) => {
+        if (active) setResult(next)
+      })
+    }, 250)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [query])
+
+  const tutors = result
+    ? [...result.tutors].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+    : []
+  const hidden = result ? result.total - result.tutors.length : 0
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      icon={<UsersIcon />}
+      tone="icon-money"
+      eyebrow="Venda no balcão"
+      title="Tutores"
+      stacked
+      subtitle="Escolha quem está comprando."
+    >
+      <div className="space-y-3">
+        <div className="field-wrap">
+          <span className="field-lead icon-money">
+            <SearchIcon />
+          </span>
+          <input
+            ref={inputRef}
+            type="search"
+            className="field field-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Nome, telefone ou CPF"
+            aria-label="Buscar tutores"
+            autoComplete="off"
+          />
+        </div>
+
+        {result === undefined ? (
+          <p className="hint">Carregando…</p>
+        ) : result === null ? (
+          <p className="hint">Não conseguimos carregar os tutores. Tente de novo.</p>
+        ) : tutors.length === 0 ? (
+          <p className="hint">Nenhum tutor encontrado.</p>
+        ) : (
+          <ul className="space-y-1">
+            {tutors.map((tutor) => (
+              <li key={tutor.id}>
+                <button
+                  type="button"
+                  className="option w-full text-left"
+                  onClick={() => onPick(tutor)}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="option-text block">{tutor.name}</span>
+                    {tutor.detail && <span className="hint mt-0.5 block">{tutor.detail}</span>}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {hidden > 0 && (
+              <li className="hint">Mais {hidden} — continue digitando para afinar.</li>
+            )}
+          </ul>
+        )}
+      </div>
+    </Modal>
   )
 }
 
