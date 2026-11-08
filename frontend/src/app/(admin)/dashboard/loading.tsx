@@ -9,8 +9,8 @@ import { Skeleton } from '@/components/skeleton'
  */
 export default function Loading() {
   return (
-    <div className="grid gap-[18px] xl:grid-cols-12 xl:grid-rows-[auto_318px_auto]">
-      <div className="grid gap-[18px] sm:grid-cols-2 xl:col-span-12 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-[18px] xl:grid-cols-12 xl:grid-rows-[auto_318px_auto]">
+      <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:col-span-12 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-[148px] rounded-[28px]" />
         ))}

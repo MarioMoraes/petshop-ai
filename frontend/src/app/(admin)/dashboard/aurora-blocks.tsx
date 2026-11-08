@@ -28,12 +28,12 @@ export function weekdayOf(date: string): string {
   return WEEKDAY[new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay()]!
 }
 
-/** R$ 1,9k — o rótulo curto das barras. */
+/** 1,9k — o número curto das barras; o "R$" a tela estreita dispensa, por falta de lugar. */
 function brlCurto(cents: number): string {
   const reais = cents / 100
   if (reais >= 1000)
-    return `R$ ${(reais / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
-  return `R$ ${Math.round(reais).toLocaleString('pt-BR')}`
+    return `${(reais / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
+  return Math.round(reais).toLocaleString('pt-BR')
 }
 
 function CardHeadAurora({
@@ -48,7 +48,7 @@ function CardHeadAurora({
   aside?: ReactNode
 }) {
   return (
-    <div className="mb-4 flex items-center gap-3">
+    <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
       <span className={`aurora-chip ${tone}`}>{icon}</span>
       <h3 className="text-base font-semibold tracking-tight">{title}</h3>
       {aside && <span className="ml-auto text-[12.5px] font-medium text-subtle">{aside}</span>}
@@ -162,15 +162,16 @@ export function WeekChart({ days, today }: { days: MovementDay[]; today: string 
           </span>
         }
       />
-      <div className="flex h-[200px] flex-1 items-end gap-3 border-b border-line px-1 sm:gap-4 xl:h-auto">
+      <div className="flex h-[200px] flex-1 items-end gap-1.5 border-b border-line px-1 sm:gap-4 xl:h-auto">
         {days.map((day) => {
           const hoje = day.date === today
           return (
             <div
               key={day.date}
-              className="flex h-full flex-1 flex-col items-center justify-end gap-2"
+              className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
             >
               <span className="whitespace-nowrap text-[11.5px] font-semibold tabular-nums">
+                <span className="hidden sm:inline">R$ </span>
                 {brlCurto(day.totalCents)}
               </span>
               <span
@@ -182,11 +183,11 @@ export function WeekChart({ days, today }: { days: MovementDay[]; today: string 
           )
         })}
       </div>
-      <div className="flex gap-3 px-1 pt-2.5 sm:gap-4">
+      <div className="flex gap-1.5 px-1 pt-2.5 sm:gap-4">
         {days.map((day) => (
           <span
             key={day.date}
-            className={`flex-1 text-center text-xs ${
+            className={`min-w-0 flex-1 text-center text-xs ${
               day.date === today ? 'font-bold text-ink' : 'font-medium text-subtle'
             }`}
           >

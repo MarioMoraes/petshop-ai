@@ -16,11 +16,11 @@
 export const STAT_SHAPE = 'min-h-[148px]'
 
 /**
- * A grade das faixas: duas colunas no celular e, a partir de `sm`, quantas colunas de
- * 280px couberem.
+ * A grade das faixas: uma coluna no celular — `grid-cols-1`, para o conteúdo não alargá-la
+ * além da tela — e, a partir de `sm`, quantas colunas de 280px couberem.
  *
  * As colunas têm a largura do cartão, e não uma fração da tela: é o que mantém o cartão
  * no tamanho de referência em qualquer monitor. As faixas ficam encostadas à esquerda,
  * cada uma com o número de cartões que tem.
  */
-export const STAT_GRID = 'grid gap-[18px] sm:grid-cols-2 xl:grid-cols-4'
+export const STAT_GRID = 'grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4'

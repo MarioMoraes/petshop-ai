@@ -272,11 +272,12 @@ export default async function DashboardPage() {
       {/*
         A composição da Aurora aprovada em imagem (2026-11-04): quatro números, a semana
         e a agenda, os aniversariantes e o estoque. Doze colunas a partir de `xl`; abaixo
-        disso, um bloco por linha.
+        disso, um bloco por linha. O `grid-cols-1` é o que prende a coluna à tela: sem ele
+        a coluna implícita é `auto`, e cresce até o conteúdo mais largo de qualquer cartão.
       */}
-      <div className="grid gap-[18px] xl:grid-cols-12 xl:grid-rows-[auto_318px_auto]">
+      <div className="grid grid-cols-1 gap-[18px] xl:grid-cols-12 xl:grid-rows-[auto_318px_auto]">
         {hojeMov && (
-          <div className="grid gap-[18px] sm:grid-cols-2 xl:col-span-12 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:col-span-12 xl:grid-cols-4">
             <KpiCard
               hero
               label="Atendimentos Hoje"
