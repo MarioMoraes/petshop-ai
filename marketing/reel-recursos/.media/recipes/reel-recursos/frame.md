@@ -49,7 +49,7 @@ components:
 
 ## Overview
 
-Reel vertical do PetShop AI (Offices Aplicativos): fundo escuro, cartões brancos de
+Reel vertical do PetShop AI (Offices Tecnologia): fundo escuro, cartões brancos de
 interface que imitam o produto e um tom de cor por recurso, como o menu lateral do Admin.
 Vende o resultado (agenda cheia, caixa conferido), não a tecnologia.
 
