@@ -353,8 +353,8 @@ const EMPRESA = 'Offices Tecnologia'
 
 const CONTATOS = [
   {
-    rotulo: '@offices_aplicativos',
-    href: 'https://instagram.com/offices_aplicativos',
+    rotulo: '@officestecnologia',
+    href: 'https://instagram.com/officestecnologia',
     icone: <InstagramIcon />,
     descricao: 'Instagram da Offices Tecnologia',
   },
