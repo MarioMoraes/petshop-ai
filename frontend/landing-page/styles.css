@@ -2868,3 +2868,45 @@ ul {
     radial-gradient(ellipse at 15% -10%, rgb(255 122 89 / 0.3), transparent 55%),
     linear-gradient(180deg, #241c3d, #1b1530);
 }
+
+/* ── Polimento 2026-11-12: gradiente só no botão principal, sombras neutras,
+   sem halos nem movimento em loop, rótulos em frase, balões fora da agenda. ── */
+:root { --shadow-card: 0 0 0 1px rgb(27 21 48 / .06), 0 1px 2px rgb(27 21 48 / .04);
+        --shadow-float: 0 0 0 1px rgb(27 21 48 / .06), 0 12px 32px -16px rgb(27 21 48 / .18); }
+/* 1. gradiente só no botão principal */
+.brand-mark { background: #1b1530 !important; box-shadow: none !important; }
+.brand-ai { background: none !important; color: #c2462b !important; -webkit-text-fill-color: #c2462b; }
+.au-hero h1 em { background: none !important; color: #c2462b !important; -webkit-text-fill-color: #c2462b; font-style: normal; }
+.eyebrow-dot, .au-pill b { background: #c2462b !important; }
+.au-note .icon { color: #c2462b !important; }
+.au-new span::before { color: #c2462b !important; }
+/* 2. sombras neutras, hover só de cor */
+.btn-dark, .au-btn-pri, .nav .btn-dark, .mobile-menu .btn-dark { box-shadow: 0 1px 2px rgb(27 21 48 / .2) !important; transition: filter .15s ease !important; }
+.btn-dark:hover, .au-btn-pri:hover { transform: none !important; filter: brightness(1.08); box-shadow: 0 1px 2px rgb(27 21 48 / .2) !important; }
+/* 3. halos fora */
+.au-hero::before { opacity: .25 !important; }
+body { background-image: none !important; background-color: #f6f5f8 !important; }
+/* 4. nada flutua em loop */
+* { animation-iteration-count: 1 !important; }
+[class*="float"], .phone-note, .hero-note { animation: none !important; }
+/* 5. rótulos em frase, sem caixa alta */
+.kicker, .plan-inc, th { text-transform: none !important; letter-spacing: 0 !important; font-size: 14px !important; font-weight: 500 !important; }
+/* 8. texto pequeno mínimo de 14px */
+.au-note, .au-hero .lead + * , .ticks li { font-size: 14px !important; }
+.au-hero .lead { font-size: 17px !important; }
+/* 6. extrato no lugar das barras */
+.ledger { margin-top: 16px; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px rgb(27 21 48 / .07); padding: 12px 14px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.ledger-row { display: flex; justify-content: space-between; padding: 6px 0; color: #5d5675; }
+.ledger-row + .ledger-row { border-top: 1px solid rgb(27 21 48 / .06); }
+.ledger-row b { font-weight: 500; color: #1b1530; }
+.ledger .neg { color: #b4232c; } .ledger .pos { color: #1e7a4a; }
+.ledger-total { display:flex; justify-content:space-between; margin-top: 6px; padding-top: 8px; border-top: 1px solid rgb(27 21 48 / .1); font-weight: 600; color:#1b1530; }
+/* Balões fora da agenda: sobem/descem para a borda, fundo opaco e sombra que os separa */
+@media (min-width: 961px) {
+  .au-f-chat { left: -56px !important; top: -84px !important; }
+  .au-f-vac  { right: -48px !important; bottom: -64px !important; }
+}
+.au-float { background: #fff !important; backdrop-filter: none !important;
+  box-shadow: 0 0 0 1px rgb(27 21 48 / .08), 0 16px 32px -12px rgb(27 21 48 / .22) !important; }
+/* nenhum texto em gradiente */
+h1 em, h2 em, h2 .serif, .section-head em { background: none !important; -webkit-text-fill-color: #c2462b !important; color: #c2462b !important; }
