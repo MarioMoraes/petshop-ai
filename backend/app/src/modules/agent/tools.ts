@@ -141,7 +141,7 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
       '"quinta" ou "amanhã" para a data antes de chamar — hoje é informado no contexto. ' +
       'Cada horário já vem na hora do estabelecimento e traz em "com" quem o atende; o ' +
       'id de cada profissional está na tabela "profissionais". Diga ao cliente o campo ' +
-      '"hora", nunca o "inicio".',
+      '"hora", nunca o "inicio". Quando vier "antecedencia", siga a observacao dela.',
     strict: true,
     input_schema: {
       type: 'object',
@@ -431,8 +431,16 @@ async function execute(scope: ToolScope, name: string, input: unknown): Promise<
         date: requireString(date, 'date'),
       })
       const grade = agruparGrade(response.slots, scope.timezone)
+      const antecedencia = antecedenciaDoDia(
+        requireString(date, 'date'),
+        response.minNoticeHours,
+        scope.timezone,
+      )
       return {
         text: json({
+          // A grade já vem filtrada pela antecedência mínima, e sem dizer isso o modelo
+          // lia "nenhum horário" num dia em que o balcão via vaga às 11:00 (2026-11-14).
+          ...(antecedencia ? { antecedencia } : {}),
           profissionais: grade.profissionais,
           horarios: grade.horarios,
           // Dizer que cortou, e nunca cortar calado: era o corte silencioso que fazia o
@@ -806,6 +814,32 @@ function momento(isoDate: string, timezone: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(isoDate))
+}
+
+/**
+ * **A antecedência mínima, quando ela corta o dia pedido.**
+ *
+ * `readAvailability` do Portal esconde o que começa antes de agora + N horas; o
+ * balcão continua vendo e marcando esses horários, porque a regra é só do cliente que
+ * marca sozinho. Devolve `null` quando o corte não alcança o dia (amanhã, com 2 h).
+ */
+function antecedenciaDoDia(
+  date: string,
+  minNoticeHours: number,
+  timezone: string,
+): { horas: number; marcaAPartirDe: string; observacao: string } | null {
+  if (minNoticeHours <= 0) return null
+  const earliest = new Date(Date.now() + minNoticeHours * 3_600_000).toISOString()
+  if (isoLocal(earliest, timezone).slice(0, 10) < date) return null
+  return {
+    horas: minNoticeHours,
+    marcaAPartirDe: momento(earliest, timezone),
+    observacao:
+      `Por aqui só se marca com ${minNoticeHours} hora(s) de antecedência, então os ` +
+      'horários antes de "marcaAPartirDe" não aparecem na lista. Se a lista vier vazia ' +
+      'ou o cliente quiser mais cedo, diga isso a ele — nunca que "não há horário" — e ' +
+      'ofereça falar com a recepção, que consegue encaixar em cima da hora.',
+  }
 }
 
 /** Só a hora de parede: a grade repete o dia uma vez só, no campo `dia`. */

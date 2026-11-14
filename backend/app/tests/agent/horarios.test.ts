@@ -239,6 +239,68 @@ describe('a grade que o agente recebe', () => {
   })
 })
 
+describe('a antecedência mínima', () => {
+  /** O dia de hoje no fuso do tenant, como o modelo o resolveria. */
+  function hoje(): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: TEST_TIMEZONE }).format(new Date())
+  }
+
+  it('a grade vazia de hoje diz por quê, e não "nenhum horário"', async () => {
+    installFakePortal({
+      async availability() {
+        return { ...gradeComUmHorario(), slots: [], nextAvailable: null, minNoticeHours: 2 }
+      },
+    })
+    const modelo = installFakeModel(
+      {
+        tools: [
+          {
+            name: 'consultarDisponibilidade',
+            input: { petId: FAKE_IDS.pet, serviceIds: [FAKE_IDS.servico], date: hoje() },
+          },
+        ],
+      },
+      { reply: 'Por aqui só consigo marcar com 2 horas de antecedência.' },
+    )
+
+    const conversationId = await givenInbound('tem horário hoje?')
+    await answer(tenant.tenantId, conversationId)
+
+    const grade = recebido(modelo.calls[1]?.messages.at(-1))
+    expect(grade).toContain('antecedencia')
+    expect(grade).toContain('marcaAPartirDe')
+  })
+
+  it('não fala de antecedência num dia que ela não alcança', async () => {
+    installFakePortal({
+      async availability() {
+        return { ...gradeComUmHorario(), minNoticeHours: 2 }
+      },
+    })
+    const daqui = new Date(Date.now() + 3 * 86_400_000)
+    const modelo = installFakeModel(
+      {
+        tools: [
+          {
+            name: 'consultarDisponibilidade',
+            input: {
+              petId: FAKE_IDS.pet,
+              serviceIds: [FAKE_IDS.servico],
+              date: new Intl.DateTimeFormat('en-CA', { timeZone: TEST_TIMEZONE }).format(daqui),
+            },
+          },
+        ],
+      },
+      { reply: 'Tem sim.' },
+    )
+
+    const conversationId = await givenInbound()
+    await answer(tenant.tenantId, conversationId)
+
+    expect(recebido(modelo.calls[1]?.messages.at(-1))).not.toContain('antecedencia')
+  })
+})
+
 describe('a proposta em aberto no turno seguinte', () => {
   it('o código da proposta chega ao modelo pelo contexto da mensagem', async () => {
     installFakePortal({
