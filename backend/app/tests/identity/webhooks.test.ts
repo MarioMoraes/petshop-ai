@@ -260,6 +260,8 @@ describe('user.deleted', () => {
       where: { clerkUserId: session.clerkUserId },
     })
     expect(user.status).toBe('DISABLED')
+    // O e-mail fica livre para a conta nova que a pessoa criar com ele no Clerk.
+    expect(user.emailHash).toBe(`apagado:${user.id}`)
 
     const membership = await ownerPrisma.membership.findUniqueOrThrow({
       where: { id: session.membershipId },

@@ -268,9 +268,17 @@ async function aplicarUsuarioApagado(
   })
   if (!user) return { outcome: 'IGNORED', reason: 'usuário sem espelho local' }
 
+  /*
+   * O e-mail é liberado junto: `email_hash` é único, e a linha desativada continuaria
+   * dona dele — quem apaga a conta no Clerk e volta com o mesmo e-mail ganha um id novo,
+   * e o `ensureLocalUser` desse id novo cairia na colisão da RN-12 (409 em `/v1/me`).
+   * A linha fica, porque mensagens, trilha e `platform_admins.granted_by` apontam para
+   * ela; o hash vira uma marca que nenhum e-mail produz. Id do Clerk não volta, então
+   * não há "desfazer" a perder.
+   */
   await prisma.user.update({
     where: { id: user.id },
-    data: { status: 'DISABLED', clerkSyncedAt: new Date() },
+    data: { status: 'DISABLED', emailHash: `apagado:${user.id}`, clerkSyncedAt: new Date() },
   })
 
   const vinculos = (await listUserMemberships(user.id)).filter(
