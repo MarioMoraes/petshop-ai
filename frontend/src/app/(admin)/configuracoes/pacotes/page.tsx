@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { ButtonLink } from '@/components/links'
 import { PageHeader } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { PackagesManager } from './packages-manager'
 
 /**
@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
 export default async function PacotesPage() {
   const api = serverApi()
   const [me, packages, services, settings] = await Promise.all([
-    api.me(),
+    carregarMe(),
     api.listServicePackages({ includeInactive: true }).then((result) => result.data),
     api.listServices(),
     api.getBillingSettings(),

@@ -1,7 +1,8 @@
 import 'server-only'
 import { cache } from 'react'
 import { auth } from '@clerk/nextjs/server'
-import { createApiClient, type ApiClient } from '@petshop/api-client'
+import { redirect } from 'next/navigation'
+import { ApiError, createApiClient, type ApiClient } from '@petshop/api-client'
 
 /**
  * Cliente do gateway para uso no servidor.
@@ -70,4 +71,17 @@ export function serverApi(): ApiClient {
  * de um usuário aparecendo na tela de outro, que é a pergunta que essa palavra costuma
  * levantar.
  */
-export const carregarMe = cache(() => serverApi().me())
+export const carregarMe = cache(async () => {
+  try {
+    return await serverApi().me()
+  } catch (error) {
+    // O único 409 de `/v1/me`: o e-mail desta conta do Clerk já pertence a outro usuário
+    // do banco (RN-12 do MOD-IDENT, `ensureLocalUser`). Sem o desvio, toda tela do Admin
+    // vira "Application error" — inclusive a de sair da conta.
+    if (error instanceof ApiError && error.status === 409) redirect(CONTA_EM_CONFLITO)
+    throw error
+  }
+})
+
+/** A tela de quem entrou com uma conta cujo e-mail já é de outra. */
+export const CONTA_EM_CONFLITO = '/conta-em-conflito'

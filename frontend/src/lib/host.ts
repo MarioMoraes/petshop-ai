@@ -35,6 +35,7 @@ export const ADMIN_ROUTE_PREFIXES = [
   '/agenda',
   '/caixa',
   '/configuracoes',
+  '/conta-em-conflito',
   '/convite',
   '/crm',
   '/dashboard',
@@ -176,12 +177,15 @@ export function isAdminPath(pathname: string): boolean {
  * - `/onboarding` é justamente quem reativa a Organization, e onde nasce o primeiro
  *   estabelecimento de quem acabou de se cadastrar;
  * - `/convite` é de quem ainda não é membro de lugar nenhum;
+ * - `/conta-em-conflito` é de quem entrou com um e-mail que já é de outra conta, e por
+ *   isso não tem usuário no banco — nem estabelecimento;
  * - `/plataforma` exige o contrário: a sessão da equipe da PetShop AI é a que **não**
  *   traz Organization (AC-03 de MOD-ADMIN-01);
  * - `/sign-in` e `/sign-up` vêm antes de haver sessão.
  */
 const SEM_ESTABELECIMENTO: readonly string[] = [
   '/onboarding',
+  '/conta-em-conflito',
   '/convite',
   '/plataforma',
   '/sign-in',

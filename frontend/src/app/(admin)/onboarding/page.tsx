@@ -5,7 +5,7 @@ import { parsePlanParam, type TenantResponse, type TenantSettings } from '@petsh
 import { EnsureActiveOrganization } from '@/components/ensure-active-organization'
 import { ButtonLink } from '@/components/links'
 import { Card, Logo, Shell } from '@/components/ui'
-import { serverApi } from '@/lib/api'
+import { carregarMe, serverApi } from '@/lib/api'
 import { fetchPlanPrices } from '@/lib/plan-prices'
 import { ProvisioningNotice } from './provisioning-notice'
 import { tenantHostSuffix } from '@/lib/domain'
@@ -30,7 +30,7 @@ export default async function OnboardingPage({
   // depois dele, o plano gravado é o que a etapa 2 mostra.
   const initialPlan = parsePlanParam((await searchParams).plan)
   const api = serverApi()
-  const me = await api.me()
+  const me = await carregarMe()
   // O preço vigente da tabela, para a etapa 2 mostrar o que o checkout vai cobrar — e
   // não o número que estava no código no dia do deploy.
   const prices = await fetchPlanPrices()
