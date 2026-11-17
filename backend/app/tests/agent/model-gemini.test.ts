@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type { Part } from '@google/genai'
+import { ApiError, type Part } from '@google/genai'
 import { describe, expect, it } from 'vitest'
 import {
   decodeCallId,
@@ -8,6 +8,7 @@ import {
   stripFence,
   toFunctionDeclarations,
   toGeminiContents,
+  withTransientRetry,
 } from '../../src/modules/agent/model-gemini.js'
 
 /**
@@ -265,5 +266,55 @@ describe('o custo da transcrição', () => {
   it('sem metadados, custa zero em vez de quebrar', async () => {
     const { transcriptionCost } = await import('../../src/modules/agent/model-gemini.js')
     expect(transcriptionCost(undefined).costMillicents).toBe(0)
+  })
+})
+
+describe('withTransientRetry — o 503 do Google (2026-11-16)', () => {
+  const noSleep = async () => {}
+  const apiError = (status: number) => new ApiError({ message: `status ${status}`, status })
+
+  it('repete o 5xx e devolve a resposta que veio depois', async () => {
+    let calls = 0
+    const result = await withTransientRetry(
+      async () => {
+        calls++
+        if (calls < 3) throw apiError(503)
+        return 'ok'
+      },
+      [1, 1],
+      noSleep,
+    )
+    expect(result).toBe('ok')
+    expect(calls).toBe(3)
+  })
+
+  it('desiste depois das tentativas e sobe o último erro', async () => {
+    let calls = 0
+    await expect(
+      withTransientRetry(
+        async () => {
+          calls++
+          throw apiError(503)
+        },
+        [1, 1],
+        noSleep,
+      ),
+    ).rejects.toMatchObject({ status: 503 })
+    expect(calls).toBe(3)
+  })
+
+  it('não repete o 4xx', async () => {
+    let calls = 0
+    await expect(
+      withTransientRetry(
+        async () => {
+          calls++
+          throw apiError(429)
+        },
+        [1, 1],
+        noSleep,
+      ),
+    ).rejects.toMatchObject({ status: 429 })
+    expect(calls).toBe(1)
   })
 })

@@ -273,7 +273,7 @@
 	}
 }
 
-# ── Vitrine AI ────────────────────────────────────────────────────────────────
+# ── VitrinyZap ────────────────────────────────────────────────────────────────
 #
 # OUTRO sistema nesta máquina, no mesmo arranjo da imobiliária: a stack `vitrine`
 # roda em docker compose (`/opt/vitrine`, repositório MarioMoraes/vitrine), fora
@@ -284,9 +284,9 @@
 # Dois hosts, porque o navegador fala direto com a API (sessão em cookie httpOnly
 # emitido por ela, CORS liberado só para o host do site). Tudo do `api.` vai ao
 # backend: rotas do painel, vitrine pública, uploads e o webhook do Asaas.
-# O `api.vitrine.` fica dois níveis abaixo da zona — DNS-only, como o wildcard do
+# O `api.vitriny.` fica dois níveis abaixo da zona — DNS-only, como o wildcard do
 # petshop; o certificado sai por DNS-01 com o mesmo token.
-{$VITRINE_DOMAIN:vitrine.officestecnologia.com.br} {
+{$VITRINE_DOMAIN:vitriny.officestecnologia.com.br} {
 	tls {
 		dns cloudflare {$CLOUDFLARE_API_TOKEN}
 		resolvers 1.1.1.1 8.8.8.8
@@ -310,7 +310,7 @@
 	}
 }
 
-api.{$VITRINE_DOMAIN:vitrine.officestecnologia.com.br} {
+api.{$VITRINE_DOMAIN:vitriny.officestecnologia.com.br} {
 	tls {
 		dns cloudflare {$CLOUDFLARE_API_TOKEN}
 		resolvers 1.1.1.1 8.8.8.8
@@ -334,8 +334,8 @@ api.{$VITRINE_DOMAIN:vitrine.officestecnologia.com.br} {
 	}
 }
 
-# Landing page do Vitrine AI: nginx estático (`landing` no compose do vitrine).
-lp.{$VITRINE_DOMAIN:vitrine.officestecnologia.com.br} {
+# Landing page do VitrinyZap: nginx estático (`landing` no compose do vitrine).
+lp.{$VITRINE_DOMAIN:vitriny.officestecnologia.com.br} {
 	tls {
 		dns cloudflare {$CLOUDFLARE_API_TOKEN}
 		resolvers 1.1.1.1 8.8.8.8
@@ -352,6 +352,50 @@ lp.{$VITRINE_DOMAIN:vitrine.officestecnologia.com.br} {
 	}
 
 	reverse_proxy vitrine-landing:80
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Domínios antigos (antes de virar VitrinyZap, 2026-11-15). Site e landing
+# redirecionam (308, mantém caminho e query: links e QR Codes já divulgados
+# seguem funcionando). A API antiga NÃO redireciona, faz proxy: o APK antigo do
+# garçom e o webhook do Asaas mandam POST e não seguiriam bem um redirect.
+# Remover quando o webhook e os aparelhos estiverem no endereço novo.
+vitrine.officestecnologia.com.br {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	redir https://{$VITRINE_DOMAIN:vitriny.officestecnologia.com.br}{uri} 308
+}
+
+lp.vitrine.officestecnologia.com.br {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	redir https://lp.{$VITRINE_DOMAIN:vitriny.officestecnologia.com.br}{uri} 308
+}
+
+api.vitrine.officestecnologia.com.br {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
+	encode zstd gzip
+	header -Server
+
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy vitrine-backend:3333
 
 	log {
 		output stdout

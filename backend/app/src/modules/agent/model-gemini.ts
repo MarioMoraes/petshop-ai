@@ -306,6 +306,32 @@ function translateError(error: unknown): Error {
 }
 
 /**
+ * **O 5xx do Google é sobrecarga, e passa em segundos.** Sem repetir, um 503 no meio de
+ * uma marcação virava handoff com "problema técnico" (2026-11-16) — o tutor tinha 31
+ * horários livres na tela do modelo. Repete duas vezes, 1 s e 3 s depois; o 4xx (chave,
+ * cota, pedido malformado) não muda com a espera e sobe na hora. A espera cabe com folga
+ * nos 90 s da posse do turno.
+ */
+export const TRANSIENT_RETRY_DELAYS_MS = [1_000, 3_000]
+
+export async function withTransientRetry<T>(
+  call: () => Promise<T>,
+  delays: readonly number[] = TRANSIENT_RETRY_DELAYS_MS,
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await call()
+    } catch (error) {
+      const transient = error instanceof ApiError && error.status >= 500
+      if (!transient || attempt >= delays.length) throw error
+      logger.warn({ status: error.status, attempt: attempt + 1 }, 'Gemini 5xx, repetindo')
+      await sleep(delays[attempt]!)
+    }
+  }
+}
+
+/**
  * A porta, com a chave de quem paga.
  *
  * A chave chega por parâmetro, e não do ambiente: o mesmo processo fala com o Google em
@@ -321,17 +347,19 @@ export function createGeminiPort(apiKey: string): ModelPort {
 
     async complete(request: ModelRequest): Promise<ModelResponse> {
       try {
-        const response = await client.models.generateContent({
-          model: env.GEMINI_MODEL,
-          contents: toGeminiContents(request.messages),
-          config: {
-            systemInstruction: request.structured
-              ? `${request.system}\n${JSON_OUTPUT_INSTRUCTION}`
-              : request.system,
-            maxOutputTokens: 8_000,
-            tools: [{ functionDeclarations: toFunctionDeclarations(request.tools) }],
-          },
-        })
+        const response = await withTransientRetry(() =>
+          client.models.generateContent({
+            model: env.GEMINI_MODEL,
+            contents: toGeminiContents(request.messages),
+            config: {
+              systemInstruction: request.structured
+                ? `${request.system}\n${JSON_OUTPUT_INSTRUCTION}`
+                : request.system,
+              maxOutputTokens: 8_000,
+              tools: [{ functionDeclarations: toFunctionDeclarations(request.tools) }],
+            },
+          }),
+        )
 
         const parts = response.candidates?.[0]?.content?.parts ?? []
         const content = fromGeminiParts(parts)
