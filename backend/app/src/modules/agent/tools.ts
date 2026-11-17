@@ -9,6 +9,7 @@ import {
   VACCINATION_DUE_SOON_DAYS,
   addDays,
   formatBRL,
+  weekdayOf,
   zonedDate,
   type VaccinationCard,
 } from '@petshop/shared-types'
@@ -441,6 +442,7 @@ async function execute(scope: ToolScope, name: string, input: unknown): Promise<
           // A grade já vem filtrada pela antecedência mínima, e sem dizer isso o modelo
           // lia "nenhum horário" num dia em que o balcão via vaga às 11:00 (2026-11-14).
           ...(antecedencia ? { antecedencia } : {}),
+          ...folgaDoDia(requireString(date, 'date'), response.serviceWeekdays ?? null),
           profissionais: grade.profissionais,
           horarios: grade.horarios,
           // Dizer que cortou, e nunca cortar calado: era o corte silencioso que fazia o
@@ -839,6 +841,33 @@ function antecedenciaDoDia(
       'horários antes de "marcaAPartirDe" não aparecem na lista. Se a lista vier vazia ' +
       'ou o cliente quiser mais cedo, diga isso a ele — nunca que "não há horário" — e ' +
       'ofereça falar com a recepção, que consegue encaixar em cima da hora.',
+  }
+}
+
+const DIAS_DA_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
+
+/**
+ * A grade vazia diz **por quê** quando o motivo é a jornada: ninguém que faz o serviço
+ * trabalha neste dia da semana. Sem isso o modelo dizia "não há horário" numa terça em
+ * que o veterinário só atende segunda, quarta e sexta (2026-11-16).
+ */
+function folgaDoDia(
+  date: string,
+  weekdays: number[] | null,
+): { atendimento: { diasQueAtende: string[]; observacao: string } } | Record<string, never> {
+  if (!weekdays || weekdays.includes(weekdayOf(date))) return {}
+  const dias = weekdays.map((day) => DIAS_DA_SEMANA[day]!)
+  return {
+    atendimento: {
+      diasQueAtende: dias,
+      observacao:
+        dias.length === 0
+          ? 'Ninguém da equipe tem jornada para este serviço. Diga ao cliente que a ' +
+            'recepção vai combinar o horário com ele, e passe a conversa adiante.'
+          : `Ninguém que faz este serviço atende ${DIAS_DA_SEMANA[weekdayOf(date)]}. Diga ` +
+            'isso ao cliente — nunca que "não há horário" — e ofereça o dia de ' +
+            '"diasQueAtende" mais próximo, consultando a disponibilidade dele.',
+    },
   }
 }
 

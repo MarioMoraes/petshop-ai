@@ -615,3 +615,29 @@ function horaEm(instant: string, timeZone: string): string {
     timeZone,
   }).format(new Date(instant))
 }
+
+/**
+ * Os dias da semana (0 = domingo) em que algum profissional ativo que faz **todos** os
+ * serviços pedidos tem jornada.
+ *
+ * Serve à grade vazia: "não há horário" num dia em que o veterinário nem trabalha
+ * mandava o tutor tentar de novo no mesmo dia (2026-11-16). Com os dias, o agente diz
+ * "ele atende segunda, quarta e sexta" — que é a resposta que resolve.
+ */
+export async function serviceWeekdays(tenantId: string, serviceIds: string[]): Promise<number[]> {
+  if (serviceIds.length === 0) return []
+  const rows = await withTenant(tenantId, (tx) =>
+    tx.professionalSchedule.findMany({
+      where: {
+        professional: {
+          active: true,
+          deletedAt: null,
+          AND: serviceIds.map((serviceId) => ({ services: { some: { serviceId } } })),
+        },
+      },
+      select: { weekday: true },
+      distinct: ['weekday'],
+    }),
+  )
+  return rows.map((row) => row.weekday).sort((a, b) => a - b)
+}

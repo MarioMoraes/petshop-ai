@@ -19,6 +19,7 @@ import {
   createBooking,
   listBookableServices,
   readAvailability,
+  serviceWeekdays,
   type CreatedBooking,
 } from '../portal/booking.js'
 import { readOwnFinance } from '../portal/finance.js'
@@ -84,7 +85,7 @@ export interface AgentPortalPort {
     tenantId: string,
     tutorId: string,
     input: { petId: string; serviceIds: string[]; date: string },
-  ): Promise<PortalAvailabilityResponse>
+  ): Promise<PortalAvailabilityResponse & { serviceWeekdays?: number[] | null }>
   services(tenantId: string, tutorId: string, petId: string): Promise<PortalBookingServicesResponse>
   finance(tenantId: string, tutorId: string): Promise<PortalFinanceResponse>
   tenant(tenantId: string): Promise<PortalTenantResponse>
@@ -124,7 +125,7 @@ function createInProcessPort(): AgentPortalPort {
       return listOwnAppointments(tenantId, tutorId, { limit: 5 })
     },
 
-    availability(tenantId, tutorId, input) {
+    async availability(tenantId, tutorId, input) {
       /**
        * **`readAvailability` do Portal, e não `resolveAvailability` do MOD-AGENDA.**
        *
@@ -133,11 +134,16 @@ function createInProcessPort(): AgentPortalPort {
        * antecedência mínima do tenant. Oferecer 10:30 e depois recusá-la é a definição
        * de armadilha — e um agente que a criasse seria pior que nenhum.
        */
-      return readAvailability(callerOf(tenantId), tutorId, {
+      const response = await readAvailability(callerOf(tenantId), tutorId, {
         petId: input.petId,
         serviceIds: input.serviceIds,
         date: input.date,
       })
+      // Só quando a grade vem vazia: é o único caso em que o modelo precisa saber se o
+      // dia é de folga ou de agenda cheia, e é uma consulta a menos no caso comum.
+      const weekdays =
+        response.slots.length === 0 ? await serviceWeekdays(tenantId, input.serviceIds) : null
+      return { ...response, serviceWeekdays: weekdays }
     },
 
     services(tenantId, tutorId, petId) {

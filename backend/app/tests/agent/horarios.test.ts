@@ -398,3 +398,67 @@ describe('a proposta em aberto no turno seguinte', () => {
 it('o fuso do tenant de teste não é UTC', () => {
   expect(TEST_TIMEZONE).toBe('America/Sao_Paulo')
 })
+
+describe('o dia em que ninguém do serviço atende (2026-11-16)', () => {
+  it('a grade vazia de uma terça diz os dias do veterinário, e não "nenhum horário"', async () => {
+    installFakePortal({
+      async availability() {
+        return {
+          ...gradeComUmHorario(),
+          slots: [],
+          nextAvailable: null,
+          serviceWeekdays: [1, 3, 5],
+        }
+      },
+    })
+    const modelo = installFakeModel(
+      {
+        tools: [
+          {
+            name: 'consultarDisponibilidade',
+            // 2026-11-17 é terça.
+            input: { petId: FAKE_IDS.pet, serviceIds: [FAKE_IDS.servico], date: '2026-11-17' },
+          },
+        ],
+      },
+      { reply: 'O veterinário atende segunda, quarta e sexta.' },
+    )
+
+    const conversationId = await givenInbound('tem consulta amanhã?')
+    await answer(tenant.tenantId, conversationId)
+
+    const grade = recebido(modelo.calls[1]?.messages.at(-1))
+    expect(grade).toContain('diasQueAtende')
+    expect(grade).toContain('quarta')
+    expect(grade).toContain('atende terça')
+  })
+
+  it('não fala de jornada quando o dia é de trabalho e a agenda está cheia', async () => {
+    installFakePortal({
+      async availability() {
+        return {
+          ...gradeComUmHorario(),
+          slots: [],
+          nextAvailable: null,
+          serviceWeekdays: [1, 2, 3],
+        }
+      },
+    })
+    const modelo = installFakeModel(
+      {
+        tools: [
+          {
+            name: 'consultarDisponibilidade',
+            input: { petId: FAKE_IDS.pet, serviceIds: [FAKE_IDS.servico], date: '2026-11-17' },
+          },
+        ],
+      },
+      { reply: 'Terça está cheia.' },
+    )
+
+    const conversationId = await givenInbound('tem consulta amanhã?')
+    await answer(tenant.tenantId, conversationId)
+
+    expect(recebido(modelo.calls[1]?.messages.at(-1))).not.toContain('diasQueAtende')
+  })
+})
