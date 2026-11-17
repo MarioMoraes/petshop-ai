@@ -99,19 +99,40 @@ export async function handleInbound(message: InboundMessage): Promise<void> {
     const existing = await tx.agentConversation.findFirst({
       where: { contactHash: message.phoneHash, status: { in: LIVE } },
       orderBy: { lastTurnAt: 'desc' },
-      select: { id: true, status: true, tutorId: true, turnCount: true, lastTurnAt: true },
+      select: {
+        id: true,
+        status: true,
+        tutorId: true,
+        turnCount: true,
+        lastTurnAt: true,
+        handoffAt: true,
+      },
     })
 
     /**
      * A conversa calada há mais de duas horas não continua: ela **fecha** e outra nasce.
      *
-     * Só vale para a que o agente conduzia. A que já está com a recepção não expira — lá
-     * existe gente devendo resposta, e uma fila que se esvazia sozinha é uma fila que
-     * esconde trabalho não feito.
+     * Vale para a que o agente conduzia e, logo abaixo, para a que foi à recepção e
+     * ninguém assumiu. A que alguém assumiu não expira — lá existe gente atendendo.
      */
-    const expired =
+    const expiredActive =
       existing?.status === 'ACTIVE' &&
       now.getTime() - existing.lastTurnAt.getTime() > SESSION_TTL_MS
+
+    /**
+     * **A que foi para a recepção e ninguém assumiu também não prende o cliente.**
+     *
+     * Sem isto, um 503 do Google às 16h deixava o número calado para sempre: a conversa
+     * ficava em `HANDOFF`, toda mensagem nova virava registro para uma fila que ninguém
+     * abriu, e o cliente só voltava a ter resposta quando alguém a encerrasse à mão
+     * (2026-11-17). Passado o mesmo prazo da sessão sem ninguém assumir, ela fecha e a
+     * mensagem abre uma conversa nova. A `ASSIGNED` fica: ali há gente atendendo.
+     */
+    const abandonedHandoff =
+      existing?.status === 'HANDOFF' &&
+      now.getTime() - (existing.handoffAt ?? existing.lastTurnAt).getTime() > SESSION_TTL_MS
+
+    const expired = expiredActive || abandonedHandoff
 
     const encerrada =
       expired && existing ? { id: existing.id, outcome: await close(tx, existing.id, now) } : null
@@ -129,7 +150,14 @@ export async function handleInbound(message: InboundMessage): Promise<void> {
               status: 'ACTIVE',
               lastTurnAt: now,
             },
-            select: { id: true, status: true, tutorId: true, turnCount: true, lastTurnAt: true },
+            select: {
+              id: true,
+              status: true,
+              tutorId: true,
+              turnCount: true,
+              lastTurnAt: true,
+              handoffAt: true,
+            },
           })
 
     await tx.agentTurn.create({

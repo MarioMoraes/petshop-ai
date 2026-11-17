@@ -256,6 +256,46 @@ describe('MOD-AI-02 — conversa e contexto', () => {
     expect(todas[1]?.turnCount).toBe(1)
   })
 
+  it('a conversa na recepção que ninguém assumiu em duas horas não prende o cliente (2026-11-17)', async () => {
+    await givenTutor(tenant)
+    await callWebhook(token, upsertPayload({ text: 'oi' }))
+
+    const [primeira] = await conversations(tenant)
+    expect(primeira?.status).toBe('HANDOFF')
+    await ownerPrisma.agentConversation.update({
+      where: { id: primeira!.id },
+      data: { handoffAt: new Date(Date.now() - 3 * 60 * 60 * 1000) },
+    })
+
+    await callWebhook(token, upsertPayload({ text: 'oi de novo' }))
+
+    const todas = await conversations(tenant)
+    expect(todas).toHaveLength(2)
+    expect(todas[0]?.status).toBe('CLOSED')
+    expect(todas[1]?.turnCount).toBe(1)
+  })
+
+  it('a conversa que alguém da recepção assumiu continua com ela, mesmo depois de duas horas', async () => {
+    await givenTutor(tenant)
+    await callWebhook(token, upsertPayload({ text: 'oi' }))
+
+    const [primeira] = await conversations(tenant)
+    await ownerPrisma.agentConversation.update({
+      where: { id: primeira!.id },
+      data: {
+        status: 'ASSIGNED',
+        handoffAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+        lastTurnAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+      },
+    })
+
+    await callWebhook(token, upsertPayload({ text: 'ainda aí?' }))
+
+    const todas = await conversations(tenant)
+    expect(todas).toHaveLength(1)
+    expect(todas[0]?.status).toBe('ASSIGNED')
+  })
+
   it('a ficha cadastrada depois entra na conversa que já existia', async () => {
     await callWebhook(token, upsertPayload({ text: 'bom dia' }))
     const [antes] = await conversations(tenant)
